@@ -82,7 +82,7 @@ export default function Cart() {
   const cartPairs = useMemo(
     () =>
       items
-        .filter((i) => i.distributorId != null) // cabinets only (not pelican products)
+        .filter((i) => i.distributorId != null && i.productKind == null) // cabinets only (not non-cabinet products)
         .map((i) => ({ masterCode: i.masterCode, styleId: i.styleId, distributorId: i.distributorId })),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [items.map((i) => `${i.masterCode}:${i.styleId}:${i.distributorId ?? "_"}`).join(",")]
@@ -110,6 +110,7 @@ export default function Cart() {
 
   // Get the live price for a cart item, falling back to the stored unitPrice.
   const liveUnitPrice = (item: (typeof items)[number]): number | null => {
+    if (item.productKind === "hardware") return item.unitPrice;
     const live = livePriceMap.get(`${item.masterCode}:${item.styleId}:${item.distributorId ?? "_"}`);
     const refreshedPrice = resolveAffiliateCartUnitPrice({
       storedUnitPrice: item.unitPrice,
@@ -193,6 +194,16 @@ export default function Cart() {
     () => isTemporaryOneDollarFreeShippingOrder(items),
     [items],
   );
+  const hardwareItems = useMemo(
+    () => items
+      .filter((item) => item.productKind === "hardware" && item.vendorProductId != null)
+      .map((item) => ({ vendorProductId: item.vendorProductId!, qty: item.qty })),
+    [items],
+  );
+  const containsKitchenMerchandise = useMemo(
+    () => items.some((item) => item.productKind == null && item.distributorId != null),
+    [items],
+  );
 
   // Send cabinets and Pelican lines together; the server keeps vendor shipment
   // groups separate and only rates Pelican when supplier package data is present.
@@ -201,6 +212,7 @@ export default function Cart() {
       .filter(
         (item) => (item.productKind === "surface"
           || (item.distributorId != null && Boolean(item.masterCode)))
+          && item.productKind !== "hardware"
           && !isTemporaryOneDollarCheckoutTestItem(item),
       )
       .map((item) => ({
@@ -216,14 +228,29 @@ export default function Cart() {
       })),
     [items],
   );
+  const cartFreightMerchandiseCents = useMemo(() => Math.max(0, Math.round(
+    items
+      .filter((item) => item.productKind !== "hardware")
+      .reduce((sum, item) => sum + (liveUnitPrice(item) ?? 0) * item.qty, 0) * 100,
+  )), [items, livePriceMap, isAffiliateCart]);
   const cartFreightInput = useMemo(() => ({
     destinationZip: normalizedZip ?? "",
-    merchandiseSubtotalCents: Math.max(0, Math.round(liveSubtotal * 100)),
+    merchandiseSubtotalCents: cartFreightMerchandiseCents,
     accessorials: { residential: false, liftgate: false },
     items: cartFreightItems,
     carrierPreference: requestUpsParcelQuote ? "ups" as const : undefined,
-  }), [normalizedZip, liveSubtotal, cartFreightItems, requestUpsParcelQuote]);
+  }), [normalizedZip, cartFreightMerchandiseCents, cartFreightItems, requestUpsParcelQuote]);
   const cartFreightEstimate = trpc.freight.estimate.useQuery(cartFreightInput, {
+    enabled: false,
+    retry: false,
+  });
+  const hardwareQuoteInput = useMemo(() => ({
+    items: hardwareItems,
+    affiliateSlug: currentAffiliateSlug ?? undefined,
+    containsKitchenMerchandise,
+    destinationZip: normalizedZip ?? "00000",
+  }), [hardwareItems, currentAffiliateSlug, containsKitchenMerchandise, normalizedZip]);
+  const hardwareFreightQuote = trpc.hardware.quote.useQuery(hardwareQuoteInput, {
     enabled: false,
     retry: false,
   });
@@ -232,11 +259,12 @@ export default function Cart() {
       toast.error("Enter and check a valid 5-digit delivery ZIP before requesting a live shipping quote.");
       return;
     }
-    if (cartFreightItems.length === 0) {
-      toast.error("Add at least one supplier cabinet to request a live shipping quote.");
+    if (cartFreightItems.length === 0 && hardwareItems.length === 0) {
+      toast.error("Add at least one cabinet, surface, or hardware item to request a shipping quote.");
       return;
     }
-    void cartFreightEstimate.refetch();
+    if (cartFreightItems.length > 0) void cartFreightEstimate.refetch();
+    if (hardwareItems.length > 0) void hardwareFreightQuote.refetch();
   };
 
   const requestOrder = () => {
@@ -250,6 +278,9 @@ export default function Cart() {
       tier: firstItem?.tier ?? null,
       kitchenDesignId: sourceDesignId,
       carrierPreference: requestUpsParcelQuote ? "ups" : null,
+      hardwareFreightQuoteToken: hardwareFreightQuote.data?.available
+        ? hardwareFreightQuote.data.quoteToken
+        : null,
     };
     try {
       sessionStorage.setItem(cartPrefillStorageKey(storeScope), JSON.stringify(prefill));
@@ -490,6 +521,9 @@ export default function Cart() {
             };
 
             const sectionForItem = (item: (typeof items)[number]) => {
+              if (item.productKind === "hardware") {
+                return { key: "hardware:HRDW", label: "Hardware Resources · Decorative Hardware" };
+              }
               if (item.distributorId != null) {
                 return { key: `cabinet:${item.distributorId}`, label: `${item.styleLabel || "Cabinet supplier"} · Cabinets & cabinet parts` };
               }
@@ -631,6 +665,20 @@ export default function Cart() {
           <p className="mb-4 text-xs text-muted-foreground">
             {t("crt_shipping_note")}
           </p>
+          {hardwareItems.length > 0 && (
+            <div data-testid="hardware-shipping-summary" className="mb-3 rounded-lg border border-sky-200 bg-sky-50 p-3 text-xs text-sky-950">
+              <p className="font-semibold">Hardware Resources consolidated shipping</p>
+              {hardwareFreightQuote.data?.available ? (
+                <p className="mt-1">
+                  {hardwareFreightQuote.data.promotionApplied
+                    ? "Free hardware shipping is applied with kitchen merchandise."
+                    : `One verified consolidated package: $${((hardwareFreightQuote.data.shippingCents ?? 0) / 100).toFixed(2)} shipping.`}
+                </p>
+              ) : (
+                <p className="mt-1">Request a shipping quote after entering your delivery ZIP. Checkout stays unavailable if the verified one-package profile is not enabled.</p>
+              )}
+            </div>
+          )}
           <label
             htmlFor="ups-parcel-quote"
             className="mb-3 flex cursor-pointer items-start gap-2.5 rounded-lg border border-amber-300 bg-amber-50/70 p-3 text-sm text-amber-950 transition-colors hover:bg-amber-50 dark:border-amber-700 dark:bg-amber-950/20 dark:text-amber-100"
@@ -665,7 +713,7 @@ export default function Cart() {
                 size="sm"
                 variant="outline"
                 onClick={requestLiveCartQuote}
-                disabled={cartFreightEstimate.isFetching || !normalizedZip || cartFreightItems.length === 0}
+                disabled={cartFreightEstimate.isFetching || hardwareFreightQuote.isFetching || !normalizedZip || (cartFreightItems.length === 0 && hardwareItems.length === 0)}
               >
                 {cartFreightEstimate.isFetching ? <><Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />Calculating freight...</> : requestUpsParcelQuote ? <><span aria-hidden="true" className="mr-1 rounded-sm bg-[#351c15] px-1 py-0.5 text-[9px] font-black text-[#ffb500]">UPS</span>Check UPS / freight</> : <><Truck className="mr-1.5 h-3.5 w-3.5" />Get shipping quote</>}
               </Button>
@@ -771,7 +819,7 @@ export default function Cart() {
             className="w-full"
             size="lg"
             onClick={requestOrder}
-            disabled={isMixedSupplier || cartFreightEstimate.isFetching}
+            disabled={isMixedSupplier || cartFreightEstimate.isFetching || hardwareFreightQuote.isFetching || (hardwareItems.length > 0 && !hardwareFreightQuote.data?.available)}
           >
             {cartFreightEstimate.isFetching ? (
               <><Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> Calculating freight...</>

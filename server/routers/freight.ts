@@ -138,7 +138,7 @@ const itemsSchema = z
       distributorId: z.number().int().positive().nullable().optional(),
       qty: z.number().int().min(1).max(999),
       weightLbs: z.number().min(0).max(5000).nullable().optional(),
-      productKind: z.enum(["surface"]).nullable().optional(),
+      productKind: z.enum(["surface", "hardware"]).nullable().optional(),
       category: z.string().max(128).nullable().optional(),
       /** Exact Pelican SKU needed to resolve a source-backed shipping profile. */
       pelicanProductId: z.number().int().positive().nullable().optional(),
@@ -154,7 +154,7 @@ type FreightItemInput = {
   distributorId?: number | null;
   qty: number;
   weightLbs?: number | null;
-  productKind?: "surface" | null;
+  productKind?: "surface" | "hardware" | null;
   category?: string | null;
   pelicanProductId?: number | null;
 };

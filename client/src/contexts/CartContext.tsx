@@ -47,9 +47,11 @@ export type CartItem = {
   /** Selected distributor's policy for a PG/GD/terminal-G glass cabinet. */
   glassIncluded?: boolean | null;
   /** Non-cabinet catalog product identity used by checkout and freight filtering. */
-  productKind?: "surface";
+  productKind?: "surface" | "hardware";
   /** Exact Pelican catalog row required to resolve a verified shipping profile. */
   pelicanProductId?: number | null;
+  /** Exact Hardware Resources vendor-product row; never inferred from a display SKU. */
+  vendorProductId?: number | null;
 };
 
 // Result of an addItem attempt. Multiple cabinet distributors and Pelican may

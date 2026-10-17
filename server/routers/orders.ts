@@ -22,6 +22,8 @@ import {
   codeAliases,
   emailSettings,
   crmDeals,
+  vendorProducts,
+  hardwareShippingProfiles,
   type OrderLineItem,
 } from "../../drizzle/schema";
 import { normalizeReferralCode } from "@shared/affiliate";
@@ -49,6 +51,7 @@ import { freightQuoteItemsForOrder } from "../lib/freightQuoteOrderIdentity";
 import { calcSalesTax } from "@shared/usSalesTax";
 import { isTemporaryOneDollarCheckoutTestItem, isTemporaryOneDollarFreeShippingOrder } from "@shared/temporaryCheckoutTest";
 import { isStagingTestHost } from "@shared/stagingTestMode";
+import { HARDWARE_LINE_CODE, hardwareProfileIsComplete, hardwareRetailCents } from "@shared/hardwareCommerce";
 
 // Map the order tierEnum to the shared PricingTier.
 const orderTier = (t: "Wholesale" | "Contractor" | "Homeowner") =>
@@ -202,8 +205,9 @@ const lineItemInput = z.object({
   doorStyle: z.string().max(128).nullable().optional(),
   styleId: z.number().nullable().optional(),
   distributorId: z.number().int().positive().nullable().optional(),
-  productKind: z.enum(["surface"]).nullable().optional(),
+  productKind: z.enum(["surface", "hardware"]).nullable().optional(),
   pelicanProductId: z.number().int().positive().nullable().optional(),
+  vendorProductId: z.number().int().positive().nullable().optional(),
   tier: tierEnum.nullable().optional(),
   matched: z.boolean(),
 });
@@ -688,6 +692,7 @@ export const ordersRouter = router({
         deliveryLocationType: z.enum(["business", "residential"]).optional(),
         liftgateRequired: z.boolean().optional(),
         freightQuoteToken: z.string().max(4096).optional(),
+        hardwareFreightQuoteToken: z.string().max(4096).optional(),
         pickupDistributorId: z.number().int().positive().nullable().optional(),
         /** 2-letter US state code for sales tax calculation */
         taxState: z.string().length(2).optional(),
@@ -742,6 +747,7 @@ export const ordersRouter = router({
           styleId: l.styleId ?? input.styleId ?? null,
           distributorId: l.distributorId ?? null,
           productKind: l.productKind ?? null,
+          vendorProductId: l.vendorProductId ?? null,
           tier: l.tier ?? input.tier,
           matched: l.matched,
         };
@@ -798,6 +804,60 @@ export const ordersRouter = router({
           return { ...line, unitPrice: sale, linePrice: Number((sale * line.qty).toFixed(2)), tier: "Homeowner" };
         });
       }
+      const hardwareLines = normalizedLines.filter((line) => line.productKind === "hardware");
+      if (hardwareLines.length > 0) {
+        const hardwareProductIds = Array.from(new Set(
+          hardwareLines.map((line) => line.vendorProductId).filter((id): id is number => typeof id === "number" && Number.isInteger(id) && id > 0),
+        ));
+        if (hardwareProductIds.length !== hardwareLines.length) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Every hardware line must carry its exact catalog product identity." });
+        }
+        const products = await db
+          .select({
+            id: vendorProducts.id,
+            vendorSku: vendorProducts.vendorSku,
+            name: vendorProducts.name,
+            description: vendorProducts.description,
+            listPrice: vendorProducts.listPrice,
+            yourCost: vendorProducts.yourCost,
+          })
+          .from(vendorProducts)
+          .innerJoin(distributors, eq(vendorProducts.distributorId, distributors.id))
+          .where(and(
+            inArray(vendorProducts.id, hardwareProductIds),
+            eq(distributors.code, HARDWARE_LINE_CODE),
+            eq(distributors.isActive, true),
+            eq(vendorProducts.status, "approved"),
+            eq(vendorProducts.isPublished, true),
+            eq(vendorProducts.isAvailable, true),
+          ));
+        const productById = new Map(products.map((product) => [product.id, product]));
+        const markupBps = Math.max(0, affiliatePricing?.hardwareMarkupBps ?? 0);
+        normalizedLines = normalizedLines.map((line) => {
+          if (line.productKind !== "hardware") return line;
+          const product = line.vendorProductId == null ? null : productById.get(line.vendorProductId);
+          const unitCents = product ? hardwareRetailCents(product.listPrice, markupBps) : null;
+          const costCents = product?.yourCost == null ? null : Math.round(Number(product.yourCost) * 100);
+          if (!product || unitCents == null || costCents == null || costCents < 0) {
+            throw new TRPCError({ code: "PRECONDITION_FAILED", message: `A current approved Hardware Resources price is unavailable for ${line.masterCode}.` });
+          }
+          const unitPrice = unitCents / 100;
+          return {
+            ...line,
+            masterCode: product.vendorSku,
+            description: product.description?.trim() || product.name,
+            unitPrice,
+            linePrice: Number((unitPrice * line.qty).toFixed(2)),
+            distributorId: null,
+            styleId: null,
+            doorStyle: null,
+            hardwareUnitCostCents: costCents,
+            hardwareMarkupBps: markupBps,
+            tier: "Homeowner",
+            matched: true,
+          };
+        });
+      }
       const hasOnlyTemporaryFreeShippingItems = isTemporaryOneDollarFreeShippingOrder(normalizedLines);
 
       // Family-lock: a single order must stay within one door-style family.
@@ -830,7 +890,15 @@ export const ordersRouter = router({
       const liftgateRequired = input.liftgateRequired === true;
       let freightQuoteCents = 0;
       let freightQuoteVerified = false;
-      if (deliveryMethod === "ship" && input.freightQuoteToken) {
+      const hardwareOrderLines = normalizedLines.filter((line) => line.productKind === "hardware");
+      const nonHardwareOrderLines = normalizedLines.filter((line) => line.productKind !== "hardware");
+      const nonHardwareMerchandiseCents = Math.max(0, Math.round(
+        nonHardwareOrderLines.reduce((sum, line) => sum + (line.linePrice ?? 0), 0) * 100,
+      ));
+      const hardwareMerchandiseCents = Math.max(0, Math.round(
+        hardwareOrderLines.reduce((sum, line) => sum + (line.linePrice ?? 0), 0) * 100,
+      ));
+      if (deliveryMethod === "ship" && nonHardwareOrderLines.length > 0 && input.freightQuoteToken) {
         let quote;
         try {
           quote = verifyFreightQuoteToken(input.freightQuoteToken);
@@ -841,10 +909,10 @@ export const ordersRouter = router({
           });
         }
         const expectedZip = (input.zip ?? "").replace(/\D/g, "").slice(0, 5);
-        const expectedItemsHash = freightItemsHash(freightQuoteItemsForOrder(normalizedLines));
+        const expectedItemsHash = freightItemsHash(freightQuoteItemsForOrder(nonHardwareOrderLines));
         const quoteMatchesOrder =
           quote.destinationZip === expectedZip &&
-          quote.merchandiseSubtotalCents === Math.max(0, Math.round(total * 100)) &&
+          quote.merchandiseSubtotalCents === nonHardwareMerchandiseCents &&
           quote.residential === (deliveryLocationType === "residential") &&
           quote.liftgate === liftgateRequired &&
           quote.itemsHash === expectedItemsHash;
@@ -856,16 +924,53 @@ export const ordersRouter = router({
         }
         freightQuoteCents = quote.totalCents;
         freightQuoteVerified = true;
-      } else if (deliveryMethod === "ship" && hasOnlyTemporaryFreeShippingItems) {
+      } else if (deliveryMethod === "ship" && nonHardwareOrderLines.length > 0 && hasOnlyTemporaryFreeShippingItems) {
         // This is a deliberately narrow real-payment smoke-test SKU. Its zero
         // freight is server-authorized; every ordinary shipping order still
         // requires a signed current carrier quote below.
         freightQuoteVerified = true;
-      } else if (input.deliveryMethod === "ship" && input.submit) {
+      } else if (deliveryMethod === "ship" && nonHardwareOrderLines.length > 0 && input.submit) {
         throw new TRPCError({
           code: "BAD_REQUEST",
           message: "Request a current shipping quote before submitting this order.",
         });
+      }
+      if (deliveryMethod === "ship" && hardwareOrderLines.length > 0) {
+        if (!input.hardwareFreightQuoteToken) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Request the current consolidated Hardware Resources shipping quote before submitting this order." });
+        }
+        let hardwareQuote;
+        try {
+          hardwareQuote = verifyFreightQuoteToken(input.hardwareFreightQuoteToken);
+        } catch (error) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: error instanceof Error ? error.message : "Hardware shipping quote is invalid.",
+          });
+        }
+        const expectedZip = (input.zip ?? "").replace(/\D/g, "").slice(0, 5);
+        const expectedItemsHash = freightItemsHash(freightQuoteItemsForOrder(hardwareOrderLines));
+        const [hardwareLine] = await db
+          .select({ id: distributors.id })
+          .from(distributors)
+          .where(eq(distributors.code, HARDWARE_LINE_CODE))
+          .limit(1);
+        const [currentHardwareProfile] = hardwareLine
+          ? await db.select().from(hardwareShippingProfiles).where(eq(hardwareShippingProfiles.distributorId, hardwareLine.id)).limit(1)
+          : [];
+        const quoteMatchesOrder =
+          hardwareQuote.destinationZip === expectedZip
+          && hardwareQuote.merchandiseSubtotalCents === hardwareMerchandiseCents
+          && hardwareQuote.residential === false
+          && hardwareQuote.liftgate === false
+          && hardwareProfileIsComplete(currentHardwareProfile ?? null)
+          && hardwareQuote.profileRevision === (currentHardwareProfile?.profileRevision ?? -1)
+          && hardwareQuote.itemsHash === expectedItemsHash;
+        if (!quoteMatchesOrder) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "The Hardware Resources shipping quote no longer matches this order. Request a new quote." });
+        }
+        freightQuoteCents += hardwareQuote.totalCents;
+        freightQuoteVerified = true;
       }
       // Affiliate attribution: if a referral code was supplied, resolve the
       // active affiliate it belongs to and tag this request.

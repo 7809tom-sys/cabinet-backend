@@ -1,5 +1,5 @@
 import { isLockedDesignCheckoutPrice, resolveLockedCheckoutUnitPrice } from "@/lib/checkoutPriceLock";
-import { isSurfaceCheckoutLine } from "@/lib/cartCheckoutPrefill";
+import { isHardwareCheckoutLine, isSurfaceCheckoutLine } from "@/lib/cartCheckoutPrefill";
 
 export type CheckoutPriceLine = {
   matched: boolean;
@@ -21,7 +21,7 @@ export function checkoutUnitPriceForLine(
       recomputedUnitPrice: liveCabinetPrice,
     });
   }
-  if (isSurfaceCheckoutLine(line) && isLockedDesignCheckoutPrice(line)) {
+  if ((isSurfaceCheckoutLine(line) || isHardwareCheckoutLine(line)) && isLockedDesignCheckoutPrice(line)) {
     return line.cartUnitPrice ?? null;
   }
   return null;
@@ -29,6 +29,7 @@ export function checkoutUnitPriceForLine(
 
 export function isCabinetFreightLine(line: CheckoutPriceLine): boolean {
   return !isSurfaceCheckoutLine(line)
+    && !isHardwareCheckoutLine(line)
     && line.matched
     && (line.cabinetId != null || Boolean(line.masterCode));
 }

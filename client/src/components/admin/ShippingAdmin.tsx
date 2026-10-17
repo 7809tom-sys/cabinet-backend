@@ -26,6 +26,95 @@ const numOr = (s: string, d: number) => {
 
 type ZoneRow = { zoneName: string; zipPrefixes: string; rateDollars: string };
 
+type HardwareProfileForm = {
+  enabled: boolean;
+  originZip: string;
+  packageLengthIn: string;
+  packageWidthIn: string;
+  packageHeightIn: string;
+  packageWeightLbs: string;
+  maxUnitsPerPackage: string;
+  standaloneShipping: string;
+  sourceReference: string;
+};
+
+const nullableNumber = (value: string) => {
+  const parsed = Number(value);
+  return value.trim() !== "" && Number.isFinite(parsed) ? parsed : null;
+};
+
+function HardwareResourcesShippingProfile() {
+  const utils = trpc.useUtils();
+  const profileQuery = trpc.hardware.adminGetShippingProfile.useQuery();
+  const [form, setForm] = useState<HardwareProfileForm | null>(null);
+  useEffect(() => {
+    if (!profileQuery.data || form) return;
+    const profile = profileQuery.data.profile;
+    setForm({
+      enabled: profile?.enabled ?? false,
+      originZip: profile?.originZip ?? "",
+      packageLengthIn: profile?.packageLengthIn == null ? "" : String(profile.packageLengthIn),
+      packageWidthIn: profile?.packageWidthIn == null ? "" : String(profile.packageWidthIn),
+      packageHeightIn: profile?.packageHeightIn == null ? "" : String(profile.packageHeightIn),
+      packageWeightLbs: profile?.packageWeightLbs == null ? "" : String(profile.packageWeightLbs),
+      maxUnitsPerPackage: profile?.maxUnitsPerPackage == null ? "" : String(profile.maxUnitsPerPackage),
+      standaloneShipping: profile?.standaloneShippingCents == null ? "" : toDollars(profile.standaloneShippingCents),
+      sourceReference: profile?.sourceReference ?? "",
+    });
+  }, [profileQuery.data, form]);
+  const save = trpc.hardware.adminSaveShippingProfile.useMutation({
+    onSuccess: (result) => {
+      utils.hardware.adminGetShippingProfile.invalidate();
+      toast.success(result.checkoutEnabled ? "Hardware checkout profile enabled" : "Hardware shipment profile saved but remains disabled");
+    },
+    onError: (error) => toast.error(error.message),
+  });
+  if (profileQuery.isLoading || !form) return <Card><CardContent className="py-6"><Spinner className="h-5 w-5" /></CardContent></Card>;
+  const checkoutEnabled = profileQuery.data?.checkoutEnabled === true;
+  const set = (patch: Partial<HardwareProfileForm>) => setForm((current) => current ? { ...current, ...patch } : current);
+  return (
+    <Card id="hardware-resources-shipping-profile" className="border-sky-300/70">
+      <CardHeader>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <CardTitle className="flex items-center gap-2"><PackageSearch className="h-5 w-5 text-primary" /> Hardware Resources: one-package shipping profile</CardTitle>
+          <Badge variant={checkoutEnabled ? "default" : "secondary"}>{checkoutEnabled ? "Checkout enabled" : "Checkout disabled"}</Badge>
+        </div>
+        <p className="text-sm text-muted-foreground">Decorative hardware follows the existing non-cabinet product flow, but it has its own consolidated shipment. It never uses cabinet pallets or Pelican countertop settings. Enter the verified shipping origin, one package’s dimensions and weight, maximum item count, stand-alone shipping charge, and source reference before enabling it.</p>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex items-center justify-between rounded-lg border bg-muted/25 p-3">
+          <div><Label htmlFor="hardware-checkout-enabled" className="font-semibold">Enable Hardware Resources checkout</Label><p className="text-xs text-muted-foreground">Disabled keeps hardware browseable but prevents checkout and no rate is invented.</p></div>
+          <Switch id="hardware-checkout-enabled" checked={form.enabled} onCheckedChange={(enabled) => set({ enabled })} />
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="space-y-1"><Label>Origin ZIP</Label><Input value={form.originZip} onChange={(event) => set({ originZip: event.target.value })} placeholder="e.g. 30303" /></div>
+          <div className="space-y-1"><Label>Package length (in)</Label><Input inputMode="decimal" value={form.packageLengthIn} onChange={(event) => set({ packageLengthIn: event.target.value })} /></div>
+          <div className="space-y-1"><Label>Package width (in)</Label><Input inputMode="decimal" value={form.packageWidthIn} onChange={(event) => set({ packageWidthIn: event.target.value })} /></div>
+          <div className="space-y-1"><Label>Package height (in)</Label><Input inputMode="decimal" value={form.packageHeightIn} onChange={(event) => set({ packageHeightIn: event.target.value })} /></div>
+          <div className="space-y-1"><Label>Package weight (lb)</Label><Input inputMode="decimal" value={form.packageWeightLbs} onChange={(event) => set({ packageWeightLbs: event.target.value })} /></div>
+          <div className="space-y-1"><Label>One-package item limit</Label><Input inputMode="numeric" value={form.maxUnitsPerPackage} onChange={(event) => set({ maxUnitsPerPackage: event.target.value })} /></div>
+          <div className="space-y-1"><Label>Stand-alone shipping ($)</Label><Input inputMode="decimal" value={form.standaloneShipping} onChange={(event) => set({ standaloneShipping: event.target.value })} /></div>
+          <div className="space-y-1"><Label>Source reference</Label><Input value={form.sourceReference} onChange={(event) => set({ sourceReference: event.target.value })} placeholder="Rate sheet / approval date" /></div>
+        </div>
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-sky-200 bg-sky-50 p-3 text-xs text-sky-950">
+          <span>Kitchen merchandise in the same order receives the approved free hardware shipping promotion. Hardware price is supplier list by default; an affiliate may add only its separate Hardware markup.</span>
+          <Button size="sm" type="button" onClick={() => save.mutate({
+            enabled: form.enabled,
+            originZip: form.originZip.trim() || null,
+            packageLengthIn: nullableNumber(form.packageLengthIn),
+            packageWidthIn: nullableNumber(form.packageWidthIn),
+            packageHeightIn: nullableNumber(form.packageHeightIn),
+            packageWeightLbs: nullableNumber(form.packageWeightLbs),
+            maxUnitsPerPackage: nullableNumber(form.maxUnitsPerPackage),
+            standaloneShippingCents: form.standaloneShipping.trim() === "" ? null : toCents(form.standaloneShipping),
+            sourceReference: form.sourceReference.trim() || null,
+          })} disabled={save.isPending}>{save.isPending ? "Saving…" : "Save hardware profile"}</Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 interface SettingsForm {
   enabled: boolean;
   originZip: string;
@@ -349,6 +438,7 @@ export default function ShippingAdmin() {
 
   return (
     <div className="space-y-6">
+      <HardwareResourcesShippingProfile />
       {/* ── Shipping mode + live provider ─────────────────────────────── */}
       <Card id="shipping-live-provider">
         <CardHeader>

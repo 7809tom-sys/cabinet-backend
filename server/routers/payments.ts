@@ -7,6 +7,7 @@ import { paymentSettings, payments, orderRequests } from "../../drizzle/schema";
 import { chargeOpaque, type AuthNetCredentials } from "../authorizeNet";
 import { ENV } from "../_core/env";
 import { resolveStripeCredentials } from "../stripeConfig";
+import { createHardwareCommissionSnapshot } from "../lib/hardwareCommissionSnapshot";
 
 // Load the single payment_settings row (seeding an empty default row once).
 async function loadSettingsRow() {
@@ -286,6 +287,7 @@ export const paymentsRouter = router({
           .update(orderRequests)
           .set({ status: "confirmed", confirmedAt: new Date() })
           .where(eq(orderRequests.id, order.id));
+        await createHardwareCommissionSnapshot(order.id);
       }
 
       if (result.status !== "approved") {

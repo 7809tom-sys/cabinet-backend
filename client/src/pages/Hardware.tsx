@@ -1,11 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
-import { Search, PackageCheck, Truck, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, PackageCheck, Truck, ChevronLeft, ChevronRight, ShoppingCart } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSeo } from "@/hooks/useSeo";
+import { useCart } from "@/contexts/CartContext";
+import { useLocation } from "wouter";
+import { affiliateSlugForStoreScope, resolveStoreScope } from "@/lib/affiliateContext";
+import { toast } from "sonner";
 
 const PAGE_SIZE = 24;
 
@@ -15,6 +19,14 @@ function price(value: string | number | null) {
 }
 
 export default function Hardware() {
+  const { addItem, setStorefrontSlug } = useCart();
+  const [, navigate] = useLocation();
+  const storeScope = resolveStoreScope({
+    pathname: typeof window !== "undefined" ? window.location.pathname : "/hardware",
+    search: typeof window !== "undefined" ? window.location.search : "",
+    hostname: typeof window !== "undefined" ? window.location.hostname : "",
+  });
+  const affiliateSlug = affiliateSlugForStoreScope(storeScope);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [category, setCategory] = useState<string | undefined>();
@@ -37,7 +49,8 @@ export default function Hardware() {
     search: debouncedSearch || undefined,
     limit: PAGE_SIZE,
     offset: page * PAGE_SIZE,
-  }), [category, debouncedSearch, page]);
+    affiliateSlug: affiliateSlug ?? undefined,
+  }), [category, debouncedSearch, page, affiliateSlug]);
   const { data: categories = [] } = trpc.hardware.categories.useQuery();
   const { data, isLoading, error } = trpc.hardware.list.useQuery(input);
   const total = data?.total ?? 0;
@@ -76,7 +89,7 @@ export default function Hardware() {
       <section className="container py-7 md:py-9">
         <Card className="mb-7 flex gap-3 border-[var(--color-gold)]/30 bg-[var(--color-gold)]/5 p-4 text-sm leading-6">
           <Truck className="mt-0.5 h-5 w-5 shrink-0 text-[var(--color-gold)]" />
-          <div><strong>Shipping notice:</strong> Hardware is consolidated into one package per order. Free hardware shipping is available when it is ordered with a qualifying kitchen order. Stand-alone hardware checkout will open after its verified shipping profile is configured.</div>
+          <div><strong>Shipping notice:</strong> Hardware is consolidated into one package per order. Free hardware shipping applies when it is ordered with kitchen merchandise. Stand-alone shipping is shown only after Operations enables the verified Hardware Resources shipment profile.</div>
         </Card>
 
         {error ? (
@@ -100,8 +113,37 @@ export default function Hardware() {
                     <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{item.category ?? "Decorative Hardware"}</p>
                     <h2 className="line-clamp-2 min-h-10 text-sm font-semibold leading-5">{item.name}</h2>
                     <p className="text-xs font-medium text-muted-foreground">Item: {item.sku}</p>
-                    <p className="text-lg font-bold text-[var(--color-navy)] dark:text-foreground">{price(item.listPrice)}</p>
-                    <p className="text-xs text-muted-foreground">Call or include with your kitchen order to purchase.</p>
+                    <p className="text-lg font-bold text-[var(--color-navy)] dark:text-foreground">{price(item.unitPriceCents != null ? item.unitPriceCents / 100 : null)}</p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="w-full gap-1.5"
+                      onClick={() => {
+                        if (item.unitPriceCents == null) return;
+                        if (affiliateSlug) setStorefrontSlug(affiliateSlug);
+                        const result = addItem({
+                          masterCode: item.sku,
+                          name: item.name,
+                          styleId: 0,
+                          styleLabel: "Decorative Hardware",
+                          distributorId: null,
+                          tier: "homeowner",
+                          unitPrice: item.unitPriceCents / 100,
+                          priceLocked: true,
+                          productKind: "hardware",
+                          vendorProductId: item.id,
+                          qty: 1,
+                          imageUrl: item.imageUrl,
+                          category: item.category,
+                        });
+                        if (result.ok) toast.success(`Added ${item.name} to cart`, {
+                          action: { label: "View Cart", onClick: () => navigate(affiliateSlug ? `/store/${affiliateSlug}/cart` : "/cart") },
+                        });
+                      }}
+                    >
+                      <ShoppingCart className="h-3.5 w-3.5" /> Add to cart
+                    </Button>
                   </div>
                 </Card>
               ))}

@@ -12,6 +12,8 @@ import type { AffiliateMarkup } from "@shared/affiliateBranding";
 export type AffiliateStorefrontPricing = {
   affiliateId: number;
   markup: AffiliateMarkup;
+  /** Decorative Hardware uses supplier list plus this independent affiliate markup. */
+  hardwareMarkupBps: number;
   platformSettings: Awaited<ReturnType<typeof getPlatformPricingSettings>>;
 };
 
@@ -46,6 +48,7 @@ export async function loadAffiliateStorefrontPricing(
       id: affiliates.id,
       defaultMarkupBps: affiliates.defaultMarkupBps,
       categoryMarkupJson: affiliates.categoryMarkupJson,
+      hardwareMarkupBps: affiliates.hardwareMarkupBps,
     })
     .from(affiliates)
     .where(and(
@@ -74,6 +77,7 @@ export async function loadAffiliateStorefrontPricing(
       categoryMarkupBps: parseCategoryMarkup(affiliate.categoryMarkupJson),
       styleMarkupBps,
     },
+    hardwareMarkupBps: Math.max(0, affiliate.hardwareMarkupBps ?? 0),
     platformSettings: await getPlatformPricingSettings(),
   };
 }

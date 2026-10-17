@@ -33,7 +33,7 @@ import { resolveCheckoutTier, type CheckoutTier } from "@/lib/checkoutContext";
 import { checkoutPresentation } from "@/lib/checkoutPresentation";
 import { resolveCheckoutAlias } from "@/lib/affiliateCheckoutAlias";
 import { installationEstimateDocumentPath } from "@shared/installationEstimateLink";
-import { isSurfaceCheckoutLine } from "@/lib/cartCheckoutPrefill";
+import { isHardwareCheckoutLine, isSurfaceCheckoutLine } from "@/lib/cartCheckoutPrefill";
 import { checkoutUnitPriceForLine, isCabinetFreightLine } from "@/lib/orderLinePricing";
 import { getSiteSignInUrl } from "@/const";
 import { isTemporaryOneDollarFreeShippingOrder, isTemporaryOneDollarCheckoutTestItem } from "@shared/temporaryCheckoutTest";
@@ -63,10 +63,12 @@ export type ReviewLine = {
   cartDistributorId?: number | null;
   glassIncluded?: boolean | null;
   cartTier?: string | null;
-  cartProductKind?: "surface" | null;
+  cartProductKind?: "surface" | "hardware" | null;
   cartCategory?: string | null;
   /** Exact Pelican SKU used to match the verified shipping profile. */
   cartPelicanProductId?: number | null;
+  /** Exact Hardware Resources catalog row for server-authoritative repricing. */
+  cartVendorProductId?: number | null;
 };
 
 type StyleOption = {
@@ -94,6 +96,8 @@ interface Props {
   kitchenDesignId?: number;
   /** Optional cart selection to request a verified UPS parcel quote only. */
   carrierPreference?: "ups";
+  /** Cart quote supplied as a short-lived convenience; a fresh quote is requested before submit. */
+  hardwareFreightQuoteToken?: string;
 }
 
 // Extract the dimension digits from a raw code so the Fix picker can pre-search
@@ -209,7 +213,7 @@ function ConfidenceBadge({ line }: { line: ReviewLine }) {
   );
 }
 
-export function OrderReview({ lines, source, onLinesChange, onReset, initialStyleId, initialTier, kitchenDesignId, carrierPreference }: Props) {
+export function OrderReview({ lines, source, onLinesChange, onReset, initialStyleId, initialTier, kitchenDesignId, carrierPreference, hardwareFreightQuoteToken }: Props) {
   const { t } = useLanguage();
   const { user, isAuthenticated } = useAuth();
   const accountTier = (user as { pricingTier?: string } | null)?.pricingTier;
@@ -526,7 +530,7 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
       },
       carrierPreference,
       items: pricedLines
-        .filter((line) => isCabinetFreightLine(line) || isSurfaceCheckoutLine(line))
+        .filter((line) => (isCabinetFreightLine(line) || isSurfaceCheckoutLine(line)) && !isHardwareCheckoutLine(line))
         .filter((line) => !isTemporaryOneDollarCheckoutTestItem(line))
         .map((line) => ({
           cabinetId: line.cabinetId,
@@ -549,6 +553,20 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
     retry: false,
   });
   const freightCents = freightEstimate.data?.available ? freightEstimate.data.totalCents : 0;
+  const hardwareQuoteInput = useMemo(() => ({
+    items: pricedLines
+      .filter((line) => isHardwareCheckoutLine(line))
+      .map((line) => ({ vendorProductId: line.cartVendorProductId!, qty: line.qty })),
+    affiliateSlug: affiliateSlug ?? undefined,
+    containsKitchenMerchandise: pricedLines.some((line) => isCabinetFreightLine(line)),
+    destinationZip: zipDebounced || "00000",
+  }), [pricedLines, affiliateSlug, zipDebounced]);
+  const hasHardwareLines = hardwareQuoteInput.items.length > 0;
+  const hardwareFreightQuote = trpc.hardware.quote.useQuery(hardwareQuoteInput, {
+    enabled: deliveryMethod === "ship" && hasHardwareLines && zipDebounced.length >= 5 && city.trim().length > 0 && addressLine1.trim().length > 0,
+    retry: false,
+  });
+  const hardwareFreightCents = hardwareFreightQuote.data?.available ? (hardwareFreightQuote.data.shippingCents ?? 0) : 0;
 
   // Sales tax calculation: look up rate for selected state, compute tax amount.
   const taxRateQuery = trpc.location.getTaxRate.useQuery(
@@ -557,7 +575,7 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
   );
   const taxInfo = taxRateQuery.data ?? null;
   const taxAmount = taxInfo && total > 0 ? Number((total * taxInfo.rate).toFixed(2)) : 0;
-  const grandTotal = total + taxAmount + (deliveryMethod === "ship" ? freightCents / 100 : 0);
+  const grandTotal = total + taxAmount + (deliveryMethod === "ship" ? (freightCents + hardwareFreightCents) / 100 : 0);
 
   // Owner-only roll-up: total cost + gross margin across all priced lines.
   const isOwner = user?.role === "admin";
@@ -658,8 +676,13 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
       toast.error("Enter your name, phone, complete delivery address, city, state, and ZIP before requesting or submitting shipping.");
       return;
     }
-    if (deliveryMethod === "ship" && !hasOnlyTemporaryFreeShippingItems && !freightEstimate.data?.quoteToken) {
+    const requiresCabinetOrSurfaceQuote = freightInput.items.length > 0 && !hasOnlyTemporaryFreeShippingItems;
+    if (deliveryMethod === "ship" && requiresCabinetOrSurfaceQuote && !freightEstimate.data?.quoteToken) {
       toast.error("A current shipping quote is required before submitting this order.");
+      return;
+    }
+    if (deliveryMethod === "ship" && hasHardwareLines && !hardwareFreightQuote.data?.quoteToken && !hardwareFreightQuoteToken) {
+      toast.error("A current Hardware Resources shipping quote is required before submitting this order.");
       return;
     }
     // Carry the finish-match rule through to the order: skins & decorative end
@@ -697,6 +720,9 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
       freightQuoteToken: deliveryMethod === "ship" && !hasOnlyTemporaryFreeShippingItems
         ? freightEstimate.data?.quoteToken
         : undefined,
+      hardwareFreightQuoteToken: deliveryMethod === "ship" && hasHardwareLines
+        ? hardwareFreightQuote.data?.quoteToken ?? hardwareFreightQuoteToken
+        : undefined,
       pickupDistributorId: deliveryMethod === "pickup" ? pickupDistributorId : null,
       taxState: taxState || undefined,
       taxRate: taxInfo?.rate,
@@ -711,13 +737,14 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
         qty: l.qty,
         unitPrice: l.unitPrice,
         linePrice: l.linePrice,
-        styleId: isSurfaceCheckoutLine(l)
+        styleId: isSurfaceCheckoutLine(l) || isHardwareCheckoutLine(l)
           ? null
           : optionalPositiveFreightId(l.cartStyleId) ?? optionalPositiveFreightId(selectedStyle?.styleId),
-        distributorId: isSurfaceCheckoutLine(l) ? null : optionalPositiveFreightId(l.cartDistributorId),
-        productKind: isSurfaceCheckoutLine(l) ? "surface" : null,
+        distributorId: isSurfaceCheckoutLine(l) || isHardwareCheckoutLine(l) ? null : optionalPositiveFreightId(l.cartDistributorId),
+        productKind: isSurfaceCheckoutLine(l) ? "surface" : isHardwareCheckoutLine(l) ? "hardware" : null,
         pelicanProductId: isSurfaceCheckoutLine(l) ? l.cartPelicanProductId ?? null : null,
-        doorStyle: isSurfaceCheckoutLine(l) ? null : brandedStyleName ?? null,
+        vendorProductId: isHardwareCheckoutLine(l) ? l.cartVendorProductId ?? null : null,
+        doorStyle: isSurfaceCheckoutLine(l) || isHardwareCheckoutLine(l) ? null : brandedStyleName ?? null,
         tier: resolveCheckoutTier(l.cartTier, accountTier),
         matched: l.matched,
       })),

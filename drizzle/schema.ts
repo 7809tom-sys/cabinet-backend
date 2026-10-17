@@ -785,6 +785,51 @@ export const vendorProducts = mysqlTable("vendor_products", {
 
 export type VendorProduct = typeof vendorProducts.$inferSelect;
 
+// ─── Hardware Resources commerce controls ───────────────────────────────────
+// Decorative hardware is a separate product class. It receives one explicit,
+// administrator-maintained consolidated parcel profile; it never reuses cabinet
+// pallet assumptions or fabricates an origin, carton, or parcel charge.
+export const hardwareShippingProfiles = mysqlTable("hardware_shipping_profiles", {
+  id: int("id").autoincrement().primaryKey(),
+  distributorId: int("distributorId").notNull(),
+  enabled: boolean("enabled").default(false).notNull(),
+  originZip: varchar("originZip", { length: 16 }),
+  packageLengthIn: decimal("packageLengthIn", { precision: 6, scale: 2 }),
+  packageWidthIn: decimal("packageWidthIn", { precision: 6, scale: 2 }),
+  packageHeightIn: decimal("packageHeightIn", { precision: 6, scale: 2 }),
+  packageWeightLbs: decimal("packageWeightLbs", { precision: 8, scale: 2 }),
+  maxUnitsPerPackage: int("maxUnitsPerPackage"),
+  standaloneShippingCents: int("standaloneShippingCents"),
+  sourceReference: varchar("sourceReference", { length: 512 }),
+  profileRevision: int("profileRevision").default(1).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (t) => ({
+  distributorUnique: uniqueIndex("hardware_shipping_profiles_distributor_uq").on(t.distributorId),
+}));
+
+export type HardwareShippingProfile = typeof hardwareShippingProfiles.$inferSelect;
+
+// One immutable record is created only after a paid affiliate order is confirmed.
+// It preserves the actual hardware sale base, the affiliate-selected list markup,
+// and the approved 25% commission rate; later setting changes cannot rewrite it.
+export const affiliateHardwareCommissionSnapshots = mysqlTable("affiliate_hardware_commission_snapshots", {
+  id: int("id").autoincrement().primaryKey(),
+  orderRequestId: int("orderRequestId").notNull(),
+  affiliateId: int("affiliateId").notNull(),
+  hardwareMerchandiseCents: int("hardwareMerchandiseCents").notNull(),
+  hardwareCostCents: int("hardwareCostCents").notNull(),
+  affiliateMarkupBps: int("affiliateMarkupBps").notNull(),
+  commissionRateBps: int("commissionRateBps").notNull().default(2500),
+  commissionCents: int("commissionCents").notNull(),
+  confirmedAt: timestamp("confirmedAt").defaultNow().notNull(),
+}, (t) => ({
+  orderUnique: uniqueIndex("affiliate_hardware_commission_snapshots_order_uq").on(t.orderRequestId),
+  affiliateConfirmedIndex: index("affiliate_hardware_commission_snapshots_affiliate_confirmed_idx").on(t.affiliateId, t.confirmedAt),
+}));
+
+export type AffiliateHardwareCommissionSnapshot = typeof affiliateHardwareCommissionSnapshots.$inferSelect;
+
 // ─── Cabinet Distributor Eligibility ────────────────────────────────────────
 // This internal administrator-maintained relationship records that a
 // distributor may carry a master cabinet. It deliberately does not infer a
@@ -1240,10 +1285,16 @@ export type OrderLineItem = {
   styleId?: number | null;
   /** Exact supplier line used for freight and fulfillment when a cart selected one. */
   distributorId?: number | null;
-  /** Surface products have no cabinet freight profile and are excluded from the pallet quote. */
-  productKind?: "surface" | null;
+  /** Non-cabinet catalog products use their own verified shipping contracts. */
+  productKind?: "surface" | "hardware" | null;
   /** Exact Pelican catalog row required to verify the shipment profile used for freight. */
   pelicanProductId?: number | null;
+  /** Exact Hardware Resources vendor-product row; never inferred from an SKU string. */
+  vendorProductId?: number | null;
+  /** Server-read supplier cost at submission; retained only for hardware commission audit. */
+  hardwareUnitCostCents?: number | null;
+  /** Affiliate hardware list markup locked by the server at submission. */
+  hardwareMarkupBps?: number | null;
   tier?: "Wholesale" | "Contractor" | "Homeowner" | null;
   matched: boolean;
 };
@@ -1447,6 +1498,10 @@ export const affiliates = mysqlTable("affiliates", {
   // affiliate cost to produce the customer-facing retail price. Per-style and
   // per-category overrides live in affiliateStyleBranding / as JSON below.
   defaultMarkupBps: int("defaultMarkupBps").default(2000).notNull(), // 20% default
+  // Separate list-price markup for Decorative Hardware. It never participates in
+  // cabinet or surface price calculations. The baseline is the supplier list
+  // price; affiliates may set an above-list value, including zero.
+  hardwareMarkupBps: int("hardwareMarkupBps").default(0).notNull(),
   // Optional per-category markup overrides, JSON: { "base": 2500, "wall": 1500 }
   categoryMarkupJson: text("categoryMarkupJson"),
   // Kitchen Cost Sheet default unit prices, JSON keyed by the exact sheet row:

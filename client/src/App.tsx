@@ -449,6 +449,15 @@ export default function App() {
             </Suspense>
           )}
         </Route>
+        <Route path="/store/:slug/hardware">
+          {(params) => (
+            <Suspense fallback={<PageLoader />}>
+              <AffiliateShell slug={params.slug}>
+                <Hardware />
+              </AffiliateShell>
+            </Suspense>
+          )}
+        </Route>
         <Route path="/store/:slug/closet">
           {(params) => (
             <Suspense fallback={<PageLoader />}>

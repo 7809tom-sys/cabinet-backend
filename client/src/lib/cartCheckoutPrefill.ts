@@ -11,8 +11,9 @@ export type CartCheckoutPrefillItem = {
   name?: string | null;
   styleLabel?: string | null;
   category?: string | null;
-  productKind?: "surface" | null;
+  productKind?: "surface" | "hardware" | null;
   pelicanProductId?: number | null;
+  vendorProductId?: number | null;
   glassIncluded?: boolean | null;
 };
 
@@ -35,9 +36,10 @@ export type CartCheckoutMetadata = {
   /** Distributor glass policy carried from the cart so checkout repeats the glass warning. */
   glassIncluded?: boolean | null;
   cartTier: string | null;
-  cartProductKind: "surface" | null;
+  cartProductKind: "surface" | "hardware" | null;
   cartCategory: string | null;
   cartPelicanProductId: number | null;
+  cartVendorProductId: number | null;
 };
 
 export function cartItemToCheckoutPrefill(
@@ -57,6 +59,7 @@ export function cartItemToCheckoutPrefill(
     category: item.category ?? null,
     productKind: item.productKind ?? null,
     pelicanProductId: item.pelicanProductId ?? null,
+    vendorProductId: item.vendorProductId ?? null,
     glassIncluded: item.glassIncluded ?? null,
   };
 }
@@ -70,7 +73,13 @@ export function isSurfaceCheckoutPrefill(item: CartCheckoutPrefillItem): boolean
       && item.unitPrice != null
       && Number.isFinite(item.unitPrice)
       && Boolean(item.category?.trim())
-    );
+  );
+}
+
+export function isHardwareCheckoutPrefill(item: CartCheckoutPrefillItem): boolean {
+  return item.productKind === "hardware"
+    && Number.isInteger(item.vendorProductId)
+    && (item.vendorProductId ?? 0) > 0;
 }
 
 export function applyCartCheckoutPrefill<T extends MatchedCheckoutLine>(
@@ -78,6 +87,7 @@ export function applyCartCheckoutPrefill<T extends MatchedCheckoutLine>(
   item: CartCheckoutPrefillItem,
 ): T & CartCheckoutMetadata {
   const isSurface = isSurfaceCheckoutPrefill(item);
+  const isHardware = isHardwareCheckoutPrefill(item);
   const recognizedLine = isSurface
     ? {
         cabinetId: null,
@@ -87,25 +97,43 @@ export function applyCartCheckoutPrefill<T extends MatchedCheckoutLine>(
         matched: true,
         confidence: "exact" as const,
       }
-    : {};
+    : isHardware
+      ? {
+          cabinetId: null,
+          masterCode: item.code,
+          normalized: item.code,
+          description: item.name?.trim() || line.description || item.code,
+          matched: true,
+          confidence: "exact" as const,
+        }
+      : {};
 
   return {
     ...line,
     ...recognizedLine,
     cartUnitPrice: item.unitPrice ?? null,
-    cartPriceLocked: item.priceLocked === true || isSurface,
+    cartPriceLocked: item.priceLocked === true || isSurface || isHardware,
     cartStyleId: item.styleId ?? null,
     cartDistributorId: item.distributorId ?? null,
     glassIncluded: item.glassIncluded ?? null,
     cartTier: item.tier ?? null,
-    cartProductKind: isSurface ? "surface" : null,
+    cartProductKind: isSurface ? "surface" : isHardware ? "hardware" : null,
     cartCategory: item.category ?? null,
     cartPelicanProductId: isSurface && Number.isInteger(item.pelicanProductId) && (item.pelicanProductId ?? 0) > 0
       ? item.pelicanProductId!
+      : null,
+    cartVendorProductId: isHardware && Number.isInteger(item.vendorProductId) && (item.vendorProductId ?? 0) > 0
+      ? item.vendorProductId!
       : null,
   };
 }
 
 export function isSurfaceCheckoutLine(line: { cartProductKind?: string | null }): boolean {
   return line.cartProductKind === "surface";
+}
+
+export function isHardwareCheckoutLine(line: { cartProductKind?: string | null; cartVendorProductId?: number | null }): boolean {
+  return line.cartProductKind === "hardware"
+    && Number.isInteger(line.cartVendorProductId)
+    && (line.cartVendorProductId ?? 0) > 0;
 }

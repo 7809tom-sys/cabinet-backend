@@ -43,6 +43,7 @@ export default function OrderBuilder() {
   const [initialTier, setInitialTier] = useState<string | null>(null);
   const [kitchenDesignId, setKitchenDesignId] = useState<number | null>(null);
   const [carrierPreference, setCarrierPreference] = useState<"ups" | null>(null);
+  const [hardwareFreightQuoteToken, setHardwareFreightQuoteToken] = useState<string | null>(null);
 
   // If the user arrived from the cart ("Request this order"), pick up the
   // prefilled {code, qty} pairs, match them, and drop straight into review.
@@ -61,7 +62,7 @@ export default function OrderBuilder() {
     let parsed: CartCheckoutPrefillItem[] = [];
     try {
       const decoded = JSON.parse(raw) as
-        | { items: CartCheckoutPrefillItem[]; styleId: number | null; tier: string | null; kitchenDesignId?: number | null; carrierPreference?: "ups" | null }
+        | { items: CartCheckoutPrefillItem[]; styleId: number | null; tier: string | null; kitchenDesignId?: number | null; carrierPreference?: "ups" | null; hardwareFreightQuoteToken?: string | null }
         | CartCheckoutPrefillItem[]; // legacy format
       if (Array.isArray(decoded)) {
         parsed = decoded;
@@ -71,6 +72,7 @@ export default function OrderBuilder() {
         if (decoded.tier) setInitialTier(decoded.tier);
         if (Number.isInteger(decoded.kitchenDesignId) && decoded.kitchenDesignId! > 0) setKitchenDesignId(decoded.kitchenDesignId!);
         if (decoded.carrierPreference === "ups") setCarrierPreference("ups");
+        if (typeof decoded.hardwareFreightQuoteToken === "string" && decoded.hardwareFreightQuoteToken.length > 0) setHardwareFreightQuoteToken(decoded.hardwareFreightQuoteToken);
       }
     } catch {
       return;
@@ -168,6 +170,7 @@ export default function OrderBuilder() {
             kitchenDesignId={kitchenDesignId ?? undefined}
             initialTier={initialTier ?? undefined}
             carrierPreference={carrierPreference ?? undefined}
+            hardwareFreightQuoteToken={hardwareFreightQuoteToken ?? undefined}
           />
         )}
       </div>

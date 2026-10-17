@@ -9,6 +9,7 @@ import { getDb } from "./db";
 import { orderRequests } from "../drizzle/schema";
 import { eq } from "drizzle-orm";
 import { requireStripeCredentials } from "./stripeConfig";
+import { createHardwareCommissionSnapshot } from "./lib/hardwareCommissionSnapshot";
 
 // ─── Stripe client ────────────────────────────────────────────────────────────
 
@@ -115,4 +116,10 @@ export async function fulfillOrder(
       paidAt: new Date(),
     })
     .where(eq(orderRequests.stripeSessionId, sessionId));
+  const [paidOrder] = await db
+    .select({ id: orderRequests.id })
+    .from(orderRequests)
+    .where(eq(orderRequests.stripeSessionId, sessionId))
+    .limit(1);
+  if (paidOrder) await createHardwareCommissionSnapshot(paidOrder.id);
 }

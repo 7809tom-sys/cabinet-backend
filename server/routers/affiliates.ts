@@ -10,7 +10,7 @@ import {
   router,
 } from "../_core/trpc";
 import { getDb } from "../db";
-import { affiliates, affiliateTestimonials, orderRequests, affiliateStyleBranding, affiliateDistributorSelections, affiliateFeaturedDistributorEvents, doorStyles, distributors, distributorSkus, affiliatePayouts, affiliateBannerSchedules, affiliatePromoDiscounts, designConsultations, designLeads, affiliateTeamMembers, emailSettings } from "../../drizzle/schema";
+import { affiliates, affiliateTestimonials, orderRequests, affiliateStyleBranding, affiliateDistributorSelections, affiliateFeaturedDistributorEvents, doorStyles, distributors, distributorSkus, affiliatePayouts, affiliateBannerSchedules, affiliatePromoDiscounts, designConsultations, designLeads, affiliateTeamMembers, emailSettings, affiliateHardwareCommissionSnapshots } from "../../drizzle/schema";
 import { emailSettingsReady, sendEmailViaSettings } from "../email";
 import { buildSalesDemoInvite, deliverInviteThenGrant, SALES_DEMO_AFFILIATE_SLUG, SALES_DEMO_TEAM_ACCESS } from "../salesDemoInvite";
 import { resolveAffiliateAccess } from "../lib/affiliateAccess";
@@ -26,6 +26,22 @@ import { reavesWayAffiliateDefaults } from "@shared/affiliateBlueprint";
 import { affiliateNonCompeteEnforcementNote } from "@shared/affiliateNonCompete";
 import { AFFILIATE_STOREFRONT_TEMPLATE_IDS, type AffiliateStorefrontTemplate } from "@shared/affiliateStorefrontTemplates";
 import { importAffiliateWebsiteDraft } from "../lib/affiliateWebsiteImport";
+
+type HardwareCommissionSnapshotFact = {
+  hardwareMerchandiseCents: number;
+  commissionCents: number;
+};
+
+/** Existing affiliate rate applies to non-hardware merchandise; paid hardware uses its immutable 25% snapshot. */
+function orderCommissionCents(
+  orderTotalCents: number,
+  commissionRate: number,
+  hardwareSnapshot?: HardwareCommissionSnapshotFact,
+): number {
+  const nonHardwareCents = Math.max(0, orderTotalCents - (hardwareSnapshot?.hardwareMerchandiseCents ?? 0));
+  return computeEarning({ customerTotalCents: nonHardwareCents, commissionRate }).commissionCents
+    + (hardwareSnapshot?.commissionCents ?? 0);
+}
 
 /** Cabinet supply lines that are currently active and have a published SKU.
  * Affiliates may curate only these lines, never a dormant or unpriced source. */
@@ -982,6 +998,7 @@ export const affiliatesRouter = router({
     return {
       affiliateId: mine.id,
       defaultMarkupBps: mine.defaultMarkupBps,
+      hardwareMarkupBps: mine.hardwareMarkupBps,
       categoryMarkup,
       ...curation,
       styles: styles
@@ -1000,6 +1017,7 @@ export const affiliatesRouter = router({
       // only to prevent integer overflow / nonsense input.
       defaultMarkupBps: z.number().int().min(0).max(1000000).optional(),
       categoryMarkup: z.record(z.string(), z.number().int().min(0).max(1000000)).optional(),
+      hardwareMarkupBps: z.number().int().min(0).max(1000000).optional(),
     }))
     .mutation(async ({ ctx, input }) => {
       const mine = await resolveMyAffiliate(ctx);
@@ -1009,6 +1027,7 @@ export const affiliatesRouter = router({
       const set: Record<string, unknown> = {};
       if (input.defaultMarkupBps !== undefined) set.defaultMarkupBps = input.defaultMarkupBps;
       if (input.categoryMarkup !== undefined) set.categoryMarkupJson = JSON.stringify(input.categoryMarkup);
+      if (input.hardwareMarkupBps !== undefined) set.hardwareMarkupBps = input.hardwareMarkupBps;
       if (Object.keys(set).length > 0) {
         await db.update(affiliates).set(set).where(eq(affiliates.id, mine.id));
       }
@@ -1156,6 +1175,7 @@ export const affiliatesRouter = router({
       return {
         affiliateId: a.id,
         defaultMarkupBps: a.defaultMarkupBps,
+        hardwareMarkupBps: a.hardwareMarkupBps,
         categoryMarkup,
         ...curation,
         styles: styles.map((s) => ({ ...s, override: byStyle.get(s.id) ?? null })).sort((a, b) => (a.ourName || "").localeCompare(b.ourName || "")),
@@ -1167,6 +1187,7 @@ export const affiliatesRouter = router({
       affiliateId: z.number().int(),
       defaultMarkupBps: z.number().int().min(0).max(1000000).optional(),
       categoryMarkup: z.record(z.string(), z.number().int().min(0).max(1000000)).optional(),
+      hardwareMarkupBps: z.number().int().min(0).max(1000000).optional(),
     }))
     .mutation(async ({ input }) => {
       const db = await getDb();
@@ -1174,6 +1195,7 @@ export const affiliatesRouter = router({
       const set: Record<string, unknown> = {};
       if (input.defaultMarkupBps !== undefined) set.defaultMarkupBps = input.defaultMarkupBps;
       if (input.categoryMarkup !== undefined) set.categoryMarkupJson = JSON.stringify(input.categoryMarkup);
+      if (input.hardwareMarkupBps !== undefined) set.hardwareMarkupBps = input.hardwareMarkupBps;
       if (Object.keys(set).length > 0) await db.update(affiliates).set(set).where(eq(affiliates.id, input.affiliateId));
       return { id: input.affiliateId };
     }),
@@ -1240,11 +1262,15 @@ export const affiliatesRouter = router({
         .from(orderRequests)
         .where(and(eq(orderRequests.affiliateId, a.id), eq(orderRequests.status, "confirmed")))
         .orderBy(desc(orderRequests.confirmedAt));
+      const hardwareSnapshotRows = await db
+        .select({ orderRequestId: affiliateHardwareCommissionSnapshots.orderRequestId, hardwareMerchandiseCents: affiliateHardwareCommissionSnapshots.hardwareMerchandiseCents, commissionCents: affiliateHardwareCommissionSnapshots.commissionCents })
+        .from(affiliateHardwareCommissionSnapshots)
+        .where(eq(affiliateHardwareCommissionSnapshots.affiliateId, a.id));
+      const hardwareSnapshots = new Map(hardwareSnapshotRows.map((snapshot) => [snapshot.orderRequestId, snapshot]));
       const items = orders.map((o) => {
         const at = o.confirmedAt ?? o.updatedAt ?? o.createdAt;
         const customerTotalCents = dollarsToCents(o.totalAmount);
-        const earning = computeEarning({ customerTotalCents, commissionRate: rate });
-        return { at, commissionCents: earning.commissionCents };
+        return { at, commissionCents: orderCommissionCents(customerTotalCents, rate, hardwareSnapshots.get(o.id)) };
       });
       const weeks = groupByWeek(items);
       const payoutRows = await db
@@ -1305,11 +1331,15 @@ export const affiliatesRouter = router({
       .from(orderRequests)
       .where(and(eq(orderRequests.affiliateId, mine.id), eq(orderRequests.status, "confirmed")))
       .orderBy(desc(orderRequests.confirmedAt));
+    const hardwareSnapshotRows = await db
+      .select({ orderRequestId: affiliateHardwareCommissionSnapshots.orderRequestId, hardwareMerchandiseCents: affiliateHardwareCommissionSnapshots.hardwareMerchandiseCents, commissionCents: affiliateHardwareCommissionSnapshots.commissionCents })
+      .from(affiliateHardwareCommissionSnapshots)
+      .where(eq(affiliateHardwareCommissionSnapshots.affiliateId, mine.id));
+    const hardwareSnapshots = new Map(hardwareSnapshotRows.map((snapshot) => [snapshot.orderRequestId, snapshot]));
     const items = orders.map((o) => {
       const at = o.confirmedAt ?? o.updatedAt ?? o.createdAt;
       const customerTotalCents = dollarsToCents(o.totalAmount);
-      const earning = computeEarning({ customerTotalCents, commissionRate: rate });
-      return { at, commissionCents: earning.commissionCents };
+      return { at, commissionCents: orderCommissionCents(customerTotalCents, rate, hardwareSnapshots.get(o.id)) };
     });
     const weeks = groupByWeek(items);
     const payoutRows = await db
@@ -1348,6 +1378,10 @@ export const affiliatesRouter = router({
       .select()
       .from(orderRequests)
       .where(eq(orderRequests.status, "confirmed"));
+    const hardwareSnapshotRows = await db
+      .select({ orderRequestId: affiliateHardwareCommissionSnapshots.orderRequestId, hardwareMerchandiseCents: affiliateHardwareCommissionSnapshots.hardwareMerchandiseCents, commissionCents: affiliateHardwareCommissionSnapshots.commissionCents })
+      .from(affiliateHardwareCommissionSnapshots);
+    const hardwareSnapshots = new Map(hardwareSnapshotRows.map((snapshot) => [snapshot.orderRequestId, snapshot]));
     const payoutRows = await db.select().from(affiliatePayouts);
     const payoutByKey = new Map(payoutRows.map((p) => [`${p.affiliateId}::${p.weekKey}`, p]));
     // bucket key = affiliateId::weekKey
@@ -1359,17 +1393,18 @@ export const affiliatesRouter = router({
       if (!aff) continue;
       const at = o.confirmedAt ?? o.updatedAt ?? o.createdAt;
       const weekKey = isoWeekKey(at);
-      const earning = computeEarning({
-        customerTotalCents: dollarsToCents(o.totalAmount),
-        commissionRate: Number(aff.commissionRate),
-      });
+      const commissionCents = orderCommissionCents(
+        dollarsToCents(o.totalAmount),
+        Number(aff.commissionRate),
+        hardwareSnapshots.get(o.id),
+      );
       const key = `${o.affiliateId}::${weekKey}`;
       const b = buckets.get(key);
       if (b) {
         b.orderCount += 1;
-        b.amountCents += earning.commissionCents;
+        b.amountCents += commissionCents;
       } else {
-        buckets.set(key, { affiliateId: o.affiliateId, weekKey, weekStart: isoWeekStart(at), orderCount: 1, amountCents: earning.commissionCents });
+        buckets.set(key, { affiliateId: o.affiliateId, weekKey, weekStart: isoWeekStart(at), orderCount: 1, amountCents: commissionCents });
       }
     }
     const rows = Array.from(buckets.values()).map((b) => {

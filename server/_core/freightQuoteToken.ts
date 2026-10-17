@@ -6,6 +6,7 @@ export type FreightQuoteTokenItem = {
   styleId?: number | null;
   distributorId?: number | null;
   pelicanProductId?: number | null;
+  vendorProductId?: number | null;
   qty: number;
 };
 
@@ -15,6 +16,8 @@ export type FreightQuoteTokenPayload = {
   destinationZip: string;
   residential: boolean;
   liftgate: boolean;
+  /** Hardware Resources profile revision when the token was issued. */
+  profileRevision?: number;
   itemsHash: string;
   expiresAt: number;
 };
@@ -33,6 +36,7 @@ export function freightItemsHash(items: FreightQuoteTokenItem[]): string {
       styleId: item.styleId ?? null,
       distributorId: item.distributorId ?? null,
       pelicanProductId: item.pelicanProductId ?? null,
+      vendorProductId: item.vendorProductId ?? null,
       qty: Math.max(1, Math.round(item.qty)),
     }))
     .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
@@ -49,6 +53,7 @@ export function createFreightQuoteToken(input: Omit<FreightQuoteTokenPayload, "i
     destinationZip: input.destinationZip.replace(/\D/g, "").slice(0, 5),
     residential: input.residential,
     liftgate: input.liftgate,
+    ...(input.profileRevision != null ? { profileRevision: Math.max(0, Math.round(input.profileRevision)) } : {}),
     itemsHash: freightItemsHash(input.items),
     expiresAt: Date.now() + (input.ttlMs ?? 30 * 60 * 1000),
   };

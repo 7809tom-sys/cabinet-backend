@@ -93,6 +93,7 @@ export default function AffiliatePricingPanel({ affiliateId, isAdminView = false
   // Local state for default markup
   const [defaultPct, setDefaultPct] = useState<string>("");
   const [categoryPcts, setCategoryPcts] = useState<Partial<Record<Category, string>>>({});
+  const [hardwarePct, setHardwarePct] = useState<string>("");
   const [initialized, setInitialized] = useState(false);
 
   // Calculator state
@@ -116,6 +117,7 @@ export default function AffiliatePricingPanel({ affiliateId, isAdminView = false
   // Initialize local state from server data once
   if (data && !initialized) {
     setDefaultPct(bpsToPercent(data.defaultMarkupBps));
+    setHardwarePct(bpsToPercent(data.hardwareMarkupBps ?? 0));
     const cats: Partial<Record<Category, string>> = {};
     for (const cat of CATEGORIES) {
       if (data.categoryMarkup[cat] !== undefined) {
@@ -132,10 +134,11 @@ export default function AffiliatePricingPanel({ affiliateId, isAdminView = false
   const customerPrice = floor * (1 + defaultMarkupBps / 10000);
   const profit = customerPrice - floor;
   const defaultMarkupError = markupInputError(defaultPct);
+  const hardwareMarkupError = markupInputError(hardwarePct);
   const categoryMarkupError = CATEGORIES
     .map((category) => ({ category, error: markupInputError(categoryPcts[category] ?? "") }))
     .find((result) => result.error !== null);
-  const pricingInputError = defaultMarkupError ?? categoryMarkupError?.error ?? null;
+  const pricingInputError = defaultMarkupError ?? categoryMarkupError?.error ?? hardwareMarkupError ?? null;
 
   function save() {
     if (pricingInputError) {
@@ -143,6 +146,7 @@ export default function AffiliatePricingPanel({ affiliateId, isAdminView = false
       return;
     }
     const defaultBps = percentToBps(defaultPct || "0");
+    const hardwareBps = percentToBps(hardwarePct || "0");
     const catMap: Record<string, number> = {};
     for (const cat of CATEGORIES) {
       const v = categoryPcts[cat];
@@ -156,10 +160,10 @@ export default function AffiliatePricingPanel({ affiliateId, isAdminView = false
         toast.error("Select an affiliate before saving pricing.");
         return;
       }
-      updateAdminMarkup.mutate({ affiliateId, defaultMarkupBps: defaultBps, categoryMarkup: catMap });
+      updateAdminMarkup.mutate({ affiliateId, defaultMarkupBps: defaultBps, categoryMarkup: catMap, hardwareMarkupBps: hardwareBps });
       return;
     }
-    updateOwnMarkup.mutate({ defaultMarkupBps: defaultBps, categoryMarkup: catMap });
+    updateOwnMarkup.mutate({ defaultMarkupBps: defaultBps, categoryMarkup: catMap, hardwareMarkupBps: hardwareBps });
   }
 
   if (isLoading) {
@@ -285,6 +289,25 @@ export default function AffiliatePricingPanel({ affiliateId, isAdminView = false
                 This is your profit margin on top of your cost floor. A 20% markup on a $1,000 floor = $1,200 customer price. The minimum is 0%.
               </p>
             )}
+          </div>
+
+          <div className="rounded-lg border border-sky-200 bg-sky-50/70 p-3 space-y-2">
+            <Label htmlFor="hardware-list-markup">Hardware Resources markup above supplier list %</Label>
+            <div className="flex items-center gap-2 max-w-xs">
+              <Input
+                id="hardware-list-markup"
+                type="number"
+                min="0"
+                step="0.5"
+                value={hardwarePct}
+                onChange={(e) => setHardwarePct(e.target.value)}
+                placeholder="0"
+                aria-invalid={Boolean(hardwareMarkupError)}
+                className={hardwareMarkupError ? "border-destructive focus-visible:ring-destructive" : undefined}
+              />
+              <span className="text-muted-foreground text-sm">%</span>
+            </div>
+            {hardwareMarkupError ? <p className="text-xs text-destructive">{hardwareMarkupError}</p> : <p className="text-xs text-sky-950">Hardware starts at the supplier list price. This independent setting may add an above-list markup; it cannot reduce the list price and does not alter cabinet, surface, shipping, or tax calculations. Paid hardware merchandise earns the locked 25% commission snapshot.</p>}
           </div>
 
           {/* Per-category overrides */}
