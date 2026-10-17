@@ -534,10 +534,11 @@ export const cabinets = mysqlTable("cabinets", {
   originalDescription: text("originalDescription"),
   category: varchar("category", { length: 64 }).notNull(), // Base, Wall, Tall, ADA, Vanity, Accessory
   subCategory: varchar("subCategory", { length: 128 }), // Drawer Base, Sink Base, etc.
-  width: decimal("width", { precision: 6, scale: 2 }),
-  height: decimal("height", { precision: 6, scale: 2 }),
-  depth: decimal("depth", { precision: 6, scale: 2 }),
-  physicalWidth: decimal("physicalWidth", { precision: 6, scale: 2 }),
+  // Three decimal places preserve printed 1/8-inch supplier geometry (e.g. 15-1/8").
+  width: decimal("width", { precision: 7, scale: 3 }),
+  height: decimal("height", { precision: 7, scale: 3 }),
+  depth: decimal("depth", { precision: 7, scale: 3 }),
+  physicalWidth: decimal("physicalWidth", { precision: 7, scale: 3 }),
   weight: decimal("weight", { precision: 8, scale: 2 }),
   // 2D/3D Design fields
   placementType: varchar("placementType", { length: 32 }), // base, wall, tall, island
@@ -714,9 +715,10 @@ export const distributorSkus = mysqlTable("distributor_skus", {
   // Distributor-specific construction and printed geometry. Shared cabinet
   // masters remain unchanged when a supplier's construction differs.
   constructionType: varchar("constructionType", { length: 32 }), // framed | frameless
-  geometryWidth: decimal("geometryWidth", { precision: 6, scale: 2 }),
-  geometryHeight: decimal("geometryHeight", { precision: 6, scale: 2 }),
-  geometryDepth: decimal("geometryDepth", { precision: 6, scale: 2 }),
+  // Source drawings may express dimensions in eighths of an inch.
+  geometryWidth: decimal("geometryWidth", { precision: 7, scale: 3 }),
+  geometryHeight: decimal("geometryHeight", { precision: 7, scale: 3 }),
+  geometryDepth: decimal("geometryDepth", { precision: 7, scale: 3 }),
   geometryToeKickHeight: decimal("geometryToeKickHeight", { precision: 5, scale: 2 }),
   geometrySourcePage: varchar("geometrySourcePage", { length: 128 }),
   geometryStatus: varchar("geometryStatus", { length: 16 }), // verified | held
@@ -2636,10 +2638,11 @@ export const distributorCabinetOverrides = mysqlTable(
     distributorId: int("distributorId").notNull(),
     cabinetId: int("cabinetId").notNull(),
     // Overrideable dimension fields (null = use master value)
-    width: decimal("width", { precision: 6, scale: 2 }),
-    height: decimal("height", { precision: 6, scale: 2 }),
-    depth: decimal("depth", { precision: 6, scale: 2 }),
-    physicalWidth: decimal("physicalWidth", { precision: 6, scale: 2 }),
+    // Preserve distributor source geometry independently of shared master data.
+    width: decimal("width", { precision: 7, scale: 3 }),
+    height: decimal("height", { precision: 7, scale: 3 }),
+    depth: decimal("depth", { precision: 7, scale: 3 }),
+    physicalWidth: decimal("physicalWidth", { precision: 7, scale: 3 }),
     weight: decimal("weight", { precision: 8, scale: 2 }),
     pkgLength: decimal("pkgLength", { precision: 6, scale: 2 }),
     pkgWidth: decimal("pkgWidth", { precision: 6, scale: 2 }),

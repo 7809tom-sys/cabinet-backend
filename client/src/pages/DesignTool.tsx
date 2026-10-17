@@ -11268,19 +11268,18 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     setSlotStyle("A", preloadStyleId);
   }, [verified, preloadStyleId, doorStyles, styleId, setSlotStyle]);
 
-  // Admin-only AEF preview: a staged line should open with a real finish so
-  // its catalog prices and source-backed sample image are immediately testable.
-  // Public users never enter this branch because unpublished AEF is not in
-  // their distributor/style data.
+  // The public Frameless line opens with a real source finish selected so its
+  // catalog price and door sample appear immediately. A customer may still
+  // choose any other published finish from the same selector.
   useEffect(() => {
-    if (!isAdmin || !verified || !draftRestoredRef.current || styleId != null) return;
+    if (!verified || !draftRestoredRef.current || styleId != null) return;
     const scopedName = distributorNameById.get(catalogDistributorScopeId ?? -1) ?? "";
     if (!scopedName.toLowerCase().includes("frameless")) return;
     const firstAefStyle = (doorStyles ?? [])
       .filter((style) => style.distributorId === catalogDistributorScopeId)
       .sort((a, b) => (a.styleCode ?? "").localeCompare(b.styleCode ?? ""))[0];
     if (firstAefStyle) setSlotStyle("A", firstAefStyle.id);
-  }, [catalogDistributorScopeId, distributorNameById, doorStyles, isAdmin, setSlotStyle, styleId, verified]);
+  }, [catalogDistributorScopeId, distributorNameById, doorStyles, setSlotStyle, styleId, verified]);
 
   // Consume the Surfaces & Fixtures wizard hand-off ONCE, after verification and
   // after the draft has been restored. This only fires when the customer clicked

@@ -57,8 +57,10 @@ describe("AEF USCD frameless release", () => {
     expect(adminBase.some((row) => row.masterCode === "B18")).toBe(true);
     expect(adminWall.some((row) => row.masterCode === "W3012")).toBe(true);
     expect(adminTall.some((row) => row.masterCode === "T1884")).toBe(true);
-    expect(publicAll).toHaveLength(115);
-    expect(adminAll).toHaveLength(115);
+    // 115 initially released verified cabinet models + 151 source-backed
+    // complete-line cabinet models. Accessories remain in their own tab.
+    expect(publicAll).toHaveLength(266);
+    expect(adminAll).toHaveLength(266);
     expect(publicBase.find((row) => row.masterCode === "B18")).toMatchObject({ height: "34.75", depth: "24.00", numberOfDoors: 1, numberOfDrawers: 1 });
     expect(publicWall.find((row) => row.masterCode === "W3012")).toMatchObject({ height: "12.63", depth: "13.50", numberOfDoors: 1 });
     expect(publicAll.some((row) => row.masterCode === "B18FH")).toBe(true);
@@ -84,7 +86,8 @@ describe("AEF USCD frameless release", () => {
         eq(distributorSkus.isPublished, true),
       ))
       ;
-    expect(publishedState).toHaveLength(5_635);
+    // Existing 115 × 49 finish rows + complete-line source rows (7,484).
+    expect(publishedState).toHaveLength(13_119);
     expect(publishedState.every((row) => row.geometryStatus === "verified" && row.isPublished)).toBe(true);
   });
 });

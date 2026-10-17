@@ -1317,6 +1317,13 @@
       "when": 1792181283239,
       "tag": "0188_careful_khan",
       "breakpoints": true
+    },
+    {
+      "idx": 189,
+      "version": "5",
+      "when": 1792211993621,
+      "tag": "0189_last_bishop",
+      "breakpoints": true
     }
   ]
 }

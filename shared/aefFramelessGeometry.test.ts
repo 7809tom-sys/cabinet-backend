@@ -31,9 +31,10 @@ describe("AEF printed frameless geometry", () => {
     expect(aefPrintedGeometryForSku("W2430S")).toMatchObject({ width: 24, height: 30.25, depth: 13.5 });
   });
 
-  it("does not invent geometry for held or unknown rows", () => {
-    expect(aefPrintedGeometryForSku("2DB18")).toBeNull();
-    expect(aefPrintedGeometryForSku("BPO6FH")).toBeNull();
+  it("uses the exact complete-line V8.2 source geometry and rejects unknown codes", () => {
+    expect(aefPrintedGeometryForSku("2DB18")).toMatchObject({ width: 18, height: 34.75, depth: 24, toeKickHeight: 4.5, sourcePage: "23" });
+    expect(aefPrintedGeometryForSku("BPO6FH")).toMatchObject({ width: 6, height: 34.75, depth: 24, toeKickHeight: 4.5, sourcePage: "33" });
     expect(aefPrintedGeometryForSku("SCL")).toBeNull();
+    expect(aefPrintedGeometryForSku("NOT-A-CABINET")).toBeNull();
   });
 });

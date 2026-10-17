@@ -1,3 +1,5 @@
+import { AEF_EXPANDED_SOURCE_GEOMETRY } from "./aefFramelessExpandedGeometry";
+
 export type AefPrintedGeometry = {
   constructionType: "frameless";
   width: number;
@@ -29,6 +31,24 @@ function inches(value: string): number {
 export function aefPrintedGeometryForSku(rawSku: string): AefPrintedGeometry | null {
   const sku = rawSku.trim().toUpperCase();
   if (!sku) return null;
+
+  // Complete-line geometry comes from the exact AltaEuro V8.2 drawing table.
+  // This is intentionally checked before the compact pattern rules below: a
+  // source model such as WFD241824-BLUM or TOS2DB3084 must never be reduced to
+  // a generic shared-master profile. The source table is distributor scoped;
+  // framed master dimensions remain untouched.
+  const expanded = AEF_EXPANDED_SOURCE_GEOMETRY[sku];
+  if (expanded) {
+    return {
+      constructionType: "frameless",
+      width: expanded.width,
+      height: expanded.height,
+      depth: expanded.depth,
+      toeKickHeight: expanded.toeKickHeight,
+      sourcePage: expanded.sourcePage,
+      status: "verified",
+    };
+  }
 
   const baseSku = sku.replace(/S$/, "");
   const base = baseSku.match(/^(VSB|SB|B)(\d{2})(FH)?$/);
