@@ -5015,6 +5015,9 @@ export function blindCornerViolations(
     for (const o of placed) {
       if (o.uid === blind.uid) continue;
       if (isBlindCorner(o.masterCode, o.description)) continue;
+	      // A filler is trim, not the perpendicular cabinet body measured by
+	      // the blind-corner pull-clearance rule.
+	      if (isFillerItem(o)) continue;
       // A 3-inch-or-smaller filler is the required trim return beside a BBC,
       // not the perpendicular cabinet that the pull-clearance rule measures.
       // It must not reintroduce a red conflict after placement or restore.
@@ -7918,6 +7921,8 @@ export function wallOpeningClearanceViolations(
   if (openings.length === 0) return bad;
 	  for (const p of placed) {
 	    if (p.placement !== "wall") continue;
+	    // Fillers are seam trim, not wall-cabinet faces that require opening clearance.
+	    if (isFillerItem(p)) continue;
 	    const side = cabinetWall(p, room);
 	    const cStart = wallRunOffset(p, side, room);
 	    const cEnd = cStart + wallRunSpan(p, side, room);
@@ -7954,6 +7959,9 @@ export function baseOpeningOverlaps(
 	  for (const p of placed) {
 	    // Floor layer = base + appliance; tall spans the floor too.
 	    if (p.placement === "wall") continue;
+	    // Fillers close a measured seam and do not create a floor-run opening
+	    // conflict of their own.
+	    if (isFillerItem(p)) continue;
 	    const side = cabinetWall(p, room);
 	    const cStart = wallRunOffset(p, side, room);
 	    const cEnd = cStart + wallRunSpan(p, side, room);

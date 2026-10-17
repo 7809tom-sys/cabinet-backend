@@ -5040,3 +5040,46 @@ describe("missingCornerBaseViolations (only flags a corner base when a door/open
     expect(v.has("ls3612")).toBe(false);
   });
 });
+
+describe("filler conflict ownership", () => {
+  const room: RoomData = { width: 144, depth: 120 };
+  const window: WallOpening = {
+    uid: "window-filler-test", kind: "window", label: "Window", side: "top",
+    offset: 54, width: 36, height: 36, sill: 40,
+  };
+
+  it("does not flag a wall filler that borders a window seam", () => {
+    const filler = cab({
+      uid: "wall-filler", masterCode: "F342", description: '3" Filler',
+      category: "Filler", subCategory: "Filler", placement: "wall",
+      x: 90, y: 0, width: 3, depth: 12, height: 30,
+    });
+    expect(wallOpeningClearanceViolations([filler], [window], room).has(filler.uid)).toBe(false);
+  });
+
+  it("does not flag a floor filler crossing a cased opening", () => {
+    const filler = cab({
+      uid: "floor-filler", masterCode: "F342", description: '3" Filler',
+      category: "Filler", subCategory: "Filler", placement: "base",
+      x: 50, y: room.depth - 24, width: 3, depth: 24, height: 34.5,
+    });
+    const opening: WallOpening = {
+      uid: "case-filler-test", kind: "opening", label: "Cased Opening", side: "bottom",
+      offset: 50, width: 48, height: 80, sill: 0,
+    };
+    expect(baseOpeningOverlaps([filler], [opening], room).has(filler.uid)).toBe(false);
+  });
+
+  it("does not let an ordinary measured filler re-flag a blind-corner owner", () => {
+    const blind = cab({
+      uid: "blind-owner", masterCode: "BBC36", description: "Blind Corner Base", placement: "base",
+      x: 0, y: 0, width: 36, depth: 24, height: 34.5,
+    });
+    const filler = cab({
+      uid: "measured-filler", masterCode: "F600", description: '6" Filler',
+      category: "Filler", subCategory: "Filler", placement: "base",
+      x: 0, y: 23, width: 6, depth: 24, height: 34.5, rotation: 90,
+    });
+    expect(blindCornerViolations([blind, filler]).has(blind.uid)).toBe(false);
+  });
+});
