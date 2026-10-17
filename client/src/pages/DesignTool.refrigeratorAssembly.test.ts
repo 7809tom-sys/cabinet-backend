@@ -55,6 +55,13 @@ describe("Design Tool independent refrigerator options", () => {
     expect(transaction).not.toContain("? opts.bridgeWidth : fp.w");
   });
 
+  it("cuts refrigerator side fillers to the selected refrigerator height", () => {
+    const transaction = refrigeratorTransaction();
+    expect(transaction).toContain("const pHeight = actualFridgeHeight");
+    expect(transaction).toContain("mountBottom: 0");
+    expect(transaction).not.toContain("refrigeratorSurroundTop\n          : (opts.panelHeight");
+  });
+
   it("fits only the refrigerator and the options selected in this accept action", () => {
     const transaction = refrigeratorTransaction();
     const fit = transaction.indexOf("const fittedOptions = fitExplicitRefrigeratorOptionPlacements(");

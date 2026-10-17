@@ -8182,14 +8182,11 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         // For REPV/TDEP/S-series panels: width column = face thickness (1.5" or 0.75").
         // Fall back to inferredDepth (0.75") if width is missing or implausibly large.
         const pThick = refrigeratorEndPanelThickness(panelRow!.width, inferredDepth);
-        // End panels must finish at the same cap as the dedicated refrigerator
-        // cabinet, not at the 70" appliance top. This gives a finished full-height
-        // enclosure while preserving the 2" clearance beneath the upper cabinet.
-        const pHeight = opts.above !== "none"
-          ? refrigeratorSurroundTop
-          : (opts.panelHeight && opts.panelHeight > 0
-            ? opts.panelHeight
-            : (parseFloat(String(panelRow.height ?? "")) || inferredHeight));
+        // The source sheet may be 96" tall, but the installed side filler must
+        // line up with the selected refrigerator's actual floor-to-top envelope.
+        // Keep the source SKU for pricing/takeoff while cutting the rendered
+        // board to the appliance height instead of letting it rise above it.
+        const pHeight = actualFridgeHeight;
         // Along-wall position: just outside the finished refrigerator opening.
         // Keep the exact coordinate even when it begins beyond a wall endpoint.
         // The shared configuration-time fitter below can shift only this
@@ -8217,8 +8214,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
           numberOfDoors: 0,
           numberOfDrawers: 0,
           customProfile: "refrigerator-end-panel",
-          // Refrigerator end panels are full-height architectural panels. They
-          // always begin on the floor, regardless of a neighboring base cabinet.
+          // The installed side filler follows the refrigerator's floor datum.
           mountBottom: 0,
           catalogImageUrl: panelRow!.catalogImageUrl ?? null,
           styleId: styleIdRef.current ?? null,
