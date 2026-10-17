@@ -235,6 +235,16 @@ export function TopNav() {
               {t(link.key)}
             </Link>
           ))}
+          <Link
+            href="/hardware"
+            className={`px-1 py-2 2xl:px-2.5 rounded-md xl:text-[13px] 2xl:text-sm font-medium whitespace-nowrap transition-colors duration-150 ${
+              isActive("/hardware")
+                ? "bg-primary/10 text-primary"
+                : "text-foreground/70 hover:text-foreground hover:bg-muted"
+            }`}
+          >
+            Hardware
+          </Link>
 
           {/* More dropdown (secondary links + portals) */}
           <div className="relative">
@@ -423,6 +433,17 @@ export function TopNav() {
                 {t(link.key)}
               </Link>
             ))}
+            <Link
+              href="/hardware"
+              onClick={() => setMobileOpen(false)}
+              className={`px-3 py-2.5 rounded-md text-sm font-medium transition-colors ${
+                isActive("/hardware")
+                  ? "bg-primary/10 text-primary"
+                  : "text-foreground/70 hover:text-foreground hover:bg-muted"
+              }`}
+            >
+              Hardware
+            </Link>
             <div className="border-t border-border my-2" />
             {visiblePortalLinks.map((link) => (
               <Link

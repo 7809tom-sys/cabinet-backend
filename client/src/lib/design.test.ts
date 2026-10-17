@@ -2266,8 +2266,32 @@ describe("bearsCountertop", () => {
   });
   it("is true only for a base filler carrying confirmed small-gap installation metadata", () => {
     expect(bearsCountertop({ placement: "base", masterCode: "FILL-3", description: '3" Filler', subCategory: "Filler", fillerPieceGroupId: "fill-group", fillerTotalWidth: 2.5, fillerPlacementMode: "split" })).toBe(true);
+    expect(bearsCountertop({ placement: "base", masterCode: "BF3", description: '3" Base Filler', subCategory: "Filler", fillerPieceGroupId: "supplier-fill-group", fillerTotalWidth: 3, fillerPlacementMode: "right" })).toBe(true);
+    expect(bearsCountertop({ placement: "base", masterCode: "BF3", description: '3" Base Filler', subCategory: "Filler" })).toBe(false);
     expect(bearsCountertop({ placement: "base", masterCode: "F396", description: '3" Tall Filler', subCategory: "Filler", fillerPieceGroupId: "miter-group", fillerTotalWidth: 22, fillerPlacementMode: "left", fillerTransitionKind: "front-miter-pair" })).toBe(false);
     expect(bearsCountertop({ placement: "wall", masterCode: "FILL-3", description: '3" Filler', subCategory: "Filler", fillerPieceGroupId: "fill-group", fillerTotalWidth: 2.5, fillerPlacementMode: "split" })).toBe(false);
+  });
+
+  it("merges a confirmed supplier filler into the same 25½-inch framed-base countertop run", () => {
+    const base = cab({ uid: "base-24", masterCode: "B24", description: "24 inch Base Cabinet", x: 0, y: 0, width: 24, depth: 24, height: 34.5 });
+    const supplierFiller = cab({
+      uid: "supplier-bf3",
+      masterCode: "BF3",
+      description: "3 inch Base Filler",
+      subCategory: "Filler",
+      x: 24,
+      y: 0,
+      width: 3,
+      depth: 24,
+      height: 34.5,
+      fillerPieceGroupId: "supplier-fill-group",
+      fillerTotalWidth: 3,
+      fillerPlacementMode: "right",
+      fillerForCabinetUid: base.uid,
+    });
+    const surfaces = countertopSurfaces([base, supplierFiller], ROOM_12x10);
+    expect(surfaces).toHaveLength(1);
+    expect(surfaces[0]).toMatchObject({ x: 0, y: 0, width: 27, depth: COUNTERTOP_DEPTH_IN, kind: "base" });
   });
 });
 

@@ -88,6 +88,7 @@ const ReturnPolicy = lazy(() => import("@/pages/ReturnPolicy"));
 const PrivacyPolicy = lazy(() => import("@/pages/PrivacyPolicy"));
 const Terms = lazy(() => import("@/pages/Terms"));
 const InstallationEstimateDocument = lazy(() => import("@/pages/InstallationEstimateDocument"));
+const Hardware = lazy(() => import("@/pages/Hardware"));
 
 function PageLoader() {
   return (
@@ -514,6 +515,14 @@ export default function App() {
               </ErrorBoundary>
             </AppLayout>
           )}
+        </Route>
+
+        <Route path="/hardware">
+          <AppLayout>
+            <Suspense fallback={<PageLoader />}>
+              <Hardware />
+            </Suspense>
+          </AppLayout>
         </Route>
 
         <Route path="/styles">

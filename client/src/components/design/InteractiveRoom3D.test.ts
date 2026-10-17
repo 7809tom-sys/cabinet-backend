@@ -22,6 +22,7 @@ import { threeDMiteredRoomWallGeometry, threeDMiteredRoomWallOutlines } from "./
 import { normalizedThreeDCabinetMoveIncrement, parsedThreeDCabinetMoveIncrement, THREE_D_MAX_MOVE_INCREMENT_IN, THREE_D_MIN_MOVE_INCREMENT_IN } from "./InteractiveRoom3D";
 import { addThreeDContinuousToeKicks, threeDContinuousToeKickSegments } from "./InteractiveRoom3D";
 import { COUNTERTOP_DEPTH_IN, DEFAULT_ROOM, STD, countertopRunFaceNormal, countertopSurfacePlanPolygon, countertopSurfaces, nextAvailableRoomCornerPlacement, peninsulaRunEndpoints, placedCornerGeometryKind, placedFootprint, wallPlacementAt } from "@/lib/design";
+import { AEF_PRINTED_GEOMETRY_MARKER } from "@shared/aefFramelessGeometry";
 import { ovenOpeningGeometry } from "@/lib/ovenOpening";
 import { addThreeDCrownMolding, applyThreeDStructuralFinishMaterials, threeDStructuralSampleTexture } from "./InteractiveRoom3D";
 import { addThreeDProductionLightRig, normalizeThreeDPlanarUv, THREE_D_BACKSPLASH_TILE_SIZE_IN, threeDBacksplashSegments, threeDBacksplashSupportSpans, threeDBacksplashTileTextureTransform, threeDBacksplashTransform, threeDCountertopUpstandSegments, threeDCountertopSlabTextureTransform, threeDDoorFinishSurfaceProfile, threeDFlooringPatternProfile, threeDPhysicalSurfaceProfile, threeDPlankAtlasProfile, threeDProductMaterialSource, threeDProductSurfaceTextureTransform, threeDRenderQualityProfile, threeDSupportsBacksplash, threeDSurfaceImageCrop, threeDSurfaceTextureTransform } from "./InteractiveRoom3D";
@@ -3839,16 +3840,39 @@ describe("interactive 3D room scene helpers", () => {
     expect(count(refrigeratorWall, (node) => barPull(node, "door"))).toBe(2);
 
     const singleOven = new THREE.Group();
-    addCabinetWithBarPulls(singleOven, {
-      distributorSkuId: 1, cabinetId: 1, masterCode: "TOS2DB3084", description: "30-inch tall single oven cabinet",
-      placementType: "tall", width: 30, height: 84, depth: 24, numberOfDoors: 2, numberOfDrawers: 2,
+    const singleOvenSku = existingCabinetSku({
+      uid: "aef-tos2db3084", cabinetId: 1, masterCode: "TOS2DB3084", description: "30-inch tall single oven cabinet",
+      placement: "tall", x: 0, y: 0, rotation: 0, width: 30, height: 84, depth: 24, numberOfDoors: 2, numberOfDrawers: 2,
       openingType: "middle", ovenType: "single", sourceOvenDrawerLayout: true, drawerLayout: JSON.stringify([{ count: 1 }, { count: 1 }]),
-    } as never, null, {}, 144, 120, "#d1ba8f", "#ffffff", { doorStyle: "Shaker", doorPanelType: null });
+      constructionMethod: AEF_PRINTED_GEOMETRY_MARKER,
+    } as never);
+    expect(singleOvenSku.constructionMethod).toBe(AEF_PRINTED_GEOMETRY_MARKER);
+    addCabinetWithBarPulls(singleOven, singleOvenSku, null, {}, 144, 120, "#d1ba8f", "#ffffff", { doorStyle: "Shaker", doorPanelType: null });
     expect(count(singleOven, (node) => node.userData.ovenCabinetDoor)).toBe(2);
     expect(count(singleOven, (node) => node.userData.ovenCabinetDrawer)).toBe(2);
     expect(count(singleOven, (node) => node.userData.ovenCabinetApplianceDoor)).toBe(1);
     expect(count(singleOven, (node) => barPull(node, "door"))).toBe(2);
     expect(count(singleOven, (node) => barPull(node, "drawer"))).toBe(2);
+    const upperDoors: THREE.Mesh[] = [];
+    const upperDoorPulls: THREE.Mesh[] = [];
+    singleOven.traverse((node) => {
+      if (!(node instanceof THREE.Mesh)) return;
+      if (node.userData.ovenCabinetDoor) upperDoors.push(node);
+      if (barPull(node, "door")) upperDoorPulls.push(node);
+    });
+    upperDoors.sort((left, right) => left.position.x - right.position.x);
+    upperDoorPulls.sort((left, right) => left.position.x - right.position.x);
+    expect(upperDoorPulls.map((pull) => pull.userData)).toMatchObject([
+      { pullDoorZone: "upper", pullEdge: "opposite-hinge", hingeSide: "left", handleSide: "right" },
+      { pullDoorZone: "upper", pullEdge: "opposite-hinge", hingeSide: "right", handleSide: "left" },
+    ]);
+    // AEF oven tower doors follow the framed upper-door convention: pulls are
+    // on the meeting stile and lower than each upper-door center, not raised
+    // to the tall/pantry rail.
+    expect(upperDoorPulls[0]!.position.x).toBeGreaterThan(upperDoors[0]!.position.x);
+    expect(upperDoorPulls[1]!.position.x).toBeLessThan(upperDoors[1]!.position.x);
+    expect(upperDoorPulls[0]!.position.y).toBeLessThan(upperDoors[0]!.position.y);
+    expect(upperDoorPulls[1]!.position.y).toBeLessThan(upperDoors[1]!.position.y);
 
     const doubleOven = new THREE.Group();
     addCabinetWithBarPulls(doubleOven, {
@@ -6864,6 +6888,7 @@ describe("interactive 3D room scene helpers", () => {
     expect(shouldRenderCountertopOverSceneItem("base", "STOVE-30", "30 inch gas stove")).toBe(false);
     expect(shouldRenderCountertopOverSceneItem("base", "FILL-3", "3 inch Filler")).toBe(false);
     expect(shouldRenderCountertopOverSceneItem({ placement: "base", masterCode: "FILL-3", description: "3 inch Filler", subCategory: "Filler", fillerPieceGroupId: "fill-group", fillerTotalWidth: 2.5, fillerPlacementMode: "split" })).toBe(true);
+    expect(shouldRenderCountertopOverSceneItem({ placement: "base", masterCode: "BF3", description: "3 inch Base Filler", subCategory: "Filler", fillerPieceGroupId: "fill-group", fillerTotalWidth: 3, fillerPlacementMode: "right" })).toBe(true);
     expect(shouldRenderCountertopOverSceneItem("base", "REP2496", "Refrigerator End Panel")).toBe(false);
     expect(shouldRenderCountertopOverSceneItem("base", "FRIDGE-36", "36 inch Refrigerator")).toBe(false);
     expect(shouldRenderCountertopOverSceneItem("appliance", "RANGE-30")).toBe(false);

@@ -29,6 +29,7 @@ import { ovenOpeningGeometry } from "@/lib/ovenOpening";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { normalizeCode } from "@shared/cabinetCodeMatch";
+import { AEF_PRINTED_GEOMETRY_MARKER } from "@shared/aefFramelessGeometry";
 import { toast } from "sonner";
 import { masterTracProduct, masterTracFinishColor } from "@/lib/closet";
 import { geminiHardwareReference, type GeminiMaterialManifestEntry } from "@/lib/geminiHardwareReference";
@@ -176,6 +177,8 @@ type SceneSku = {
   applianceCatalogPrice?: number | null;
   rangeTopImageUrl?: string | null;
   rangeTopFinish?: "stainless" | "black-glass" | null;
+  /** Distributor-specific construction marker retained from the placed cabinet. */
+  constructionMethod?: string | null;
   placementType: string | null;
   width: unknown;
   height: unknown;
@@ -4597,7 +4600,13 @@ export function addCabinet(
     // A design configured as touch-latch/push-to-open must not acquire a default
     // bar pull merely because a cabinet renderer was invoked.
     if (piece === "none") return;
-    const raisedFloorWallDoorPull = !drawer && usesRaisedFloorWallDoorPull({
+    // AEF's source-configured oven tower upper doors follow the same lower,
+    // opposite-hinge pull rule as framed upper doors. Keep the raised rail rule
+    // for every other tall/pantry or floor-seated wall cabinet.
+    const aefOvenDoorUsesUpperRule = !drawer
+      && isOvenCabinet
+      && sku.constructionMethod === AEF_PRINTED_GEOMETRY_MARKER;
+    const raisedFloorWallDoorPull = !aefOvenDoorUsesUpperRule && !drawer && usesRaisedFloorWallDoorPull({
       placement: sku.placementType,
       mountBottom: sku.mountBottom,
       islandFace: sku.islandFace,
@@ -9172,6 +9181,7 @@ export function existingCabinetSku(cabinet: PlacedCabinet, room?: RoomData): Sce
     applianceCatalogPrice: cabinet.applianceCatalogPrice ?? null,
     rangeTopImageUrl: cabinet.rangeTopImageUrl ?? null,
     rangeTopFinish: cabinet.rangeTopFinish ?? null,
+    constructionMethod: cabinet.constructionMethod ?? null,
     placementType,
     // The placed record is primary. Older appliance records can lack one of
     // these dimensions, in which case use the same APPLIANCES definition that

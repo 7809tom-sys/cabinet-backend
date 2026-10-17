@@ -6169,7 +6169,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       let sinkBaseAdvisory: string | null = hasActiveWallWindow && !sinkWindowSpot
         ? `${finalCab.masterCode} was placed beneath the window, but the centered ${formatInches(width)} span overlaps an existing item. Clearance is advisory for sink bases; review the overlap before installation.`
         : null;
-	      if (!requestedIslandFace && /^FILL-/i.test(newCab.masterCode)) {
+      if (!requestedIslandFace && isFillerItem(newCab)) {
         const allGaps = wallGaps(room, prev, openings, 0.5);
         const fillerLayer = newCab.placement === "wall" ? "wall" : "base";
         const layerGaps = allGaps.filter((g) => g.layer === fillerLayer && g.length <= 6 && g.length > 0);
@@ -6196,10 +6196,26 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
             nominalWidth: horizontal ? best.length : newCab.width,
             depth: horizontal ? newCab.depth : best.length,
             nominalDepth: horizontal ? newCab.depth : best.length,
-	            masterCode: `FILL-${Math.round(best.length * 10) / 10}`,
-	          };
+            // Preserve source/price identity for supplier filler codes such as
+            // F342; only the legacy generic FILL code is resized in its label.
+            masterCode: /^FILL-/i.test(newCab.masterCode)
+              ? `FILL-${Math.round(best.length * 10) / 10}`
+              : newCab.masterCode,
+          };
 	          const owner = adjacentCabinetForFiller(finalCab, [...prev, finalCab], room);
-	          if (owner) finalCab = matchInstalledFillerToCabinet(finalCab, owner, room);
+	          if (owner) {
+            // A snapped catalog filler is an installed, priced trim piece—not a
+            // loose strip. Reuse the confirmed-filler contract used by framed
+            // direct/small-gap flows so its base countertop remains one shared
+            // 25½-inch surface with the normal 1½-inch finished front edge.
+            finalCab = {
+              ...matchInstalledFillerToCabinet(finalCab, owner, room),
+              fillerPieceGroupId: `filler-group-${finalCab.uid}`,
+              fillerBillingRole: "primary",
+              fillerTotalWidth: best.length,
+              fillerPlacementMode: "right",
+            };
+          }
 	        }
 	      }
 
