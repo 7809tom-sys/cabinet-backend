@@ -97,7 +97,7 @@ export function aefPrintedGeometryForSku(rawSku: string): AefPrintedGeometry | n
     const sourcePage = isEasyReach
       ? "43"
       : wall[4]
-        ? ({ "12": "46", "18": "47", "23": "48" }[heightKey] ?? "46-48")
+        ? ({ "12": "46", "15": "47", "18": "47", "23": "48" }[heightKey] ?? "46-48")
         : ({ "12": "43", "15": "44", "18": "44", "23": "45", "30": "37", "35": "38", "40": "39" }[heightKey] ?? "37-45");
     return {
       constructionType: "frameless",

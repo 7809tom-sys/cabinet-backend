@@ -131,6 +131,19 @@ function layoutFor(masterCode: string): Layout {
   if (/^SB24S$/.test(code)) return withDrawer(1, "base_1door_1drawer", "Single-door sink base with one false drawer front");
   if (/^SB\d+FH$/.test(code)) return fullHeight(2, "base_2door_fullheight", "Full-height double-door sink base");
   if (/^SB/.test(code)) return withDrawer(2, "base_2door_1drawer", "Double-door sink base with one false drawer front");
+  // V8.2 refrigerator-wall drawings (pp. 46–48) show two hinged leaves for
+  // every listed source width. This must precede the broad W-family branch so
+  // a future AEF release cannot collapse them into one-door bridge cabinets.
+  if (/^W(24|30|33|36)(12|15|18|23)24$/.test(code)) {
+    return {
+      numberOfDoors: 2,
+      numberOfDrawers: 0,
+      doorsPerRow: 2,
+      doorOrientation: "side-by-side",
+      graphicType: "wall_2door",
+      layoutSpec: "Two-door refrigerator wall cabinet; front layout is taken from the AltaEuro V8.2 source drawing (pp. 46–48).",
+    };
+  }
   if (/^W(ER)?/.test(code)) {
     const standard = /^W\d+(30|35|40)$/.test(code) && !/^W2430S$/.test(code);
     const width = Number((/^W(?:ER)?(\d{2})/.exec(code) ?? [])[1] ?? 0);
@@ -172,7 +185,10 @@ async function main() {
        FROM distributor_skus ds JOIN door_styles s ON s.id=ds.styleId
        WHERE ds.distributorId=? AND s.styleCode='SCM' AND ds.geometryStatus='verified' ORDER BY ds.distributorSku`, [aef.id],
     );
-    const refs = scmRowsRaw as RefRow[];
+    // This writer owns the original audited 115-SKU release set. The later
+    // complete-line importer has another 168 verified SCM rows; do not allow
+    // those rows to broaden this legacy updater's scope.
+    const refs = (scmRowsRaw as RefRow[]).filter((row) => sclPrices.has(row.distributorSku.toUpperCase()));
     if (refs.length !== 115 || new Set(refs.map((row) => row.cabinetId)).size !== 115) throw new Error(`Expected 115 verified SCM source rows; got ${refs.length}`);
     for (const row of refs) {
       if (!sclPrices.has(row.distributorSku.toUpperCase()) || row.geometryStatus !== "verified" || row.constructionType !== "frameless") {
@@ -193,8 +209,11 @@ async function main() {
     const [[sclStyle]]: any = await conn.query("SELECT * FROM door_styles WHERE distributorId=? AND styleCode='SCL' LIMIT 1", [aef.id]);
     if (!sclStyle) throw new Error("SCL door style is missing");
     const [oldSclRowsRaw]: any = await conn.query("SELECT * FROM distributor_skus WHERE distributorId=? AND styleId=?", [aef.id, sclStyle.id]);
-    const oldSclRows = oldSclRowsRaw as any[];
-    if (oldSclRows.length !== 92) throw new Error(`Expected 92 held SCL rows before repair; got ${oldSclRows.length}`);
+    // The original release set and the later complete-line importer share the
+    // SCL style. Restrict this historic reconciliation to source codes present
+    // in its audited 115-SKU file rather than touching expanded-line rows.
+    const oldSclRows = (oldSclRowsRaw as any[]).filter((row) => sclPrices.has(String(row.distributorSku).toUpperCase()));
+    if (oldSclRows.length !== 115) throw new Error(`Expected 115 released legacy SCL rows; got ${oldSclRows.length}`);
     const oldSclBySource = new Map<string, any>(oldSclRows.map((row) => [String(row.distributorSku).toUpperCase(), row]));
     const refBySource = new Map<string, RefRow>(refs.map((row) => [row.distributorSku.toUpperCase(), row]));
     const expectedSources = new Set(refs.map((row) => row.distributorSku.toUpperCase()));
@@ -254,7 +273,7 @@ async function main() {
         const old = oldSclBySource.get(sourceSku);
         const values = [
           ref.cabinetId, `AEF-${sourceSku}-SCL`, sourceSku, geometry.constructionType,
-          geometry.width.toFixed(2), geometry.height.toFixed(2), geometry.depth.toFixed(2), geometry.toeKickHeight?.toFixed(2) ?? null,
+          geometry.width.toFixed(3), geometry.height.toFixed(3), geometry.depth.toFixed(3), geometry.toeKickHeight?.toFixed(3) ?? null,
           `AltaEuro Collection Full Spec Book V8.2, p. ${geometry.sourcePage}`, geometry.status,
           list.toFixed(2), cost.toFixed(2), cost.toFixed(2), (cost * 1.25).toFixed(2), (cost * 1.29).toFixed(2), (cost * 1.58).toFixed(2),
         ];
@@ -310,7 +329,7 @@ async function main() {
           `INSERT INTO distributor_cabinet_overrides (distributorId,cabinetId,width,height,depth,imageUrl,configJson,note)
            VALUES (?,?,?,?,?,?,?,?)
            ON DUPLICATE KEY UPDATE width=VALUES(width),height=VALUES(height),depth=VALUES(depth),imageUrl=VALUES(imageUrl),configJson=VALUES(configJson),note=VALUES(note)`,
-          [aef.id, ref.cabinetId, geometry.width.toFixed(2), geometry.height.toFixed(2), geometry.depth.toFixed(2), IMAGES[familyFor(code)], JSON.stringify(config), "AEF V8.2 printed geometry, source image, and face layout; shared master unchanged."],
+          [aef.id, ref.cabinetId, geometry.width.toFixed(3), geometry.height.toFixed(3), geometry.depth.toFixed(3), IMAGES[familyFor(code)], JSON.stringify(config), "AEF V8.2 printed geometry, source image, and face layout; shared master unchanged."],
         );
       }
       // Masters used only by AEF may be turned on; shared framed masters are never modified.

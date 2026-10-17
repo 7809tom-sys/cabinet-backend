@@ -134,6 +134,46 @@ describe("master Cabinet Config refresh", () => {
     });
   });
 
+  it("preserves a source-defined AEF two-door oven face and fixed appliance type on refresh", () => {
+    const stale = [{
+      ...placed[0],
+      cabinetId: 540084,
+      masterCode: "TOS2DB3084",
+      placement: "tall",
+      numberOfDoors: 1,
+      numberOfDrawers: 2,
+      doorsPerRow: 1,
+      doorOrientation: "stacked" as const,
+      ovenType: null,
+      sourceOvenDrawerLayout: null,
+    }];
+    const refreshed = refreshPlacedCabinetsFromMasterRules(stale, [{
+      cabinetId: 540084,
+      numberOfDoors: 2,
+      numberOfDrawers: 2,
+      doorsPerRow: 2,
+      doorOrientation: "side-by-side",
+      openingType: "middle",
+      ovenType: "single",
+      sourceOvenDrawerLayout: true,
+      drawerLayout: JSON.stringify([{ count: 1 }, { count: 1 }]),
+    }]);
+
+    expect(refreshed[0]).toMatchObject({
+      masterCode: "TOS2DB3084",
+      x: 0,
+      y: 0,
+      numberOfDoors: 2,
+      numberOfDrawers: 2,
+      doorsPerRow: 2,
+      doorOrientation: "side-by-side",
+      openingType: "middle",
+      ovenType: "single",
+      sourceOvenDrawerLayout: true,
+      drawerLayout: JSON.stringify([{ count: 1 }, { count: 1 }]),
+    });
+  });
+
   it("upgrades a stale saved BBC-36 to its authoritative dimensions and measured blind-corner face", () => {
     const stale = [{
       uid: "bbc-stale",

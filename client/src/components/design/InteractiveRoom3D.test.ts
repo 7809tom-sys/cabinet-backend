@@ -3819,6 +3819,50 @@ describe("interactive 3D room scene helpers", () => {
     expect(meshMarkers).toEqual({ ovenCabinetDoor: 2, ovenCabinetDrawer: 1, ovenOpening: 1, ovenApplianceDoor: 2, ovenGlassDoor: 2, ovenDoorHandle: 2 });
   });
 
+  it("renders AEF refrigerator-wall and source oven faces with one selected pull per cabinet front", () => {
+    const count = (root: THREE.Group, predicate: (node: THREE.Object3D) => boolean) => {
+      const nodes: THREE.Object3D[] = [];
+      root.traverse((node) => { if (predicate(node)) nodes.push(node); });
+      return nodes.length;
+    };
+    const barPull = (node: THREE.Object3D, kind: "door" | "drawer") =>
+      node.userData.cabinetHardware && node.userData.cabinetPull === kind && node.userData.hardwareStyleId === "bar-pull";
+
+    const refrigeratorWall = new THREE.Group();
+    addCabinetWithBarPulls(refrigeratorWall, {
+      distributorSkuId: 361224, cabinetId: 361224, masterCode: "W361224", description: "36-inch refrigerator wall cabinet",
+      placementType: "wall", width: 36, height: 12.625, depth: 24, mountBottom: 72,
+      numberOfDoors: 2, numberOfDrawers: 0,
+    } as never, null, {}, 144, 120, "#d1ba8f", "#ffffff", { doorStyle: "Shaker", doorPanelType: null });
+    expect(count(refrigeratorWall, (node) => node instanceof THREE.Mesh && node.userData.cabinetFront && !node.userData.cabinetDrawerFront)).toBe(2);
+    expect(count(refrigeratorWall, (node) => node.userData.wallCabinetDoorSeam)).toBe(1);
+    expect(count(refrigeratorWall, (node) => barPull(node, "door"))).toBe(2);
+
+    const singleOven = new THREE.Group();
+    addCabinetWithBarPulls(singleOven, {
+      distributorSkuId: 1, cabinetId: 1, masterCode: "TOS2DB3084", description: "30-inch tall single oven cabinet",
+      placementType: "tall", width: 30, height: 84, depth: 24, numberOfDoors: 2, numberOfDrawers: 2,
+      openingType: "middle", ovenType: "single", sourceOvenDrawerLayout: true, drawerLayout: JSON.stringify([{ count: 1 }, { count: 1 }]),
+    } as never, null, {}, 144, 120, "#d1ba8f", "#ffffff", { doorStyle: "Shaker", doorPanelType: null });
+    expect(count(singleOven, (node) => node.userData.ovenCabinetDoor)).toBe(2);
+    expect(count(singleOven, (node) => node.userData.ovenCabinetDrawer)).toBe(2);
+    expect(count(singleOven, (node) => node.userData.ovenCabinetApplianceDoor)).toBe(1);
+    expect(count(singleOven, (node) => barPull(node, "door"))).toBe(2);
+    expect(count(singleOven, (node) => barPull(node, "drawer"))).toBe(2);
+
+    const doubleOven = new THREE.Group();
+    addCabinetWithBarPulls(doubleOven, {
+      distributorSkuId: 2, cabinetId: 2, masterCode: "TOD3084", description: "30-inch tall double oven cabinet",
+      placementType: "tall", width: 30, height: 84, depth: 24, numberOfDoors: 2, numberOfDrawers: 1,
+      openingType: "middle", ovenType: "double", sourceOvenDrawerLayout: true, drawerLayout: JSON.stringify([{ count: 1 }]),
+    } as never, null, {}, 144, 120, "#d1ba8f", "#ffffff", { doorStyle: "Shaker", doorPanelType: null });
+    expect(count(doubleOven, (node) => node.userData.ovenCabinetDoor)).toBe(2);
+    expect(count(doubleOven, (node) => node.userData.ovenCabinetDrawer)).toBe(1);
+    expect(count(doubleOven, (node) => node.userData.ovenCabinetApplianceDoor)).toBe(2);
+    expect(count(doubleOven, (node) => barPull(node, "door"))).toBe(2);
+    expect(count(doubleOven, (node) => barPull(node, "drawer"))).toBe(1);
+  });
+
   it("normalizes the retired top-center override for saved Island mode and 4½-inch floor wall cabinets", () => {
     const floorWall = existingCabinetSku({
       uid: "floor-wall", cabinetId: 1, masterCode: "W1830", description: "Floor wall",

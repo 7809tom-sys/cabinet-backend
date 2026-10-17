@@ -5985,6 +5985,9 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	        rotation: spot.rotation,
 	        numberOfDoors: c.numberOfDoors,
 	        numberOfDrawers: c.numberOfDrawers,
+	        doorsPerRow: c.doorsPerRow ?? null,
+	        ovenType: c.ovenType ?? null,
+	        sourceOvenDrawerLayout: c.sourceOvenDrawerLayout ?? null,
 	        catalogImageUrl: c.catalogImageUrl ?? null,
         ...(spot.wallId ? { wallId: spot.wallId, wallOffset: spot.wallOffset ?? 0 } : {}),
         ...(spot.peninsulaSide ? { peninsulaSide: spot.peninsulaSide } : {}),
@@ -6617,7 +6620,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         setFridgeDialog({ fridgeUid: finalCab.uid });
       }
       // Oven tall cabinet dialog
-      if (cabinetDrawingType(finalCab) === "oven-tall") {
+      if (cabinetDrawingType(finalCab) === "oven-tall" && !finalCab.ovenType) {
         setOvenDialog({ cabinetUid: finalCab.uid });
         // Close the mobile catalog sheet so it doesn't intercept dialog touch events
         setMobilePanel(null);

@@ -3484,12 +3484,15 @@
       "3776"
     ],
     "configuration": {
-      "doors": 1,
+      "doors": 2,
       "drawers": 2,
       "graphic": "tall_single_oven_2drawer",
       "openingType": "middle",
       "productType": "specialty",
-      "doorOrientation": "stacked"
+      "doorOrientation": "side-by-side",
+      "ovenType": "single",
+      "sourceOvenDrawerLayout": true,
+      "drawerLayout": [{ "count": 1 }, { "count": 1 }]
     },
     "width": 30,
     "height": 84,
@@ -3515,12 +3518,15 @@
       "3948"
     ],
     "configuration": {
-      "doors": 1,
+      "doors": 2,
       "drawers": 2,
       "graphic": "tall_single_oven_2drawer",
       "openingType": "middle",
       "productType": "specialty",
-      "doorOrientation": "stacked"
+      "doorOrientation": "side-by-side",
+      "ovenType": "single",
+      "sourceOvenDrawerLayout": true,
+      "drawerLayout": [{ "count": 1 }, { "count": 1 }]
     },
     "width": 30,
     "height": 89,
@@ -3546,12 +3552,15 @@
       "4409"
     ],
     "configuration": {
-      "doors": 1,
+      "doors": 2,
       "drawers": 2,
       "graphic": "tall_single_oven_2drawer",
       "openingType": "middle",
       "productType": "specialty",
-      "doorOrientation": "stacked"
+      "doorOrientation": "side-by-side",
+      "ovenType": "single",
+      "sourceOvenDrawerLayout": true,
+      "drawerLayout": [{ "count": 1 }, { "count": 1 }]
     },
     "width": 30,
     "height": 94,
@@ -3577,12 +3586,15 @@
       "4153"
     ],
     "configuration": {
-      "doors": 1,
+      "doors": 2,
       "drawers": 2,
       "graphic": "tall_single_oven_2drawer",
       "openingType": "middle",
       "productType": "specialty",
-      "doorOrientation": "stacked"
+      "doorOrientation": "side-by-side",
+      "ovenType": "single",
+      "sourceOvenDrawerLayout": true,
+      "drawerLayout": [{ "count": 1 }, { "count": 1 }]
     },
     "width": 30,
     "height": 84,
@@ -3608,12 +3620,15 @@
       "4325"
     ],
     "configuration": {
-      "doors": 1,
+      "doors": 2,
       "drawers": 2,
       "graphic": "tall_single_oven_2drawer",
       "openingType": "middle",
       "productType": "specialty",
-      "doorOrientation": "stacked"
+      "doorOrientation": "side-by-side",
+      "ovenType": "single",
+      "sourceOvenDrawerLayout": true,
+      "drawerLayout": [{ "count": 1 }, { "count": 1 }]
     },
     "width": 30,
     "height": 89,
@@ -3639,12 +3654,15 @@
       "4786"
     ],
     "configuration": {
-      "doors": 1,
+      "doors": 2,
       "drawers": 2,
       "graphic": "tall_single_oven_2drawer",
       "openingType": "middle",
       "productType": "specialty",
-      "doorOrientation": "stacked"
+      "doorOrientation": "side-by-side",
+      "ovenType": "single",
+      "sourceOvenDrawerLayout": true,
+      "drawerLayout": [{ "count": 1 }, { "count": 1 }]
     },
     "width": 30,
     "height": 94,
@@ -3670,12 +3688,15 @@
       "4077"
     ],
     "configuration": {
-      "doors": 1,
+      "doors": 2,
       "drawers": 3,
       "graphic": "tall_single_oven_3drawer",
       "openingType": "middle",
       "productType": "specialty",
-      "doorOrientation": "stacked"
+      "doorOrientation": "side-by-side",
+      "ovenType": "single",
+      "sourceOvenDrawerLayout": true,
+      "drawerLayout": [{ "count": 1 }, { "count": 1 }, { "count": 1 }]
     },
     "width": 30,
     "height": 84,
@@ -3701,12 +3722,15 @@
       "4249"
     ],
     "configuration": {
-      "doors": 1,
+      "doors": 2,
       "drawers": 3,
       "graphic": "tall_single_oven_3drawer",
       "openingType": "middle",
       "productType": "specialty",
-      "doorOrientation": "stacked"
+      "doorOrientation": "side-by-side",
+      "ovenType": "single",
+      "sourceOvenDrawerLayout": true,
+      "drawerLayout": [{ "count": 1 }, { "count": 1 }, { "count": 1 }]
     },
     "width": 30,
     "height": 89,
@@ -3732,12 +3756,15 @@
       "4710"
     ],
     "configuration": {
-      "doors": 1,
+      "doors": 2,
       "drawers": 3,
       "graphic": "tall_single_oven_3drawer",
       "openingType": "middle",
       "productType": "specialty",
-      "doorOrientation": "stacked"
+      "doorOrientation": "side-by-side",
+      "ovenType": "single",
+      "sourceOvenDrawerLayout": true,
+      "drawerLayout": [{ "count": 1 }, { "count": 1 }, { "count": 1 }]
     },
     "width": 30,
     "height": 94,
@@ -3763,12 +3790,15 @@
       "2984"
     ],
     "configuration": {
-      "doors": 1,
+      "doors": 2,
       "drawers": 1,
       "graphic": "tall_double_oven_1drawer",
       "openingType": "middle",
       "productType": "specialty",
-      "doorOrientation": "stacked"
+      "doorOrientation": "side-by-side",
+      "ovenType": "double",
+      "sourceOvenDrawerLayout": true,
+      "drawerLayout": [{ "count": 1 }]
     },
     "width": 30,
     "height": 84,
@@ -3794,12 +3824,15 @@
       "3156"
     ],
     "configuration": {
-      "doors": 1,
+      "doors": 2,
       "drawers": 1,
       "graphic": "tall_double_oven_1drawer",
       "openingType": "middle",
       "productType": "specialty",
-      "doorOrientation": "stacked"
+      "doorOrientation": "side-by-side",
+      "ovenType": "double",
+      "sourceOvenDrawerLayout": true,
+      "drawerLayout": [{ "count": 1 }]
     },
     "width": 30,
     "height": 89,
@@ -3825,12 +3858,15 @@
       "3617"
     ],
     "configuration": {
-      "doors": 1,
+      "doors": 2,
       "drawers": 1,
       "graphic": "tall_double_oven_1drawer",
       "openingType": "middle",
       "productType": "specialty",
-      "doorOrientation": "stacked"
+      "doorOrientation": "side-by-side",
+      "ovenType": "double",
+      "sourceOvenDrawerLayout": true,
+      "drawerLayout": [{ "count": 1 }]
     },
     "width": 30,
     "height": 94,

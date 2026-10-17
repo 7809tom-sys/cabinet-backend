@@ -198,6 +198,8 @@ type SceneSku = {
   drawerLayout?: string | null;
   layoutSpec?: string | null;
   ovenType?: "single" | "double" | null;
+  /** A distributor source record has verified that its drawer rows are exterior faces. */
+  sourceOvenDrawerLayout?: boolean | null;
   graphicType?: string | null;
   customProfile?: string | null;
   facePattern?: "slats" | "criss-cross" | "lattice" | "open" | null;
@@ -2502,6 +2504,7 @@ export function resolvedThreeDOvenLayout(input: {
   drawerLayout?: string | null;
   openingType?: string | null;
   ovenType?: "single" | "double" | null;
+  sourceOvenDrawerLayout?: boolean | null;
 }) {
   const totalHeight = numberValue(input.height, 84) * INCH;
   const usableHeight = Math.max(0.2, totalHeight - 0.08);
@@ -2514,11 +2517,14 @@ export function resolvedThreeDOvenLayout(input: {
   const doorCount = enforcedDoorCount ?? (input.numberOfDoors != null && input.numberOfDoors > 0
     ? input.numberOfDoors
     : described.doorCount ?? (input.numberOfDoors === 0 ? 0 : 2));
-  // The existing 2D oven cabinet contract is authoritative: a single oven
-  // carries three bottom drawers, while a double oven carries one. Explicit
-  // saved `ovenType` therefore corrects stale catalog drawer counts instead of
-  // letting an old supplier row change the visible enclosure in 3D.
-  const enforcedDrawerCount = input.ovenType === "single" ? 3 : input.ovenType === "double" ? 1 : null;
+  // Generic legacy oven towers retain their established one-/three-drawer
+  // fallback. Only an explicit distributor source marker can authorize a
+  // supplied row layout to replace it; a stale generic saved drawerLayout must
+  // not silently change a non-AEF tower's established visible face.
+  const hasSourceDrawerLayout = input.sourceOvenDrawerLayout === true && Boolean(input.drawerLayout?.trim());
+  const enforcedDrawerCount = hasSourceDrawerLayout
+    ? null
+    : input.ovenType === "single" ? 3 : input.ovenType === "double" ? 1 : null;
   const drawerCount = enforcedDrawerCount ?? (
     input.numberOfDrawers != null && input.numberOfDrawers > 0
       ? input.numberOfDrawers
@@ -5092,6 +5098,7 @@ export function addCabinet(
       drawerLayout: sku.drawerLayout,
       openingType: sku.openingType,
       ovenType: sku.ovenType,
+      sourceOvenDrawerLayout: sku.sourceOvenDrawerLayout,
     });
     const applianceMaterial = new THREE.MeshStandardMaterial({ color: "#c7cbd0", roughness: 0.24, metalness: 0.62 });
     const glassMaterial = new THREE.MeshStandardMaterial({ color: "#1f2933", roughness: 0.18, metalness: 0.35 });
@@ -9190,6 +9197,7 @@ export function existingCabinetSku(cabinet: PlacedCabinet, room?: RoomData): Sce
     drawerLayout: cabinet.drawerLayout ?? null,
     layoutSpec: cabinet.layoutSpec ?? null,
     ovenType: cabinet.ovenType ?? null,
+    sourceOvenDrawerLayout: cabinet.sourceOvenDrawerLayout ?? null,
     graphicType: cabinet.customProfile ?? null,
     customProfile: cabinet.customProfile ?? null,
     facePattern: cabinet.facePattern ?? null,

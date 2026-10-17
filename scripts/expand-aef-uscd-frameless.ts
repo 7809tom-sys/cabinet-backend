@@ -32,6 +32,11 @@ type SourceConfig = {
   cornerType?: "blind-corner" | "l-shape";
   doorOrientation?: "side-by-side" | "stacked";
   openingType?: "top" | "middle" | "bottom";
+  ovenType?: "single" | "double";
+  /** Explicit exterior drawer rows for a source-configured oven cabinet. */
+  drawerLayout?: Array<{ count: number; height?: number }>;
+  /** Allows a verified AEF exterior drawer layout to replace generic oven defaults. */
+  sourceOvenDrawerLayout?: boolean;
 };
 
 type SourceRow = {
@@ -203,6 +208,9 @@ function configFor(row: SourceRow): Record<string, unknown> {
     isCornerCabinet: config.isCorner ?? false,
     cornerType: config.cornerType ?? null,
     openingType: config.openingType ?? null,
+    ...(config.ovenType ? { ovenType: config.ovenType } : {}),
+    ...(config.drawerLayout ? { drawerLayout: JSON.stringify(config.drawerLayout) } : {}),
+    ...(config.sourceOvenDrawerLayout ? { sourceOvenDrawerLayout: true } : {}),
     layoutSpec: `${row.description}; AltaEuro / U.S. Cabinet Depot Frameless Collection Full Spec Book V8.2, p. ${row.sourcePage}.`,
     specImageUrl: imageFor(row),
     specNotes: `Printed V8.2 source geometry and face layout. ${geometry ? `${geometry.width}\" W × ${geometry.height}\" H × ${geometry.depth}\" D; ` : ""}source p. ${row.sourcePage}.`,

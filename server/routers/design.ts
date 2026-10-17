@@ -429,6 +429,12 @@ export const designRouter = router({
         // also present through another style or the excluded SCL style.
         const next = {
           ...master,
+          // Oven type is line-scoped rather than a shared-master attribute.
+          // The selected distributor's validated config supplies it when known.
+          ovenType: null as "single" | "double" | null,
+          // Only a source-specific distributor configuration may authorize its
+          // oven drawer rows over generic single/double fallback defaults.
+          sourceOvenDrawerLayout: null as boolean | null,
           ...(aefGeometry
             ? {
                 width: aefGeometry.width.toFixed(2),

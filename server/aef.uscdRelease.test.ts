@@ -2,10 +2,11 @@ import fs from "node:fs";
 import path from "node:path";
 import { and, eq, inArray } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
-import { cabinets, distributorSkus, distributors, doorStyles } from "../drizzle/schema";
+import { cabinets, distributorCabinetOverrides, distributorSkus, distributors, doorStyles } from "../drizzle/schema";
 import { getDb } from "./db";
 import { appRouter } from "./routers";
 import { AEF_EXPANDED_SOURCE_GEOMETRY } from "../shared/aefFramelessExpandedGeometry";
+import { aefPrintedGeometryForSku } from "../shared/aefFramelessGeometry";
 
 type SourceRow = {
   sku: string;
@@ -32,6 +33,16 @@ const SOURCE_COLUMN_BY_STYLE: Record<string, number> = {
 
 const sourcePrice = (value: string) => Number(value.replace(/[$,]/g, ""));
 const landedCost = (price: number) => Math.round(Math.round(price * 0.23 * 100) / 100 * 1.07 * 100) / 100;
+const AEF_REFRIGERATOR_WALL_CODES = [
+  "W301224", "W331224", "W361224", "W361524",
+  "W241824", "W301824", "W331824", "W361824",
+  "W242324", "W302324", "W332324", "W362324",
+] as const;
+const AEF_OVEN_FACE_EXPECTATIONS = [
+  ...["TOS2DB", "TOS2DBID"].flatMap((family) => ["84", "89", "94"].map((height) => ({ code: `${family}30${height}`, drawers: 2, ovenType: "single" as const }))),
+  ...["TOS3DB"].flatMap((family) => ["84", "89", "94"].map((height) => ({ code: `${family}30${height}`, drawers: 3, ovenType: "single" as const }))),
+  ...["TOD"].flatMap((family) => ["84", "89", "94"].map((height) => ({ code: `${family}30${height}`, drawers: 1, ovenType: "double" as const }))),
+] as const;
 
 describe("AEF USCD Frameless release integrity", () => {
   it("uses the active USCD multiplier and the current homeowner tier for source list prices", async () => {
@@ -72,6 +83,60 @@ describe("AEF USCD Frameless release integrity", () => {
       expect.objectContaining({ masterCode: "W3012", width: "30.000", height: "12.000", depth: "12.000" }),
       expect.objectContaining({ masterCode: "W3030", width: "30.000", height: "30.000", depth: "12.000" }),
     ]));
+  });
+
+  it("keeps refrigerator-wall and oven face facts in AEF overrides, not shared masters", async () => {
+    const db = await getDb();
+    if (!db) return;
+    const [aef] = await db.select().from(distributors).where(eq(distributors.code, "AEF")).limit(1);
+    const codes = [...AEF_REFRIGERATOR_WALL_CODES, ...AEF_OVEN_FACE_EXPECTATIONS.map((item) => item.code)];
+    const rows = await db
+      .select({
+        code: cabinets.masterCode,
+        overrideWidth: distributorCabinetOverrides.width,
+        overrideHeight: distributorCabinetOverrides.height,
+        overrideDepth: distributorCabinetOverrides.depth,
+        configJson: distributorCabinetOverrides.configJson,
+      })
+      .from(distributorCabinetOverrides)
+      .innerJoin(cabinets, eq(cabinets.id, distributorCabinetOverrides.cabinetId))
+      .where(and(eq(distributorCabinetOverrides.distributorId, aef!.id), inArray(cabinets.masterCode, codes)));
+    expect(rows).toHaveLength(24);
+    const byCode = new Map(rows.map((row) => [row.code, {
+      ...row,
+      config: JSON.parse(row.configJson ?? "{}") as Record<string, unknown>,
+    }]));
+
+    for (const code of AEF_REFRIGERATOR_WALL_CODES) {
+      const geometry = aefPrintedGeometryForSku(code)!;
+      const row = byCode.get(code);
+      expect(row).toMatchObject({
+        overrideWidth: geometry.width.toFixed(3),
+        overrideHeight: geometry.height.toFixed(3),
+        overrideDepth: geometry.depth.toFixed(3),
+        config: {
+          numberOfDoors: 2,
+          numberOfDrawers: 0,
+          doorsPerRow: 2,
+          doorOrientation: "side-by-side",
+          graphicType: "wall_2door",
+        },
+      });
+    }
+    for (const { code, drawers, ovenType } of AEF_OVEN_FACE_EXPECTATIONS) {
+      expect(byCode.get(code)?.config).toMatchObject({
+        numberOfDoors: 2,
+        numberOfDrawers: drawers,
+        doorsPerRow: 2,
+        doorOrientation: "side-by-side",
+        openingType: "middle",
+        ovenType,
+        sourceOvenDrawerLayout: true,
+      });
+      expect(JSON.parse(String(byCode.get(code)?.config.drawerLayout))).toEqual(
+        Array.from({ length: drawers }, () => ({ count: 1 })),
+      );
+    }
   });
 
   it("publishes every complete-line source cabinet with its printed geometry and all seven finish prices", async () => {

@@ -36,6 +36,10 @@ export const distributorCabinetConfigSchema = z
     openingWidth: z.number().positive().nullable(),
     openingHeight: z.number().positive().nullable(),
     openingType: z.enum(["top", "middle", "bottom"]).nullable(),
+    /** Source-specific appliance configuration for an oven tower. */
+    ovenType: z.enum(["single", "double"]).nullable(),
+    /** Verified source layout permits its exterior drawer rows to replace a generic oven fallback. */
+    sourceOvenDrawerLayout: z.boolean().nullable(),
     doorHeight: z.number().positive().nullable(),
     drawerHeight: z.number().positive().nullable(),
     cornerType: z.enum(["lazy-susan", "blind-corner", "diagonal", "pie-cut", "l-shape", "triangle"]).nullable(),

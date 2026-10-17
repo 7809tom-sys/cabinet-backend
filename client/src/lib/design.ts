@@ -644,7 +644,13 @@ export interface DesignCabinet {
   openingType?: "top" | "middle" | "bottom" | null;
   doorHeight?: number | null;
   drawerHeight?: number | null;
+  /** Explicit count of side-by-side door leaves in a source-configured row. */
+  doorsPerRow?: number | null;
   doorOrientation?: "side-by-side" | "stacked" | null;
+  /** Source-defined oven configuration when the selected catalog tower has no user choice. */
+  ovenType?: "single" | "double" | null;
+  /** Only an explicit distributor source record may replace generic oven drawer defaults. */
+  sourceOvenDrawerLayout?: boolean | null;
   layoutSpec?: string | null;
   drawerLayout?: string | null;
 	  customProfile?: string | null;
@@ -928,6 +934,11 @@ export interface PlacedCabinet {
   drawerHeight?: number | null;
   // Door orientation: 'side-by-side' or 'stacked'. Drives elevation layout.
   doorOrientation?: "side-by-side" | "stacked" | null;
+  // Explicit source leaf count per door row. Retained with the placement so
+  // line-specific face configurations do not fall back to shared-master rules.
+  doorsPerRow?: number | null;
+  /** True only for a distributor source record with a verified oven drawer layout. */
+  sourceOvenDrawerLayout?: boolean | null;
   // Sink base top type: what sits on top of this sink base cabinet.
   // 'sink' = a sink fixture (default); 'gas' | 'electric' | 'smooth-top' = range top type.
   // When a range top is chosen, no sink fixture is added and the elevation
@@ -999,7 +1010,10 @@ export type MasterCabinetDrawingRefresh = {
   openingHeight?: number | null;
   doorHeight?: number | null;
   drawerHeight?: number | null;
+  doorsPerRow?: number | null;
   doorOrientation?: "side-by-side" | "stacked" | null;
+  ovenType?: "single" | "double" | null;
+  sourceOvenDrawerLayout?: boolean | null;
   layoutSpec?: string | null;
   drawerLayout?: string | null;
   customProfile?: string | null;
@@ -1045,7 +1059,10 @@ export function refreshPlacedCabinetsFromMasterConfig(
       ...(master.openingHeight !== undefined ? { openingHeight: master.openingHeight } : {}),
       ...(master.doorHeight !== undefined ? { doorHeight: master.doorHeight } : {}),
       ...(master.drawerHeight !== undefined ? { drawerHeight: master.drawerHeight } : {}),
+      ...(master.doorsPerRow !== undefined ? { doorsPerRow: master.doorsPerRow } : {}),
       ...(master.doorOrientation !== undefined ? { doorOrientation: master.doorOrientation } : {}),
+      ...(master.ovenType !== undefined ? { ovenType: master.ovenType } : {}),
+      ...(master.sourceOvenDrawerLayout !== undefined ? { sourceOvenDrawerLayout: master.sourceOvenDrawerLayout } : {}),
       ...(master.layoutSpec !== undefined ? { layoutSpec: master.layoutSpec } : {}),
       ...(master.drawerLayout !== undefined ? { drawerLayout: master.drawerLayout } : {}),
       ...(master.customProfile !== undefined ? { customProfile: master.customProfile } : {}),
@@ -1090,7 +1107,10 @@ export function refreshPlacedCabinetsFromMasterRules(
 	      next.openingWidth !== cabinet.openingWidth ||
       next.doorHeight !== cabinet.doorHeight ||
       next.drawerHeight !== cabinet.drawerHeight ||
+      next.doorsPerRow !== cabinet.doorsPerRow ||
       next.doorOrientation !== cabinet.doorOrientation ||
+      next.ovenType !== cabinet.ovenType ||
+      next.sourceOvenDrawerLayout !== cabinet.sourceOvenDrawerLayout ||
       next.layoutSpec !== cabinet.layoutSpec ||
 	      next.drawerLayout !== cabinet.drawerLayout ||
 	      next.facePattern !== cabinet.facePattern ||
