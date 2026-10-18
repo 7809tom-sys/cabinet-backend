@@ -178,6 +178,7 @@ import { CabinetHandlesControl, DEFAULT_DESIGNER_HARDWARE_STYLE_ID } from "@/com
 import { HardwareCatalogPicker } from "@/components/design/HardwareCatalogPicker";
 import { isPanelPaletteItem } from "./designToolPanels";
 import { normalizePaletteSearch, matchesPaletteSearch } from "@/lib/paletteSearch";
+import { canRunFourAnchorAutoBuild, planFourAnchorAutoBuild, type FourAnchorInputs } from "@/lib/fourAnchorAutoBuild";
 import { buildGlassCornerCatalogChoices } from "@/lib/glassCornerCatalog";
 import {
   closetPaletteByCategory, closetPartPrice, isClosetPart,
@@ -203,6 +204,7 @@ import { CornerView, type CornerId } from "@/components/design/CornerView";
 import { IslandElevationView } from "@/components/design/IslandElevationView";
 import { CsvImportDialog } from "@/components/design/CsvImportDialog";
 import { PlanImageImportDialog, type ReviewedPlan } from "@/components/design/PlanImageImportDialog";
+import { FourAnchorAutoBuildDialog } from "@/components/design/FourAnchorAutoBuildDialog";
 import { findClosestPlanCabinet } from "@/lib/planImportMapper";
 import { EmailGate, type LeadContact } from "@/components/design/EmailGate";
 import { OptionalContactNudge } from "@/components/design/OptionalContactNudge";
@@ -914,6 +916,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	    islandPlacementModeRef.current = islandPlacementMode;
 	  }, [islandFace, islandPlacementMode]);
   const [islandAttributesOpen, setIslandAttributesOpen] = useState(false);
+  const [fourAnchorAutoBuildOpen, setFourAnchorAutoBuildOpen] = useState(false);
   const [islandSeatingOverhangPrompt, setIslandSeatingOverhangPrompt] = useState<{
     cabinetCode: string;
     face: IslandFace;
@@ -2977,6 +2980,72 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     },
     [roomType]
   );
+  const buildFourAnchorAutoLayout = useCallback((input: FourAnchorInputs) => {
+    if (!canRunFourAnchorAutoBuild(isAdmin, placedRef.current.length > 0)) {
+      toast.error("The four-anchor build is admin-only and only runs on an empty Designer.");
+      return;
+    }
+    const result = planFourAnchorAutoBuild(input);
+    if (!result.ok) {
+      toast.error(`Missing required measurement: ${result.missing.join(", ")}.`);
+      return;
+    }
+    const applianceByKind: Record<string, DesignCabinet | undefined> = {
+      sink: appliancePalette.find((item) => item.masterCode === "SINK-33"),
+      stove: appliancePalette.find((item) => item.masterCode === "RANGE-30"),
+      dishwasher: appliancePalette.find((item) => item.masterCode === "DW-24"),
+      refrigerator: appliancePalette.find((item) => item.masterCode === "FRIDGE-36"),
+    };
+    if (Object.values(applianceByKind).some((item) => !item)) {
+      toast.error("The kitchen appliance palette is still loading. Try the admin build again in a moment.");
+      return;
+    }
+    const baseSource = ((autoFillCabinets as DesignCabinet[] | undefined) ?? [])
+      .find((item) => item.placement === "base" && !isSinkBaseCabinet(item) && !isCornerCabinet(item.masterCode, item.description) && Math.abs(dim(item.width, 0) - 24) < 0.1)
+      ?? ((autoFillCabinets as DesignCabinet[] | undefined) ?? []).find((item) => item.placement === "base" && !isSinkBaseCabinet(item));
+    if (!baseSource) {
+      toast.error("No source-priced standard base cabinet is available for the selected line.");
+      return;
+    }
+    const orientedCenter = (center: number) => input.originCorner === "left" ? center : room.width - center;
+    const anchorPlacements: PlacedCabinet[] = result.plan.anchors.map((anchor) => {
+      const source = applianceByKind[anchor.kind]!;
+      const width = dim(source.width, 24);
+      const depth = dim(source.depth, STD.BASE_DEPTH);
+      const height = dim(source.height, standardHeight("appliance"));
+      const centerX = Math.max(width / 2, Math.min(room.width - width / 2, orientedCenter(anchor.x)));
+      return {
+        uid: makeUid(), cabinetId: source.id, masterCode: source.masterCode, description: source.description,
+        category: source.category, subCategory: source.subCategory, placement: "appliance", applianceRole: "base-height",
+        x: centerX - width / 2, y: room.depth - depth, width, depth, height, rotation: 0,
+        mountBottom: source.mountBottom ?? 0, catalogImageUrl: source.catalogImageUrl ?? null,
+        numberOfDoors: source.numberOfDoors, numberOfDrawers: source.numberOfDrawers, styleId: styleIdRef.current ?? null,
+      };
+    });
+    const occupied = anchorPlacements.map((item) => ({ start: item.x, end: item.x + item.width }));
+    const surrounding: PlacedCabinet[] = [];
+    const source = baseSource;
+    const width = dim(source.width, 24);
+    for (let start = 0; start + width <= room.width + 0.001; start += width) {
+      const overlapsAnchor = occupied.some((span) => start < span.end - 0.01 && start + width > span.start + 0.01);
+      if (overlapsAnchor) continue;
+      surrounding.push({
+        uid: makeUid(), cabinetId: source.id, masterCode: source.masterCode, description: source.description,
+        category: source.category, subCategory: source.subCategory, placement: "base", x: start, y: room.depth - STD.BASE_DEPTH,
+        width, depth: dim(source.depth, STD.BASE_DEPTH), height: dim(source.height, standardHeight("base")), rotation: 0,
+        catalogImageUrl: source.catalogImageUrl ?? null, numberOfDoors: source.numberOfDoors, numberOfDrawers: source.numberOfDrawers,
+        styleId: styleIdRef.current ?? null,
+      });
+    }
+    const committed = [...surrounding, ...anchorPlacements];
+    placedRef.current = committed;
+    setPlaced(committed);
+    setCountertop(true);
+    setFourAnchorAutoBuildOpen(false);
+    setViewMode("threeD");
+    setSelectedUid(null);
+    toast.success(`Admin test kitchen built from four measured anchors with ${surrounding.length} surrounding ${source.masterCode} cabinets.`);
+  }, [appliancePalette, autoFillCabinets, isAdmin, isCornerCabinet, placedRef, room, setCountertop, setPlaced]);
   // A previous automatic microwave workflow could persist WSC30—the real
   // 30×6 spice cabinet—directly above an MW-30. Convert only that centered
   // legacy microwave assembly to the selected source W30 bridge; ordinary spice
@@ -12588,6 +12657,20 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         >
           <Wand2 className="h-3.5 w-3.5" /> <span className="designer-toolbar-full-label">{isTabletWorkspace ? "Peninsula" : "Peninsula Wizard"}</span><span aria-hidden="true" className="designer-toolbar-short-label">Peninsula</span>
         </Button>
+        {isAdmin && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="hidden lg:inline-flex shrink-0 border-[#d4a75a] text-[#765416] hover:bg-[#fff8e8]"
+            onClick={() => setFourAnchorAutoBuildOpen(true)}
+            disabled={placed.length > 0 || layoutLocked}
+            data-testid="admin-four-anchor-auto-build"
+            title={placed.length > 0 ? "Start this admin build from an empty Designer" : "Build a measured kitchen from four fixed fixture anchors"}
+            aria-label="Admin four-anchor auto-build"
+          >
+            <Ruler className="mr-1.5 h-3.5 w-3.5" /> Four anchors
+          </Button>
+        )}
         <Button
           variant="outline"
           size="sm"
@@ -17981,6 +18064,13 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         setFurniture((previous) => previous.map((current) => current.uid === item.uid ? item : current));
         toast.success("Planning zone updated. Pelican fixture dimensions are unchanged.");
       }} />
+	      {isAdmin && (
+	        <FourAnchorAutoBuildDialog
+	          open={fourAnchorAutoBuildOpen}
+	          onOpenChange={setFourAnchorAutoBuildOpen}
+	          onBuild={buildFourAnchorAutoLayout}
+	        />
+	      )}
 	      <SurfacesPickerDialog
 	        open={surfacesOpen}
 	        onOpenChange={setSurfacesOpen}
