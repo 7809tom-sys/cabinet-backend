@@ -12825,7 +12825,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       {/* Toolbar */}
       <div data-testid="designer-toolbar" data-tablet-workspace={isTabletWorkspace ? "true" : undefined} className={`designer-top-toolbar border-b border-border bg-card px-2 py-1 flex flex-wrap items-center gap-1 shrink-0 overflow-visible ${isTabletWorkspace ? `${isTabletPortrait ? "order-last border-b-0 border-t" : tabletImmersiveHeader ? "pl-16" : ""}` : ""}`} style={affiliateBrand ? { borderTop: `3px solid ${affiliateAccent}` } : undefined}>
         {/* Title + badge — desktop only */}
-        <div className={`${isCompactWorkspace ? "hidden" : "hidden lg:flex"} items-center gap-2`}>
+        <div className={`designer-toolbar-title ${isCompactWorkspace ? "hidden" : "hidden lg:flex"} items-center gap-2`}>
           {affiliateBrand ? (
             <div className="flex items-center gap-2 whitespace-nowrap">
               {affiliateBrand.logoUrl ? <img src={affiliateBrand.logoUrl} alt="" className="h-6 max-w-24 object-contain" /> : null}
@@ -12896,7 +12896,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
           affiliateSlug={affiliateSlug}
           compact={isTabletWorkspace}
         />
-        <label className="hidden items-center gap-1.5 rounded-md border border-border bg-background px-2 text-xs font-medium text-foreground lg:flex" title="Choose the visual scene shown through windows">
+        <label className="designer-toolbar-window-controls hidden items-center gap-1.5 rounded-md border border-border bg-background px-2 text-xs font-medium text-foreground lg:flex" title="Choose the visual scene shown through windows">
           <span className="text-muted-foreground">Window</span>
           <select
             value={windowFrameStyle}

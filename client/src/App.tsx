@@ -136,7 +136,7 @@ function CartWithLayout() {
   );
 }
 
-function AffiliateShell({ slug, children, fullHeight = false }: { slug: string; children?: React.ReactNode; fullHeight?: boolean }) {
+function AffiliateShell({ slug, children, fullHeight = false, hideAdminEditModeBar = false }: { slug: string; children?: React.ReactNode; fullHeight?: boolean; hideAdminEditModeBar?: boolean }) {
   const { data } = trpc.affiliates.bySlug.useQuery({ slug });
   const storeName = data?.storeName ?? "Store";
   const logoUrl = data?.logoUrl ?? null;
@@ -154,7 +154,7 @@ function AffiliateShell({ slug, children, fullHeight = false }: { slug: string; 
   });
   return (
     <div className={`flex flex-col ${fullHeight ? "h-[100dvh] overflow-hidden" : "min-h-screen"}`}>
-      <AdminEditModeBar />
+      {!hideAdminEditModeBar && <AdminEditModeBar />}
       <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur px-4 py-3 flex items-center justify-between" style={{ borderBottomColor: accentColor, borderBottomWidth: 2 }}>
         <a href={`/store/${slug}`} className="flex items-center gap-2">
           {logoUrl ? (
@@ -194,7 +194,7 @@ function DesignerRoute() {
   );
 
   if (affiliateSlug) {
-    return <AffiliateShell slug={affiliateSlug} fullHeight>{designer}</AffiliateShell>;
+    return <AffiliateShell slug={affiliateSlug} fullHeight hideAdminEditModeBar>{designer}</AffiliateShell>;
   }
 
   return (
@@ -356,7 +356,7 @@ export default function App() {
         <Route path="/store/:slug/design">
           {(params) => (
             <Suspense fallback={<PageLoader />}>
-              <AffiliateShell slug={params.slug} fullHeight>
+              <AffiliateShell slug={params.slug} fullHeight hideAdminEditModeBar>
                 <DesignTool affiliateSlug={params.slug} />
               </AffiliateShell>
             </Suspense>

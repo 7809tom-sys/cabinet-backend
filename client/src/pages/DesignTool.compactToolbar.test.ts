@@ -29,14 +29,22 @@ describe("compact Designer top toolbar", () => {
     expect(toolbar).toContain('onClick={() => setLayoutStarterOpen(true)}');
   });
 
+  it("uses a one-row compact desktop treatment before a common monitor toolbar begins to crowd the drawing", () => {
+    const css = readFileSync(new URL("./DesignTool.toolbar.css", import.meta.url), "utf8");
+    expect(css).toContain("@container (max-width: 2100px)");
+    expect(css).toContain("height: var(--designer-toolbar-control-height)");
+    expect(css).toContain("padding-inline: 5px");
+    expect(css).toContain("--designer-toolbar-control-height: 30px");
+    expect(css).toContain(".designer-toolbar-title");
+    expect(css).toContain("overflow-x: auto");
+  });
+
   it("scopes sizing to this toolbar and preserves tablet touch-target heights", () => {
     const css = readFileSync(new URL("./DesignTool.toolbar.css", import.meta.url), "utf8");
     expect(source).toContain('import "./DesignTool.toolbar.css";');
     expect(css).toContain("container-type: inline-size");
-    expect(css).toContain("@container (max-width: 1599px)");
     expect(css).toContain('.designer-top-toolbar[data-tablet-workspace="true"]');
     expect(css).toContain("min-height: 40px");
-    expect(css).not.toContain("overflow: hidden");
     expect(css).not.toContain("transform: scale");
   });
 });

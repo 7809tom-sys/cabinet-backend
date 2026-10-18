@@ -12,6 +12,62 @@
   display: none;
 }
 
+/* A 1920px workstation still has to share its width with the catalog and
+   materials panels. Keep the Designer's direct tools in one short rail before
+   it starts taking vertical drawing space. Tablet controls retain their own
+   40px touch target below. */
+@container (max-width: 2100px) {
+  .designer-top-toolbar:not([data-tablet-workspace="true"]) {
+    --designer-toolbar-control-height: 30px;
+    gap: 1px;
+    padding-block: 1px;
+    padding-inline: 4px;
+  }
+
+  .designer-top-toolbar:not([data-tablet-workspace="true"]) .designer-toolbar-title,
+  .designer-top-toolbar:not([data-tablet-workspace="true"]) .designer-toolbar-full-label {
+    display: none;
+  }
+
+  .designer-top-toolbar:not([data-tablet-workspace="true"]) .designer-toolbar-short-label {
+    display: inline;
+  }
+
+  .designer-top-toolbar:not([data-tablet-workspace="true"]) > button,
+  .designer-top-toolbar:not([data-tablet-workspace="true"]) > label,
+  .designer-top-toolbar:not([data-tablet-workspace="true"]) [data-testid="primary-floor-plan-3d-switch"] button,
+  .designer-top-toolbar:not([data-tablet-workspace="true"]) [data-testid="designer-handles-control"],
+  .designer-top-toolbar:not([data-tablet-workspace="true"]) [data-testid="designer-real-hardware-trigger"],
+  .designer-top-toolbar:not([data-tablet-workspace="true"]) .designer-toolbar-window-controls {
+    min-height: var(--designer-toolbar-control-height);
+    height: var(--designer-toolbar-control-height);
+    font-size: 10px;
+    padding-inline: 5px;
+  }
+
+  .designer-top-toolbar:not([data-tablet-workspace="true"]) [data-testid="designer-handles-control"] > span,
+  .designer-top-toolbar:not([data-tablet-workspace="true"]) .designer-toolbar-window-controls > span,
+  .designer-top-toolbar:not([data-tablet-workspace="true"]) [data-testid="designer-real-hardware-trigger"] .truncate {
+    display: none;
+  }
+
+  .designer-top-toolbar:not([data-tablet-workspace="true"]) [data-testid="designer-handles-select"] {
+    min-height: var(--designer-toolbar-control-height);
+    max-width: 5rem;
+    padding-inline: 0;
+  }
+
+  .designer-top-toolbar:not([data-tablet-workspace="true"]) .designer-toolbar-window-controls select {
+    max-width: 7.5rem;
+  }
+
+  .designer-top-toolbar:not([data-tablet-workspace="true"]) [data-testid="designer-real-hardware-trigger"] {
+    width: var(--designer-toolbar-control-height);
+    min-width: var(--designer-toolbar-control-height);
+    justify-content: center;
+  }
+}
+
 /* Compact the text and horizontal padding, not the tablet tap height. */
 @media (min-width: 1024px) {
   .designer-top-toolbar > button,
