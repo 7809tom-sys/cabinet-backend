@@ -48,6 +48,7 @@ import { designerCabinetReadinessBySku } from "../lib/designerCabinetReadiness";
 import { landedCostFromList, landedCostMultiplier } from "../lib/distributorCostMultiplier";
 import { loadAffiliateStorefrontPricing } from "../lib/affiliateStorefrontPricing";
 import { loadCodeEquivalenceGroups } from "../lib/codeEquivalenceLoader";
+import { framelessCatalogPresentation } from "../lib/framelessCatalogPresentation";
 
 // ─── Trim / accessory detection ──────────────────────────────────────────────
 // Mirrors the isAccessory() guard in design.ts so the Family page and the
@@ -1453,10 +1454,19 @@ export const cabinetsRouter = router({
           // the master while this selected supply line defines whether its
           // glass insert is included in the cabinet price.
           glassIncluded: distributors.glassIncluded,
+          distributorCode: distributors.code,
+          supplierDescription: distributorSkus.supplierDescription,
+          skuImageUrl: distributorSkus.imageUrl,
+          overrideImageUrl: distributorCabinetOverrides.imageUrl,
+          configJson: distributorCabinetOverrides.configJson,
         })
         .from(distributorSkus)
         .innerJoin(cabinets, eq(distributorSkus.cabinetId, cabinets.id))
         .innerJoin(distributors, eq(distributors.id, distributorSkus.distributorId))
+        .leftJoin(distributorCabinetOverrides, and(
+          eq(distributorCabinetOverrides.distributorId, distributorSkus.distributorId),
+          eq(distributorCabinetOverrides.cabinetId, distributorSkus.cabinetId),
+        ))
         .where(and(...sourceConds));
 
       const [aliases, masters] = await Promise.all([
@@ -1513,7 +1523,7 @@ export const cabinetsRouter = router({
       };
 
       const resolved = resolveCanonicalCatalogSources(sourceRows, aliases, masters)
-        .map(({ master }) => master);
+        .map(({ master, source }) => framelessCatalogPresentation(master, source));
       const allByCabinet = new Map<number, (typeof resolved)[number]>();
       for (const row of resolved) if (!allByCabinet.has(row.id)) allByCabinet.set(row.id, row);
 

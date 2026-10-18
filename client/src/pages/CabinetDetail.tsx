@@ -49,6 +49,8 @@ import { DoorDrawerDiagram } from "@/components/design/DoorDrawerDiagram";
 import { affiliateCabinetHref, affiliateCatalogRootHref, affiliateDesignerHref } from "@/lib/affiliateStorefrontRoute";
 import { affiliateSlugForStoreScope, resolveStoreScope } from "@/lib/affiliateContext";
 import { aefPrintedGeometryForSku } from "@shared/aefFramelessGeometry";
+import { catalogPublicCopy, publicTechnicalDrawingNote } from "@shared/catalogPublicDescription";
+import { aefProductDiagramCabinet } from "@shared/aefProductRenderPresentation";
 import {
   CABINET_ATTENTION_RETURN_URL,
   DESIGNER_COVERAGE_RETURN_URL,
@@ -104,17 +106,9 @@ const TIER_DESCRIPTION: Record<PricingTier, string> = {
   wholesale: "For licensed dealers & high-volume trade accounts",
 };
 
-/** Internal source/provenance notes never belong in customer-facing product copy. */
-export function publicTechnicalDrawingNote(value: string | null | undefined): string | null {
-  if (!value?.trim()) return null;
-  const cleaned = value
-    .replace(/^(?:printed\s+)?(?:v?\d+(?:\.\d+)?)?\s*source\s+(?:geometry\s+and\s+face\s+layout|configuration)[:.]\s*/i, "")
-    .replace(/\s*;?\s*source\s+p(?:age)?\.?\s*\d+(?:\s*[–-]\s*\d+)?\.?\s*$/i, "")
-    .replace(/\s*;?\s*(?:AltaEuro|U\.?S\.?\s*Cabinet\s*Depot|manufacturer|full\s+spec\s+book)\b.*$/i, "")
-    .trim()
-    .replace(/[.;]\s*$/, "");
-  return cleaned || null;
-}
+// Kept as a re-export while focused detail-page tests migrate to the shared
+// presentation helper. The original admin/source values remain untouched.
+export { publicTechnicalDrawingNote };
 // These codes are supplier/legacy references for the same physical cabinet.
 // Keep their links working after the catalog is consolidated under BA-24.
 export const LEGACY_CANONICAL_CABINET_CODES: Record<string, string> = {
@@ -471,6 +465,13 @@ export default function CabinetDetail({ masterCode }: Props) {
   // Frameless B24S). Use the selected line's product description without ever
   // changing the shared master description.
   const displayedDescription = selectedRow?.supplierDescription?.trim() || masterCabinet?.description || canonicalMasterCode;
+  // Supplier/master descriptions are retained as source records. Derive a
+  // source-free, compact public title and dimension-aware SEO description only
+  // for customer presentation; do not write either result back to the editor.
+  const publicProductCopy = useMemo(
+    () => catalogPublicCopy(displayedDescription, canonicalMasterCode),
+    [displayedDescription, canonicalMasterCode],
+  );
   const aefDetailGeometry = useMemo(
     () => selectedRow?.isFrameless && masterCabinet
       ? aefPrintedGeometryForSku(masterCabinet.masterCode)
@@ -509,7 +510,8 @@ export default function CabinetDetail({ masterCode }: Props) {
 
   const resolvedMasterCode = cabinet?.masterCode ?? canonicalMasterCode;
 
-  const seoName = translateSpec(displayedDescription, lang);
+  const seoName = translateSpec(publicProductCopy.title, lang);
+  const seoDescription = translateSpec(publicProductCopy.description, lang);
   // Product structured data (no Offer — cabinet pricing is tier/member-gated
   // and must not be published in markup). Memoized so the JSON-LD <script>
   // isn't re-injected on every render.
@@ -518,9 +520,9 @@ export default function CabinetDetail({ masterCode }: Props) {
       cabinet
         ? buildProductJsonLd({
             name: seoName,
-            description: translateSpec(displayedDescription, lang),
+            description: seoDescription,
             sku: resolvedMasterCode,
-            image: cabinet.catalogImageUrl ?? undefined,
+            image: selectedRow?.distributorImageUrl || cabinet.catalogImageUrl || undefined,
             url:
               typeof window !== "undefined"
                 ? `${window.location.origin}/catalog/${resolvedMasterCode}`
@@ -528,7 +530,7 @@ export default function CabinetDetail({ masterCode }: Props) {
             category: cabinet.category ?? undefined,
           })
         : undefined,
-    [cabinet, displayedDescription, seoName, resolvedMasterCode, lang],
+    [cabinet, seoDescription, seoName, resolvedMasterCode, selectedRow?.distributorImageUrl],
   );
   useSeo({
     title: t("seo_cabinet_t", { name: seoName }),
@@ -980,7 +982,7 @@ export default function CabinetDetail({ masterCode }: Props) {
     const unitPrice = priceNumberForTier(row, saleTier);
     const res = addItem({
       masterCode: resolvedMasterCode,
-      name: row.supplierDescription?.trim() || cabinet?.description || row.name,
+      name: publicProductCopy.title,
       styleId: row.styleId,
       styleLabel: styleDisplayName({ ourName: row.name, styleCode: row.styleCode }),
       distributorId: row.distributorId ?? null,
@@ -1167,14 +1169,11 @@ export default function CabinetDetail({ masterCode }: Props) {
       <div className="grid md:grid-cols-2 gap-8 lg:gap-12">
         {/* Left: Image + specs */}
         <div>
-          {/* Product image: an accurate, to-scale drawing of THIS exact item,
-              recolored to the selected door-style finish. The drawing is driven
-              by the cabinet's real type + dimensions + door/drawer counts, so it
-              always matches the actual item (no generic/wrong renders).
-              Once generic catalog images are uploaded via the Generic Catalog admin
-              tab, catalogImageUrl will be populated and CabinetImage will show it. */}
+          {/* Supplier-scoped neutral construction render; finish is represented
+              separately by the selected door sample. The geometry-driven front
+              drawing remains the fallback when no product image is supplied. */}
           <div className="mb-2">
-            <div className="rounded-xl border border-border bg-gradient-to-b from-white to-muted/30 h-64 flex items-center justify-center overflow-hidden p-4">
+            <div className={`rounded-xl border border-border bg-gradient-to-b from-white to-muted/30 flex items-center justify-center overflow-hidden p-4 ${selectedRow?.isFrameless ? "h-80 sm:h-96 lg:h-[440px]" : "h-64"}`}>
               <CabinetImage
                 cabinet={cabinet}
                 finishColor={finishFace}
@@ -1184,7 +1183,9 @@ export default function CabinetDetail({ masterCode }: Props) {
             </div>
             <p className="text-[11px] text-muted-foreground mt-1.5 text-center">
               {(selectedRow?.distributorImageUrl || cabinet.catalogImageUrl)
-                ? "Catalog illustration — line-specific product render"
+                ? selectedRow?.isFrameless
+                  ? "Cabinet construction render — choose your finish from the door samples"
+                  : "Catalog illustration — confirm dimensions and configuration in the specifications"
                 : `Drawn to scale${selectedRow ? ` in ${selectedRow.name}` : ""} — front elevation`}
             </p>
             {/* Admin: scoped image replace button */}
@@ -1421,7 +1422,7 @@ export default function CabinetDetail({ masterCode }: Props) {
                   Door &amp; Drawer Layout
                 </h3>
                 <div className="flex justify-center">
-                  <DoorDrawerDiagram cabinet={cabinet} width={200} />
+                  <DoorDrawerDiagram cabinet={aefProductDiagramCabinet(cabinet, selectedRow?.distributorImageUrl)} width={200} />
                 </div>
               </div>
             );
@@ -1444,7 +1445,7 @@ export default function CabinetDetail({ masterCode }: Props) {
           <div className="flex items-start justify-between gap-2 mt-2 mb-1">
             <div className="min-w-0">
               <h1 className="font-serif text-2xl md:text-3xl font-bold text-foreground">
-                {translateSpec(displayedDescription, lang)}
+                {seoName}
               </h1>
               {isOwner && hasDistributorRule && selectedRow && (
                 <Badge variant="outline" className="mt-1 text-[10px]" data-testid="cabinet-detail-distributor-rule">

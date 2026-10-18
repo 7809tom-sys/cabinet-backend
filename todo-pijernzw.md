@@ -191,3 +191,11 @@
 - [x] Verify live Designer asset DesignTool-DoqdHjOJ.js lacks the current regular-base and upper-stage markers; do not call preview corrections live.
 - [x] Reproduce adjoining measured walls skipping the corner when Single wall remains selected; require actual shared vertices independent of that dropdown. New corner regressions fail before correction and pass afterward; all six measured-builder suites pass 54/54.
 - [x] Render the actual corrected corner-selection dialog using real catalog options and an in-memory 180-inch back/right fixture; confirm mandatory corner and corners → bases → walls sequence. Confirm real catalog base filtering rejects 2DB24, 2DB36, and 3DB21. Customer draft untouched.
+
+## U.S. Cabinet Depot Frameless product quality — 2026-10-18
+
+- [x] Audit all 283 published frameless masters and 13,413 source/style rows against supplier-specific geometry/configuration; preserve 115 legitimate legacy identities and distinguish current V8 evidence from unavailable original V8.2 proof. Record existing decimal-precision differences without silently changing them.
+- [x] Remove spec-book names, versions, page references, and import/proof language from public titles/descriptions/SEO and new cart names while preserving technical provenance. Final eligible source descriptions have zero citation leaks.
+- [x] Replace spec-page hero crops with 42 neutral source-shaped render variants, including audited full-height, oven, wall-door, blind-corner, bridge and accessory exceptions. Verify source override/SKU image paths and printed three-drawer proportions. Protected prices, availability, geometry, shared masters and other suppliers are unchanged; zero eligible rows lack images.
+- [x] Verify actual enlarged product-detail presentation at desktop/tablet sizes and source-scoped category thumbnails; 48 focused tests pass, TypeScript and production builds pass. Record current V8/original V8.2 and source precision limits in the repair report.
+- [ ] Save the final tested presentation checkpoint for publishing; do not call preview page-code changes deployed.
