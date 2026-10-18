@@ -1837,7 +1837,66 @@ export const designRouter = router({
 	        link: affiliateId ? `/affiliate?section=crm&deal=${dealId ?? ""}` : `/design?id=${insertId}`,
 	      });
 
-	      return { id: insertId, recoveredFromStaleId: Boolean(input.id), dealId: dealId ?? null };
+      return { id: insertId, recoveredFromStaleId: Boolean(input.id), dealId: dealId ?? null };
+    }),
+
+  // Background persistence for an already named/saved plan. This deliberately
+  // cannot create a new design, alter its customer/CRM association, or emit a
+  // customer-facing event: those are explicit manual Save responsibilities.
+  autosave: protectedProcedure
+    .input(z.object({
+      id: z.number().int().positive(),
+      affiliateSlug: designStoreScopeInput,
+      originScope: z.string().trim().min(1).max(255).optional(),
+      roomData: z.any(),
+      placedCabinets: z.any(),
+      selectedSurfaces: z.any().optional(),
+      threeDPresentation: z.any().optional(),
+      selectedStyleId: z.number().optional(),
+      selectedDistributorId: z.number().optional(),
+      roomType: z.string().max(32).optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+
+      const affiliate = await resolveAffiliateDesignOwner(db, input.affiliateSlug);
+      const originAffiliate = await resolveAffiliateDesignOwner(db, input.originScope ?? input.affiliateSlug);
+      const affiliateId = affiliate?.id ?? null;
+      const originAffiliateId = originAffiliate?.id ?? null;
+      if (!sameDesignScope(affiliateId, originAffiliateId)) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: `This design was created for ${designScopeLabel(originAffiliate)}. Open that store before saving it.`,
+        });
+      }
+      await requireAffiliateDesignerAccess(db, ctx, affiliateId);
+
+      const ownership = and(
+        eq(kitchenDesigns.id, input.id),
+        eq(kitchenDesigns.userId, ctx.user.id),
+        designAffiliateScopeCondition(affiliateId),
+      );
+      const existing = await db
+        .select({ id: kitchenDesigns.id })
+        .from(kitchenDesigns)
+        .where(ownership)
+        .limit(1);
+      if (!existing[0]) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Saved design not found." });
+      }
+
+      await db.update(kitchenDesigns).set({
+        roomData: input.roomData,
+        placedCabinets: input.placedCabinets,
+        selectedSurfaces: input.selectedSurfaces ?? null,
+        threeDPresentation: input.threeDPresentation ?? null,
+        selectedStyleId: input.selectedStyleId,
+        selectedDistributorId: input.selectedDistributorId,
+        roomType: input.roomType ?? null,
+      }).where(ownership);
+
+      return { id: input.id };
     }),
 
   rename: protectedProcedure

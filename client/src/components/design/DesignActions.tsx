@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Save, FolderOpen, Download, Loader2, Clock, Send, Calculator, Printer, Ruler, ClipboardCheck, Lightbulb, TriangleAlert, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,7 +11,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { getLoginUrl } from "@/const";
 import { useLanguage } from "@/contexts/LanguageContext";
-import type { PlacedCabinet, RoomData, WallOpening, SinkFixture, PlacedFurniture, PonyWall } from "@/lib/design";
+import type { PlacedCabinet, RoomData, WallOpening, SinkFixture, PotFillerFixture, PlacedFurniture, PonyWall } from "@/lib/design";
 import { roomWithPersistedEntities } from "@/lib/design";
 import type { PreSavePlanReview, PreSavePlanReviewFinding } from "@/lib/preSavePlanReview";
 import { normalizeStoreScope } from "@/lib/affiliateContext";
@@ -21,6 +21,8 @@ import { normalizeStoreScope } from "@/lib/affiliateContext";
 // Save the current kitchen design, reload a previously saved one, and export an
 // itemized build sheet (CSV). No supplier/line identity is included anywhere.
 // ─────────────────────────────────────────────────────────────────────────────
+
+const DESIGN_AUTO_SAVE_INTERVAL_MS = 60_000;
 
 export interface BuildSheetRow {
   /** Placed cabinet IDs represented by this bill-of-material line. */
@@ -75,6 +77,7 @@ interface Props {
   placed: PlacedCabinet[];
   openings: WallOpening[];
   sinks: SinkFixture[];
+  potFillers: PotFillerFixture[];
   island: { x: number; y: number; width: number; depth: number } | null;
   furniture: PlacedFurniture[];
   ponyWalls: PonyWall[];
@@ -105,6 +108,10 @@ interface Props {
   currentDesignId?: number | null;
   /** Existing saved-design name, used to keep Update from silently renaming the plan. */
   currentDesignName?: string | null;
+  /** Canonical current plan payload from the Designer, used to avoid needless automatic updates. */
+  currentPlanFingerprint?: string | null;
+  /** True when the canonical current plan exactly matches the server-saved revision. */
+  isCurrentPlanSaved?: boolean;
   /** Visible only in affiliate sessions; removes platform branding from exports. */
   brandName?: string | null;
   // Incrementing signals from a parent (e.g. the mobile "More" sheet) to open the
@@ -370,7 +377,7 @@ export function groupByProject(rows: SavedDesignRow[]): ProjectGroup[] {
 }
 
 export function DesignActions({
-  room, placed, openings, sinks, island, furniture, ponyWalls, selectedSurfaces, threeDPresentation, styleId, lockedDistributorId, styleName, contactName, contactPhone, tier, total, extraLines, buildRows, roomType, contactEmail, affiliateSlug, currentDesignId, currentDesignName, brandName, openSaveSignal, openLoadSignal, preSavePlanReview, onReviewPlanFinding, onSaveSuccess, onDeleteSuccess, onLoad,
+  room, placed, openings, sinks, potFillers, island, furniture, ponyWalls, selectedSurfaces, threeDPresentation, styleId, lockedDistributorId, styleName, contactName, contactPhone, tier, total, extraLines, buildRows, roomType, contactEmail, affiliateSlug, currentDesignId, currentDesignName, currentPlanFingerprint, isCurrentPlanSaved = false, brandName, openSaveSignal, openLoadSignal, preSavePlanReview, onReviewPlanFinding, onSaveSuccess, onDeleteSuccess, onLoad,
 }: Props) {
   const { user, isAuthenticated, loading: isAuthLoading, error: authError, refresh } = useAuth();
   const { t } = useLanguage();
@@ -471,6 +478,72 @@ export function DesignActions({
     onError: (e) => toast.error(t("dt_act_save_err"), { description: e.message }),
   });
 
+  // A timer may only update a plan the customer has already explicitly named
+  // and saved. New/incomplete work remains in the established local recovery
+  // draft until the required manual Save fields are complete.
+  const lastAutomaticSaveRef = useRef<{ id: number; fingerprint: string } | null>(null);
+  const automaticSavePendingRef = useRef(false);
+  const automaticSaveFailureNotifiedRef = useRef(false);
+  const pendingAutomaticSaveRef = useRef<{ id: number; fingerprint: string } | null>(null);
+  const automaticSaveMutation = trpc.design.autosave.useMutation({
+    onSuccess: (result) => {
+      const pending = pendingAutomaticSaveRef.current;
+      if (!pending || result.id !== pending.id) return;
+      lastAutomaticSaveRef.current = pending;
+      automaticSaveFailureNotifiedRef.current = false;
+      void Promise.all([
+        utils.design.byId.invalidate({ id: result.id, affiliateSlug: storeScope }),
+        utils.design.myDesigns.invalidate({ affiliateSlug: storeScope }),
+      ]);
+    },
+    onError: (error) => {
+      if (automaticSaveFailureNotifiedRef.current) return;
+      automaticSaveFailureNotifiedRef.current = true;
+      toast.error("Automatic save could not reach the server", {
+        description: "Your local recovery draft remains protected on this device. Use Save/Update after your connection returns.",
+      });
+      console.warn("[design] automatic save failed", error);
+    },
+    onSettled: () => {
+      automaticSavePendingRef.current = false;
+      pendingAutomaticSaveRef.current = null;
+    },
+  });
+  const automaticSaveRef = useRef<() => void>(() => {});
+
+  useEffect(() => {
+    if (currentDesignId == null || !currentPlanFingerprint || !isCurrentPlanSaved) return;
+    lastAutomaticSaveRef.current = { id: currentDesignId, fingerprint: currentPlanFingerprint };
+    automaticSaveFailureNotifiedRef.current = false;
+  }, [currentDesignId, currentPlanFingerprint, isCurrentPlanSaved]);
+
+  automaticSaveRef.current = () => {
+    if (!isAuthenticated || currentDesignId == null || placed.length === 0 || !currentPlanFingerprint) return;
+    if (isCurrentPlanSaved || automaticSavePendingRef.current) return;
+    if (lastAutomaticSaveRef.current?.id === currentDesignId && lastAutomaticSaveRef.current.fingerprint === currentPlanFingerprint) return;
+    if (!currentDesignName?.trim()) return;
+
+    automaticSavePendingRef.current = true;
+    pendingAutomaticSaveRef.current = { id: currentDesignId, fingerprint: currentPlanFingerprint };
+    automaticSaveMutation.mutate({
+      id: currentDesignId,
+      affiliateSlug: storeScope,
+      originScope: storeScope,
+      roomData: roomWithPersistedEntities(room, { openings, sinks, potFillers, island, furniture, ponyWalls }),
+      placedCabinets: placed,
+      selectedSurfaces,
+      threeDPresentation: threeDPresentation ?? undefined,
+      selectedStyleId: styleId ?? undefined,
+      selectedDistributorId: lockedDistributorId ?? undefined,
+      roomType: roomType || undefined,
+    });
+  };
+
+  useEffect(() => {
+    const interval = window.setInterval(() => automaticSaveRef.current(), DESIGN_AUTO_SAVE_INTERVAL_MS);
+    return () => window.clearInterval(interval);
+  }, []);
+
   // Only logged-in users can list their saved designs (protected procedure).
   const myDesigns = trpc.design.myDesigns.useQuery({ affiliateSlug: storeScope }, {
     enabled: isAuthenticated && loadOpen,
@@ -528,7 +601,7 @@ export function DesignActions({
       email: customerEmail.trim() || contactEmail || undefined,
       affiliateSlug: storeScope,
       originScope: storeScope,
-      roomData: roomWithPersistedEntities(room, { openings, sinks, island, furniture, ponyWalls }),
+      roomData: roomWithPersistedEntities(room, { openings, sinks, potFillers, island, furniture, ponyWalls }),
       placedCabinets: placed,
       selectedSurfaces,
       threeDPresentation: threeDPresentation ?? undefined,

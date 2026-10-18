@@ -2117,7 +2117,8 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     threeDPresentation: threeDPresentationForSave,
     selectedStyleId: styleId ?? null,
     selectedDistributorId: lockedDistributorId ?? null,
-  }), [room, openings, sinks, potFillers, island, furniture, ponyWalls, placed, selectedSurfaces, threeDPresentationForSave, styleId, lockedDistributorId]);
+    roomType: roomType ?? null,
+  }), [room, openings, sinks, potFillers, island, furniture, ponyWalls, placed, selectedSurfaces, threeDPresentationForSave, styleId, lockedDistributorId, roomType]);
   const isCurrentPlanSaved = useMemo(() => {
     if (!savedDesign || currentSavedDesignId == null) return false;
     return currentSavedPlanPayload === JSON.stringify({
@@ -2127,6 +2128,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       threeDPresentation: (savedDesign as { threeDPresentation?: unknown | null }).threeDPresentation ?? null,
       selectedStyleId: savedDesign.selectedStyleId ?? null,
       selectedDistributorId: (savedDesign as { selectedDistributorId?: number | null }).selectedDistributorId ?? null,
+      roomType: savedDesign.roomType ?? null,
     });
   }, [savedDesign, currentSavedDesignId, currentSavedPlanPayload]);
   // When the user explicitly overrides the distributor lock (acknowledging extra
@@ -14169,6 +14171,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
             placed={placed}
             openings={openings}
             sinks={sinks}
+	            potFillers={potFillers}
             island={island}
             furniture={furniture}
             ponyWalls={ponyWalls}
@@ -14185,9 +14188,11 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
             contactEmail={verifiedEmail}
             contactName={verifiedName}
             contactPhone={verifiedPhone}
-	            affiliateSlug={affiliateSlug}
+            affiliateSlug={affiliateSlug}
             currentDesignId={activeSavedDesignId ?? loadDesignId}
             currentDesignName={savedDesign?.name ?? null}
+	            currentPlanFingerprint={currentSavedPlanPayload}
+	            isCurrentPlanSaved={isCurrentPlanSaved}
 	            brandName={affiliateBrand?.storeName}
             openSaveSignal={saveSignal}
             openLoadSignal={loadSignal}
