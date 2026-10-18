@@ -164,6 +164,19 @@ describe("orders.matchCodes", () => {
     // the customer shorthand must resolve to the exact same master identity.
     expect(normalizeCode(res.lines[0].masterCode ?? "")).toBe("B24");
   });
+
+  it("keeps exact Cart master codes visible when their dash-normalized forms collide", async () => {
+    const caller = appRouter.createCaller(publicCtx());
+    const requested = ["REP2496", "W2430", "W2730", "W3030", "W3630"];
+    const res = await caller.orders.matchCodes({
+      items: requested.map((code) => ({ code, qty: 1 })),
+    });
+
+    expect(res.unmatchedCount).toBe(0);
+    expect(res.lines).toHaveLength(requested.length);
+    expect(res.lines.map((line) => line.masterCode)).toEqual(requested);
+    expect(res.lines.every((line) => line.matched && line.description)).toBe(true);
+  });
 });
 
 describe("orders.createRequest + confirm", () => {

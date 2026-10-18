@@ -74,6 +74,21 @@ describe("matchCode", () => {
     expect(m.confidence).toBe("exact");
   });
 
+  it("prefers a literal master code over a conflicting normalized spelling", () => {
+    const collisionIndex = buildCodeIndex([
+      { id: 41, masterCode: "W-2430", description: "Dashed wall", category: "Wall" },
+      { id: 42, masterCode: "W2430", description: "Source wall", category: "Wall" },
+    ]);
+
+    expect(matchCode("W2430", collisionIndex)).toMatchObject({
+      matched: true,
+      confidence: "exact",
+      cabinetId: 42,
+      masterCode: "W2430",
+      description: "Source wall",
+    });
+  });
+
   it("matches shorthand via normalization", () => {
     const m = matchCode("B24", index);
     expect(m.matched).toBe(true);

@@ -154,8 +154,8 @@ export function buildCodeIndex(records: CabinetCodeRecord[]) {
 // Match a single raw code against the index.
 //
 // `aliasMap` is an optional persisted lookup of canonical raw code -> cabinet
-// record (populated from user-confirmed "Fix"/swap choices). It is consulted
-// BEFORE fuzzy guessing so a remembered replacement always wins.
+// record (populated from user-confirmed "Fix"/swap choices). A literal active
+// master code always wins; aliases are then consulted before fuzzy guessing.
 export function matchCode(
   rawCode: string,
   index: ReturnType<typeof buildCodeIndex>,
@@ -168,7 +168,24 @@ export function matchCode(
     normalized,
   };
 
-  // 0) Persisted alias wins first (a human already mapped this raw code).
+  // 0) The Cart stores the selected catalog master code. Prefer an exact active
+  // master spelling before any normalized alias: records such as W2430 and
+  // W-2430 can legitimately coexist on source-specific lines, and reducing
+  // both to W2430 makes a valid Cart line look ambiguous at Order Review.
+  const exactRaw = index.byExact.get(raw.toUpperCase());
+  if (exactRaw) {
+    return {
+      ...base,
+      cabinetId: exactRaw.id,
+      masterCode: exactRaw.masterCode,
+      description: exactRaw.description ?? null,
+      matched: true,
+      confidence: "exact",
+    };
+  }
+
+  // 1) Persisted aliases remain authoritative for a code that is not itself an
+  // active master (a human already mapped that alternate spelling).
   if (aliasMap) {
     const aliasHit = aliasMap.get(canonicalize(raw));
     if (aliasHit) {
@@ -183,7 +200,7 @@ export function matchCode(
     }
   }
 
-  // 1) Exact match on normalized dash-delimited code.
+  // 2) Exact match on normalized dash-delimited code.
   const exact = index.byExact.get(normalized.toUpperCase());
   if (exact) {
     return {
@@ -196,7 +213,7 @@ export function matchCode(
     };
   }
 
-  // 2) Canonical-key match (handles spacing/dash differences). If exactly one
+  // 3) Canonical-key match (handles spacing/dash differences). If exactly one
   // record shares the canonical key, accept it as a normalized match.
   const canon = canonicalize(raw);
   const canonList = index.byCanon.get(canon);
@@ -212,7 +229,7 @@ export function matchCode(
     };
   }
 
-  // 2a) Retry the canonical-key match after stripping handedness (-R/-L) and
+  // 3a) Retry the canonical-key match after stripping handedness (-R/-L) and
   // applying a prefix alias (RW->AW, WDC->DCW, etc.). Handedness does not change
   // the SKU, and the alias re-points a trade prefix at the catalog family.
   const { code: deHanded } = stripHandedness(raw);
@@ -235,7 +252,7 @@ export function matchCode(
       };
     }
   }
-  // 2b) Canonical key of the normalized form (e.g. raw "W 30 30" -> normalized
+  // 3b) Canonical key of the normalized form (e.g. raw "W 30 30" -> normalized
   // "W-30-30" -> canon "W3030").
   const normCanon = canonicalize(normalized);
   if (normCanon !== canon) {
@@ -253,7 +270,7 @@ export function matchCode(
     }
   }
 
-  // 3) Fuzzy: unique prefix-of-canonical match. Useful when a buyer drops a
+  // 4) Fuzzy: unique prefix-of-canonical match. Useful when a buyer drops a
   // trailing suffix or count (e.g. "DB24" -> "DB-24-3"), OR carries an extra
   // dimension the catalog family code omits (e.g. "LS3612" -> alias "LSB3612"
   // -> unique family "LSB36"). We try the raw canonical AND the de-handed /

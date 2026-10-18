@@ -9,7 +9,7 @@ import {
   buildOrderEmailText,
   type NetsuiteOrderLine,
 } from "@shared/netsuiteOrder";
-import { getDb, notInConflict } from "../db";
+import { getDb, hasPositivePublishedCabinetPrice, notInConflict } from "../db";
 import {
   cabinets,
   distributorSkus,
@@ -133,6 +133,33 @@ async function loadCodeRecords(): Promise<CabinetCodeRecord[]> {
   return rows;
 }
 
+/**
+ * Cart lines retain the actual source-master code selected in Designer. A
+ * public catalog alias can intentionally hide that source-specific master from
+ * browsing, but must not make an active, priced Cart line unrecognized at
+ * Order Review. This narrow lookup restores only literal requested codes; it
+ * does not broaden public catalog, OCR, or fuzzy matching visibility.
+ */
+async function loadExactCartCodeRecords(rawCodes: string[]): Promise<CabinetCodeRecord[]> {
+  const db = await getDb();
+  const codes = Array.from(new Set(rawCodes.map((code) => code.trim()).filter(Boolean)));
+  if (!db || codes.length === 0) return [];
+  return db
+    .select({
+      id: cabinets.id,
+      masterCode: cabinets.masterCode,
+      description: cabinets.description,
+      category: cabinets.category,
+    })
+    .from(cabinets)
+    .where(and(
+      inArray(cabinets.masterCode, codes),
+      eq(cabinets.isActive, true),
+      sql`${cabinets.conflictStatus} <> 'conflict'`,
+      hasPositivePublishedCabinetPrice(),
+    ));
+}
+
 function toExtractedLine(match: CodeMatch, qty: number): ExtractedLine {
   return {
     rawCode: match.rawCode,
@@ -188,8 +215,12 @@ async function matchPairs(
   userId?: number | null
 ): Promise<ExtractedLine[]> {
   const records = await loadCodeRecords();
-  const index = buildCodeIndex(records);
-  const aliasMap = await loadAliasMap(records, userId);
+  const exactCartRecords = await loadExactCartCodeRecords(pairs.map((pair) => pair.code));
+  // Append exact requested identities after canonical records so they win the
+  // literal-master lookup, while all non-exact matching retains canonical rules.
+  const matchableRecords = [...records, ...exactCartRecords];
+  const index = buildCodeIndex(matchableRecords);
+  const aliasMap = await loadAliasMap(matchableRecords, userId);
   return pairs.map((p) => toExtractedLine(matchCode(p.code, index, aliasMap), p.qty));
 }
 
