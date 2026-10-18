@@ -2769,6 +2769,57 @@ describe("freeSegmentsOnWall (break the run around openings)", () => {
 	    expect(cabinetPlacementCollisionDetail(dishwasher, [blind], ROOM_12x10)).toBeNull();
 	  });
 
+	  it("reserves the BBC's 24-inch adjoining-wall body plus its fixed 3-inch filler, so the next base begins at 27 inches", () => {
+	    const blind = cab({
+	      uid: "bbc36-top-left-with-filler",
+	      masterCode: "BBC-36",
+	      description: "36 inch Blind Corner Base Cabinet",
+	      placement: "base",
+	      x: 0,
+	      y: 0,
+	      width: 36,
+	      depth: 24,
+	      height: 34.5,
+	      rotation: 0,
+	      swing: "right",
+	      cornerType: "blind-corner",
+	    });
+	    const fixedFiller = cab({
+	      uid: "bbc36-required-filler",
+	      masterCode: "BF-3",
+	      description: '3 inch Required BBC Clearance Filler',
+	      placement: "base",
+	      x: 0,
+	      y: 24,
+	      width: 3,
+	      depth: 24,
+	      height: 34.5,
+	      rotation: 90,
+	      fillerForCabinetUid: blind.uid,
+	      fillerPieceGroupId: `bbc-required-filler-${blind.uid}`,
+	    });
+	    const b15AtCorner = cab({
+	      uid: "b15-corner-drop",
+	      masterCode: "B15",
+	      description: "15 inch Base Cabinet",
+	      placement: "base",
+	      ...wallPlacementAt(0, 15, 24, "left", ROOM_12x10),
+	      width: 15,
+	      depth: 24,
+	      height: 34.5,
+	    });
+
+	    expect(freeSegmentsOnWall("left", ROOM_12x10, [blind, fixedFiller], [], 0.5, 0, "base"))
+	      .toEqual([{ start: 27, length: 93 }]);
+	    expect(paletteActiveWallPlacement("left", ROOM_12x10, [blind, fixedFiller], [], 15, 24, "base"))
+	      .toMatchObject({ x: 0, y: 27, rotation: 90, wallOffset: 27 });
+
+	    const fit = wallCabinetFitMeasure(b15AtCorner, ROOM_12x10, [blind, fixedFiller], []);
+	    expect(fit).toMatchObject({ availableStart: 27, snapStart: 27, snapEnd: 42 });
+	    expect(wallCabinetPlacementReason(b15AtCorner, ROOM_12x10, [blind, fixedFiller], []))
+	      .toContain('snap the cabinet to 27"–42"');
+	  });
+
 	  it("offers the same LS3612-bounded right-wall opening to drag-to-add", () => {
     const ls3612 = cab({ uid: "ls3612-drag", masterCode: "LS3612", description: "36 inch Lazy Susan Corner Base", placement: "base", x: 108, y: 0, width: 36, depth: 24, height: 34.5, rotation: 0 });
     const segments = freeSegmentsOnWall("right", ROOM_12x10, [ls3612], [], 0.5, 0, "base");

@@ -10431,13 +10431,19 @@ export function wallCabinetFitMeasure(
 	    // Ordinary perpendicular cabinets belong to only one selected-wall run.
 	    // A genuine diagonal/L/corner-drawer cabinet physically reserves both wall
 	    // legs, including legacy WDC records whose saved rotation still points at
-	    // the first wall. Count that square adjoining footprint in measurement and
-	    // snapping so the next cabinet starts at the true corner edge.
+	    // the first wall. A configured BBC is the narrow rectangular exception: it
+	    // reserves its 24-inch body on the perpendicular run and its attached
+	    // 3-inch filler reserves the next span. Count both here so exact-drop
+	    // feedback and automatic placement agree that the following base begins
+	    // 27 inches from that corner—not inside the BBC body.
 	    .filter((other) => {
 	      if (cabinetWall(other, room) === side) return true;
 	      const cornerKind = placedCornerGeometryKind(other);
-	      const trueRoomCorner = cornerKind === "l-shape" || cornerKind === "diagonal" || cornerKind === "corner-drawer";
-	      return trueRoomCorner && isAgainstWall(other, side, room);
+	      const reservesPerpendicularRun = cornerKind === "l-shape"
+	        || cornerKind === "diagonal"
+	        || cornerKind === "corner-drawer"
+	        || isBaseBlindCorner(other);
+	      return reservesPerpendicularRun && isAgainstWall(other, side, room);
 	    });
   const segments = freeSegmentsOnWall(
     side,
@@ -10459,7 +10465,12 @@ export function wallCabinetFitMeasure(
     if (me.start > segmentEnd) return me.start - segmentEnd;
     return 0;
   };
-  const selectedSegment = segments.reduce<WallSegment | null>((best, segment) => {
+	  // `minLen: 0` intentionally preserves real short spans for an
+	  // insufficient-opening message. A zero-length corner remnant, however,
+	  // cannot describe an opening and must not win the nearest-segment tie and
+	  // suggest a snap back into a BBC body or its required filler.
+	  const measurableSegments = segments.filter((segment) => segment.length > COLLISION_EPSILON_IN);
+	  const selectedSegment = (measurableSegments.length > 0 ? measurableSegments : segments).reduce<WallSegment | null>((best, segment) => {
     if (!best) return segment;
     const distance = distanceToSegment(segment);
     const bestDistance = distanceToSegment(best);
