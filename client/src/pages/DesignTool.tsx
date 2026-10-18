@@ -89,7 +89,7 @@ import { selectedPeninsulaCabinetSequencePlan, selectedPeninsulaCabinetTotalIn, 
 import { swapStandardSinkBaseForFarmSink, matchingFarmSinkBase } from "@/lib/farmSinkBaseSwap";
 import { editablePeninsulaWizard, peninsulaWizardAssemblyRunIds, type PeninsulaWizardEditDraft } from "@/lib/peninsulaWizardEdit";
 import { resolvePeninsulaWizardSelection, peninsulaWizardEditBlockReason, reconcilePeninsulaWizardSinks, removeSinksOwnedByCabinets } from "@/lib/peninsulaWizardSafety";
-import { buildRequiredBlindCornerFiller, isRequiredBlindCornerFillerGroupId, removePlacedCabinetWithRequiredBlindCornerFiller, requiredBlindCornerFillerGroupId } from "@/lib/blindCornerRequiredFiller";
+import { buildRequiredBlindCornerFiller, isRequiredBlindCornerFillerGroupId, removePlacedCabinetWithRequiredBlindCornerFiller, requiredBlindCornerFillerGroupId, requiresConfiguredBlindCornerFiller } from "@/lib/blindCornerRequiredFiller";
 import {
   SMALL_GAP_FILLER_MIN_IN,
   SMALL_GAP_FILLER_MAX_IN,
@@ -2377,9 +2377,10 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	      width: cabinet.width == null ? null : Number(cabinet.width),
 	      height: cabinet.height == null ? null : Number(cabinet.height),
 	      depth: cabinet.depth == null ? null : Number(cabinet.depth),
-	      category: cabinet.category,
+      category: cabinet.category,
       subCategory: cabinet.subCategory,
       isCornerCabinet: cabinet.isCornerCabinet,
+      fillerRequired: cabinet.fillerRequired,
       cornerType: cabinet.cornerType,
       pullMin: cabinet.pullMin,
       pullMax: cabinet.pullMax,
@@ -6213,6 +6214,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	        description: c.description,
 	        category: c.category ?? null,
 	        subCategory: c.subCategory ?? null,
+	        fillerRequired: c.fillerRequired ?? false,
 	        placement: accPlacement,
 	        x: spot.x,
 	        y: spot.y,
@@ -6605,7 +6607,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	      }
 
 	      let committedRun = normalizedRun;
-	      if (!requestedIslandFace && isBaseBlindCorner(finalCab)) {
+	      if (!requestedIslandFace && requiresConfiguredBlindCornerFiller(finalCab)) {
 	        const required = buildRequiredBlindCornerFiller(
 	          finalCab,
 	          room,
@@ -9711,7 +9713,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 		        toast.error(message);
 		        return prev;
 		      }
-	      if (isBaseBlindCorner(movedCabinet)) {
+	      if (requiresConfiguredBlindCornerFiller(movedCabinet)) {
 	        const required = buildRequiredBlindCornerFiller(
 	          movedCabinet,
 	          room,
@@ -10053,7 +10055,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 		        ? commitConfiguredRefrigeratorCandidate(prev, uid, candidate, room)
 		        : commitThreeDCabinetCandidate(placedWithoutLinkedFiller, uid, candidate);
 		      if (!nextPlaced) return { status: "blocked", message: `${cabinet.masterCode} could not be matched to the selected design record.` };
-	      if (isBaseBlindCorner(candidate)) {
+	      if (requiresConfiguredBlindCornerFiller(candidate)) {
 	        const required = buildRequiredBlindCornerFiller(
 	          candidate,
 	          room,

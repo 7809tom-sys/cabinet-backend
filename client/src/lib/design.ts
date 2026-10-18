@@ -670,6 +670,8 @@ export interface DesignCabinet {
   numberOfDoors: number | null;
   numberOfDrawers: number | null;
   isCornerCabinet: boolean | null;
+  /** Cabinet Config requirement for a linked blind-corner filler assembly. */
+  fillerRequired?: boolean | null;
   /** Floor height for an appliance or configured wall-mounted item. */
   mountBottom?: number | null;
   catalogImageUrl?: string | null;
@@ -751,6 +753,8 @@ export interface PlacedCabinet {
   subCategory?: string | null;
   /** Current master corner classification, refreshed into older saved designs. */
   isCornerCabinet?: boolean | null;
+  /** Persisted Cabinet Config requirement for a linked blind-corner filler assembly. */
+  fillerRequired?: boolean | null;
   placement: Placement;
   /** Preserves distributor-specific printed geometry through placement and restore. */
   constructionMethod?: string | null;
@@ -1043,6 +1047,7 @@ export type MasterCabinetDrawingRefresh = {
   category?: string | null;
   subCategory?: string | null;
   isCornerCabinet?: boolean | null;
+  fillerRequired?: boolean | null;
   cornerType?: string | null;
   pullMin?: number | null;
   pullMax?: number | null;
@@ -1090,6 +1095,7 @@ export function refreshPlacedCabinetsFromMasterConfig(
       ...(master.category !== undefined ? { category: master.category } : {}),
       ...(master.subCategory !== undefined ? { subCategory: master.subCategory } : {}),
       ...(master.isCornerCabinet !== undefined ? { isCornerCabinet: master.isCornerCabinet } : {}),
+      ...(master.fillerRequired !== undefined ? { fillerRequired: master.fillerRequired } : {}),
       ...(master.cornerType !== undefined ? { cornerType: master.cornerType } : {}),
       ...(master.pullMin !== undefined ? { pullMin: master.pullMin } : {}),
       ...(master.pullMax !== undefined ? { pullMax: master.pullMax } : {}),
@@ -1141,6 +1147,7 @@ export function refreshPlacedCabinetsFromMasterRules(
 	      next.height !== cabinet.height ||
       next.subCategory !== cabinet.subCategory ||
       next.isCornerCabinet !== cabinet.isCornerCabinet ||
+      next.fillerRequired !== cabinet.fillerRequired ||
       next.cornerType !== cabinet.cornerType ||
       next.pullMin !== cabinet.pullMin ||
       next.pullMax !== cabinet.pullMax ||

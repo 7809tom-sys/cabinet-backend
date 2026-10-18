@@ -389,6 +389,7 @@ export const designRouter = router({
             numberOfFixedShelves: cabinets.numberOfFixedShelves,
             numberOfAdjShelves: cabinets.numberOfAdjShelves,
             isCornerCabinet: cabinets.isCornerCabinet,
+            fillerRequired: cabinets.fillerRequired,
             catalogImageUrl: cabinets.catalogImageUrl,
             specImageUrl: cabinets.specImageUrl,
             graphicType: cabinets.graphicType,

@@ -10,7 +10,7 @@ import {
   type PlacedCabinet,
   type RoomData,
 } from "./design";
-import { buildRequiredBlindCornerFiller, isRequiredBlindCornerFillerGroupId, removePlacedCabinetWithRequiredBlindCornerFiller, requiredBlindCornerFillerGroupId } from "./blindCornerRequiredFiller";
+import { buildRequiredBlindCornerFiller, isRequiredBlindCornerFillerGroupId, removePlacedCabinetWithRequiredBlindCornerFiller, requiredBlindCornerFillerGroupId, requiresConfiguredBlindCornerFiller } from "./blindCornerRequiredFiller";
 
 const room: RoomData = { width: 144, depth: 120 };
 const fillerCatalog = [{
@@ -83,6 +83,7 @@ function wbc(patch: Partial<PlacedCabinet> = {}): PlacedCabinet {
     numberOfDoors: 1,
     numberOfDrawers: 0,
     swing: "right",
+    fillerRequired: true,
     ...patch,
   };
 }
@@ -203,6 +204,12 @@ describe("mandatory BBC filler", () => {
 });
 
 describe("mandatory WBC integrated face filler", () => {
+	  it("requires the configured three-inch integrated filler for a WBC without giving it BBC pull behavior", () => {
+	    expect(requiresConfiguredBlindCornerFiller(wbc({ fillerRequired: true }))).toBe(true);
+	    expect(requiresConfiguredBlindCornerFiller(wbc({ fillerRequired: false }))).toBe(false);
+	    expect(requiresConfiguredBlindCornerFiller(bbc())).toBe(true);
+	  });
+
 	  it("selects the height-matched real F342 instead of a 30-inch filler for WBC-27-42", () => {
 	    const cabinet = wbc();
 	    const result = buildRequiredBlindCornerFiller(cabinet, room, [thirtyInchWallFiller, ...wallFillerCatalog], () => "height-match", 330002);

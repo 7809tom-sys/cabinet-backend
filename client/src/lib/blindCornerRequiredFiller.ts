@@ -2,6 +2,7 @@ import {
   BLIND_CORNER_FILLER_WIDTH_IN,
   STD,
   blindCornerAutoFiller,
+  isBaseBlindCorner,
   isBlindCorner,
   type PlacedCabinet,
   type RoomData,
@@ -34,6 +35,20 @@ export function isRequiredBlindCornerFillerGroupId(groupId: string | null | unde
   return /^(?:bbc|wbc)-required-filler-/.test(groupId ?? "");
 }
 
+/**
+ * Cabinet Config controls the WBC filler independently from the BBC rule.
+ * A base blind corner always carries its base-side clearance filler; a wall
+ * blind receives the integrated left face filler only when the live catalog
+ * row says it is required. This deliberately does not give a WBC any BBC pull
+ * behavior.
+ */
+export function requiresConfiguredBlindCornerFiller(
+  blind: Pick<PlacedCabinet, "masterCode" | "description" | "placement" | "fillerRequired">,
+) {
+  return isBaseBlindCorner(blind)
+    || (isWallBlindCornerCabinet(blind) && blind.fillerRequired === true);
+}
+
 function wallBlindCornerCatalogFiller(
   candidates: readonly CatalogFillerCandidate[],
   cabinetHeight: number,
@@ -64,7 +79,7 @@ export function buildRequiredBlindCornerFiller(
   makeUid: () => string,
   styleId: number | null,
 ): RequiredBlindCornerFillerResult {
-  if (!isBlindCorner(blind.masterCode, blind.description)) {
+  if (!isBlindCorner(blind.masterCode, blind.description) || !requiresConfiguredBlindCornerFiller(blind)) {
     return { ok: false, reason: "not-blind" };
   }
   const wallBlind = isWallBlindCornerCabinet(blind);
