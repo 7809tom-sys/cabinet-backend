@@ -11,11 +11,13 @@ import {
   candidatesForMode as candidatesForModeShared,
   makeFiller as makeFillerShared,
   type FillMode as SharedFillMode,
+  type FillStrategy as SharedFillStrategy,
   type FillItem as SharedFillItem,
   type FillResult as SharedFillResult,
 } from "../../../shared/fillEngine";
 
 export type FillMode = SharedFillMode;
+export type FillStrategy = SharedFillStrategy;
 
 export interface FillItem extends SharedFillItem {
   cabinet: DesignCabinet;
@@ -37,7 +39,7 @@ export function autoFillSpan(
   spanInches: number,
   mode: FillMode,
   catalog: DesignCabinet[],
-  opts: { forceFiller?: number } = {}
+  opts: { forceFiller?: number; strategy?: FillStrategy } = {}
 ): FillResult {
   return autoFillSpanShared(spanInches, mode, catalog as never, opts) as unknown as FillResult;
 }

@@ -10,8 +10,6 @@ import type {
   FourAnchorLayoutType,
   FourAnchorOriginCorner,
   FourAnchorRunDirection,
-  RefrigeratorEnclosureChoice,
-  RefrigeratorPanelChoice,
   WallLabel,
 } from "@/lib/fourAnchorAutoBuild";
 
@@ -56,9 +54,7 @@ export function FourAnchorAutoBuildDialog({ open, onOpenChange, onBuild, catalog
   const [sinkBaseWidth, setSinkBaseWidth] = useState<SinkBaseWidth>(36);
   const [wallCabinetHeight, setWallCabinetHeight] = useState<WallCabinetHeight>(30);
   const [dishwasherSide, setDishwasherSide] = useState<DishwasherSide>("right");
-  const [refrigeratorWidth, setRefrigeratorWidth] = useState<RefrigeratorWidth>(36);
-  const [refrigeratorPanels, setRefrigeratorPanels] = useState<RefrigeratorPanelChoice>("none");
-  const [refrigeratorEnclosure, setRefrigeratorEnclosure] = useState<RefrigeratorEnclosureChoice>("none");
+  const refrigeratorWidth: RefrigeratorWidth = 36;
   const [windowCenter, setWindowCenter] = useState("");
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -86,8 +82,8 @@ export function FourAnchorAutoBuildDialog({ open, onOpenChange, onBuild, catalog
       dishwasherSide,
       refrigerator: measurement("refrigerator"),
       refrigeratorWidthIn: refrigeratorWidth,
-      refrigeratorPanels,
-      refrigeratorEnclosure,
+      refrigeratorPanels: "both",
+      refrigeratorEnclosure: "cabinet-above",
       sinkWindowCenter: windowCenter.trim()
         ? { wallLabel: values.sink.wallLabel, centerOffsetIn: Number(windowCenter) }
         : null,
@@ -196,29 +192,12 @@ export function FourAnchorAutoBuildDialog({ open, onOpenChange, onBuild, catalog
             </div>
           </div>
 
-          <div className="grid gap-3 rounded-lg border p-3 sm:grid-cols-3" data-testid="four-anchor-refrigerator-options">
+          <div className="rounded-lg border p-3" data-testid="four-anchor-refrigerator-options">
             <div className="space-y-1.5">
-              <Label htmlFor="four-anchor-fridge-width">Refrigerator width</Label>
-              <Select value={String(refrigeratorWidth)} onValueChange={(value) => setRefrigeratorWidth(Number(value) as RefrigeratorWidth)}>
-                <SelectTrigger id="four-anchor-fridge-width" aria-label="Refrigerator width"><SelectValue /></SelectTrigger>
-                <SelectContent>{([30, 33, 36, 42] as const).map((width) => <SelectItem key={width} value={String(width)}>{width}″ refrigerator</SelectItem>)}</SelectContent>
-              </Select>
+              <Label>Refrigerator bay</Label>
+              <p className="text-sm font-medium">36″ refrigerator · Two source-priced side panels · Matching source-priced 36″ cabinet above</p>
+              <p className="text-xs text-muted-foreground">Four-anchor creates this complete refrigerator bay before filling surrounding runs. A refrigerator bay never uses a filler.</p>
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="four-anchor-fridge-panels">Side panels</Label>
-              <Select value={refrigeratorPanels} onValueChange={(value) => setRefrigeratorPanels(value as RefrigeratorPanelChoice)}>
-                <SelectTrigger id="four-anchor-fridge-panels" aria-label="Refrigerator side panels"><SelectValue /></SelectTrigger>
-                <SelectContent><SelectItem value="none">No side panels</SelectItem><SelectItem value="left">Left panel</SelectItem><SelectItem value="right">Right panel</SelectItem><SelectItem value="both">Both panels</SelectItem></SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="four-anchor-fridge-enclosure">Over-fridge enclosure</Label>
-              <Select value={refrigeratorEnclosure} onValueChange={(value) => setRefrigeratorEnclosure(value as RefrigeratorEnclosureChoice)}>
-                <SelectTrigger id="four-anchor-fridge-enclosure" aria-label="Over refrigerator enclosure"><SelectValue /></SelectTrigger>
-                <SelectContent><SelectItem value="none">No cabinet above</SelectItem><SelectItem value="cabinet-above">Select cabinet above</SelectItem></SelectContent>
-              </Select>
-            </div>
-            <p className="sm:col-span-3 text-xs text-muted-foreground">After the anchored refrigerator is seated, the existing source-priced refrigerator-options dialog confirms the exact panel and cabinet SKU before any enclosure parts are added.</p>
           </div>
 
           {layoutType !== "galley" && (

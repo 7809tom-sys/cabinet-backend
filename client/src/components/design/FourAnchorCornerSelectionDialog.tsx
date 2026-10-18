@@ -16,33 +16,35 @@ type Props = {
   open: boolean;
   slots: readonly FourAnchorCornerSlot[];
   options: readonly AutoBuildCornerCandidate[];
-  /** Test-only seed; ordinary Designer launches always begin with explicit open-corner choices. */
+  /** Test-only seed; ordinary Designer launches default to the largest eligible real corner. */
   initialChoices?: Record<string, FourAnchorCornerChoice>;
   onCancel: () => void;
   onConfirm: (choices: Record<string, FourAnchorCornerChoice>) => FourAnchorCornerConfirmResult;
 };
 
-const NONE = "__none__";
-
-function initialChoices(slots: readonly FourAnchorCornerSlot[]): Record<string, FourAnchorCornerChoice> {
-  return Object.fromEntries(slots.map((slot) => [slot.id, { cabinetId: null }]));
+function initialChoices(slots: readonly FourAnchorCornerSlot[], options: readonly AutoBuildCornerCandidate[]): Record<string, FourAnchorCornerChoice> {
+  const defaultCorner = options[0] ?? null;
+  return Object.fromEntries(slots.map((slot) => [slot.id, {
+    cabinetId: defaultCorner?.id ?? null,
+    ...(defaultCorner && isFourAnchorBlindCornerOption(defaultCorner) ? { blindPullIn: defaultCorner.pullMax ?? 6 } : {}),
+  }]));
 }
 
 export function FourAnchorCornerSelectionDialog({ open, slots, options, initialChoices: seededChoices, onCancel, onConfirm }: Props) {
-  const [choices, setChoices] = useState<Record<string, FourAnchorCornerChoice>>(() => seededChoices ?? initialChoices(slots));
+  const [choices, setChoices] = useState<Record<string, FourAnchorCornerChoice>>(() => seededChoices ?? initialChoices(slots, options));
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (open) {
-      setChoices(seededChoices ?? initialChoices(slots));
+      setChoices(seededChoices ?? initialChoices(slots, options));
       setError(null);
     }
-  }, [open, seededChoices, slots]);
+  }, [open, seededChoices, slots, options]);
 
   const optionById = useMemo(() => new Map(options.map((option) => [option.id, option])), [options]);
   const selectCorner = (slotId: string, value: string) => {
-    const cabinetId = value === NONE ? null : Number(value);
-    const selected = cabinetId == null ? null : optionById.get(cabinetId);
+    const cabinetId = Number(value);
+    const selected = optionById.get(cabinetId);
     setChoices((current) => ({
       ...current,
       [slotId]: {
@@ -64,14 +66,14 @@ export function FourAnchorCornerSelectionDialog({ open, slots, options, initialC
         <DialogHeader>
           <DialogTitle>Appliances are seated — choose corner cabinets</DialogTitle>
           <DialogDescription>
-            Select an exact source-priced base-corner cabinet for each real room corner. A corner is never substituted into a straight run. Choose “Leave this corner open” deliberately when no corner cabinet is wanted; the remaining wall runs will be filled only after this step.
+            A source-priced base-corner cabinet is required at every real Four-anchor corner. The largest eligible corner is selected first; change it to another source-priced corner when needed. A corner is never substituted into a straight run.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4">
           {slots.length === 0 ? (
             <p className="rounded-lg border bg-muted/20 p-3 text-sm text-muted-foreground">This layout has no shared corner selected for the measured build. The remaining cabinet runs are ready to fill.</p>
           ) : slots.map((slot) => {
-            const choice = choices[slot.id] ?? { cabinetId: null };
+            const choice = choices[slot.id] ?? { cabinetId: options[0]?.id ?? null };
             const selected = choice.cabinetId == null ? null : optionById.get(choice.cabinetId);
             const isBlind = selected != null && isFourAnchorBlindCornerOption(selected);
             const minPull = selected?.pullMin ?? 3;
@@ -79,10 +81,9 @@ export function FourAnchorCornerSelectionDialog({ open, slots, options, initialC
             return (
               <section key={slot.id} className="rounded-lg border p-3" data-testid={`four-anchor-corner-slot-${slot.id}`}>
                 <Label htmlFor={`four-anchor-corner-${slot.id}`} className="font-semibold">{slot.label}</Label>
-                <Select value={choice.cabinetId == null ? NONE : String(choice.cabinetId)} onValueChange={(value) => selectCorner(slot.id, value)}>
+                <Select value={choice.cabinetId == null ? undefined : String(choice.cabinetId)} onValueChange={(value) => selectCorner(slot.id, value)}>
                   <SelectTrigger id={`four-anchor-corner-${slot.id}`} aria-label={`${slot.label} cabinet type`} className="mt-2"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value={NONE}>Leave this corner open</SelectItem>
                     {options.map((option) => <SelectItem key={option.id} value={String(option.id)}>{option.masterCode} — {option.description}</SelectItem>)}
                   </SelectContent>
                 </Select>

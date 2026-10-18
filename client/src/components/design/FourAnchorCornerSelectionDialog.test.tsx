@@ -6,7 +6,7 @@ import { FourAnchorCornerSelectionDialog } from "./FourAnchorCornerSelectionDial
 afterEach(cleanup);
 
 describe("FourAnchorCornerSelectionDialog", () => {
-  it("requires an explicit real catalog corner or an explicit leave-open choice after anchors are seated", () => {
+  it("preselects a real catalog corner after anchors are seated and never offers an open corner", () => {
     const onConfirm = vi.fn((): { ok: true } => ({ ok: true }));
     render(
       <FourAnchorCornerSelectionDialog
@@ -23,10 +23,10 @@ describe("FourAnchorCornerSelectionDialog", () => {
 
     expect(screen.getByText("Appliances are seated — choose corner cabinets")).toBeTruthy();
     expect(screen.getByText("Corner between Wall 1 and Wall 2")).toBeTruthy();
-    expect(screen.getByText("Leave this corner open")).toBeTruthy();
+    expect(screen.queryByText("Leave this corner open")).toBeNull();
     fireEvent.click(screen.getByTestId("four-anchor-corner-confirm"));
     expect(onConfirm).toHaveBeenCalledWith(expect.objectContaining({
-      "wall-1-wall-2": expect.objectContaining({ cabinetId: null }),
+      "wall-1-wall-2": expect.objectContaining({ cabinetId: 8 }),
     }));
   });
 

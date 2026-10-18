@@ -75,6 +75,12 @@ describe("autoFillSpan", () => {
     expect(r.usedInches + r.leftoverInches).toBeCloseTo(96, 1);
   });
 
+  it("uses the largest compatible cabinets first when Four-anchor requests its narrow fill strategy", () => {
+    const r = autoFillSpan(96, "kitchen", KITCHEN, { strategy: "largest-first" });
+    expect(r.items.filter((i) => !i.isFiller).map((i) => i.width)).toEqual([36, 36, 24]);
+    expect(r.fillerInches).toBe(0);
+  });
+
   it("force-appends a clearance filler when requested (range/oven corner rule)", () => {
     const r = autoFillSpan(60, "kitchen", KITCHEN, { forceFiller: 3 });
     const fillers = r.items.filter((i) => i.isFiller);

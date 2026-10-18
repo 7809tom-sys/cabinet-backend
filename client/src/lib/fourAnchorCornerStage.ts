@@ -69,16 +69,18 @@ export function fourAnchorCornerSlotPoint(
  * sink base, wall corner, or BEC end-return cannot be offered or substituted.
  */
 export function autoBuildCornerCatalog<T extends AutoBuildCornerCandidate>(catalog: readonly T[]): T[] {
-  return catalog.filter((candidate) => (
-    candidate.placement === "base"
-    && candidate.isCornerCabinet !== false
-    && isCornerCabinet(candidate.masterCode, candidate.description ?? undefined)
-    && !isBaseEndCornerCabinet({
-      masterCode: candidate.masterCode,
-      description: candidate.description ?? "",
-      cornerType: candidate.cornerType ?? null,
-    })
-  ));
+  return catalog
+    .filter((candidate) => (
+      candidate.placement === "base"
+      && candidate.isCornerCabinet !== false
+      && isCornerCabinet(candidate.masterCode, candidate.description ?? undefined)
+      && !isBaseEndCornerCabinet({
+        masterCode: candidate.masterCode,
+        description: candidate.description ?? "",
+        cornerType: candidate.cornerType ?? null,
+      })
+    ))
+    .sort((left, right) => (Number.parseFloat(right.width ?? "0") || 0) - (Number.parseFloat(left.width ?? "0") || 0));
 }
 
 export function isFourAnchorBlindCornerOption(candidate: Pick<AutoBuildCornerCandidate, "masterCode" | "description" | "placement" | "cornerType">): boolean {

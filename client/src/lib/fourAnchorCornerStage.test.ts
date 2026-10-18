@@ -33,11 +33,11 @@ describe("Four-anchor appliance-first corner stage", () => {
       { id: 1, masterCode: "B24", description: "24 inch Base Cabinet", placement: "base" as const },
       { id: 2, masterCode: "SB36", description: "36 inch Sink Base", placement: "base" as const },
       { id: 3, masterCode: "BEC24", description: "Base End Corner Cabinet", placement: "base" as const, cornerType: "base-end-corner" },
-      { id: 4, masterCode: "LSB36", description: "36 inch Lazy Susan Corner Base", placement: "base" as const, cornerType: "lazy-susan" },
-      { id: 5, masterCode: "BBC39", description: "39 inch Blind Corner Base", placement: "base" as const, cornerType: "blind-corner" },
+      { id: 4, masterCode: "LSB36", description: "36 inch Lazy Susan Corner Base", placement: "base" as const, cornerType: "lazy-susan", width: "36" },
+      { id: 5, masterCode: "BBC39", description: "39 inch Blind Corner Base", placement: "base" as const, cornerType: "blind-corner", width: "39" },
       { id: 6, masterCode: "WDC2430", description: "Diagonal Wall Corner", placement: "wall" as const, cornerType: "diagonal" },
     ];
 
-    expect(autoBuildCornerCatalog(catalog).map((item) => item.masterCode)).toEqual(["LSB36", "BBC39"]);
+    expect(autoBuildCornerCatalog(catalog).map((item) => item.masterCode)).toEqual(["BBC39", "LSB36"]);
   });
 });

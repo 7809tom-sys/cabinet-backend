@@ -178,8 +178,9 @@ import { CabinetHandlesControl, DEFAULT_DESIGNER_HARDWARE_STYLE_ID } from "@/com
 import { HardwareCatalogPicker } from "@/components/design/HardwareCatalogPicker";
 import { isPanelPaletteItem } from "./designToolPanels";
 import { normalizePaletteSearch, matchesPaletteSearch } from "@/lib/paletteSearch";
-import { adjacentDishwasherCenterIn, anchorAlongStartIn, autoBuildSelectedWallCornerReservations, autoBuildStraightBaseCatalog, canRunFourAnchorAutoBuild, isAutoBuildStraightSinkBaseCandidate, planFourAnchorAutoBuild, subtractAnchorRunReservations, wallLabelToEngineWallId, type FourAnchorInputs } from "@/lib/fourAnchorAutoBuild";
+import { adjacentDishwasherCenterIn, anchorAlongStartIn, autoBuildStraightBaseCatalog, canRunFourAnchorAutoBuild, isAutoBuildStraightSinkBaseCandidate, planFourAnchorAutoBuild, subtractAnchorRunReservations, wallLabelToEngineWallId, type FourAnchorInputs } from "@/lib/fourAnchorAutoBuild";
 import { autoBuildCornerCatalog, fourAnchorCornerSlotPoint, fourAnchorCornerSlots, isFourAnchorBlindCornerOption, type AutoBuildCornerCandidate, type FourAnchorCornerChoice, type FourAnchorCornerSlot } from "@/lib/fourAnchorCornerStage";
+import { buildMandatoryFourAnchorRefrigeratorBay } from "@/lib/fourAnchorRefrigeratorBay";
 import { validatePlacedCornerRefrigerator } from "@/lib/cornerRefrigeratorPlacement";
 import { validatePlacedCornerRange, CORNER_RANGE_HANDLE_FILLER_IN } from "@/lib/cornerRangePlacement";
 import { buildGlassCornerCatalogChoices } from "@/lib/glassCornerCatalog";
@@ -942,8 +943,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     pool: DesignCabinet[];
     straightBaseCatalog: DesignCabinet[];
     baseSource: DesignCabinet;
-    selectedEndPanel: DesignCabinet | null;
-    refrigeratorWidth: number;
+    refrigeratorReservation: { wall: string; start: number; end: number } | null;
     slots: FourAnchorCornerSlot[];
     cornerOptions: AutoBuildCornerCandidate[];
   } | null>(null);
@@ -3058,12 +3058,10 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       return fail("No source-priced standard base cabinet is available for the selected line. Choose a compatible door style, then try again.");
     }
     const fridgeParts = refrigeratorSurroundCatalog as
-      | { endPanels?: DesignCabinet[] }
+      | { deepAbove?: DesignCabinet[]; endPanels?: DesignCabinet[] }
       | undefined;
-    const needsFridgePanel = (input.refrigeratorPanels ?? "none") !== "none";
-    const selectedEndPanel = needsFridgePanel ? fridgeParts?.endPanels?.[0] ?? null : null;
-    if (needsFridgePanel && !selectedEndPanel) {
-      return fail("The selected line’s source-priced refrigerator end panels are still loading or unavailable. The measured build was not changed.");
+    if (!fridgeParts?.deepAbove?.length || !fridgeParts.endPanels?.length) {
+      return fail("The selected line’s source-priced 36-inch refrigerator cabinet and two end panels are still loading or unavailable. The measured build was not changed.");
     }
 
     let working: PlacedCabinet[] = [];
@@ -3108,6 +3106,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         category: source.category, subCategory: source.subCategory,
         placement: anchor.kind === "sink" ? "base" : "appliance",
         ...(anchor.kind === "sink" ? {} : { applianceRole: "base-height" as const }),
+        ...(anchor.kind === "refrigerator" ? { refrigeratorPanelMode: "both" as const, refrigeratorOptionsChosen: true } : {}),
         ...spot, width, depth, height, mountBottom: source.mountBottom ?? 0, catalogImageUrl: source.catalogImageUrl ?? null,
         numberOfDoors: source.numberOfDoors, numberOfDrawers: source.numberOfDrawers, styleId: styleIdRef.current ?? null,
       };
@@ -3135,6 +3134,28 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       anchorsByKind.set(anchor.kind, candidate);
       if (!selectedWalls.includes(wall.engineWallId as WallSide)) selectedWalls.push(wall.engineWallId as WallSide);
     }
+    const refrigerator = anchorsByKind.get("refrigerator");
+    let refrigeratorReservation: { wall: string; start: number; end: number } | null = null;
+    if (!refrigerator) return fail("The required 36-inch refrigerator anchor was not created. The measured build was not changed.");
+    const refrigeratorBay = buildMandatoryFourAnchorRefrigeratorBay({
+      refrigerator,
+      room,
+      caps: fridgeParts.deepAbove,
+      endPanels: fridgeParts.endPanels,
+      styleId: styleIdRef.current ?? null,
+      makeUid,
+    });
+    if (!refrigeratorBay.ok) return fail(refrigeratorBay.message);
+    const fittedBay = fitExplicitRefrigeratorOptionPlacements(working, refrigeratorBay.additions, refrigerator.uid, room);
+    if (Math.abs(fittedBay.shiftIn) > COLLISION_EPSILON_IN) {
+      return fail("The measured refrigerator bay does not have room for its two panels and matching cabinet above. Adjust the refrigerator center measurement; Four-anchor will not move it.");
+    }
+    const committedBay = appendRefrigeratorEnclosurePlacements(fittedBay.existing, fittedBay.additions, refrigerator.uid, room);
+    if (committedBay.rejected.length > 0) {
+      return fail("The measured refrigerator bay overlaps an anchor, opening, or wall end. Adjust the refrigerator center measurement; Four-anchor will not add a filler or move the refrigerator.");
+    }
+    working = committedBay.placed;
+    refrigeratorReservation = refrigeratorBay.reservation;
     const sinkBase = anchorsByKind.get("sink");
     if (sinkBase) {
       const defaultSinkType: SinkType = isFarmSinkBasePaletteItem(sinkBase)
@@ -3162,8 +3183,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       pool,
       straightBaseCatalog,
       baseSource,
-      selectedEndPanel,
-      refrigeratorWidth,
+      refrigeratorReservation,
       slots,
       cornerOptions,
     });
@@ -3177,8 +3197,9 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 
   /**
    * The second half of a Four-anchor build. Nothing is guessed: appliances are
-   * already committed, every L/U corner must be explicitly selected or left
-   * open, and only then do straight base boxes/fillers tile the free run spans.
+   * already committed with the refrigerator bay, every L/U corner must receive
+   * a source-priced corner box, and only then do straight base boxes/fillers
+   * tile the remaining run spans.
    */
   const completeFourAnchorAutoLayout = useCallback((choices: Record<string, FourAnchorCornerChoice>) => {
     const stage = fourAnchorCornerStage;
@@ -3190,7 +3211,6 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 
     let working = [...stage.anchorPlaced];
     const selectedWalls = [...stage.selectedWalls];
-    const openCornerWallIds: WallSide[] = [];
     let selectedCornerCount = 0;
 
     for (const slot of stage.slots) {
@@ -3202,8 +3222,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         if (!selectedWalls.includes(wallId)) selectedWalls.push(wallId);
       }
       if (choice.cabinetId == null) {
-        openCornerWallIds.push(firstWall.engineWallId as WallSide, secondWall.engineWallId as WallSide);
-        continue;
+        return fail(`A corner cabinet is required at every Four-anchor L/U corner. Choose a source-priced corner for ${slot.label} before filling the remaining runs.`);
       }
       const source = stage.cornerOptions.find((candidate) => candidate.id === choice.cabinetId);
       if (!source) return fail(`${slot.label} must use a current source-priced corner cabinet. The selected catalog item is unavailable.`);
@@ -3247,25 +3266,14 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       }
     }
 
-    const refrigerator = stage.anchors.refrigerator;
-    const refrigeratorReservation = refrigerator ? (() => {
-      const bay = refrigeratorBayRunMetrics(refrigerator, room);
-      const panelThickness = stage.selectedEndPanel ? refrigeratorEndPanelThickness(stage.selectedEndPanel.width, 0.75) : 0;
-      return {
-        wall: bay.side,
-        start: bay.openingStart - ((stage.input.refrigeratorPanels === "left" || stage.input.refrigeratorPanels === "both") ? panelThickness : 0),
-        end: bay.openingEnd + ((stage.input.refrigeratorPanels === "right" || stage.input.refrigeratorPanels === "both") ? panelThickness : 0),
-      };
-    })() : null;
     const surrounding: PlacedCabinet[] = [];
     for (const wallId of selectedWalls) {
       const rawSegments = freeSegmentsOnWall(wallId, room, working, openings, 9, 0, "base", false, undefined, footprintDepth(stage.baseSource));
       const reservations = [
-        ...autoBuildSelectedWallCornerReservations(wallId, room, openCornerWallIds),
-        ...(refrigeratorReservation?.wall === wallId ? [{ start: refrigeratorReservation.start, end: refrigeratorReservation.end }] : []),
+        ...(stage.refrigeratorReservation?.wall === wallId ? [{ start: stage.refrigeratorReservation.start, end: stage.refrigeratorReservation.end }] : []),
       ];
       for (const segment of subtractAnchorRunReservations(rawSegments, reservations)) {
-        const fill = autoFillSpan(segment.length, "kitchen", stage.straightBaseCatalog);
+        const fill = autoFillSpan(segment.length, "kitchen", stage.straightBaseCatalog, { strategy: "largest-first" });
         let along = segment.start;
         for (const item of fill.items) {
           const catalogFillerCandidate = item.isFiller ? catalogFillerForGap(stage.pool, item.width, "base") : null;
@@ -3294,19 +3302,6 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     setPlaced(working);
     setFourAnchorCornerStage(null);
     setViewMode("threeD");
-    if (refrigerator && ((stage.input.refrigeratorPanels ?? "none") !== "none" || stage.input.refrigeratorEnclosure === "cabinet-above")) {
-      setFridgeDialog({
-        fridgeUid: refrigerator.uid,
-        initialChoice: {
-          above: stage.input.refrigeratorEnclosure === "cabinet-above" ? "bridge" : "none",
-          panels: stage.input.refrigeratorPanels ?? "none",
-          fridgeWidth: stage.refrigeratorWidth,
-          fridgeHeight: refrigerator.height,
-          fridgeDepth: refrigerator.depth,
-          smooth: false,
-        },
-      });
-    }
     toast.success(`Placed ${selectedCornerCount} selected corner cabinet${selectedCornerCount === 1 ? "" : "s"} and ${surrounding.length} source-priced surrounding cabinet${surrounding.length === 1 ? "" : "s"}.`);
     return { ok: true as const };
   }, [catalogFillers, fourAnchorCornerStage, openings, room, setPlaced]);

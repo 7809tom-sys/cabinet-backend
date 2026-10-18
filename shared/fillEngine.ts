@@ -12,6 +12,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type FillMode = "kitchen" | "closet";
+export type FillStrategy = "varied" | "largest-first";
 
 /** Minimal catalog row shape the engine needs (a subset of DesignCabinet). */
 export interface FillCabinet {
@@ -194,6 +195,43 @@ function planVariedWidths(span: number, distinctWidths: number[]): number[] {
 }
 
 /**
+ * Four-anchor uses this narrow strategy after it has already seated the
+ * appliances and corner boxes. It first minimizes the uncovered remainder
+ * (therefore minimizes filler), then cabinet count, and only then prefers a
+ * lexicographically larger run. Ordinary Auto-Fill retains planVariedWidths.
+ */
+function planLargestFirstWidths(span: number, distinctWidths: number[]): number[] {
+  const widths = Array.from(new Set(distinctWidths)).sort((a, b) => b - a);
+  if (widths.length === 0) return [];
+  const smallest = widths[widths.length - 1];
+  const MAX_PIECES = 12;
+  let best: WidthPick | null = null;
+
+  const isBetter = (next: WidthPick, current: WidthPick | null): boolean => {
+    if (!current) return true;
+    const nextLeft = span - next.used;
+    const currentLeft = span - current.used;
+    if (Math.abs(nextLeft - currentLeft) > 0.01) return nextLeft < currentLeft;
+    if (next.widths.length !== current.widths.length) return next.widths.length < current.widths.length;
+    for (let index = 0; index < Math.max(next.widths.length, current.widths.length); index += 1) {
+      const delta = (next.widths[index] ?? 0) - (current.widths[index] ?? 0);
+      if (Math.abs(delta) > 0.01) return delta > 0;
+    }
+    return false;
+  };
+  const dfs = (remaining: number, chosen: number[]) => {
+    const candidate = { widths: chosen, used: span - remaining };
+    if (isBetter(candidate, best)) best = candidate;
+    if (chosen.length >= MAX_PIECES || remaining < smallest - 0.01) return;
+    for (const width of widths) {
+      if (width <= remaining + 0.01) dfs(Math.round((remaining - width) * 100) / 100, [...chosen, width]);
+    }
+  };
+  dfs(span, []);
+  return best ? (best as WidthPick).widths.slice() : [];
+}
+
+/**
  * Tile a wall span with real catalog cabinets, resolving any leftover with a
  * filler/scribe strip. Produces a VARIED mix of widths (not just the widest
  * repeated). When `forceFiller` is true a clearance filler is always appended
@@ -203,7 +241,7 @@ export function autoFillSpan(
   spanInches: number,
   mode: FillMode,
   catalog: FillCabinet[],
-  opts: { forceFiller?: number } = {}
+  opts: { forceFiller?: number; strategy?: FillStrategy } = {}
 ): FillResult {
   const span = Math.max(0, Math.round(spanInches * 100) / 100);
   const items: FillItem[] = [];
@@ -222,7 +260,9 @@ export function autoFillSpan(
   }
   const distinctWidths = Array.from(byWidth.keys());
 
-  const plannedWidths = planVariedWidths(span, distinctWidths);
+  const plannedWidths = opts.strategy === "largest-first"
+    ? planLargestFirstWidths(span, distinctWidths)
+    : planVariedWidths(span, distinctWidths);
   for (const w of plannedWidths) {
     const c = byWidth.get(w);
     if (!c) continue;

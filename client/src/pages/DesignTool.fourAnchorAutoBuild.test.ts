@@ -42,15 +42,15 @@ describe("admin four-anchor Designer wiring", () => {
     expect(dialogSource).toContain("Optional exact dishwasher center");
   });
 
-  it("collects selected sink-base and refrigerator enclosure choices instead of using generic floor appliances", () => {
+  it("collects a selected sink base and documents the mandatory refrigerator enclosure instead of using generic floor appliances", () => {
     expect(dialogSource).toContain("Sink base size");
     expect(dialogSource).toContain("SB{width}");
-    expect(dialogSource).toContain("Refrigerator width");
-    expect(dialogSource).toContain("Side panels");
-    expect(dialogSource).toContain("Over-fridge enclosure");
+    expect(dialogSource).toContain("36″ refrigerator");
+    expect(dialogSource).toContain("Two source-priced side panels");
+    expect(dialogSource).toContain("Matching source-priced 36″ cabinet above");
     expect(pageSource).toContain("No source-priced SB${sinkBaseWidth} sink base");
     expect(pageSource).toContain("makeDefaultSinkForCabinet(sinkBase");
-    expect(pageSource).toContain("initialChoice:");
+    expect(pageSource).toContain("buildMandatoryFourAnchorRefrigeratorBay");
   });
 
   it("collects the requested 30, 36, or 42 inch wall-cabinet height and keeps submit failures visible", () => {
@@ -65,7 +65,7 @@ describe("admin four-anchor Designer wiring", () => {
   it("resolves the selected SB width only to a straight sink base and never fills a wall gap with a corner SKU", () => {
     expect(pageSource).toContain("const straightBaseCatalog = autoBuildStraightBaseCatalog(pool);");
     expect(pageSource).toContain("isAutoBuildStraightSinkBaseCandidate(item)");
-    expect(pageSource).toContain('autoFillSpan(segment.length, "kitchen", stage.straightBaseCatalog)');
+    expect(pageSource).toContain('autoFillSpan(segment.length, "kitchen", stage.straightBaseCatalog, { strategy: "largest-first" })');
     expect(pageSource).not.toContain('autoFillSpan(segment.length, "kitchen", pool)');
   });
 
@@ -74,7 +74,6 @@ describe("admin four-anchor Designer wiring", () => {
     expect(pageSource).toContain("wallPlacementAt(along, width, depth, wallId, room)");
     expect(pageSource).toContain("appendCollisionFreePlacements(working, [candidate], room)");
     expect(pageSource).toContain("subtractAnchorRunReservations");
-    expect(pageSource).toContain("autoBuildSelectedWallCornerReservations(wallId, room, openCornerWallIds)");
     expect(pageSource).toContain("refrigeratorReservation.start");
     expect(pageSource).toContain("refrigeratorReservation.end");
     expect(pageSource).not.toContain("y: room.depth - STD.BASE_DEPTH");
@@ -86,5 +85,6 @@ describe("admin four-anchor Designer wiring", () => {
     expect(pageSource).toContain("fourAnchorCornerSlots(input.layoutType)");
     expect(pageSource).toContain("nextAvailableRoomCornerPlacement");
     expect(pageSource).toContain("completeFourAnchorAutoLayout");
+    expect(pageSource).toContain("A corner cabinet is required at every Four-anchor L/U corner");
   });
 });
