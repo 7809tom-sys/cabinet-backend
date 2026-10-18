@@ -37,6 +37,8 @@ export type FourAnchorInputs = {
   layoutType: FourAnchorLayoutType;
   originCorner: FourAnchorOriginCorner;
   runDirection: FourAnchorRunDirection;
+  /** Height selected for source-priced wall cabinets in the generated kitchen. */
+  wallCabinetHeightIn?: 30 | 36 | 42;
   sink: FourAnchorMeasurement;
   /** Exact source-sized sink base requested by the admin (SB30/SB33/SB36/SB42). */
   sinkBaseWidthIn?: 30 | 33 | 36 | 42;

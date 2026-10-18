@@ -53,6 +53,15 @@ describe("admin four-anchor Designer wiring", () => {
     expect(pageSource).toContain("initialChoice:");
   });
 
+  it("collects the requested 30, 36, or 42 inch wall-cabinet height and keeps submit failures visible", () => {
+    expect(dialogSource).toContain("Wall-cabinet height");
+    expect(dialogSource).toContain("([30, 36, 42] as const)");
+    expect(dialogSource).toContain("height}″ wall cabinets");
+    expect(dialogSource).toContain("30″, 36″, or 42″");
+    expect(dialogSource).toContain("wallCabinetHeightIn");
+    expect(dialogSource).toContain('data-testid="four-anchor-build-error"');
+  });
+
   it("resolves the selected SB width only to a straight sink base and never fills a wall gap with a corner SKU", () => {
     expect(pageSource).toContain("const straightBaseCatalog = autoBuildStraightBaseCatalog(pool);");
     expect(pageSource).toContain("isAutoBuildStraightSinkBaseCandidate(item)");

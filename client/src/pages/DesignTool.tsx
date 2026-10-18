@@ -2421,7 +2421,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 
   // A dedicated, full base-cabinet list for the active line, used by the
   // Auto-Fill engine (independent of which palette tab/search is active).
-  const { data: autoFillCabinets } = trpc.design.placeableCabinets.useQuery({
+  const { data: autoFillCabinets, isLoading: autoFillCabinetsLoading } = trpc.design.placeableCabinets.useQuery({
     placement: "base",
     styleId: styleId ?? undefined,
     distributorId: lockedDistributorId ?? undefined,
@@ -3003,14 +3003,19 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     [roomType]
   );
   const buildFourAnchorAutoLayout = useCallback((input: FourAnchorInputs) => {
+    const fail = (message: string) => {
+      toast.error(message);
+      return { ok: false as const, message };
+    };
     if (!canRunFourAnchorAutoBuild(isAdmin, placedRef.current.length > 0)) {
-      toast.error("The four-anchor build is admin-only and only runs on an empty Designer.");
-      return;
+      return fail("The four-anchor build is admin-only and only runs on an empty Designer.");
     }
     const result = planFourAnchorAutoBuild(input);
     if (!result.ok) {
-      toast.error(`Missing required measurement: ${result.missing.join(", ")}.`);
-      return;
+      return fail(`Missing required measurement: ${result.missing.join(", ")}.`);
+    }
+    if (autoFillCabinetsLoading) {
+      return fail("The selected line’s source-priced cabinets are still loading. Wait a moment, then build the measured kitchen again.");
     }
     const sinkBaseWidth = input.sinkBaseWidthIn ?? 36;
     const refrigeratorWidth = input.refrigeratorWidthIn ?? 36;
@@ -3021,8 +3026,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     const sinkBaseSource = pool.find((item) => isAutoBuildStraightSinkBaseCandidate(item)
       && Math.abs(dim(item.width, 0) - sinkBaseWidth) < 0.1);
     if (!sinkBaseSource) {
-      toast.error(`No source-priced SB${sinkBaseWidth} sink base is available for the selected line.`);
-      return;
+      return fail(`No source-priced SB${sinkBaseWidth} sink base is available for the selected line. Choose a door style with a priced sink base, then try again.`);
     }
     const applianceByKind: Record<string, DesignCabinet | undefined> = {
       stove: appliancePalette.find((item) => item.masterCode === "RANGE-30"),
@@ -3030,15 +3034,13 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       refrigerator: appliancePalette.find((item) => item.masterCode === "FRIDGE-36"),
     };
     if (Object.values(applianceByKind).some((item) => !item)) {
-      toast.error("The kitchen appliance palette is still loading. Try the admin build again in a moment.");
-      return;
+      return fail("The kitchen appliance palette is still loading. Wait for the source-priced cabinet catalog, then try again.");
     }
     const baseSource = straightBaseCatalog
       .find((item) => Math.abs(dim(item.width, 0) - 24) < 0.1)
       ?? straightBaseCatalog[0];
     if (!baseSource) {
-      toast.error("No source-priced standard base cabinet is available for the selected line.");
-      return;
+      return fail("No source-priced standard base cabinet is available for the selected line. Choose a compatible door style, then try again.");
     }
     const fridgeParts = refrigeratorSurroundCatalog as
       | { endPanels?: DesignCabinet[] }
@@ -3046,8 +3048,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     const needsFridgePanel = (input.refrigeratorPanels ?? "none") !== "none";
     const selectedEndPanel = needsFridgePanel ? fridgeParts?.endPanels?.[0] ?? null : null;
     if (needsFridgePanel && !selectedEndPanel) {
-      toast.error("The selected line’s source-priced refrigerator end panels are still loading or unavailable. The measured build was not changed.");
-      return;
+      return fail("The selected line’s source-priced refrigerator end panels are still loading or unavailable. The measured build was not changed.");
     }
 
     let working: PlacedCabinet[] = [];
@@ -3076,15 +3077,13 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         : anchor;
       const wall = wallLabelToEngineWallId(measuredAnchor.wallLabel, room, input.originCorner, input.runDirection);
       if (!wall) {
-        toast.error(`${anchor.kind} cannot be placed because ${measuredAnchor.wallLabel} is not available in this room.`);
-        return;
+        return fail(`${anchor.kind} cannot be placed because ${measuredAnchor.wallLabel} is not available in this room.`);
       }
       const along = anchorAlongStartIn(measuredAnchor, width, wall);
       const usableStart = wall.frame.runStart;
       const usableEnd = wall.frame.runEnd;
       if (along < usableStart - COLLISION_EPSILON_IN || along + width > usableEnd + COLLISION_EPSILON_IN) {
-        toast.error(`${anchor.kind} does not fit on ${measuredAnchor.wallLabel} at the selected center measurement.`);
-        return;
+        return fail(`${anchor.kind} does not fit on ${measuredAnchor.wallLabel} at the selected center measurement.`);
       }
       const spot = wallPlacementAt(along, width, depth, wall.engineWallId as WallSide, room);
       const candidate: PlacedCabinet = {
@@ -3111,13 +3110,11 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       ).some((segment) => along >= segment.start - COLLISION_EPSILON_IN
         && along + width <= segment.start + segment.length + COLLISION_EPSILON_IN);
       if (!available) {
-        toast.error(`${anchor.kind} cannot be placed at that exact measurement on ${measuredAnchor.wallLabel}: it overlaps a same-wall anchor, door, or required corner clearance. No layout was built.`);
-        return;
+        return fail(`${anchor.kind} cannot be placed at that exact measurement on ${measuredAnchor.wallLabel}: it overlaps a same-wall anchor, door, or required corner clearance. No layout was built.`);
       }
       const preflight = appendCollisionFreePlacements(working, [candidate], room);
       if (preflight.rejected.length > 0) {
-        toast.error(`${anchor.kind} cannot be placed at that exact measurement on ${measuredAnchor.wallLabel}: it overlaps an existing anchor, opening, or adjoining wall clearance. No layout was built.`);
-        return;
+        return fail(`${anchor.kind} cannot be placed at that exact measurement on ${measuredAnchor.wallLabel}: it overlaps an existing anchor, opening, or adjoining wall clearance. No layout was built.`);
       }
       working = preflight.placed;
       anchorsByKind.set(anchor.kind, candidate);
@@ -3198,6 +3195,10 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     }
     placedRef.current = working;
     setPlaced(working);
+    const selectedWallCabinetHeight = input.wallCabinetHeightIn ?? 30;
+    setWallCabHeight(selectedWallCabinetHeight);
+    wallCabHeightRef.current = selectedWallCabinetHeight;
+    wallCabHeightPromptedRef.current = true;
     setCountertop(true);
     setFourAnchorAutoBuildOpen(false);
     setViewMode("threeD");
@@ -3216,7 +3217,8 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       });
     }
     toast.success(`Admin test kitchen built from exact wall anchors with ${surrounding.length} source-priced surrounding cabinets.`);
-  }, [appliancePalette, autoFillCabinets, isAdmin, isCornerCabinet, openings, placedRef, refrigeratorSurroundCatalog, room, setCountertop, setPlaced]);
+    return { ok: true as const };
+  }, [appliancePalette, autoFillCabinets, autoFillCabinetsLoading, isAdmin, isCornerCabinet, openings, placedRef, refrigeratorSurroundCatalog, room, setCountertop, setPlaced]);
   // A previous automatic microwave workflow could persist WSC30—the real
   // 30×6 spice cabinet—directly above an MW-30. Convert only that centered
   // legacy microwave assembly to the selected source W30 bridge; ordinary spice
@@ -18289,6 +18291,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	          open={fourAnchorAutoBuildOpen}
 	          onOpenChange={setFourAnchorAutoBuildOpen}
 	          onBuild={buildFourAnchorAutoLayout}
+	          catalogLoading={autoFillCabinetsLoading}
 	        />
 	      )}
 	      <SurfacesPickerDialog

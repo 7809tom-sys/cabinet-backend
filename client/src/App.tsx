@@ -918,6 +918,7 @@ export default function App() {
         </Route>
       </Switch>
       <ChatWidget />
+      <Toaster />
       </ThemeProvider>
       </PreferredProductsProvider>
     </AffiliateOwnerScopeGuard>

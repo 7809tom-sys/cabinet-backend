@@ -15,10 +15,18 @@ import type {
   WallLabel,
 } from "@/lib/fourAnchorAutoBuild";
 
-type Props = { open: boolean; onOpenChange: (open: boolean) => void; onBuild: (input: FourAnchorInputs) => void };
+export type FourAnchorSubmitResult = { ok: true } | { ok: false; message: string };
+type Props = {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onBuild: (input: FourAnchorInputs) => FourAnchorSubmitResult;
+  /** The selected line's source-priced base catalog is still arriving. */
+  catalogLoading?: boolean;
+};
 type PointField = "sink" | "stove" | "dishwasher" | "refrigerator";
 type SinkBaseWidth = 30 | 33 | 36 | 42;
 type RefrigeratorWidth = 30 | 33 | 36 | 42;
+type WallCabinetHeight = 30 | 36 | 42;
 
 const labels: Record<PointField, string> = {
   sink: "Sink base",
@@ -35,7 +43,7 @@ const wallSelectionLabels: Record<PointField, string> = {
 const wallLabels: WallLabel[] = ["Wall 1", "Wall 2", "Wall 3", "Wall 4"];
 type FieldValue = { wallLabel: WallLabel; centerOffsetIn: string };
 
-export function FourAnchorAutoBuildDialog({ open, onOpenChange, onBuild }: Props) {
+export function FourAnchorAutoBuildDialog({ open, onOpenChange, onBuild, catalogLoading = false }: Props) {
   const [layoutType, setLayoutType] = useState<FourAnchorLayoutType>("single-wall");
   const [originCorner, setOriginCorner] = useState<FourAnchorOriginCorner>("left");
   const [runDirection, setRunDirection] = useState<FourAnchorRunDirection>("right");
@@ -46,11 +54,13 @@ export function FourAnchorAutoBuildDialog({ open, onOpenChange, onBuild }: Props
     refrigerator: { wallLabel: "Wall 1", centerOffsetIn: "84" },
   });
   const [sinkBaseWidth, setSinkBaseWidth] = useState<SinkBaseWidth>(36);
+  const [wallCabinetHeight, setWallCabinetHeight] = useState<WallCabinetHeight>(30);
   const [dishwasherSide, setDishwasherSide] = useState<DishwasherSide>("right");
   const [refrigeratorWidth, setRefrigeratorWidth] = useState<RefrigeratorWidth>(36);
   const [refrigeratorPanels, setRefrigeratorPanels] = useState<RefrigeratorPanelChoice>("none");
   const [refrigeratorEnclosure, setRefrigeratorEnclosure] = useState<RefrigeratorEnclosureChoice>("none");
   const [windowCenter, setWindowCenter] = useState("");
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const setValue = (field: PointField, patch: Partial<FieldValue>) => setValues((current) => ({
     ...current,
@@ -63,10 +73,12 @@ export function FourAnchorAutoBuildDialog({ open, onOpenChange, onBuild }: Props
   const optionalMeasurement = (field: PointField) => values[field].centerOffsetIn.trim() ? measurement(field) : null;
 
   const submit = () => {
-    onBuild({
+    setSubmitError(null);
+    const result = onBuild({
       layoutType,
       originCorner,
       runDirection,
+      wallCabinetHeightIn: wallCabinetHeight,
       sink: measurement("sink"),
       sinkBaseWidthIn: sinkBaseWidth,
       stove: measurement("stove"),
@@ -80,6 +92,7 @@ export function FourAnchorAutoBuildDialog({ open, onOpenChange, onBuild }: Props
         ? { wallLabel: values.sink.wallLabel, centerOffsetIn: Number(windowCenter) }
         : null,
     });
+    if (!result.ok) setSubmitError(result.message);
   };
 
   return (
@@ -123,6 +136,20 @@ export function FourAnchorAutoBuildDialog({ open, onOpenChange, onBuild }: Props
 
           <div className="rounded-lg border bg-muted/20 p-3 text-xs text-muted-foreground">
             Choose Wall 1–4 for each appliance. The measurement is that item’s center from the selected wall’s labeled starting corner; raw X/Y floor coordinates are never used.
+          </div>
+          {catalogLoading && (
+            <div role="status" data-testid="four-anchor-catalog-loading" className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
+              Loading the selected line’s source-priced cabinets. Build measured kitchen will be available as soon as the catalog is ready.
+            </div>
+          )}
+
+          <div className="space-y-1.5 rounded-lg border p-3">
+            <Label htmlFor="four-anchor-wall-cabinet-height">Wall-cabinet height</Label>
+            <Select value={String(wallCabinetHeight)} onValueChange={(value) => setWallCabinetHeight(Number(value) as WallCabinetHeight)}>
+              <SelectTrigger id="four-anchor-wall-cabinet-height" aria-label="Wall cabinet height"><SelectValue /></SelectTrigger>
+              <SelectContent>{([30, 36, 42] as const).map((height) => <SelectItem key={height} value={String(height)}>{height}″ wall cabinets</SelectItem>)}</SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">Choose the source-priced upper-cabinet height for this kitchen: 30″, 36″, or 42″.</p>
           </div>
 
           <div className="grid gap-2">
@@ -200,10 +227,15 @@ export function FourAnchorAutoBuildDialog({ open, onOpenChange, onBuild }: Props
               <Input id="four-anchor-window-center" type="number" min="0" step="0.125" placeholder="Leave blank when not applicable" value={windowCenter} onChange={(event) => setWindowCenter(event.target.value)} />
             </div>
           )}
+          {submitError && (
+            <div role="alert" data-testid="four-anchor-build-error" className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+              {submitError}
+            </div>
+          )}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={submit} data-testid="four-anchor-build-submit">Build measured kitchen</Button>
+          <Button onClick={submit} disabled={catalogLoading} data-testid="four-anchor-build-submit">Build measured kitchen</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
