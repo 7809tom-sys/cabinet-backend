@@ -178,7 +178,9 @@ import { CabinetHandlesControl, DEFAULT_DESIGNER_HARDWARE_STYLE_ID } from "@/com
 import { HardwareCatalogPicker } from "@/components/design/HardwareCatalogPicker";
 import { isPanelPaletteItem } from "./designToolPanels";
 import { normalizePaletteSearch, matchesPaletteSearch } from "@/lib/paletteSearch";
-import { canRunFourAnchorAutoBuild, planFourAnchorAutoBuild, type FourAnchorInputs } from "@/lib/fourAnchorAutoBuild";
+import { anchorAlongStartIn, canRunFourAnchorAutoBuild, planFourAnchorAutoBuild, wallLabelToEngineWallId, type FourAnchorInputs } from "@/lib/fourAnchorAutoBuild";
+import { validatePlacedCornerRefrigerator } from "@/lib/cornerRefrigeratorPlacement";
+import { validatePlacedCornerRange, CORNER_RANGE_HANDLE_FILLER_IN } from "@/lib/cornerRangePlacement";
 import { buildGlassCornerCatalogChoices } from "@/lib/glassCornerCatalog";
 import {
   closetPaletteByCategory, closetPartPrice, isClosetPart,
@@ -3007,21 +3009,32 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       toast.error("No source-priced standard base cabinet is available for the selected line.");
       return;
     }
-    const orientedCenter = (center: number) => input.originCorner === "left" ? center : room.width - center;
-    const anchorPlacements: PlacedCabinet[] = result.plan.anchors.map((anchor) => {
+    const anchorPlacements: PlacedCabinet[] = [];
+    for (const anchor of result.plan.anchors) {
       const source = applianceByKind[anchor.kind]!;
       const width = dim(source.width, 24);
       const depth = dim(source.depth, STD.BASE_DEPTH);
       const height = dim(source.height, standardHeight("appliance"));
-      const centerX = Math.max(width / 2, Math.min(room.width - width / 2, orientedCenter(anchor.x)));
-      return {
+      const wall = wallLabelToEngineWallId(anchor.wallLabel, room, input.originCorner, input.runDirection);
+      if (!wall) {
+        toast.error(`${anchor.kind} cannot be placed because ${anchor.wallLabel} is not available in this room.`);
+        return;
+      }
+      const along = anchorAlongStartIn(anchor, width, wall);
+      const usableStart = wall.frame.runStart;
+      const usableEnd = wall.frame.runEnd;
+      if (along < usableStart - COLLISION_EPSILON_IN || along + width > usableEnd + COLLISION_EPSILON_IN) {
+        toast.error(`${anchor.kind} does not fit on ${anchor.wallLabel} at the selected center measurement.`);
+        return;
+      }
+      const spot = wallPlacementAt(along, width, depth, wall.engineWallId as WallSide, room);
+      anchorPlacements.push({
         uid: makeUid(), cabinetId: source.id, masterCode: source.masterCode, description: source.description,
         category: source.category, subCategory: source.subCategory, placement: "appliance", applianceRole: "base-height",
-        x: centerX - width / 2, y: room.depth - depth, width, depth, height, rotation: 0,
-        mountBottom: source.mountBottom ?? 0, catalogImageUrl: source.catalogImageUrl ?? null,
+        ...spot, width, depth, height, mountBottom: source.mountBottom ?? 0, catalogImageUrl: source.catalogImageUrl ?? null,
         numberOfDoors: source.numberOfDoors, numberOfDrawers: source.numberOfDrawers, styleId: styleIdRef.current ?? null,
-      };
-    });
+      });
+    }
     const occupied = anchorPlacements.map((item) => ({ start: item.x, end: item.x + item.width }));
     const surrounding: PlacedCabinet[] = [];
     const source = baseSource;
@@ -6332,6 +6345,25 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	      const rangeHoodConflict = rangeHoodPlacement?.ok && isRangeHoodPlacement(finalCab)
 	        ? cabinetCollisionDetail(finalCab, normalizedPrevious)
 	        : null;
+      const cornerRefrigeratorViolation = !requestedIslandFace
+        ? validatePlacedCornerRefrigerator(finalCab, room, normalizedPrevious)
+        : null;
+      if (cornerRefrigeratorViolation) {
+        const message = cornerRefrigeratorViolation.reason === "insufficient-depth"
+          ? `${finalCab.masterCode} cannot be seated in a corner because a refrigerator requires at least 24" of depth.`
+          : cornerRefrigeratorViolation.reason === "collision"
+            ? `${finalCab.masterCode} cannot be seated in this corner because its required refrigerator footprint overlaps another item.`
+            : `${finalCab.masterCode} cannot be seated at this corner because the required corner clearance is not available.`;
+        setPlacementWarning(message);
+        toast.error(message);
+        return;
+      }
+      const cornerRangeValidation = !requestedIslandFace
+        ? validatePlacedCornerRange(finalCab, room, normalizedPrevious)
+        : null;
+      if (cornerRangeValidation?.reason === "missing-filler") {
+        toast.info(`${finalCab.masterCode} is placeable, but a ${CORNER_RANGE_HANDLE_FILLER_IN}" filler is required beside the corner appliance so its handle clears the adjoining cabinet handle.`);
+      }
       if (cabinetPlacementCollisionDetail(finalCab, normalizedPrevious, room) && !isSinkBasePlacement) {
 	        // A hood must occupy the same upper-wall span as its range. When an
 	        // existing upper cabinet is already in that exact band, do not move

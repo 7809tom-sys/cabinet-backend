@@ -23,4 +23,14 @@ describe("admin four-anchor Designer wiring", () => {
     expect(dialogSource).toContain("refrigerator");
     expect(dialogSource).toContain('data-testid="four-anchor-build-submit"');
   });
+
+  it("makes the wall choice and its measurement datum explicit for every appliance row", () => {
+    expect(dialogSource).toContain("Place on wall");
+    expect(dialogSource).toContain("Center from selected wall start (in.)");
+    expect(dialogSource).toContain("Choose Wall 1–4 for each appliance");
+    expect(dialogSource).toContain("Sink base — place on wall");
+    expect(dialogSource).toContain("Refrigerator — place on wall");
+    expect(dialogSource).not.toContain("RUN / X");
+    expect(dialogSource).not.toContain("DEPTH / Y");
+  });
 });
