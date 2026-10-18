@@ -24,6 +24,20 @@ describe("site toolbar account visibility", () => {
     expect(css()).not.toMatch(/overflow(?:-x)?:\s*(?:hidden|auto|scroll)/);
   });
 
+  it("keeps every desktop action visible without collisions at common computer widths", () => {
+    const styles = css();
+
+    // The visual content container remains 1280px wide even on a larger
+    // monitor. Keep account controls in the first row and the complete
+    // shopping row beneath it instead of re-enabling two colliding clusters.
+    expect(styles).not.toContain("@media (min-width: 1280px) and (max-width: 1599px)");
+    expect(styles).toContain('[data-designer-route="true"] [data-testid="site-toolbar-navigation"]');
+    expect(styles).toContain("order: 4;");
+    expect(styles).toContain("flex-basis: 100%;");
+    expect(styles).toContain("font-size: 0.75rem;");
+    expect(styles).toContain("min-height: 2rem;");
+  });
+
   it("preserves direct affiliate, admin, account and sign-out actions and all original destinations", () => {
     for (const destination of ["/kitchens", "/styles", "/catalog", "/countertops", "/surfaces", "/stonecreek", "/plumbers-choice", "/design", "/affiliate", "/account", "/admin"]) {
       expect(source).toContain(destination);

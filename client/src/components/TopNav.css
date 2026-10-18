@@ -59,6 +59,32 @@
   }
 }
 
+/* The site toolbar's visible content is capped at 1280px, even on a larger
+   monitor. Keep all signed-in controls visible by preserving the compact
+   shopping row below the account actions at every desktop viewport. */
+@media (min-width: 1280px) {
+  [data-designer-route="true"] [data-testid="site-toolbar-row"] {
+    min-height: 3rem;
+    flex-wrap: wrap;
+    padding-block: 0.25rem;
+  }
+
+  [data-designer-route="true"] [data-testid="site-toolbar-navigation"] {
+    order: 4;
+    flex-basis: 100%;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  [data-testid="site-toolbar-actions"] button,
+  [data-testid="site-toolbar-navigation"] > a,
+  [data-testid="site-toolbar-navigation"] > div > button {
+    min-height: 2rem;
+    padding-inline: 0.375rem;
+    font-size: 0.75rem;
+  }
+}
+
 /* Compact width must not come at the expense of touch-target height. */
 @media (pointer: coarse) {
   [data-testid="site-toolbar-actions"] button,
