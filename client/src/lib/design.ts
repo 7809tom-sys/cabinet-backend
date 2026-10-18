@@ -8532,8 +8532,29 @@ export function cabinetWallMovePreview(
   const requestedStart = roundToEighth(explicitOffset ?? projectedStart);
   const minStart = frame.runStart;
   const maxStart = Math.max(frame.runStart, frame.runEnd - width);
-  const clampedStart = Math.max(minStart, Math.min(maxStart, requestedStart));
-  const magnet = options.magnet && !options.exact && explicitOffset == null;
+  let clampedStart = Math.max(minStart, Math.min(maxStart, requestedStart));
+  // Blind corners are deliberately not wall-magnet cabinets. Preserve the
+  // corner they currently own, but allow the body to release and move only
+  // through the catalog-configured pull envelope (normally 3–6 inches).
+  if (isBlindCorner(cabinet.masterCode, cabinet.description)) {
+    const currentOffset = cabinet.wallOffset != null
+      ? Math.max(frame.runStart, Math.min(maxStart, Number(cabinet.wallOffset) || 0))
+      : wallRunOffset(cabinet, frame.id, room);
+    const currentEndGap = Math.max(0, frame.runEnd - (currentOffset + width));
+    const cornerAtStart = currentOffset <= currentEndGap;
+    const range = blindPullRange(cabinet);
+    if (range) {
+      const pullMinStart = cornerAtStart ? frame.runStart + range.min : frame.runEnd - width - range.max;
+      const pullMaxStart = cornerAtStart ? frame.runStart + range.max : frame.runEnd - width - range.min;
+      const low = Math.min(pullMinStart, pullMaxStart);
+      const high = Math.max(pullMinStart, pullMaxStart);
+      clampedStart = Math.max(low, Math.min(high, clampedStart));
+    }
+  }
+  const magnet = options.magnet
+    && !options.exact
+    && explicitOffset == null
+    && !isBlindCorner(cabinet.masterCode, cabinet.description);
   const startExtension = Math.max(0, Number(options.magneticEnvelope?.startExtensionIn) || 0);
   const endExtension = Math.max(0, Number(options.magneticEnvelope?.endExtensionIn) || 0);
   const magneticWidth = width + startExtension + endExtension;

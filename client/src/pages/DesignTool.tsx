@@ -9336,7 +9336,10 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 		        p.uid !== uid
 		        && (!isRefrigerator(cabinet) || p.refrigeratorAssemblyId !== uid)
 		      ));
-	      const magnet = automaticSnapping && !customPlacementMode && !exactWallDrag;
+      const magnet = automaticSnapping
+        && !customPlacementMode
+        && !exactWallDrag
+        && !isBlindCorner(cabinet.masterCode, cabinet.description);
 	      const wallMove = requestedBody.islandFace
 	        ? null
 		        : cabinetWallMovePreview(requestedBody, { x, y }, room, peers, openings, {
@@ -9490,7 +9493,9 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	    const cabinet = placedRef.current.find((item) => item.uid === uid);
 	    if (!cabinet || cabinet.islandFace) return;
 	    if (cabinet.locked) { toast.info(`${cabinet.masterCode} is locked — unlock it before moving.`); return; }
-	    if (isProtectedCornerCabinet(cabinet.masterCode, cabinet.description) && !cabinet.cornerSnapUnlocked) {
+    if (isProtectedCornerCabinet(cabinet.masterCode, cabinet.description)
+      && !isBlindCorner(cabinet.masterCode, cabinet.description)
+      && !cabinet.cornerSnapUnlocked) {
       toast.error(`${cabinet.masterCode} is locked to its seated corner. Use Unlock first before moving it along a wall.`);
       return;
     }
@@ -9941,7 +9946,9 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	    if (!cabinet || cabinet.islandFace) return null;
 	    // A protected corner's precise position is its snapped vertex. It must be
 	    // explicitly unlocked before a measured run offset can detach it.
-	    if (isProtectedCornerCabinet(cabinet.masterCode, cabinet.description) && !cabinet.cornerSnapUnlocked) return null;
+    if (isProtectedCornerCabinet(cabinet.masterCode, cabinet.description)
+      && !isBlindCorner(cabinet.masterCode, cabinet.description)
+      && !cabinet.cornerSnapUnlocked) return null;
 	    const side = (cabinet.wallId ?? cabinetWall(cabinet, room)) as WallSide;
 	    const length = wallLength(side, room);
 	    if (!Number.isFinite(length) || length <= 0) return null;

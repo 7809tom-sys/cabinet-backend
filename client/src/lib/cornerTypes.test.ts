@@ -7,6 +7,7 @@ import {
   isLCornerCabinet,
   blindCornerDoorSide,
   normalizeBlindCornerDoorSides,
+  cabinetWallMovePreview,
   placedFootprint,
 } from "./design";
 import type { PlacedCabinet, RoomData } from "./design";
@@ -113,5 +114,61 @@ describe("configured corner cabinet types", () => {
       { uid: "left-top", swing: "right" },
       { uid: "right-bottom", swing: "left" },
     ]);
+  });
+
+  it("lets a blind corner release from the wall magnet but clamps its pull to the configured 3–6 inch range", () => {
+    const room: RoomData = { width: 120, depth: 120, ceilingHeight: 96 };
+    const blind = {
+      uid: "bbc-release",
+      masterCode: "BBC-36",
+      description: '36" Blind Corner Base',
+      placement: "base",
+      x: 0,
+      y: 0,
+      width: 36,
+      depth: 24,
+      height: 34.5,
+      rotation: 0,
+      wallId: "top",
+      wallOffset: 0,
+      pullMin: 3,
+      pullMax: 6,
+    } as PlacedCabinet;
+
+    const withinRange = cabinetWallMovePreview(blind, { x: 4, y: 0 }, room, [], [], {
+      magnet: true,
+      exact: false,
+      target: { wallId: "top", wallOffset: 4 },
+    });
+    expect(withinRange.candidate?.wallOffset).toBe(4);
+    expect(withinRange.snapped).toBe(false);
+
+    const beyondMaximum = cabinetWallMovePreview(blind, { x: 20, y: 0 }, room, [], [], {
+      magnet: true,
+      exact: false,
+      target: { wallId: "top", wallOffset: 20 },
+    });
+    expect(beyondMaximum.candidate?.wallOffset).toBe(6);
+  });
+
+  it("keeps the ordinary base-cabinet wall magnet unchanged", () => {
+    const room: RoomData = { width: 120, depth: 120, ceilingHeight: 96 };
+    const cabinet = {
+      uid: "b36",
+      masterCode: "B36",
+      description: '36" Base Cabinet',
+      placement: "base",
+      x: 2,
+      y: 0,
+      width: 36,
+      depth: 24,
+      height: 34.5,
+      rotation: 0,
+      wallId: "top",
+      wallOffset: 2,
+    } as PlacedCabinet;
+    const result = cabinetWallMovePreview(cabinet, { x: 2, y: 0 }, room, [], [], { magnet: true });
+    expect(result.candidate?.wallOffset).toBe(0);
+    expect(result.snapped).toBe(true);
   });
 });
