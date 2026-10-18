@@ -57,18 +57,13 @@ export async function resolveAffiliateAccess(
     };
   }
 
-  const affiliateRows = await db
-    .select({ id: affiliates.id })
-    .from(affiliates)
-    .where(
-      or(
-        eq(affiliates.userId, user.id),
-        ...(email.length > 0 ? [eq(affiliates.email, email)] : []),
-      ),
-    )
-    .limit(1);
-
-  const owner = affiliateRows[0];
+  const linkedRows = await db.select({ id: affiliates.id }).from(affiliates).where(eq(affiliates.userId, user.id)).limit(1);
+  const emailRows = email.length > 0
+    ? await db.select({ id: affiliates.id }).from(affiliates).where(eq(affiliates.email, email)).limit(2)
+    : [];
+  // A linked identity is authoritative. An email-only legacy match is allowed
+  // only when it identifies exactly one affiliate; never guess across stores.
+  const owner = linkedRows[0] ?? (emailRows.length === 1 ? emailRows[0] : undefined);
   if (!owner) return null;
 
   return {

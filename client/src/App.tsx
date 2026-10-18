@@ -61,6 +61,7 @@ const VendorClosetStudio = lazy(() => import("@/pages/VendorClosetStudio"));
 const PhotoToCart = lazy(() => import("@/pages/PhotoToCart"));
 const FixturePhotoToCart = lazy(() => import("@/pages/FixturePhotoToCart"));
 const SignIn = lazy(() => import("@/pages/SignIn"));
+const AffiliateSetup = lazy(() => import("@/pages/AffiliateSetup"));
 const Account = lazy(() => import("@/pages/Account"));
 const PlanSheet = lazy(() => import("@/pages/PlanSheet"));
 const FeeSystemDoc = lazy(() => import("@/pages/FeeSystemDoc"));
@@ -781,6 +782,12 @@ export default function App() {
               <SignIn />
             </Suspense>
           </AppLayout>
+        </Route>
+
+        <Route path="/affiliate/setup">
+          <Suspense fallback={<PageLoader />}>
+            <AffiliateSetup />
+          </Suspense>
         </Route>
 
         <Route path="/photo-to-cart">

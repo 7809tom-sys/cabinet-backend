@@ -1470,6 +1470,9 @@ export const affiliates = mysqlTable("affiliates", {
   commissionRate: decimal("commissionRate", { precision: 5, scale: 4 }).default("0.05").notNull(), // 0.05 = 5%
   status: mysqlEnum("status", ["active", "paused", "inactive"]).default("active").notNull(),
   userId: int("userId"), // linked partner-role user account (nullable until they sign in)
+  // Single-use password setup invitation. Cleared after password creation.
+  setupToken: varchar("setupToken", { length: 96 }).unique(),
+  setupTokenCreatedAt: timestamp("setupTokenCreatedAt"),
   // Storefront branding
   logoUrl: varchar("logoUrl", { length: 512 }),
   // Generated-image brand protection. When enabled, affiliate-owned generated

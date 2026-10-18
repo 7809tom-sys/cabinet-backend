@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { randomBytes } from "node:crypto";
 import { eq, desc, or, and, inArray, sql, isNull } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { storagePut } from "../storage";
@@ -14,6 +15,7 @@ import { getDb } from "../db";
 import { affiliates, affiliateTestimonials, orderRequests, affiliateStyleBranding, affiliateDistributorSelections, affiliateFeaturedDistributorEvents, doorStyles, distributors, distributorSkus, affiliatePayouts, affiliateBannerSchedules, affiliatePromoDiscounts, designConsultations, designLeads, affiliateTeamMembers, emailSettings, affiliateHardwareCommissionSnapshots, users } from "../../drizzle/schema";
 import { emailSettingsReady, sendEmailViaSettings } from "../email";
 import { buildSalesDemoInvite, deliverInviteThenGrant, SALES_DEMO_AFFILIATE_SLUG, SALES_DEMO_TEAM_ACCESS } from "../salesDemoInvite";
+import { buildAffiliateSetupInvite } from "../affiliateSetupInvite";
 import { resolveAffiliateAccess } from "../lib/affiliateAccess";
 import { computeEarning, dollarsToCents, groupByWeek, isoWeekKey, isoWeekStart } from "@shared/earnings";
 import {
@@ -224,10 +226,14 @@ async function resolveMyAffiliate(ctx: { user: { id: number; email: string | nul
   if (!db) return null;
   const email = (ctx.user.email ?? "").toLowerCase();
   const rows = await db.select().from(affiliates);
-  // Match by linked userId first, then by email (case-insensitive).
-  const mine =
-    rows.find((r) => r.userId === ctx.user.id) ??
-    rows.find((r) => (r.email ?? "").toLowerCase() === email && email.length > 0);
+  // A linked userId is authoritative. Never fall back to an email match when
+  // this login is already linked to another affiliate, and never guess when
+  // duplicate legacy email rows exist.
+  const linked = rows.find((r) => r.userId === ctx.user.id);
+  const emailMatches = email.length > 0
+    ? rows.filter((r) => (r.email ?? "").toLowerCase() === email)
+    : [];
+  const mine = linked ?? (emailMatches.length === 1 ? emailMatches[0] : undefined);
   if (mine) return mine;
 
   // Check if user is a team member of an affiliate
@@ -769,6 +775,89 @@ export const affiliatesRouter = router({
       if (userId != null && affiliate.userId !== userId) affiliateUpdates.userId = userId;
       if (Object.keys(affiliateUpdates).length) await db.update(affiliates).set(affiliateUpdates).where(eq(affiliates.id, input.id));
       return { id: input.id, email: email ?? affiliate.email, linkedUserId: userId };
+    }),
+
+  // ─── Admin: email a one-time password setup link ─────────────────────────
+  // Never send or generate a password on behalf of the affiliate. The token is
+  // stored only after SMTP delivery succeeds and is cleared on first use.
+  adminSendSetupInvite: adminProcedure
+    .input(z.object({ id: z.number().int().positive(), email: z.string().email().max(320) }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      const [affiliate] = await db.select().from(affiliates).where(eq(affiliates.id, input.id)).limit(1);
+      if (!affiliate) throw new TRPCError({ code: "NOT_FOUND", message: "Affiliate not found." });
+
+      const email = input.email.trim();
+      const emailLower = email.toLowerCase();
+      let userId = affiliate.userId;
+      const user = userId == null ? undefined : (await db.select().from(users).where(eq(users.id, userId)).limit(1))[0];
+      if (user?.role === "admin") {
+        throw new TRPCError({ code: "CONFLICT", message: "An administrator account cannot be used as an affiliate login." });
+      }
+
+      const duplicateWhere = userId == null
+        ? eq(users.emailLower, emailLower)
+        : and(eq(users.emailLower, emailLower), sql`${users.id} <> ${userId}`);
+      const duplicate = await db.select({ id: users.id }).from(users).where(duplicateWhere).limit(1);
+      if (duplicate[0]) throw new TRPCError({ code: "CONFLICT", message: "That email is already used by another login. Use a unique affiliate email." });
+
+      const [emailConfig] = await db.select().from(emailSettings).limit(1);
+      if (!emailSettingsReady(emailConfig)) {
+        throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Email sending is not configured. Enable SMTP in Admin → Email Settings before sending an affiliate setup invitation." });
+      }
+
+      const token = randomBytes(48).toString("hex");
+      const origin = ctx.req.headers.origin ?? `${ctx.req.protocol}://${ctx.req.get("host")}`;
+      const invite = buildAffiliateSetupInvite({ affiliateName: affiliate.storeName, setupToken: token, origin });
+      const delivery = await sendEmailViaSettings(emailConfig, { to: email, subject: invite.subject, text: invite.text });
+      if (!delivery.success) throw new TRPCError({ code: "BAD_GATEWAY", message: delivery.error ?? "Unable to send the affiliate setup invitation." });
+
+      if (userId == null) {
+        const result = await db.insert(users).values({
+          openId: `affiliate_${randomBytes(16).toString("hex")}`,
+          name: affiliate.contactName ?? affiliate.storeName,
+          email,
+          emailLower,
+          passwordHash: null,
+          loginMethod: "password",
+          role: "user",
+          companyName: affiliate.storeName,
+        });
+        userId = Number((result as unknown as [{ insertId: number }])[0].insertId);
+      } else {
+        await db.update(users).set({ email, emailLower, passwordHash: null, loginMethod: "password", failedLoginAttempts: 0, lockedUntil: null }).where(eq(users.id, userId));
+      }
+      await db.update(affiliates).set({ email, userId, setupToken: token, setupTokenCreatedAt: new Date() }).where(eq(affiliates.id, affiliate.id));
+      return { success: true, sentTo: email } as const;
+    }),
+
+  // ─── Public: inspect a still-valid affiliate setup link ───────────────────
+  getSetupDetails: publicProcedure
+    .input(z.object({ token: z.string().length(96) }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return null;
+      const [affiliate] = await db.select({ id: affiliates.id, storeName: affiliates.storeName, email: affiliates.email, setupTokenCreatedAt: affiliates.setupTokenCreatedAt })
+        .from(affiliates).where(eq(affiliates.setupToken, input.token)).limit(1);
+      if (!affiliate || !affiliate.setupTokenCreatedAt || Date.now() - affiliate.setupTokenCreatedAt.getTime() > 24 * 60 * 60 * 1000) return null;
+      return { id: affiliate.id, storeName: affiliate.storeName, email: affiliate.email };
+    }),
+
+  // ─── Public: consume the one-time setup link and set the password ─────────
+  completeSetup: publicProcedure
+    .input(z.object({ token: z.string().length(96), password: z.string().min(8).max(128) }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      const [affiliate] = await db.select().from(affiliates).where(eq(affiliates.setupToken, input.token)).limit(1);
+      if (!affiliate || !affiliate.setupTokenCreatedAt || Date.now() - affiliate.setupTokenCreatedAt.getTime() > 24 * 60 * 60 * 1000) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "This setup link is invalid or expired. Ask the administrator to send a new invitation." });
+      }
+      if (!affiliate.userId) throw new TRPCError({ code: "BAD_REQUEST", message: "This affiliate login is not ready yet. Ask the administrator to resend the invitation." });
+      await db.update(users).set({ passwordHash: await bcrypt.hash(input.password, 12), loginMethod: "password", failedLoginAttempts: 0, lockedUntil: null }).where(eq(users.id, affiliate.userId));
+      await db.update(affiliates).set({ setupToken: null, setupTokenCreatedAt: null }).where(and(eq(affiliates.id, affiliate.id), eq(affiliates.setupToken, input.token)));
+      return { success: true, email: affiliate.email } as const;
     }),
 
   // A restrictive-covenant allegation must never independently deactivate a site.

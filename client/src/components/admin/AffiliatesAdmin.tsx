@@ -1474,6 +1474,15 @@ function AffiliateLoginManager({ affiliateId, currentEmail }: { affiliateId: num
     },
     onError: (error) => toast.error(error.message),
   });
+  const sendSetupInvite = trpc.affiliates.adminSendSetupInvite.useMutation({
+    onSuccess: (data) => {
+      utils.affiliates.adminList.invalidate();
+      toast.success(`Password setup link sent to ${data.sentTo}`);
+      setPassword("");
+      setOpen(false);
+    },
+    onError: (error) => toast.error(error.message),
+  });
   const submit = () => {
     const nextEmail = email.trim();
     manage.mutate({
@@ -1495,7 +1504,7 @@ function AffiliateLoginManager({ affiliateId, currentEmail }: { affiliateId: num
         </DialogHeader>
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            Change the sign-in email and/or set a new password. Affiliate accounts remain ordinary non-admin accounts and cannot edit Cabinet Configuration.
+            Change the sign-in email or send the affiliate a one-time link where they create their own password. Affiliate accounts remain ordinary non-admin accounts and cannot edit Cabinet Configuration.
           </p>
           <div className="space-y-1.5">
             <Label htmlFor={`affiliate-email-${affiliateId}`}>Sign-in email</Label>
@@ -1509,6 +1518,13 @@ function AffiliateLoginManager({ affiliateId, currentEmail }: { affiliateId: num
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+          <Button
+            variant="secondary"
+            onClick={() => sendSetupInvite.mutate({ id: affiliateId, email: email.trim() })}
+            disabled={sendSetupInvite.isPending || !/^\S+@\S+\.\S+$/.test(email.trim())}
+          >
+            {sendSetupInvite.isPending ? "Sending…" : "Email password setup"}
+          </Button>
           <Button onClick={submit} disabled={manage.isPending || (!password && email.trim() === currentEmail.trim())}>
             {manage.isPending ? "Saving…" : "Save Login"}
           </Button>
