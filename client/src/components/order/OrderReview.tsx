@@ -96,8 +96,6 @@ interface Props {
   kitchenDesignId?: number;
   /** Optional cart selection to request a verified UPS parcel quote only. */
   carrierPreference?: "ups";
-  /** Cart quote supplied as a short-lived convenience; a fresh quote is requested before submit. */
-  hardwareFreightQuoteToken?: string;
 }
 
 // Extract the dimension digits from a raw code so the Fix picker can pre-search
@@ -213,7 +211,7 @@ function ConfidenceBadge({ line }: { line: ReviewLine }) {
   );
 }
 
-export function OrderReview({ lines, source, onLinesChange, onReset, initialStyleId, initialTier, kitchenDesignId, carrierPreference, hardwareFreightQuoteToken }: Props) {
+export function OrderReview({ lines, source, onLinesChange, onReset, initialStyleId, initialTier, kitchenDesignId, carrierPreference }: Props) {
   const { t } = useLanguage();
   const { user, isAuthenticated } = useAuth();
   const accountTier = (user as { pricingTier?: string } | null)?.pricingTier;
@@ -522,7 +520,13 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
 
   const freightInput = useMemo(
     () => ({
-      destinationZip: zipDebounced,
+      deliveryAddress: {
+        line1: addressLine1.trim(),
+        line2: addressLine2.trim() || null,
+        city: city.trim(),
+        state: taxState,
+        zip: zipDebounced,
+      },
       merchandiseSubtotalCents: Math.max(0, Math.round(total * 100)),
       accessorials: {
         residential: deliveryLocationType === "residential",
@@ -546,7 +550,7 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
           pelicanProductId: isSurfaceCheckoutLine(line) ? line.cartPelicanProductId ?? null : null,
         })),
     }),
-    [zipDebounced, total, deliveryLocationType, liftgateRequired, carrierPreference, pricedLines, selectedStyle?.styleId],
+    [zipDebounced, addressLine1, addressLine2, city, taxState, total, deliveryLocationType, liftgateRequired, carrierPreference, pricedLines, selectedStyle?.styleId],
   );
   const freightEstimate = trpc.freight.estimate.useQuery(freightInput, {
     enabled: deliveryMethod === "ship" && zipDebounced.length >= 5 && city.trim().length > 0 && taxState.length === 2 && addressLine1.trim().length > 0 && freightInput.items.length > 0,
@@ -562,8 +566,14 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
       isCabinetFreightLine(line)
       && optionalPositiveFreightId(line.cartDistributorId) != null
     )),
-    destinationZip: zipDebounced || "00000",
-  }), [pricedLines, affiliateSlug, zipDebounced]);
+    deliveryAddress: {
+      line1: addressLine1.trim(),
+      line2: addressLine2.trim() || null,
+      city: city.trim(),
+      state: taxState,
+      zip: zipDebounced,
+    },
+  }), [pricedLines, affiliateSlug, zipDebounced, addressLine1, addressLine2, city, taxState]);
   const hasHardwareLines = hardwareQuoteInput.items.length > 0;
   const hardwareFreightQuote = trpc.hardware.quote.useQuery(hardwareQuoteInput, {
     enabled: deliveryMethod === "ship" && hasHardwareLines && zipDebounced.length >= 5 && city.trim().length > 0 && addressLine1.trim().length > 0,
@@ -684,7 +694,7 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
       toast.error("A current shipping quote is required before submitting this order.");
       return;
     }
-    if (deliveryMethod === "ship" && hasHardwareLines && !hardwareFreightQuote.data?.quoteToken && !hardwareFreightQuoteToken) {
+    if (deliveryMethod === "ship" && hasHardwareLines && !hardwareFreightQuote.data?.quoteToken) {
       toast.error("A current Hardware Resources shipping quote is required before submitting this order.");
       return;
     }
@@ -724,7 +734,7 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
         ? freightEstimate.data?.quoteToken
         : undefined,
       hardwareFreightQuoteToken: deliveryMethod === "ship" && hasHardwareLines
-        ? hardwareFreightQuote.data?.quoteToken ?? hardwareFreightQuoteToken
+        ? hardwareFreightQuote.data?.quoteToken ?? undefined
         : undefined,
       pickupDistributorId: deliveryMethod === "pickup" ? pickupDistributorId : null,
       taxState: taxState || undefined,

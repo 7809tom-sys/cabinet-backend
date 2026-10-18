@@ -1,4 +1,8 @@
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
+import {
+  normalizeFreightQuoteDeliveryAddress,
+  type FreightQuoteDeliveryAddress,
+} from "@shared/freightQuoteAddress";
 
 export type FreightQuoteTokenItem = {
   cabinetId?: number | null;
@@ -14,6 +18,8 @@ export type FreightQuoteTokenPayload = {
   totalCents: number;
   merchandiseSubtotalCents: number;
   destinationZip: string;
+  /** SHA-256 hash of the normalized complete delivery address; raw address is never stored in this token. */
+  destinationAddressHash: string;
   residential: boolean;
   liftgate: boolean;
   /** Distinguishes a normal carrier quote from the Hardware Resources shipment quote. */
@@ -47,14 +53,24 @@ export function freightItemsHash(items: FreightQuoteTokenItem[]): string {
   return createHash("sha256").update(JSON.stringify(normalized)).digest("base64url");
 }
 
-export function createFreightQuoteToken(input: Omit<FreightQuoteTokenPayload, "itemsHash" | "expiresAt"> & {
+export function freightQuoteDestinationAddressHash(address: FreightQuoteDeliveryAddress): string {
+  const normalized = normalizeFreightQuoteDeliveryAddress(address);
+  if (!normalized) throw new Error("A complete delivery address is required before requesting freight.");
+  return createHash("sha256").update(JSON.stringify(normalized)).digest("base64url");
+}
+
+export function createFreightQuoteToken(input: Omit<FreightQuoteTokenPayload, "itemsHash" | "expiresAt" | "destinationZip" | "destinationAddressHash"> & {
+  deliveryAddress: FreightQuoteDeliveryAddress;
   items: FreightQuoteTokenItem[];
   ttlMs?: number;
 }): string {
+  const deliveryAddress = normalizeFreightQuoteDeliveryAddress(input.deliveryAddress);
+  if (!deliveryAddress) throw new Error("A complete delivery address is required before requesting freight.");
   const payload: FreightQuoteTokenPayload = {
     totalCents: Math.max(0, Math.round(input.totalCents)),
     merchandiseSubtotalCents: Math.max(0, Math.round(input.merchandiseSubtotalCents)),
-    destinationZip: input.destinationZip.replace(/\D/g, "").slice(0, 5),
+    destinationZip: deliveryAddress.zip,
+    destinationAddressHash: freightQuoteDestinationAddressHash(deliveryAddress),
     residential: input.residential,
     liftgate: input.liftgate,
     ...(input.quoteKind ? { quoteKind: input.quoteKind } : {}),

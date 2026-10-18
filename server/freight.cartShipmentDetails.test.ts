@@ -32,6 +32,14 @@ describe("public cart freight shipment details", () => {
     expect(source).toContain('source: "parcel"');
   });
 
+  it("consolidates only source-backed Tile & Mosaic backsplash cartons through the shared 35 lb package rule", () => {
+    expect(source).toContain("category: pelicanProducts.category");
+    expect(source).toContain('profile.category === "Tile & Mosaic"');
+    expect(source).toContain('bundleGroupKey: backsplashBundle ? `pelican:${profile.originZip}:tile-mosaic` : null');
+    expect(source).toContain('bundleCategory: backsplashBundle ? "backsplash" : null');
+    expect(source).toContain("bundleCompatiblePackages(parcelPackages)");
+  });
+
   it("allows a customer-requested UPS parcel check but never fabricates a UPS price for an LTL-only shipment", () => {
     expect(source).toContain('carrierPreference: z.enum(["ups"]).optional()');
     expect(source).toContain('input.carrierPreference === "ups"');

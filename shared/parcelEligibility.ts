@@ -38,6 +38,10 @@ export interface AuthoritativeParcelPackage {
   label?: string | null;
   /** Trim pieces may be consolidated into one protected bundle when allowed. */
   isTrim?: boolean;
+  /** Server-resolved physical-origin key for a compatible consolidation group. */
+  bundleGroupKey?: string | null;
+  /** Only source-backed Tile & Mosaic backsplash profiles may use this category. */
+  bundleCategory?: "backsplash" | null;
 }
 
 /**
@@ -55,40 +59,100 @@ export function isSmallUpsShipment(packageResults: ReadonlyArray<{ package: { we
   }
   return total <= AUTO_UPS_MAX_SHIPMENT_WEIGHT_LBS;
 }
-export const TRIM_BUNDLE_MAX_WEIGHT_LBS = 40;
+export const COMPATIBLE_PACKAGE_MAX_WEIGHT_LBS = 35;
 
-/** Consolidate measured trim pieces into one parcel when their combined weight is <= 40 lb. */
-export function bundleTrimPackages(
+type CompatibleBundle = {
+  category: "trim" | "backsplash";
+  key: string;
+};
+
+function compatibleBundleFor(pkg: AuthoritativeParcelPackage): CompatibleBundle | null {
+  if (pkg.isTrim === true) return { category: "trim", key: "trim" };
+  if (pkg.bundleCategory === "backsplash" && pkg.bundleGroupKey?.trim()) {
+    return { category: "backsplash", key: pkg.bundleGroupKey.trim() };
+  }
+  return null;
+}
+
+function hasCompleteCompatiblePackageFacts(pkg: AuthoritativeParcelPackage): boolean {
+  return pkg.hasAuthoritativePackage
+    && [pkg.lengthIn, pkg.widthIn, pkg.heightIn, pkg.weightLbs]
+      .every((value) => typeof value === "number" && Number.isFinite(value) && value > 0);
+}
+
+/**
+ * Consolidates only compatible cartons with complete approved package facts and
+ * a combined weight of 35 lb or less. Backsplash callers must supply a
+ * server-derived physical-origin key; browser category text is never used.
+ */
+export function bundleCompatiblePackages(
   packages: AuthoritativeParcelPackage[],
 ): AuthoritativeParcelPackage[] {
-  const trim = packages.filter((pkg) => pkg.isTrim === true);
-  if (trim.length === 0) return packages;
+  const groups = new Map<string, { firstIndex: number; bundle: CompatibleBundle; indexes: number[] }>();
+  packages.forEach((pkg, index) => {
+    const bundle = compatibleBundleFor(pkg);
+    if (!bundle) return;
+    const groupKey = `${bundle.category}:${bundle.key}`;
+    const group = groups.get(groupKey);
+    if (group) group.indexes.push(index);
+    else groups.set(groupKey, { firstIndex: index, bundle, indexes: [index] });
+  });
 
-  const totalWeight = trim.reduce<number | null>((total, pkg) => {
-    const weight = pkg.weightLbs;
-    if (total == null || typeof weight !== "number" || !Number.isFinite(weight) || weight <= 0) return null;
-    return total + weight;
-  }, 0);
-  if (totalWeight == null || totalWeight > TRIM_BUNDLE_MAX_WEIGHT_LBS) return packages;
+  const bundleAtIndex = new Map<number, AuthoritativeParcelPackage>();
+  const omittedIndexes = new Set<number>();
+  groups.forEach((group) => {
+    let candidateIndexes: number[] = [];
+    let candidateWeight = 0;
 
-  const dimensions = trim.map((pkg) => [pkg.lengthIn, pkg.widthIn, pkg.heightIn] as const);
-  if (dimensions.some((values) => values.some((value) => typeof value !== "number" || !Number.isFinite(value) || value <= 0))) {
-    return packages;
-  }
+    const commitCandidate = () => {
+      if (candidateIndexes.length < 2) return;
+      const groupPackages = candidateIndexes.map((index) => packages[index]!);
+      const dimensions = groupPackages.map((pkg) => [pkg.lengthIn as number, pkg.widthIn as number, pkg.heightIn as number] as const);
+      const first = groupPackages[0]!;
+      const label = group.bundle.category === "trim"
+        ? `Trim bundle (${groupPackages.length} pieces)`
+        : `Backsplash consolidated package (${groupPackages.length} items)`;
+      bundleAtIndex.set(candidateIndexes[0]!, {
+        lengthIn: Math.max(...dimensions.map(([length]) => length)),
+        widthIn: Math.max(...dimensions.map(([, width]) => width)),
+        heightIn: dimensions.reduce((sum, [, , height]) => sum + height, 0),
+        weightLbs: candidateWeight,
+        hasAuthoritativePackage: true,
+        isEstimatedPackage: groupPackages.some((pkg) => pkg.isEstimatedPackage === true),
+        freightClass: groupPackages.find((pkg) => pkg.freightClass)?.freightClass ?? null,
+        label,
+        isTrim: group.bundle.category === "trim",
+        bundleGroupKey: first.bundleGroupKey ?? null,
+        bundleCategory: group.bundle.category === "backsplash" ? "backsplash" : null,
+      });
+      candidateIndexes.slice(1).forEach((index) => omittedIndexes.add(index));
+    };
 
-  const bundle: AuthoritativeParcelPackage = {
-    lengthIn: Math.max(...dimensions.map(([length]) => length as number)),
-    widthIn: Math.max(...dimensions.map(([, width]) => width as number)),
-    heightIn: dimensions.reduce((sum, [, , height]) => sum + (height as number), 0),
-    weightLbs: totalWeight,
-    hasAuthoritativePackage: trim.every((pkg) => pkg.hasAuthoritativePackage),
-    isEstimatedPackage: trim.some((pkg) => pkg.isEstimatedPackage === true),
-    freightClass: trim.find((pkg) => pkg.freightClass)?.freightClass ?? null,
-    label: `Trim bundle (${trim.length} pieces)`,
-    isTrim: true,
-  };
+    for (const index of group.indexes) {
+      const pkg = packages[index]!;
+      if (!hasCompleteCompatiblePackageFacts(pkg)) {
+        commitCandidate();
+        candidateIndexes = [];
+        candidateWeight = 0;
+        continue;
+      }
+      const weight = pkg.weightLbs as number;
+      if (candidateIndexes.length > 0 && candidateWeight + weight > COMPATIBLE_PACKAGE_MAX_WEIGHT_LBS) {
+        commitCandidate();
+        candidateIndexes = [];
+        candidateWeight = 0;
+      }
+      candidateIndexes.push(index);
+      candidateWeight += weight;
+    }
+    commitCandidate();
+  });
 
-  return [...packages.filter((pkg) => pkg.isTrim !== true), bundle];
+  return packages.flatMap((pkg, index) => {
+    const bundle = bundleAtIndex.get(index);
+    if (bundle) return [bundle];
+    return omittedIndexes.has(index) ? [] : [pkg];
+  });
 }
 
 export interface NormalizedParcelPackage {

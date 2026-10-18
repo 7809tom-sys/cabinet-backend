@@ -32,6 +32,15 @@ describe("public hardware catalog contract", () => {
     expect(source).toContain("...(eligibility.promotionApplied ? {} : { profileRevision: profile?.profileRevision ?? 0 })");
   });
 
+  it("issues Hardware Resources shipping authorization only from a complete delivery address", () => {
+    const quoteStart = source.indexOf("quote: publicProcedure");
+    const quoteEnd = source.indexOf("\n  adminGetShippingProfile:", quoteStart);
+    const quoteSource = source.slice(quoteStart, quoteEnd);
+    expect(quoteSource).toContain("deliveryAddress: deliveryAddressInput");
+    expect(quoteSource).toContain("deliveryAddress: input.deliveryAddress");
+    expect(quoteSource).not.toContain("destinationZip: input.destinationZip");
+  });
+
   it("recalculates from supplier list plus only the affiliate’s hardware markup", () => {
     expect(source).toContain("hardwareRetailCents(item.listPrice, affiliatePricing.markupBps)");
     expect(source).toContain("hardwareMarkupBps: affiliates.hardwareMarkupBps");

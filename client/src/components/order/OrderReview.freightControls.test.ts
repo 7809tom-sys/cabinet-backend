@@ -16,6 +16,8 @@ describe("OrderReview freight accessorial controls", () => {
     expect(source).toContain("shippingAddressLine1: addressLine1.trim()");
     expect(source).toContain("shippingCity: city.trim()");
     expect(source).toContain("shippingState: taxState");
+    expect(source).toContain("deliveryAddress: {");
+    expect(source).toContain("line1: addressLine1.trim()");
   });
 
   it("uses only Business and Residential delivery types and never guesses from ZIP", () => {
@@ -51,6 +53,7 @@ describe("OrderReview freight accessorial controls", () => {
     expect(source).toContain("Carrier handling review:");
     expect(source).toContain("freightQuoteToken: deliveryMethod === \"ship\" && !hasOnlyTemporaryFreeShippingItems");
     expect(source).toContain("freightEstimate.data?.quoteToken");
+    expect(source).not.toContain("hardwareFreightQuoteToken ??");
     expect(source).toContain("setSubmittedRequestNumber(res.requestNumber)");
     expect(source).toContain("<PayWithStripe");
     expect(source).toContain("orderRequestId={submittedId}");

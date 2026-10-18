@@ -642,7 +642,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   const [designerImmersive] = useDesignerImmersive();
   const tabletImmersiveHeader = isTabletWorkspace && designerImmersive;
   const [, navigate] = useLocation();
-  const { items: cartItems, sourceDesignId: cartSourceDesignId, addItem, clear: clearCart, replaceWithDesignItems, lockedDistributorId: cartLockedDistributorId, lockedStyleLabel: cartLockedStyleLabel } = useCart();
+  const { sourceDesignId: cartSourceDesignId, clear: clearCart, replaceWithDesignItems, lockedStyleLabel: cartLockedStyleLabel } = useCart();
   const [mobilePanel, setMobilePanel] = useState<null | "catalog" | "cart" | "style" | "room">(() => {
     if (typeof window === "undefined") return null;
     const p = new URLSearchParams(window.location.search).get("panel");
@@ -4929,42 +4929,12 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       toast.info(t("dt_cart_nothing"));
       return;
     }
-    // A saved design must replace an empty (or already synchronized) cart so
-    // checkout preserves its exact plan ID. That links the authoritative order
-    // merchandise subtotal and signed freight quote back to this plan for CRM;
-    // appending a plan to unrelated cart items deliberately drops that link.
-    if (currentSavedDesignId != null && (cartItems.length === 0 || cartSourceDesignId === currentSavedDesignId)) {
-      replaceWithDesignItems(cartableLines, currentSavedDesignId);
-      showCartSuccessToast(cartableLines.reduce((count, line) => count + line.qty, 0));
-      navigate(cartDestination);
-      return;
-    }
-    // If the cart already holds items from a DIFFERENT distributor, adding would
-    // be rejected line-by-line. Offer to clear and start fresh with this design.
-    if (
-      cartLockedDistributorId != null &&
-      lockedDistributorId != null &&
-      cartLockedDistributorId !== lockedDistributorId
-    ) {
-      const ok = await new Promise<boolean>((resolve) => {
-        setDistConflictResolve(() => resolve);
-        setDistConflictOpen(true);
-      });
-      if (!ok) return;
-      clearCart();
-    }
-    let added = 0;
-    for (const line of cartableLines) {
-      const res = addItem(line);
-      if (res.ok) added += line.qty;
-    }
-    if (added > 0) {
-      showCartSuccessToast(added);
-      navigate(cartDestination);
-    } else {
-      toast.error(t("dt_cart_failed"));
-    }
-  }, [cartableLines, cartItems.length, cartSourceDesignId, currentSavedDesignId, cartLockedDistributorId, lockedDistributorId, cartLockedStyleLabel, clearCart, addItem, replaceWithDesignItems, navigate, cartDestination, showCartSuccessToast, t, checkoutBlockedForMissingPrices, notifyCheckoutBlockedByMissingPrices]);
+    // A design is an authoritative order composition. Replacing the scoped cart
+    // prevents hardware, cabinets, or another design from being carried over.
+    replaceWithDesignItems(cartableLines, currentSavedDesignId ?? null);
+    showCartSuccessToast(cartableLines.reduce((count, line) => count + line.qty, 0));
+    navigate(cartDestination);
+  }, [cartableLines, currentSavedDesignId, replaceWithDesignItems, navigate, cartDestination, showCartSuccessToast, t, checkoutBlockedForMissingPrices, notifyCheckoutBlockedByMissingPrices]);
 
   const syncThreeDOrderWithCart = useCallback(() => {
     if (checkoutBlockedForMissingPrices) {

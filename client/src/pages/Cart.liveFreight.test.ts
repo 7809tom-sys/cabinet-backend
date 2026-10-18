@@ -89,8 +89,7 @@ describe("cart live freight quoting", () => {
     expect(loadingSource).toContain("Checking UPS with the cart’s package dimensions and weight");
     expect(loadingSource).toContain("animate-spin");
     expect(loadingSource).toContain("motion-safe:animate-ping");
-    expect(cartSource).toContain("cartFreightEstimate.isFetching || hardwareFreightQuote.isFetching || !normalizedZip");
-    expect(cartSource).toContain("(cartFreightItems.length === 0 && hardwareItems.length === 0)");
+    expect(cartSource).toContain("cartFreightEstimate.isFetching || !normalizedZip || cartFreightItems.length === 0");
     expect(cartSource).toContain("!cartFreightEstimate.isFetching && cartFreightEstimate.data");
   });
 
@@ -110,11 +109,10 @@ describe("cart live freight quoting", () => {
     expect(reviewSource).toContain("freight-exempt for this payment-flow test");
   });
 
-  it("keeps hardware-only checkout profile-gated while explaining free hardware shipping with qualifying kitchen cabinets", () => {
-    expect(cartSource).toContain("Free hardware shipping is applied with kitchen merchandise.");
+  it("moves hardware shipping authorization to complete-address checkout while explaining free shipping with qualifying kitchen cabinets", () => {
+    expect(cartSource).toContain("Enter your full delivery address at checkout to confirm hardware shipping.");
     expect(cartSource).toContain("Hardware ships free when it is ordered with qualifying kitchen cabinets.");
-    expect(cartSource).toContain("hardwareFreightQuote.data?.reason");
-    expect(cartSource).toContain("hardwareItems.length > 0 && !hardwareFreightQuote.data?.available");
     expect(reviewSource).toContain("hardwareFreightQuote.data?.quoteToken");
+    expect(cartSource).not.toContain("hardwareItems.length > 0 && !hardwareFreightQuote.data?.available");
   });
 });

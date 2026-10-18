@@ -46,8 +46,9 @@ import { loadAffiliateStorefrontPricing } from "../lib/affiliateStorefrontPricin
 import { buildAffiliateOrderPersistence } from "@shared/affiliateOrderAlias";
 import { createCheckoutSession } from "../stripe";
 import { resolveAffiliateAccess } from "../lib/affiliateAccess";
-import { freightItemsHash, verifyFreightQuoteToken } from "../_core/freightQuoteToken";
+import { freightItemsHash, freightQuoteDestinationAddressHash, verifyFreightQuoteToken } from "../_core/freightQuoteToken";
 import { freightQuoteItemsForOrder } from "../lib/freightQuoteOrderIdentity";
+import { normalizeFreightQuoteDeliveryAddress } from "@shared/freightQuoteAddress";
 import { calcSalesTax } from "@shared/usSalesTax";
 import { isTemporaryOneDollarCheckoutTestItem, isTemporaryOneDollarFreeShippingOrder } from "@shared/temporaryCheckoutTest";
 import { isStagingTestHost } from "@shared/stagingTestMode";
@@ -888,6 +889,19 @@ export const ordersRouter = router({
       const deliveryMethod = input.deliveryMethod ?? "ship";
       const deliveryLocationType = input.deliveryLocationType ?? "business";
       const liftgateRequired = input.liftgateRequired === true;
+      const deliveryAddress = deliveryMethod === "ship"
+        ? normalizeFreightQuoteDeliveryAddress({
+          line1: input.shippingAddressLine1 ?? "",
+          line2: input.shippingAddressLine2 ?? null,
+          city: input.shippingCity ?? "",
+          state: input.shippingState ?? "",
+          zip: input.zip ?? "",
+        })
+        : null;
+      if (deliveryMethod === "ship" && input.submit && !deliveryAddress) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Enter a complete delivery address before submitting a shipping order." });
+      }
+      const expectedAddressHash = deliveryAddress ? freightQuoteDestinationAddressHash(deliveryAddress) : null;
       let freightQuoteCents = 0;
       let freightQuoteVerified = false;
       const hardwareOrderLines = normalizedLines.filter((line) => line.productKind === "hardware");
@@ -908,11 +922,10 @@ export const ordersRouter = router({
             message: error instanceof Error ? error.message : "Freight quote is invalid.",
           });
         }
-        const expectedZip = (input.zip ?? "").replace(/\D/g, "").slice(0, 5);
         const expectedItemsHash = freightItemsHash(freightQuoteItemsForOrder(nonHardwareOrderLines));
         const quoteMatchesOrder =
           quote.quoteKind !== "hardware" &&
-          quote.destinationZip === expectedZip &&
+          quote.destinationAddressHash === expectedAddressHash &&
           quote.merchandiseSubtotalCents === nonHardwareMerchandiseCents &&
           quote.residential === (deliveryLocationType === "residential") &&
           quote.liftgate === liftgateRequired &&
@@ -956,7 +969,6 @@ export const ordersRouter = router({
             message: error instanceof Error ? error.message : "Hardware shipping quote is invalid.",
           });
         }
-        const expectedZip = (input.zip ?? "").replace(/\D/g, "").slice(0, 5);
         const expectedItemsHash = freightItemsHash(freightQuoteItemsForOrder(hardwareOrderLines));
         const [hardwareLine] = await db
           .select({ id: distributors.id })
@@ -971,7 +983,7 @@ export const ordersRouter = router({
         const isStandaloneHardwareQuote = hardwareQuote.quoteKind === "hardware"
           && hardwareQuote.hardwareShippingMode === "standalone_profile";
         const quoteMatchesOrder =
-          hardwareQuote.destinationZip === expectedZip
+          hardwareQuote.destinationAddressHash === expectedAddressHash
           && hardwareQuote.merchandiseSubtotalCents === hardwareMerchandiseCents
           && hardwareQuote.residential === false
           && hardwareQuote.liftgate === false

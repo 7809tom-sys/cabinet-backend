@@ -24,6 +24,13 @@ describe("Hardware Resources checkout contract", () => {
     expect(orders).toContain("hardwareQuote.profileRevision === (currentHardwareProfile?.profileRevision ?? -1)");
   });
 
+  it("requires every shipping authorization to match the submitted complete delivery address", () => {
+    expect(orders).toContain("normalizeFreightQuoteDeliveryAddress");
+    expect(orders).toContain("freightQuoteDestinationAddressHash(deliveryAddress)");
+    expect(orders).toContain("quote.destinationAddressHash === expectedAddressHash");
+    expect(orders).toContain("hardwareQuote.destinationAddressHash === expectedAddressHash");
+  });
+
   it("writes an idempotent 25% commission snapshot only after a confirmed paid order", () => {
     expect(snapshotWriter).toContain("hardwareAffiliateCommissionCents(hardwareMerchandiseCents)");
     expect(snapshotWriter).toContain("orderRequestId");

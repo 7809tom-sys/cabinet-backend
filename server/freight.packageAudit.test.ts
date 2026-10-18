@@ -13,6 +13,8 @@ describe("freight package audit", () => {
     expect(routerSource).toContain('kind: "carton"');
     expect(routerSource).toContain("Supplier-verified carton sent to the parcel carrier.");
     expect(routerSource).toContain("Comparable-package estimate sent to the parcel carrier; not Pelican carton data.");
+    expect(routerSource).toContain("parcelCount: resolvedGroup.parcelPackages.length");
+    expect(routerSource).toContain("parcels: resolvedGroup.parcelPackages.map");
   });
 
   it("records why a long pallet was selected without inventing carton dimensions", () => {

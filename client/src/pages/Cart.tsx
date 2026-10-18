@@ -244,27 +244,16 @@ export default function Cart() {
     enabled: false,
     retry: false,
   });
-  const hardwareQuoteInput = useMemo(() => ({
-    items: hardwareItems,
-    affiliateSlug: currentAffiliateSlug ?? undefined,
-    containsKitchenMerchandise,
-    destinationZip: normalizedZip ?? "00000",
-  }), [hardwareItems, currentAffiliateSlug, containsKitchenMerchandise, normalizedZip]);
-  const hardwareFreightQuote = trpc.hardware.quote.useQuery(hardwareQuoteInput, {
-    enabled: false,
-    retry: false,
-  });
   const requestLiveCartQuote = () => {
     if (!normalizedZip) {
       toast.error("Enter and check a valid 5-digit delivery ZIP before requesting a live shipping quote.");
       return;
     }
-    if (cartFreightItems.length === 0 && hardwareItems.length === 0) {
-      toast.error("Add at least one cabinet, surface, or hardware item to request a shipping quote.");
+    if (cartFreightItems.length === 0) {
+      toast.info("Hardware shipping is confirmed after you enter your full delivery address at checkout.");
       return;
     }
     if (cartFreightItems.length > 0) void cartFreightEstimate.refetch();
-    if (hardwareItems.length > 0) void hardwareFreightQuote.refetch();
   };
 
   const requestOrder = () => {
@@ -278,9 +267,6 @@ export default function Cart() {
       tier: firstItem?.tier ?? null,
       kitchenDesignId: sourceDesignId,
       carrierPreference: requestUpsParcelQuote ? "ups" : null,
-      hardwareFreightQuoteToken: hardwareFreightQuote.data?.available
-        ? hardwareFreightQuote.data.quoteToken
-        : null,
     };
     try {
       sessionStorage.setItem(cartPrefillStorageKey(storeScope), JSON.stringify(prefill));
@@ -668,15 +654,7 @@ export default function Cart() {
           {hardwareItems.length > 0 && (
             <div data-testid="hardware-shipping-summary" className="mb-3 rounded-lg border border-sky-200 bg-sky-50 p-3 text-xs text-sky-950">
               <p className="font-semibold">Hardware Resources consolidated shipping</p>
-              {hardwareFreightQuote.data?.available ? (
-                <p className="mt-1">
-                  {hardwareFreightQuote.data.promotionApplied
-                    ? "Free hardware shipping is applied with kitchen merchandise."
-                    : `One verified consolidated package: $${((hardwareFreightQuote.data.shippingCents ?? 0) / 100).toFixed(2)} shipping.`}
-                </p>
-              ) : (
-                <p className="mt-1">{hardwareFreightQuote.data?.reason ?? "Request a shipping quote after entering your delivery ZIP. Hardware-only checkout stays unavailable until Operations verifies the consolidated-package profile."}</p>
-              )}
+              <p className="mt-1">Enter your full delivery address at checkout to confirm hardware shipping.</p>
               {containsKitchenMerchandise && <p className="mt-1">Hardware ships free when it is ordered with qualifying kitchen cabinets.</p>}
             </div>
           )}
@@ -714,7 +692,7 @@ export default function Cart() {
                 size="sm"
                 variant="outline"
                 onClick={requestLiveCartQuote}
-                disabled={cartFreightEstimate.isFetching || hardwareFreightQuote.isFetching || !normalizedZip || (cartFreightItems.length === 0 && hardwareItems.length === 0)}
+                disabled={cartFreightEstimate.isFetching || !normalizedZip || cartFreightItems.length === 0}
               >
                 {cartFreightEstimate.isFetching ? <><Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />Calculating freight...</> : requestUpsParcelQuote ? <><span aria-hidden="true" className="mr-1 rounded-sm bg-[#351c15] px-1 py-0.5 text-[9px] font-black text-[#ffb500]">UPS</span>Check UPS / freight</> : <><Truck className="mr-1.5 h-3.5 w-3.5" />Get shipping quote</>}
               </Button>
@@ -820,7 +798,7 @@ export default function Cart() {
             className="w-full"
             size="lg"
             onClick={requestOrder}
-            disabled={isMixedSupplier || cartFreightEstimate.isFetching || hardwareFreightQuote.isFetching || (hardwareItems.length > 0 && !hardwareFreightQuote.data?.available)}
+            disabled={isMixedSupplier || cartFreightEstimate.isFetching}
           >
             {cartFreightEstimate.isFetching ? (
               <><Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> Calculating freight...</>

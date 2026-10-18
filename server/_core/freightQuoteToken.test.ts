@@ -2,6 +2,13 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createFreightQuoteToken, freightItemsHash, verifyFreightQuoteToken } from "./freightQuoteToken";
 
 const originalSecret = process.env.JWT_SECRET;
+const deliveryAddress = {
+  line1: "123 Main Street",
+  line2: null,
+  city: "Orlando",
+  state: "FL",
+  zip: "32801-1234",
+};
 
 beforeEach(() => {
   process.env.JWT_SECRET = "freight-token-test-secret";
@@ -21,7 +28,7 @@ describe("freight quote token", () => {
     const token = createFreightQuoteToken({
       totalCents: 92345,
       merchandiseSubtotalCents: 400000,
-      destinationZip: "32801-1234",
+      deliveryAddress,
       residential: true,
       liftgate: true,
       items,
@@ -35,13 +42,15 @@ describe("freight quote token", () => {
       liftgate: true,
       itemsHash: freightItemsHash([...items].reverse()),
     });
+    expect(payload.destinationAddressHash).toMatch(/^[A-Za-z0-9_-]{32,}$/);
+    expect(JSON.stringify(payload)).not.toContain("Main Street");
   });
 
   it("preserves a valid signed zero-dollar free-freight quote", () => {
     const token = createFreightQuoteToken({
       totalCents: 0,
       merchandiseSubtotalCents: 500000,
-      destinationZip: "32801",
+      deliveryAddress,
       residential: false,
       liftgate: false,
       items,
@@ -59,7 +68,7 @@ describe("freight quote token", () => {
     const token = createFreightQuoteToken({
       totalCents: 0,
       merchandiseSubtotalCents: 500000,
-      destinationZip: "32801",
+      deliveryAddress,
       residential: false,
       liftgate: false,
       quoteKind: "hardware",
@@ -79,7 +88,7 @@ describe("freight quote token", () => {
     const token = createFreightQuoteToken({
       totalCents: 92345,
       merchandiseSubtotalCents: 400000,
-      destinationZip: "32801",
+      deliveryAddress,
       residential: false,
       liftgate: false,
       items,
@@ -89,7 +98,7 @@ describe("freight quote token", () => {
     const expired = createFreightQuoteToken({
       totalCents: 92345,
       merchandiseSubtotalCents: 400000,
-      destinationZip: "32801",
+      deliveryAddress,
       residential: false,
       liftgate: false,
       items,

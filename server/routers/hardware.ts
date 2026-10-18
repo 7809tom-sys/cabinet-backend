@@ -39,6 +39,14 @@ const hardwareLineInput = z.object({
   qty: z.number().int().min(1).max(999),
 });
 
+const deliveryAddressInput = z.object({
+  line1: z.string().trim().min(3).max(256),
+  line2: z.string().trim().max(256).nullable().optional(),
+  city: z.string().trim().min(2).max(128),
+  state: z.string().trim().regex(/^[A-Za-z]{2}$/),
+  zip: z.string().trim().regex(/^\d{5}(?:-\d{4})?$/),
+});
+
 const hardwareProfileInput = z.object({
   enabled: z.boolean(),
   originZip: z.string().trim().max(16).nullable(),
@@ -282,7 +290,7 @@ export const hardwareRouter = router({
       items: z.array(hardwareLineInput).min(1).max(100),
       affiliateSlug: z.string().trim().min(1).max(64).optional(),
       containsKitchenMerchandise: z.boolean().default(false),
-      destinationZip: z.string().regex(/^\d{5}(?:-\d{4})?$/),
+      deliveryAddress: deliveryAddressInput,
     }))
     .query(async ({ input }) => {
       const db = await getDb();
@@ -315,10 +323,10 @@ export const hardwareRouter = router({
       });
       const shippingCents = eligibility.shippingCents ?? 0;
       const quoteToken = eligibility.eligible
-        ? createFreightQuoteToken({
+          ? createFreightQuoteToken({
             totalCents: shippingCents,
             merchandiseSubtotalCents: merchandiseCents,
-            destinationZip: input.destinationZip,
+            deliveryAddress: input.deliveryAddress,
             residential: false,
             liftgate: false,
             quoteKind: "hardware",

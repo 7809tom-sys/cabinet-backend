@@ -53,6 +53,7 @@ import { upsParcelQuote, upsTestConnection } from "../_core/ups";
 import { fedexTestConnection } from "../_core/fedex";
 import { logFreightApiCall, getFreightApiLogs, type FreightApiPackageAudit } from "../_core/freightApiLog";
 import { createFreightQuoteToken } from "../_core/freightQuoteToken";
+import { normalizeFreightQuoteDeliveryAddress, type FreightQuoteDeliveryAddress } from "@shared/freightQuoteAddress";
 import { getPricingSettings } from "../db";
 import { sellPriceForTier } from "@shared/margins";
 import {
@@ -61,7 +62,7 @@ import {
   type DistributorZipRate,
 } from "@shared/distributorShipping";
 import {
-  bundleTrimPackages,
+  bundleCompatiblePackages,
   resolveParcelShipmentMode,
   isSmallUpsShipment,
   type AuthoritativeParcelPackage,
@@ -129,6 +130,14 @@ const accessorialsSchema = z
   })
   .optional();
 
+const deliveryAddressSchema = z.object({
+  line1: z.string().trim().min(3).max(256),
+  line2: z.string().trim().max(256).nullable().optional(),
+  city: z.string().trim().min(2).max(128),
+  state: z.string().trim().regex(/^[A-Za-z]{2}$/),
+  zip: z.string().trim().regex(/^\d{5}(?:-\d{4})?$/),
+});
+
 const itemsSchema = z
   .array(
     z.object({
@@ -166,19 +175,22 @@ function freightGroupItemLabels(items: FreightItemInput[]): string[] {
 function attachFreightQuoteToken(
   quote: FreightQuote,
   input: {
-    destinationZip: string;
+    deliveryAddress?: FreightQuoteDeliveryAddress | null;
     items: FreightItemInput[];
     merchandiseSubtotalCents: number;
     accessorials?: { residential?: boolean; liftgate?: boolean };
   },
 ): FreightQuote {
   if (!quote.available) return quote;
+  // A ZIP-only estimate remains available for compatibility and browsing, but
+  // it cannot become a checkout authorization without a complete address.
+  if (!input.deliveryAddress) return quote;
   return {
     ...quote,
     quoteToken: createFreightQuoteToken({
       totalCents: quote.totalCents,
       merchandiseSubtotalCents: input.merchandiseSubtotalCents,
-      destinationZip: input.destinationZip,
+      deliveryAddress: input.deliveryAddress,
       residential: input.accessorials?.residential === true,
       liftgate: input.accessorials?.liftgate === true,
       quoteKind: "freight",
@@ -254,6 +266,7 @@ async function resolvePackages(
   const supplierPackagesByLineStyleCabinet = new Map<string, SupplierSkuPackage>();
   const pelicanProfilesByProductId = new Map<number, {
     code: string;
+    category: string;
     originZip: string;
     transportMode: "parcel" | "ltl";
     lengthIn: number;
@@ -429,6 +442,7 @@ async function resolvePackages(
           .select({
             productId: pelicanProducts.id,
             code: pelicanProducts.pelicanCode,
+            category: pelicanProducts.category,
             originZip: pelicanShippingProfiles.originZip,
             transportMode: pelicanShippingProfiles.transportMode,
             lengthIn: pelicanShippingProfiles.packageLengthIn,
@@ -452,6 +466,7 @@ async function resolvePackages(
           if (!lengthIn || !widthIn || !heightIn || !weightLbs || !normalizeZip(row.originZip)) continue;
           pelicanProfilesByProductId.set(row.productId, {
             code: row.code,
+            category: row.category,
             originZip: normalizeZip(row.originZip)!,
             transportMode: row.transportMode,
             lengthIn,
@@ -487,6 +502,7 @@ async function resolvePackages(
         maxPackageLengthIn: Math.max(profile.lengthIn, profile.widthIn, profile.heightIn),
         isTrim: false,
       });
+      const backsplashBundle = profile.category === "Tile & Mosaic";
       for (let unit = 0; unit < it.qty; unit += 1) {
         parcelPackages.push({
           lengthIn: profile.lengthIn,
@@ -498,6 +514,8 @@ async function resolvePackages(
           freightClass: profile.freightClass,
           label: profile.code,
           isTrim: false,
+          bundleGroupKey: backsplashBundle ? `pelican:${profile.originZip}:tile-mosaic` : null,
+          bundleCategory: backsplashBundle ? "backsplash" : null,
         });
       }
       continue;
@@ -586,7 +604,7 @@ async function resolvePackages(
     }
   }
 
-  return { packages, weighted, parcelPackages: bundleTrimPackages(parcelPackages), unratedSurfaceItems };
+  return { packages, weighted, parcelPackages: bundleCompatiblePackages(parcelPackages), unratedSurfaceItems };
 }
 
 // ─── Freight origin resolution (nearest distributor warehouse) ───────────────
@@ -1606,7 +1624,9 @@ export const freightRouter = router({
   estimate: publicProcedure
     .input(
       z.object({
-        destinationZip: z.string().min(3).max(16),
+        /** Required for an order-authorizing token; ZIP-only estimates remain read-only. */
+        deliveryAddress: deliveryAddressSchema.optional(),
+        destinationZip: z.string().min(3).max(16).optional(),
         items: itemsSchema,
         merchandiseSubtotalCents: z.number().int().min(0).default(0),
         accessorials: accessorialsSchema,
@@ -1620,6 +1640,16 @@ export const freightRouter = router({
       })
     )
     .query(async ({ input }): Promise<FreightQuote> => {
+      const deliveryAddress = input.deliveryAddress
+        ? normalizeFreightQuoteDeliveryAddress(input.deliveryAddress)
+        : null;
+      const destinationZip = deliveryAddress?.zip ?? normalizeZip(input.destinationZip ?? "");
+      if (!destinationZip) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Enter a complete delivery address before requesting shipping." });
+      }
+      // Carrier integrations currently consume a destination ZIP, while the
+      // signed checkout authorization remains bound to the full normalized address.
+      const quoteInput = { ...input, deliveryAddress, destinationZip };
       const settingsRow = await loadSettingsRow();
       const settings = settingsRow ? rowToSettings(settingsRow) : DEFAULT_SETTINGS;
 
@@ -1642,7 +1672,7 @@ export const freightRouter = router({
       }
 
       const resolvedAllPackages = await resolvePackages(
-        input.items,
+        quoteInput.items,
         settingsRow,
         settings.defaultCabinetWeightLbs
       );
@@ -1653,8 +1683,8 @@ export const freightRouter = router({
       const liveFreightClass = liveProvider === "worldwideexpress"
         ? normalizeSpeedshipFreightClass(settingsRow?.freightClass) ?? "175"
         : settingsRow?.freightClass ?? "175";
-      const surfaceItems = input.items.filter((item) => item.productKind === "surface");
-      const cabinetItems = input.items.filter((item) => item.productKind !== "surface");
+      const surfaceItems = quoteInput.items.filter((item) => item.productKind === "surface");
+      const cabinetItems = quoteInput.items.filter((item) => item.productKind !== "surface");
       const unavailableSurfaceReason = "One or more Pelican shipments cannot be quoted right now. Those items remain in your cart and are listed under their shipment group; no shipping charge is included for them.";
       if (surfaceItems.length > 0 && cabinetItems.length === 0 && !settingsRow) {
         return {
@@ -1676,14 +1706,14 @@ export const freightRouter = router({
       // precedence over a carrier call. Unconfigured lines remain live-only.
       const styleGroups = settingsRow
         ? await resolveStyleFreightGroups({
-            destinationZip: input.destinationZip,
-            items: input.items,
-            merchandiseSubtotalCents: input.merchandiseSubtotalCents,
-            explicitDistributorId: input.distributorId,
+            destinationZip: quoteInput.destinationZip,
+            items: quoteInput.items,
+            merchandiseSubtotalCents: quoteInput.merchandiseSubtotalCents,
+            explicitDistributorId: quoteInput.distributorId,
             fallbackOriginZip: settings.originZip,
           })
         : [];
-      if (settingsRow && (surfaceItems.length > 0 || liveProvider !== "estimator" || input.carrierPreference === "ups" || styleGroups.some((group) => group.distributorRuleFeeCents != null))) {
+      if (settingsRow && (surfaceItems.length > 0 || liveProvider !== "estimator" || quoteInput.carrierPreference === "ups" || styleGroups.some((group) => group.distributorRuleFeeCents != null))) {
         const caps = rowToPalletCaps(settingsRow);
         const load = totalPackagedLoad(packages);
         if (load.units === 0 && surfaceItems.length === 0) {
@@ -1704,7 +1734,7 @@ export const freightRouter = router({
         const rateGroups: FreightRateGroup[] = [];
         const shipmentGroups: FreightShipmentGroup[] = [];
         const failedGroups: string[] = [];
-        const upsOnlyRequested = liveProvider === "ups" || input.carrierPreference === "ups";
+        const upsOnlyRequested = liveProvider === "ups" || quoteInput.carrierPreference === "ups";
         let totalBillableWeightLbs = 0;
 
         for (const group of styleGroups) {
@@ -1746,7 +1776,7 @@ export const freightRouter = router({
             .length;
           // An explicit UPS parcel request is a diagnostic quote request. Do
           // not silently return the distributor's LTL/flat rule instead.
-          if (group.distributorRuleFeeCents != null && input.carrierPreference !== "ups") {
+          if (group.distributorRuleFeeCents != null && quoteInput.carrierPreference !== "ups") {
             totalBillableWeightLbs += plan.totalWeightLbs;
             shipmentGroups.push({
               label: group.label,
@@ -1790,7 +1820,7 @@ export const freightRouter = router({
           // a cart whose cartons all pass the UPS parcel screen never gets an
           // LTL pallet quote, even if the customer did not tick the UPS box.
           const autoUpsSmallShipment = upsKeysSaved(settingsRow) && isSmallUpsShipment(parcelDecision.packageResults);
-          const directUpsParcel = (verifiedPelicanParcel || liveProvider === "ups" || input.carrierPreference === "ups" || autoUpsSmallShipment)
+          const directUpsParcel = (verifiedPelicanParcel || liveProvider === "ups" || quoteInput.carrierPreference === "ups" || autoUpsSmallShipment)
             && parcelDecision.mode === "parcel"
             && parcelDecision.eligibleCarriers.includes("ups");
           const upsParcelMustNotBecomeLtl = directUpsParcel && (upsOnlyRequested || verifiedPelicanParcel || autoUpsSmallShipment);
@@ -1841,7 +1871,7 @@ export const freightRouter = router({
               ? (async () => {
                   const [fromAddress, toAddress] = await Promise.all([
                     resolveZipAddress(group.originZip),
-                    resolveZipAddress(input.destinationZip),
+                    resolveZipAddress(quoteInput.destinationZip),
                   ]);
                   if (!fromAddress || !toAddress) {
                     return {
@@ -1858,7 +1888,7 @@ export const freightRouter = router({
                     environment: (settingsRow.upsEnvironment ?? "sandbox") as "sandbox" | "production",
                   }, {
                     fromZip: group.originZip,
-                    toZip: input.destinationZip,
+                    toZip: quoteInput.destinationZip,
                     fromAddress,
                     toAddress,
                     parcels: parcelCartons,
@@ -1866,19 +1896,19 @@ export const freightRouter = router({
                 })()
               : easypostParcelQuote(liveKey, {
                   fromZip: group.originZip,
-                  toZip: input.destinationZip,
+                  toZip: quoteInput.destinationZip,
                   parcels: parcelCartons,
                   eligibleCarriers: parcelDecision.eligibleCarriers,
-                  residential: input.accessorials?.residential,
+                  residential: quoteInput.accessorials?.residential,
                 }));
             logFreightApiCall({
               broker: directUpsParcel ? "ups" : "easypost",
               fromZip: group.originZip,
-              toZip: input.destinationZip,
+              toZip: quoteInput.destinationZip,
               palletCount: 0,
               totalWeightLbs: parcelWeight,
               freightClass: "Parcel",
-              accessorials: input.accessorials?.residential ? ["RESIDENTIAL"] : [],
+              accessorials: quoteInput.accessorials?.residential ? ["RESIDENTIAL"] : [],
               ok: live.ok,
               amountCents: live.amountCents,
               carrier: live.carrier,
@@ -2011,7 +2041,7 @@ export const freightRouter = router({
           shipmentGroups.push(shipmentGroup);
           const liveReq: LiveRateRequest = {
             fromZip: group.originZip,
-            toZip: input.destinationZip,
+            toZip: quoteInput.destinationZip,
             pallets: plan.pallets.map((pallet) => ({
               lengthIn: pallet.lengthIn,
               widthIn: pallet.widthIn,
@@ -2019,9 +2049,9 @@ export const freightRouter = router({
               weightLbs: pallet.weightLbs,
             })),
             freightClass: groupFreightClass,
-            residential: input.accessorials?.residential,
-            liftgate: input.accessorials?.liftgate,
-            limitedAccess: input.accessorials?.limitedAccess,
+            residential: quoteInput.accessorials?.residential,
+            liftgate: quoteInput.accessorials?.liftgate,
+            limitedAccess: quoteInput.accessorials?.limitedAccess,
           };
           const live = await requestLiveRate({
             provider: liveProvider,
@@ -2061,8 +2091,8 @@ export const freightRouter = router({
             const partial = combineStyleFreightGroups({
               groups: rateGroups,
               settings,
-              accessorials: input.accessorials,
-              merchandiseSubtotalCents: input.merchandiseSubtotalCents,
+              accessorials: quoteInput.accessorials,
+              merchandiseSubtotalCents: quoteInput.merchandiseSubtotalCents,
               billableWeightLbs: totalBillableWeightLbs,
             });
             return {
@@ -2075,19 +2105,19 @@ export const freightRouter = router({
             };
           }
           const fallback = await configuredFreightEstimate({
-            destinationZip: input.destinationZip,
+            destinationZip: quoteInput.destinationZip,
             totalWeightLbs: totalBillableWeightLbs,
-            merchandiseSubtotalCents: input.merchandiseSubtotalCents,
-            accessorials: input.accessorials,
+            merchandiseSubtotalCents: quoteInput.merchandiseSubtotalCents,
+            accessorials: quoteInput.accessorials,
           }, settings);
           if (fallback.available) {
-            const requestedCarrier = input.carrierPreference === "ups" ? "UPS parcel rating" : "live carrier rating";
+            const requestedCarrier = quoteInput.carrierPreference === "ups" ? "UPS parcel rating" : "live carrier rating";
             return attachFreightQuoteToken({
               ...fallback,
               zoneName: `Estimated LTL freight · ${fallback.zoneName ?? "configured zone"}`,
               reason: `${requestedCarrier} is not available for this cart. A configured LTL freight estimate is shown instead; the final carrier amount is confirmed before shipment.`,
               shipmentGroups,
-            }, input);
+            }, quoteInput);
           }
           return {
             available: false,
@@ -2107,8 +2137,8 @@ export const freightRouter = router({
         const quoted = combineStyleFreightGroups({
           groups: rateGroups,
           settings,
-          accessorials: input.accessorials,
-          merchandiseSubtotalCents: input.merchandiseSubtotalCents,
+          accessorials: quoteInput.accessorials,
+          merchandiseSubtotalCents: quoteInput.merchandiseSubtotalCents,
           billableWeightLbs: totalBillableWeightLbs,
         });
         const allDistributorRulesFree = styleGroups.length > 0 && styleGroups.every((group) => group.distributorRuleFeeCents === 0);
@@ -2123,7 +2153,7 @@ export const freightRouter = router({
               lines: [{ label: "Distributor free-freight threshold", amountCents: 0 }],
             }
           : quoted;
-        return attachFreightQuoteToken({ ...quote, shipmentGroups }, input);
+        return attachFreightQuoteToken({ ...quote, shipmentGroups }, quoteInput);
       }
 
       // Quote requests never substitute table estimates or Plan B fees for a
@@ -2160,17 +2190,17 @@ export const freightRouter = router({
       }
       const load = totalPackagedLoad(packages);
       const fallback = await configuredFreightEstimate({
-        destinationZip: input.destinationZip,
+        destinationZip: quoteInput.destinationZip,
         totalWeightLbs: load.weightLbs,
-        merchandiseSubtotalCents: input.merchandiseSubtotalCents,
-        accessorials: input.accessorials,
+        merchandiseSubtotalCents: quoteInput.merchandiseSubtotalCents,
+        accessorials: quoteInput.accessorials,
       }, settings);
       return fallback.available
         ? attachFreightQuoteToken({
             ...fallback,
             zoneName: `Estimated LTL freight · ${fallback.zoneName ?? "configured zone"}`,
             reason: "A live carrier account is not connected yet. This is the configured freight estimate; the final carrier amount is confirmed before shipment.",
-          }, input)
+          }, quoteInput)
         : {
             ...fallback,
             reason: fallback.reason ?? "Carrier shipping is unavailable because a carrier connection has not been configured.",

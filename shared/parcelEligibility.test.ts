@@ -1,14 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
-  bundleTrimPackages,
+  bundleCompatiblePackages,
   evaluateParcelEligibility,
   normalizeParcelPackage,
   resolveParcelShipmentMode,
 } from "./parcelEligibility";
 
 describe("carrier-backed parcel eligibility", () => {
-  it("bundles all measured trim pieces into one parcel at or below 40 lb", () => {
-    const result = bundleTrimPackages([
+  it("bundles compatible measured trim pieces into one parcel at or below 35 lb", () => {
+    const result = bundleCompatiblePackages([
       { lengthIn: 96, widthIn: 3, heightIn: 2, weightLbs: 8, hasAuthoritativePackage: true, isTrim: true, label: "Toe kicks" },
       { lengthIn: 84, widthIn: 4, heightIn: 2, weightLbs: 6, hasAuthoritativePackage: true, isTrim: true, label: "Crown" },
       { lengthIn: 96, widthIn: 3, heightIn: 2, weightLbs: 2, hasAuthoritativePackage: true, isTrim: true, label: "Batten" },
@@ -26,18 +26,86 @@ describe("carrier-backed parcel eligibility", () => {
     });
   });
 
-  it("does not bundle trim above 40 lb or with incomplete dimensions", () => {
-    const tooHeavy = bundleTrimPackages([
+  it("does not bundle trim above 35 lb or with incomplete dimensions", () => {
+    const tooHeavy = bundleCompatiblePackages([
       { lengthIn: 96, widthIn: 3, heightIn: 2, weightLbs: 25, hasAuthoritativePackage: true, isTrim: true },
       { lengthIn: 96, widthIn: 3, heightIn: 2, weightLbs: 16, hasAuthoritativePackage: true, isTrim: true },
     ]);
-    const incomplete = bundleTrimPackages([
+    const incomplete = bundleCompatiblePackages([
       { lengthIn: 96, widthIn: 3, heightIn: 2, weightLbs: 2, hasAuthoritativePackage: true, isTrim: true },
       { lengthIn: null, widthIn: 3, heightIn: 2, weightLbs: 2, hasAuthoritativePackage: true, isTrim: true },
     ]);
 
     expect(tooHeavy).toHaveLength(2);
     expect(incomplete).toHaveLength(2);
+  });
+
+  it("consolidates same-origin backsplash cartons only through the approved 35 lb rule", () => {
+    const result = bundleCompatiblePackages([
+      {
+        lengthIn: 18, widthIn: 12, heightIn: 3, weightLbs: 15, hasAuthoritativePackage: true,
+        label: "Tile A", bundleGroupKey: "pelican:71111:backsplash", bundleCategory: "backsplash",
+      },
+      {
+        lengthIn: 18, widthIn: 12, heightIn: 4, weightLbs: 20, hasAuthoritativePackage: true,
+        label: "Tile B", bundleGroupKey: "pelican:71111:backsplash", bundleCategory: "backsplash",
+      },
+      {
+        lengthIn: 18, widthIn: 12, heightIn: 3, weightLbs: 5, hasAuthoritativePackage: true,
+        label: "Other origin", bundleGroupKey: "pelican:90001:backsplash", bundleCategory: "backsplash",
+      },
+    ]);
+
+    expect(result).toHaveLength(2);
+    expect(result.find((pkg) => pkg.bundleCategory === "backsplash")).toMatchObject({
+      lengthIn: 18,
+      widthIn: 12,
+      heightIn: 7,
+      weightLbs: 35,
+      hasAuthoritativePackage: true,
+      bundleGroupKey: "pelican:71111:backsplash",
+      label: "Backsplash consolidated package (2 items)",
+    });
+    expect(result.find((pkg) => pkg.label === "Other origin")).toBeTruthy();
+  });
+
+  it("does not consolidate compatible backsplash cartons once their total exceeds 35 lb", () => {
+    const result = bundleCompatiblePackages([
+      {
+        lengthIn: 18, widthIn: 12, heightIn: 3, weightLbs: 20, hasAuthoritativePackage: true,
+        bundleGroupKey: "pelican:71111:backsplash", bundleCategory: "backsplash",
+      },
+      {
+        lengthIn: 18, widthIn: 12, heightIn: 4, weightLbs: 15.01, hasAuthoritativePackage: true,
+        bundleGroupKey: "pelican:71111:backsplash", bundleCategory: "backsplash",
+      },
+    ]);
+
+    expect(result).toHaveLength(2);
+  });
+
+  it("creates additional packages at the 35 lb boundary without combining an over-limit carton", () => {
+    const result = bundleCompatiblePackages(Array.from({ length: 6 }, (_, index) => ({
+      lengthIn: 14,
+      widthIn: 10,
+      heightIn: 3,
+      weightLbs: 6,
+      hasAuthoritativePackage: true,
+      label: `Mosaic ${index + 1}`,
+      bundleGroupKey: "pelican:33760:tile-mosaic",
+      bundleCategory: "backsplash" as const,
+    })));
+
+    expect(result).toHaveLength(2);
+    expect(result[0]).toMatchObject({
+      lengthIn: 14,
+      widthIn: 10,
+      heightIn: 15,
+      weightLbs: 30,
+      label: "Backsplash consolidated package (5 items)",
+    });
+    expect(result[1]).toMatchObject({ label: "Mosaic 6", weightLbs: 6 });
+    expect(result.every((pkg) => (pkg.weightLbs ?? Infinity) <= 35)).toBe(true);
   });
 
   it("allows a verified compact cabinet carton through UPS, FedEx, and USPS", () => {
