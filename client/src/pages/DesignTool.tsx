@@ -120,7 +120,7 @@ import {
 	  dim, refrigeratorEndPanelThickness, footprintDepth, makeUid, STD, RAISED_BAR_HEIGHT_IN, rotatedSize, nextFreeSpot, standardHeight, dimLabel, placedHeight, isCustomWidth, isCustomHeight, isCustomDepth, isCustomSize, customSizeNote, customSizeFee, CUSTOM_SIZE_FEE, peninsulaRunEndpoints,
 	  resolvedDesignCabinetDimensions, wallCabinetSkuDimensions, cabinetPlacementHoverDetail, normalizeFloatingShelfPlacement, normalizeWallOpenShelfPlacement,
 		  normalizeLCornerDepths, normalizeBlindCornerDoorSides, blindCornerPullPlacement, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation, refrigeratorBayRunMetrics, refrigeratorMagneticSnapEnvelope, fitExplicitRefrigeratorOptionPlacements, commitIndependentCabinetCandidate, commitConfiguredRefrigeratorCandidate, isMicrowaveOverRangePair,
-	  conflictingUids, blindCornerViolations, blindCornerSpecViolations, ceilingFitViolations, roomCeiling, inchesToFeetInches, isBlindCorner, BLIND_CORNER_FILLER_WIDTH_IN, blindPullRange, isOnIsland, isCornerCabinet, isAngledWallCabinet, isProtectedCornerCabinet, requiresRoomCornerPlacement, missingCornerBaseViolations,
+	  conflictingUids, blindCornerViolations, blindCornerSpecViolations, ceilingFitViolations, roomCeiling, inchesToFeetInches, isBlindCorner, isBaseBlindCorner, BLIND_CORNER_FILLER_WIDTH_IN, blindPullRange, isOnIsland, isCornerCabinet, isAngledWallCabinet, isProtectedCornerCabinet, requiresRoomCornerPlacement, missingCornerBaseViolations,
 	  isSinkBaseCabinet, isFarmSinkBasePaletteItem, fixtureBelongsToCabinet, fixtureIsOnCabinetFootprint, placedFootprint, hasCollision, cabinetCollisionDetail, COLLISION_EPSILON_IN, CABINET_CONFLICT_LOCK_IN, nearestCollisionFreeMountBottom, collisionReason, wallCabinetFitMeasure, wallCabinetPlacementReason, cabinetWallRunSegment, compatibleWallCabinetAlternatives, snapCabinetSeamOverlap, shouldBlockPlacementCollision, appendCollisionFreePlacements, appendRefrigeratorEnclosurePlacements, removeOverlappingPlacements, effectiveStyleId, pricingStyleId, rebaseFormerDefaultStyleOverrides, clearForeignSavedStyleOverrides, distinctStyleIds, isMixedFinish, paletteActiveWallPlacement, refrigeratorAdjacentOpeningPlacement, nextAvailableRoomCornerPlacement, nextAvailablePeninsulaCornerPlacement, cabinetCornerPlacementInfo, blindCornerSnapInfo, wallCabinetVerticalMoveLimit, repairWallCabinetPlanSeamForVerticalMove, selectedSinkBaseWallPlacement, sinkBaseWindowPlacement, selectedLowerCabinetWallPlacement, selectedCornerBaseWallPlacement, matchingLowerCabinetWallPlacement, snapWallCabinetToOwningWall, normalizeStandardWallMounts,
   		  isPlaceableAccessory, accessoryPlacement, isPanelItem, isDishwasherPanel, normalizeDishwasherPanelPlacement, isFillerItem, adjacentCabinetForFiller, matchInstalledFillerToCabinet, isFloatingShelfItem, isWallOpenShelfCabinet, isKneeDrawerItem, kitchenCrestGenericOpenEndShelfCount, KNEE_DRAWER_MIN_MOUNT_BOTTOM_IN, KNEE_DRAWER_MAX_MOUNT_BOTTOM_IN, fillerWidthRange, alternateWallPlacementRecommendation, PENINSULA_INSIDE_CORNER_CLEARANCE_IN,
   resolveSwing, cycleSwing, swingText, hasDoorSwing, DoorSwing, resolveCabinetHardwarePosition, cabinetHardwarePositionPatch, isCabinetDoorHardwareEligible, applyCabinetDoorHardwareToAll, supportsCenteredTopDoorPull, requiresCenteredTopDoorPull, usesRaisedFloorWallDoorPull, isWd18CountertopDrawerCabinet, normalizeWd18CountertopMounts, ordinaryWallMountBottom,
@@ -246,7 +246,7 @@ import {
 } from "@/lib/surfaceSelection";
 import { ProDesignerDialog } from "@/components/design/ProDesignerDialog";
 import { CabinetDrawing } from "@/components/CabinetDrawing";
-import { BEC24_DISPLAY_NAME, baseSubGroup, cabinetDrawingType, isSquareDoubleDoorBaseEnd, isWallBlindCornerCabinet, type BaseSubGroup } from "@/lib/cabinetGraphics";
+import { BEC24_DISPLAY_NAME, baseSubGroup, cabinetDrawingType, isSquareDoubleDoorBaseEnd, type BaseSubGroup } from "@/lib/cabinetGraphics";
 import { GlassPolicyBadge } from "@/components/GlassPolicyBadge";
 import { CabinetImage } from "@/components/CabinetImage";
 import { DoorStyleSwatch } from "@/components/DoorStyleSwatch";
@@ -2610,7 +2610,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     if (!prompt || !candidate) return;
     const selectedBlind = placedRef.current.find((cabinet) => cabinet.uid === prompt.blindUid);
     const selectedFiller = placedRef.current.find((cabinet) => cabinet.uid === prompt.fillerUid);
-    if (!selectedBlind || !selectedFiller || !isBlindCorner(selectedBlind.masterCode, selectedBlind.description)) {
+    if (!selectedBlind || !selectedFiller || !isBaseBlindCorner(selectedBlind)) {
       setBlindCornerFillerPrompt(null);
       toast.error("The blind-corner filler is no longer available to update.");
       return;
@@ -2762,7 +2762,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       setMobilePanel(null);
       return;
     }
-    if (isBlindCorner(cabinet.masterCode, cabinet.description)) {
+    if (isBaseBlindCorner(cabinet)) {
       toast.info("Blind-corner cabinets use their required 3-inch catalog filler automatically.");
       return;
     }
@@ -5732,10 +5732,10 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 
   const addCabinet = useCallback(
     (c: DesignCabinet, x?: number, y?: number, forceAccessory = false, rotation = 0, strictDropTarget = false, targetCabinetUid?: string | null, targetIslandFace?: IslandFace | null, forceBackDepthAdjustment = false, resolvedWallTarget?: { wallId: WallSide; wallOffset: number; peninsulaSide?: PeninsulaCabinetSide }, blindPullOverride?: number) => {
-      // A blind corner’s pull is an installation choice, not a hidden default.
-      // Ask before committing either the BBC/WBC or its mandatory linked filler;
+      // A configured blind base's pull is an installation choice, not a hidden default.
+      // Ask before committing the BBC or its mandatory linked filler;
       // Cancel therefore leaves the plan exactly as it was.
-      if (isBlindCorner(c.masterCode, c.description) && blindPullOverride == null) {
+      if (isBaseBlindCorner(c) && blindPullOverride == null) {
         const range = blindPullRange({ pullMin: c.pullMin ?? null, pullMax: c.pullMax ?? null }) ?? { min: 3, max: 6 };
         setBlindCornerPullPrompt({
           cabinet: c,
@@ -6382,7 +6382,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	      }
 
 	      // Blind corner: auto-position and auto-swing
-	      if (!requestedIslandFace && isBlindCorner(newCab.masterCode, newCab.description)) {
+	      if (!requestedIslandFace && isBaseBlindCorner(newCab)) {
         const wallSide = cabinetWall(newCab, room);
         const horiz = wallSide === "top" || wallSide === "bottom";
         const wallLen = horiz ? room.width : room.depth;
@@ -6405,7 +6405,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
             newCab.wallOffset = pulledSpot.wallOffset ?? newCab.wallOffset;
           }
         }
-        newCab.swing = isWallBlindCornerCabinet(newCab) ? "right" : cornerAtStart ? "right" : "left";
+        newCab.swing = cornerAtStart ? "right" : "left";
       }
 
       // Filler auto-snap: find nearest gap and resize/reposition
@@ -6605,7 +6605,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	      }
 
 	      let committedRun = normalizedRun;
-	      if (!requestedIslandFace && isBlindCorner(finalCab.masterCode, finalCab.description)) {
+	      if (!requestedIslandFace && isBaseBlindCorner(finalCab)) {
 	        const required = buildRequiredBlindCornerFiller(
 	          finalCab,
 	          room,
@@ -6777,7 +6777,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	          }
 	        }
 	      }
-	      if (!requestedIslandFace && isBlindCorner(finalCab.masterCode, finalCab.description) && blindCornerSnapInfo(finalCab, room)?.placement === "flush") {
+	      if (!requestedIslandFace && isBaseBlindCorner(finalCab) && blindCornerSnapInfo(finalCab, room)?.placement === "flush") {
 	        const requiredFiller = committedRun.find((item) => item.fillerPieceGroupId === requiredBlindCornerFillerGroupId(finalCab));
 	        if (requiredFiller) {
 	          setBlindCornerFillerPrompt({
@@ -6835,7 +6835,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 		        setIslandSeatingOverhangPrompt({ cabinetCode: finalCab.masterCode, face: requestedIslandFace });
 		        setCountertop(true);
 		      }
-		      if (!requestedIslandFace && !isAccessory && !isBlindCorner(finalCab.masterCode, finalCab.description) && (finalCab.placement !== "appliance" || isRangeOrOven(finalCab.masterCode))) {
+		      if (!requestedIslandFace && !isAccessory && !isBaseBlindCorner(finalCab) && (finalCab.placement !== "appliance" || isRangeOrOven(finalCab.masterCode))) {
 		        queueSmallGapFillerOpportunity(committedRun, finalCab.uid);
 		      } else setSmallGapFillerPrompt(null);
 
@@ -7524,7 +7524,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       const height = dimensions.height;
       const placement: "base" | "wall" = gap.layer === "wall" ? "wall" : "base";
       const spot = wallPlacementAt(gap.start, width, depth, gap.side, room);
-	      if (isBlindCorner(c.masterCode, c.description)) {
+	      if (isBaseBlindCorner(c)) {
 	        addCabinet(c, spot.x, spot.y, false, spot.rotation, true);
 	        return;
 	      }
@@ -7664,7 +7664,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       const placement: "base" | "wall" = gap.layer === "wall" ? "wall" : "base";
 	      // Place cabinet at gap start
 	      const cabSpot = wallPlacementAt(gap.start, cabWidth, depth, gap.side, room);
-	      if (isBlindCorner(c.masterCode, c.description)) {
+	      if (isBaseBlindCorner(c)) {
 	        addCabinet(c, cabSpot.x, cabSpot.y, false, cabSpot.rotation, true);
 	        return;
 	      }
@@ -9621,7 +9621,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       const magnet = automaticSnapping
         && !customPlacementMode
         && !exactWallDrag
-        && !isBlindCorner(cabinet.masterCode, cabinet.description);
+        && !isBaseBlindCorner(cabinet);
 	      const wallMove = requestedBody.islandFace
 	        ? null
 		        : cabinetWallMovePreview(requestedBody, { x, y }, room, peers, openings, {
@@ -9711,7 +9711,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 		        toast.error(message);
 		        return prev;
 		      }
-	      if (isBlindCorner(movedCabinet.masterCode, movedCabinet.description)) {
+	      if (isBaseBlindCorner(movedCabinet)) {
 	        const required = buildRequiredBlindCornerFiller(
 	          movedCabinet,
 	          room,
@@ -9743,7 +9743,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 			  }, [catalogFillers, setSinks, room, island, openings, customPlacementMode, automaticSnapping]);
 
 			  const moveCabinetToFrom3D = useCallback((uid: string, x: number, y: number, preview: CabinetWallDragPreview) => {
-		    const movingBlindCorner = placedRef.current.some((item) => item.uid === uid && isBlindCorner(item.masterCode, item.description));
+		    const movingBlindCorner = placedRef.current.some((item) => item.uid === uid && isBaseBlindCorner(item));
 		    // A 3D move should use the same cabinet magnet as the plan whenever it is
 		    // enabled. This turns a near or partially overlapping drop into an exact
 		    // edge-to-edge join instead of rejecting a small penetration outright.
@@ -9904,7 +9904,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     }
     const target = placedRef.current.find((cabinet) => cabinet.uid === uid);
 	    if (!target || !isProtectedCornerCabinet(target.masterCode, target.description)) return;
-    const requiredFillerGroup = isBlindCorner(target.masterCode, target.description)
+    const requiredFillerGroup = isBaseBlindCorner(target)
       ? requiredBlindCornerFillerGroupId(target)
       : null;
     const next = placedRef.current
@@ -10053,7 +10053,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 		        ? commitConfiguredRefrigeratorCandidate(prev, uid, candidate, room)
 		        : commitThreeDCabinetCandidate(placedWithoutLinkedFiller, uid, candidate);
 		      if (!nextPlaced) return { status: "blocked", message: `${cabinet.masterCode} could not be matched to the selected design record.` };
-	      if (isBlindCorner(candidate.masterCode, candidate.description)) {
+	      if (isBaseBlindCorner(candidate)) {
 	        const required = buildRequiredBlindCornerFiller(
 	          candidate,
 	          room,
@@ -10173,13 +10173,15 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   // clear a field. Values are inches across the corner.
   const setBlindPull = useCallback((field: "pullMin" | "pullMax", value: number | null) => {
     if (!selectedUid) return;
+    const selected = placedRef.current.find((item) => item.uid === selectedUid);
+    if (!selected || !isBaseBlindCorner(selected)) return;
     setPlaced((prev) =>
       prev.map((p) => (p.uid === selectedUid ? { ...p, [field]: value } : p))
     );
   }, [selectedUid]);
   const setBlindPullDistance = useCallback((uid: string, pull: number) => {
     const cabinet = placedRef.current.find((item) => item.uid === uid);
-    if (!cabinet) return;
+    if (!cabinet || !isBaseBlindCorner(cabinet)) return;
     const placement = blindCornerPullPlacement(cabinet, room, pull);
     if (!placement) return;
     moveCabinet(
@@ -14488,7 +14490,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	                  />
 	                </>
 	              )}
-              {isBlindCorner(selectedCab.masterCode, selectedCab.description) && (() => {
+              {isBaseBlindCorner(selectedCab) && (() => {
                 const dRange = blindPullRange(selectedCab);
                 const dMin = dRange?.min ?? 3;
                 const dMax = dRange?.max ?? 6;
@@ -15003,7 +15005,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                   </div>
                 )}
 
-                {isBlindCorner(selectedCab.masterCode, selectedCab.description) && (() => {
+                {isBaseBlindCorner(selectedCab) && (() => {
                   const bRange = blindPullRange(selectedCab);
                   const bMin = bRange?.min ?? 3;
                   const bMax = bRange?.max ?? 6;

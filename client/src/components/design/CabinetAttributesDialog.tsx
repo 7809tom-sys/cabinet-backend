@@ -47,7 +47,7 @@ import {
   isCustomWidth,
   isCustomHeight,
   isCustomDepth,
-  isBlindCorner,
+  isBaseBlindCorner,
   blindPullRange,
   fillerWidthRange,
 	  isKneeDrawerItem,
@@ -1213,15 +1213,15 @@ export function CabinetAttributesDialog({
             </section>
           )}
 
-          {/* Blind corner attributes */}
-          {isBlindCorner(cabinet.masterCode, cabinet.description) && (() => {
+          {/* Blind base-corner attributes */}
+          {isBaseBlindCorner(cabinet) && (() => {
             const range = blindPullRange(cabinet);
             const pullMin = range?.min ?? 3;
             const pullMax = range?.max ?? 6;
             const currentPull = cabinet.blindPull ?? pullMax;
             return (
               <section className="space-y-3 border-t border-border pt-4">
-                <h4 className="text-sm font-semibold">Blind Corner</h4>
+                <h4 className="text-sm font-semibold">Blind Base Corner</h4>
 
                 {/* Door side */}
                 <div className="space-y-1.5">

@@ -6820,6 +6820,21 @@ export function isBlindCorner(masterCode: string, description?: string): boolean
 }
 
 /**
+ * The pull-from-wall and required-filler specification belongs only to a
+ * configured blind *base* cabinet. Wall blind cabinets retain their own
+ * catalog-defined geometry and ordinary wall-cabinet behavior. Use the
+ * catalog placement bucket carried onto the saved placement, rather than a
+ * BBC/WBC code prefix, so Cabinet Config remains the source of truth.
+ */
+export function isBaseBlindCorner(
+  cabinet: Pick<DesignCabinet, "masterCode" | "description" | "placement">
+    | Pick<PlacedCabinet, "masterCode" | "description" | "placement">,
+): boolean {
+  return cabinet.placement === "base"
+    && isBlindCorner(cabinet.masterCode, cabinet.description ?? undefined);
+}
+
+/**
  * Blind-corner master codes name their full physical run length. Supplier rows
  * sometimes store only the reduced box/opening width (BBC-36 was stored as 33),
  * which made placement, collision, fillers, and 3D disagree with the SKU.
@@ -6877,7 +6892,7 @@ export function blindCornerSpecViolations(
 ): Map<string, BlindSpecIssue> {
   const out = new Map<string, BlindSpecIssue>();
   for (const p of placed) {
-    if (!isBlindCorner(p.masterCode, p.description)) continue;
+    if (!isBaseBlindCorner(p)) continue;
     const range = blindPullRange(p);
     if (!range) {
       // Only flag missing-spec if the cabinet has explicit pullMin/pullMax
@@ -8537,7 +8552,7 @@ export function cabinetWallMovePreview(
   // Blind corners are deliberately not wall-magnet cabinets. Preserve the
   // corner they currently own, but allow the body to release and move only
   // through the catalog-configured pull envelope (normally 3–6 inches).
-  if (isBlindCorner(cabinet.masterCode, cabinet.description)) {
+  if (isBaseBlindCorner(cabinet)) {
     const currentOffset = cabinet.wallOffset != null
       ? Math.max(frame.runStart, Math.min(maxStart, Number(cabinet.wallOffset) || 0))
       : wallRunOffset(cabinet, frame.id, room);
@@ -8555,7 +8570,7 @@ export function cabinetWallMovePreview(
   const magnet = options.magnet
     && !options.exact
     && explicitOffset == null
-    && !isBlindCorner(cabinet.masterCode, cabinet.description);
+    && !isBaseBlindCorner(cabinet);
   const startExtension = Math.max(0, Number(options.magneticEnvelope?.startExtensionIn) || 0);
   const endExtension = Math.max(0, Number(options.magneticEnvelope?.endExtensionIn) || 0);
   const magneticWidth = width + startExtension + endExtension;
@@ -9060,7 +9075,7 @@ export function blindCornerPullPlacement(
   room: RoomData,
   requestedPullIn: number,
 ): ({ x: number; y: number; rotation: number; wallId?: string; wallOffset?: number; blindPull: number } | null) {
-  if (!isBlindCorner(cabinet.masterCode, cabinet.description) || cabinet.islandFace) return null;
+  if (!isBaseBlindCorner(cabinet) || cabinet.islandFace) return null;
   const side = (cabinet.wallId ?? cabinetWall(cabinet, room)) as WallSide;
   const length = wallLength(side, room);
   const span = wallRunSpan(cabinet, side, room);

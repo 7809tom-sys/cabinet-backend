@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 const source = readFileSync(new URL("./DesignTool.tsx", import.meta.url), "utf8");
 
 describe("Design Tool blind-corner pull prompt", () => {
-  it("asks for a valid pull before placing a blind corner rather than silently committing the six-inch default", () => {
+  it("asks for a valid pull before placing a configured base blind corner rather than silently committing the six-inch default", () => {
     const start = source.indexOf("const addCabinet = useCallback");
     const end = source.indexOf("const addManualFiller", start);
     expect(start).toBeGreaterThan(-1);
@@ -12,6 +12,7 @@ describe("Design Tool blind-corner pull prompt", () => {
     const add = source.slice(start, end);
 
     expect(add).toContain("setBlindCornerPullPrompt");
+    expect(add).toContain("isBaseBlindCorner(c)");
     expect(add).toContain("blindPullOverride");
     expect(add).toContain("blindCornerPullPlacement");
     expect(add).toContain("newCab.blindPull = requestedPull");
@@ -23,5 +24,11 @@ describe("Design Tool blind-corner pull prompt", () => {
     expect(source).toContain('data-testid="blind-corner-pull-input"');
     expect(source).toContain("Cancel placement");
     expect(source).toContain("Place blind corner");
+  });
+
+  it("does not expose or mutate the BBC pull controls for wall blind cabinets", () => {
+    expect(source).toContain("{isBaseBlindCorner(selectedCab) && (() => {");
+    expect(source).toContain("if (!cabinet || !isBaseBlindCorner(cabinet)) return;");
+    expect(source).toContain("if (!selected || !isBaseBlindCorner(selected)) return;");
   });
 });

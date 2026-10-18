@@ -76,7 +76,7 @@ describe("designer toolbar layout", () => {
 
   it("removes redundant desktop cabinet adjustment controls while preserving the attributes workflow", () => {
     const contextualStart = source.indexOf("{/* Contextual row:");
-    const contextualEnd = source.indexOf("{isBlindCorner(selectedCab.masterCode", contextualStart);
+    const contextualEnd = source.indexOf("{isBaseBlindCorner(selectedCab)", contextualStart);
     const desktopSelectedStrip = source.slice(contextualStart, contextualEnd);
 
     expect(desktopSelectedStrip).not.toContain("<WallPicker");
