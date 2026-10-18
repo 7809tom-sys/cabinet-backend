@@ -2,22 +2,22 @@ import { describe, expect, it } from "vitest";
 import { appRouter } from "./routers";
 
 describe("Designer trim SKU pricing", () => {
-  it("returns the available, published Preston Air Dawn toe kick at its authorized tier price", async () => {
+  it("returns the available, published Luxe Select LSP TKC source alias at its authorized tier price", async () => {
     const caller = appRouter.createCaller({} as any);
     const rows = await caller.design.trimSkusForStyles({
-      styleIds: [390020],
-      distributorId: 180001,
+      styleIds: [540021],
+      distributorId: 270001,
     });
-    const toeKick = rows.find((row) => row.masterCode === "TK-8(TKC)" && row.styleId === 390020);
+    const toeKick = rows.find((row) => row.masterCode === "TKC" && row.styleId === 540021);
 
     expect(toeKick).toEqual(expect.objectContaining({
-      cabinetId: 9390073,
-      masterCode: "TK-8(TKC)",
-      description: 'Toe Kick 8\' Plywood - 96"',
-      listPrice: "46.00",
-      homeownerPrice: "25.44",
-      contractorPrice: "20.77",
-      wholesalePrice: "20.13",
+      cabinetId: 9360200,
+      masterCode: "TKC",
+      description: 'Toe Kick - 96"',
+      listPrice: "200.00",
+      homeownerPrice: "77.77",
+      contractorPrice: "63.49",
+      wholesalePrice: "61.53",
     }));
   });
 });

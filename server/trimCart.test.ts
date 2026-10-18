@@ -19,9 +19,15 @@ const BAM: TrimPrice = { cabinetId: 103, masterCode: "BAM", description: "Batten
 const CROWN: TrimPrice = { cabinetId: 9390046, masterCode: "LCM8", description: 'Crown Molding - 96"', unitPrice: 94.44 };
 const PRESTON_TK: TrimPrice = {
   cabinetId: 9390073,
-  masterCode: "TK-8(TKC)",
+  masterCode: "TK8(TKC)",
   description: 'Toe Kick 8\' Plywood - 96"',
   unitPrice: 25.44,
+};
+const USCD_LUXE_SELECT_TK: TrimPrice = {
+  cabinetId: 9360200,
+  masterCode: "TKC",
+  description: 'Toe Kick - 96"',
+  unitPrice: 77.77,
 };
 
 describe("buildTrimCartLines", () => {
@@ -58,17 +64,32 @@ describe("buildTrimCartLines", () => {
     }]);
   });
 
-  it("resolves the verified Preston TK-8(TKC) catalog code without inventing a TK-8 substitute", () => {
-    const map = priceMap({ "TK-8(TKC)": PRESTON_TK });
+  it("resolves the verified canonical TK8(TKC) code without inventing a TK-8 substitute", () => {
+    const map = priceMap({ "TK8(TKC)": PRESTON_TK });
 
     expect(trimPriceForKind("toeKick", map)).toEqual(PRESTON_TK);
     expect(trimHasPrice("toeKick", map)).toBe(true);
     expect(buildTrimCartLines([{ kind: "toeKick", pieces: 2 }], 390020, "Air Dawn (Preston)", map)).toEqual([{
-      masterCode: "TK-8(TKC)",
+      masterCode: "TK8(TKC)",
       name: 'Toe Kick 8\' Plywood - 96"',
       styleId: 390020,
       styleLabel: "Air Dawn (Preston)",
       unitPrice: 25.44,
+      qty: 2,
+    }]);
+  });
+
+  it("resolves the verified Luxe Select LSP toe-kick source alias to its real catalog price", () => {
+    const map = priceMap({ TKC: USCD_LUXE_SELECT_TK });
+
+    expect(trimPriceForKind("toeKick", map)).toEqual(USCD_LUXE_SELECT_TK);
+    expect(trimHasPrice("toeKick", map)).toBe(true);
+    expect(buildTrimCartLines([{ kind: "toeKick", pieces: 2 }], 540021, "Luxe Select LSP", map)).toEqual([{
+      masterCode: "TKC",
+      name: 'Toe Kick - 96"',
+      styleId: 540021,
+      styleLabel: "Luxe Select LSP",
+      unitPrice: 77.77,
       qty: 2,
     }]);
   });

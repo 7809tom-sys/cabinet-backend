@@ -1520,11 +1520,13 @@ export const designRouter = router({
           adjustedListPrice: string | null;
         }>;
       }
-      // The trim master codes the designer can auto-add. TK-8(TKC) is the
-      // verified supplier master code for the Preston toe-kick family; retain
-      // TK-8 for lines whose source catalog stores the shorter exact code.
+      // The trim master codes the designer can auto-add. TK8(TKC) is the
+      // canonical master for the shared 96-inch toe-kick family. Luxe Select's
+      // published, style-priced source row is its TKC alias, which is admitted
+      // below only for trim-price resolution; public catalog views still emit
+      // the canonical master. Retain TK-8 for legacy source rows.
       // Keep this list in sync with the client resolver in lib/trimCart.ts.
-      const TRIM_CODES = ["TK-8", "TK-8(TKC)", "LRM-8", "BAM", "SM-8", "BF-3", "BFF-3", "WFF-3-42", "VA-48", "LCM8"];
+      const TRIM_CODES = ["TK-8", "TK8(TKC)", "TKC", "LRM-8", "BAM", "SM-8", "BF-3", "BFF-3", "WFF-3-42", "VA-48", "LCM8"];
       // Trim items may be stored with a specific styleId OR with no styleId
       // (style-agnostic). Accept both: rows that match one of the requested
       // styleIds, or rows where styleId is NULL (applies to any style).
@@ -1535,7 +1537,17 @@ export const designRouter = router({
       const conditions = [
         inArray(cabinets.masterCode, TRIM_CODES),
         eq(cabinets.isActive, true),
-        notInConflict(),
+        or(
+          notInConflict(),
+          // `TKC` is a catalog alias, but Luxe Select stores the actual active,
+          // published source price on that alias. Let this trim-only price query
+          // retrieve it without exposing aliases in the public catalog.
+          and(
+            eq(cabinets.masterCode, "TKC"),
+            ne(cabinets.conflictStatus, "conflict"),
+            or(gt(distributorSkus.listPrice, "0"), gt(distributorSkus.yourCost, "0")),
+          ),
+        )!,
         styleCondition!,
         eq(distributorSkus.isAvailable, true),
         eq(distributorSkus.isPublished, true),

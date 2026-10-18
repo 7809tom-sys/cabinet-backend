@@ -29,7 +29,7 @@ export const TRIM_MASTER_CODES: Record<TrimKind, string | null> = {
 // accepting the verified source code. The resolved cart line always returns the
 // real source masterCode; this list only makes the lookup resilient.
 export const TRIM_MASTER_CODE_ALIASES: Partial<Record<TrimKind, readonly string[]>> = {
-  toeKick: ["TK-8(TKC)"],
+  toeKick: ["TK8(TKC)", "TK-8(TKC)", "TKC"],
 };
 
 /**

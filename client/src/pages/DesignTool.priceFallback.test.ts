@@ -22,8 +22,15 @@ describe("Designer verified price fallback", () => {
 
   it("passes a verified trim price through to Materials & Parts rather than relabeling it quote-only", () => {
     expect(source).toContain("const priced = trimPriceForKind(trim.kind, trimPriceByCode);");
-    expect(source).toContain("unitPrice: priced?.unitPrice ?? null,");
+    expect(source).toContain("if (!priced || pricedCodes.has(priced.masterCode)) continue;");
+    expect(source).toContain("unitPrice: priced.unitPrice,");
     expect(source).not.toContain('supplier: "Cabinet supplier / quote",\n        styleColor,\n        unitPrice: null,');
+  });
+
+  it("never labels an unresolved automatic toe kick as included or zero-cost", () => {
+    const toeKickBlock = source.slice(source.indexOf("{toeKick && toeKickOrder"), source.indexOf("{batten && battenOrder"));
+    expect(toeKickBlock).toContain('t("dt_bs_quote")');
+    expect(toeKickBlock).not.toContain('t("dt_bs_incl")');
   });
 
   it("marks an unpriced cabinet unavailable rather than presenting a vague N/A amount", () => {
