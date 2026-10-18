@@ -13892,7 +13892,8 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
             contactName={verifiedName}
             contactPhone={verifiedPhone}
 	            affiliateSlug={affiliateSlug}
-	            currentDesignId={activeSavedDesignId ?? loadDesignId}
+            currentDesignId={activeSavedDesignId ?? loadDesignId}
+            currentDesignName={savedDesign?.name ?? null}
 	            brandName={affiliateBrand?.storeName}
             openSaveSignal={saveSignal}
             openLoadSignal={loadSignal}

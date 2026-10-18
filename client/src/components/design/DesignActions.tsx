@@ -103,6 +103,8 @@ interface Props {
   affiliateSlug?: string | null;
   /** Existing saved-design identity. When present, Save updates that shared plan instead of creating an unrelated copy. */
   currentDesignId?: number | null;
+  /** Existing saved-design name, used to keep Update from silently renaming the plan. */
+  currentDesignName?: string | null;
   /** Visible only in affiliate sessions; removes platform branding from exports. */
   brandName?: string | null;
   // Incrementing signals from a parent (e.g. the mobile "More" sheet) to open the
@@ -368,7 +370,7 @@ export function groupByProject(rows: SavedDesignRow[]): ProjectGroup[] {
 }
 
 export function DesignActions({
-  room, placed, openings, sinks, island, furniture, ponyWalls, selectedSurfaces, threeDPresentation, styleId, lockedDistributorId, styleName, contactName, contactPhone, tier, total, extraLines, buildRows, roomType, contactEmail, affiliateSlug, currentDesignId, brandName, openSaveSignal, openLoadSignal, preSavePlanReview, onReviewPlanFinding, onSaveSuccess, onDeleteSuccess, onLoad,
+  room, placed, openings, sinks, island, furniture, ponyWalls, selectedSurfaces, threeDPresentation, styleId, lockedDistributorId, styleName, contactName, contactPhone, tier, total, extraLines, buildRows, roomType, contactEmail, affiliateSlug, currentDesignId, currentDesignName, brandName, openSaveSignal, openLoadSignal, preSavePlanReview, onReviewPlanFinding, onSaveSuccess, onDeleteSuccess, onLoad,
 }: Props) {
   const { user, isAuthenticated, loading: isAuthLoading, error: authError, refresh } = useAuth();
   const { t } = useLanguage();
@@ -412,6 +414,10 @@ export function DesignActions({
   // Master Project grouping (optional): a job name + a room label.
   const [projectName, setProjectName] = useState("");
   const [roomLabel, setRoomLabel] = useState("");
+  const isUpdatingExistingDesign = currentDesignId != null;
+  useEffect(() => {
+    if (isUpdatingExistingDesign && currentDesignName?.trim()) setName(currentDesignName.trim());
+  }, [currentDesignName, isUpdatingExistingDesign]);
   // Open the Save / My Plans dialogs when a parent bumps the signal (mobile menu).
   useEffect(() => {
     if (!openSaveSignal) return;
@@ -446,7 +452,7 @@ export function DesignActions({
         toast.error(t("dt_act_save_err"), { description: "The design was saved but its plan reference was not returned. Please try saving once more." });
         return;
       }
-      toast.success(t("dt_act_saved"), { description: savedName });
+      toast.success(isUpdatingExistingDesign ? "Design updated" : t("dt_act_saved"), { description: savedName });
       onSaveSuccess?.(savedName, res.id);
       setSaveOpen(false);
       setName("");
@@ -617,9 +623,11 @@ export function DesignActions({
       <Dialog open={saveOpen} onOpenChange={setSaveOpen}>
         <DialogContent className="!flex h-[min(92dvh,900px)] max-h-[calc(100dvh-1rem)] w-[min(28rem,calc(100vw-1rem))] flex-col overflow-hidden p-5 sm:max-w-md">
           <DialogHeader className="shrink-0">
-            <DialogTitle>{t("dt_act_save_title")}</DialogTitle>
+            <DialogTitle>{isUpdatingExistingDesign ? "Update saved design" : t("dt_act_save_title")}</DialogTitle>
             <DialogDescription>
-              {t("dt_act_save_desc")}
+              {isUpdatingExistingDesign
+                ? "Save your latest changes to this shared plan. Viewers will see the update after they refresh."
+                : t("dt_act_save_desc")}
             </DialogDescription>
           </DialogHeader>
           <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain py-1 pr-1 [touch-action:pan-y]">
@@ -740,7 +748,7 @@ export function DesignActions({
             {isAuthenticated ? (
               <Button onClick={handleSave} disabled={saveMutation.isPending} className="gap-1.5">
                 {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                {t("dt_act_save_design")}
+                {isUpdatingExistingDesign ? "Update" : t("dt_act_save_design")}
               </Button>
             ) : (
               <Button asChild className="gap-1.5">
