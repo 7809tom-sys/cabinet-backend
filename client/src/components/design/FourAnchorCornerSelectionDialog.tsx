@@ -68,6 +68,7 @@ export function FourAnchorCornerSelectionDialog({ open, slots, options, initialC
           <DialogDescription>
             A source-priced base-corner cabinet is required at every real Four-anchor corner. The largest eligible corner is selected first; change it to another source-priced corner when needed. A corner is never substituted into a straight run.
           </DialogDescription>
+          <p className="text-sm text-muted-foreground" data-testid="four-anchor-corner-build-order">After your corners are placed, the builder fills the remaining runs with larger regular base cabinets, then adds aligned wall cabinets at your selected height.</p>
         </DialogHeader>
         <div className="grid gap-4">
           {slots.length === 0 ? (
@@ -105,7 +106,7 @@ export function FourAnchorCornerSelectionDialog({ open, slots, options, initialC
         </div>
         <DialogFooter>
           <Button type="button" variant="outline" onClick={onCancel}>Cancel measured build</Button>
-          <Button type="button" data-testid="four-anchor-corner-confirm" onClick={confirm} disabled={options.length === 0 && slots.length > 0}>Place selected corners and fill runs</Button>
+          <Button type="button" data-testid="four-anchor-corner-confirm" onClick={confirm} disabled={options.length === 0 && slots.length > 0}>Place corners, fill bases, then walls</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

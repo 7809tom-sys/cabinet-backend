@@ -6,6 +6,16 @@ import { FourAnchorAutoBuildDialog } from "./FourAnchorAutoBuildDialog";
 afterEach(cleanup);
 
 describe("FourAnchorAutoBuildDialog", () => {
+  it("explains the required build order and excludes automatic specialty-base selection", () => {
+    render(<FourAnchorAutoBuildDialog open onOpenChange={vi.fn()} onBuild={() => ({ ok: true })} />);
+    const order = screen.getByTestId("four-anchor-build-order").textContent ?? "";
+    expect(order).toContain("1. Measured appliances and sink base");
+    expect(order).toContain("2. Select and place the required corner cabinets");
+    expect(order).toContain("3. Fill remaining runs with the largest practical regular base cabinets");
+    expect(order).toContain("4. Place source-sized, aligned wall cabinets above");
+    expect(order).toContain("Specialty bases are not selected automatically");
+  });
+
   it("submits the selected wall-cabinet height as a real build input", () => {
     const onBuild = vi.fn((): { ok: true } => ({ ok: true }));
     render(<FourAnchorAutoBuildDialog open onOpenChange={vi.fn()} onBuild={onBuild} />);

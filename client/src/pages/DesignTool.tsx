@@ -181,6 +181,7 @@ import { normalizePaletteSearch, matchesPaletteSearch } from "@/lib/paletteSearc
 import { adjacentDishwasherCenterIn, anchorAlongStartIn, autoBuildStraightBaseCatalog, canRunFourAnchorAutoBuild, isAutoBuildStraightSinkBaseCandidate, planFourAnchorAutoBuild, subtractAnchorRunReservations, wallLabelToEngineWallId, type FourAnchorInputs } from "@/lib/fourAnchorAutoBuild";
 import { autoBuildCornerCatalog, fourAnchorCornerSlotPoint, fourAnchorCornerSlots, isFourAnchorBlindCornerOption, type AutoBuildCornerCandidate, type FourAnchorCornerChoice, type FourAnchorCornerSlot } from "@/lib/fourAnchorCornerStage";
 import { buildMandatoryFourAnchorRefrigeratorBay } from "@/lib/fourAnchorRefrigeratorBay";
+import { buildFourAnchorWallCabinets, type FourAnchorUpperCorner } from "@/lib/fourAnchorWallCabinets";
 import { validatePlacedCornerRefrigerator } from "@/lib/cornerRefrigeratorPlacement";
 import { validatePlacedCornerRange, CORNER_RANGE_HANDLE_FILLER_IN } from "@/lib/cornerRangePlacement";
 import { buildGlassCornerCatalogChoices } from "@/lib/glassCornerCatalog";
@@ -941,6 +942,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     selectedWalls: WallSide[];
     anchorPlaced: PlacedCabinet[];
     pool: DesignCabinet[];
+    wallPool: DesignCabinet[];
     straightBaseCatalog: DesignCabinet[];
     baseSource: DesignCabinet;
     refrigeratorReservation: { wall: string; start: number; end: number } | null;
@@ -2816,7 +2818,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   // Always-on wall cabinet pool for the "Place matching wall cabinet above?"
   // suggestion that fires after placing a base cabinet. Kept as a ref so the
   // stable addCabinet callback can read the latest data without re-creating.
-  const { data: wallCabPool } = trpc.design.placeableCabinets.useQuery({
+  const { data: wallCabPool, isLoading: wallCabPoolLoading } = trpc.design.placeableCabinets.useQuery({
     placement: "wall",
     styleId: styleId ?? undefined,
     distributorId: lockedDistributorId ?? undefined,
@@ -3029,7 +3031,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     if (!result.ok) {
       return fail(`Missing required measurement: ${result.missing.join(", ")}.`);
     }
-    if (autoFillCabinetsLoading) {
+    if (autoFillCabinetsLoading || wallCabPoolLoading) {
       return fail("The selected line’s source-priced cabinets are still loading. Wait a moment, then build the measured kitchen again.");
     }
     const sinkBaseWidth = input.sinkBaseWidthIn ?? 36;
@@ -3181,6 +3183,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       selectedWalls,
       anchorPlaced: working,
       pool,
+      wallPool: (wallCabPool as DesignCabinet[] | undefined) ?? [],
       straightBaseCatalog,
       baseSource,
       refrigeratorReservation,
@@ -3193,7 +3196,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       ? "Measured appliances are seated. Choose each real corner cabinet before the remaining wall runs are filled."
       : "Measured appliances are seated. Confirm the next step to fill the remaining wall runs.");
     return { ok: true as const };
-  }, [appliancePalette, autoFillCabinets, autoFillCabinetsLoading, isAdmin, isCornerCabinet, openings, placedRef, refrigeratorSurroundCatalog, room, setCountertop, setPlaced]);
+  }, [appliancePalette, autoFillCabinets, autoFillCabinetsLoading, isAdmin, isCornerCabinet, openings, placedRef, refrigeratorSurroundCatalog, room, setCountertop, setPlaced, wallCabPool, wallCabPoolLoading]);
 
   /**
    * The second half of a Four-anchor build. Nothing is guessed: appliances are
@@ -3212,6 +3215,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     let working = [...stage.anchorPlaced];
     const selectedWalls = [...stage.selectedWalls];
     let selectedCornerCount = 0;
+    const upperCorners: FourAnchorUpperCorner[] = [];
 
     for (const slot of stage.slots) {
       const choice = choices[slot.id] ?? { cabinetId: null };
@@ -3253,6 +3257,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       if (!cornerCommit.placed.some((cabinet) => cabinet.uid === corner.uid)) return fail(`${source.masterCode} overlaps an appliance, opening, or adjoining wall clearance at ${slot.label}.`);
       working = cornerCommit.placed;
       selectedCornerCount++;
+      upperCorners.push({ base: corner, point: target });
 
       if (requiresConfiguredBlindCornerFiller(corner)) {
         const required = buildRequiredBlindCornerFiller(corner, room, catalogFillers, makeUid, corner.styleId ?? null);
@@ -3298,11 +3303,20 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       }
     }
 
+    // Wall boxes are last. Match the completed lower projections, retaining
+    // selected-line SKUs, height and opening clearances without moving anchors.
+    const upperResult = buildFourAnchorWallCabinets({
+      placed: working, room, openings, catalog: stage.wallPool,
+      wallCabinetHeightIn: stage.input.wallCabinetHeightIn ?? 30,
+      styleId: styleIdRef.current ?? null, makeUid, corners: upperCorners,
+    });
+    working = upperResult.placed;
     placedRef.current = working;
     setPlaced(working);
     setFourAnchorCornerStage(null);
     setViewMode("threeD");
-    toast.success(`Placed ${selectedCornerCount} selected corner cabinet${selectedCornerCount === 1 ? "" : "s"} and ${surrounding.length} source-priced surrounding cabinet${surrounding.length === 1 ? "" : "s"}.`);
+    toast.success(`Placed ${selectedCornerCount} selected corners, ${surrounding.length} regular base-run pieces, and ${upperResult.additions.length} aligned wall cabinets.`);
+    if (upperResult.skipped.length) toast.info(`Upper review: ${upperResult.skipped.join(" ")}`, { duration: 15000 });
     return { ok: true as const };
   }, [catalogFillers, fourAnchorCornerStage, openings, room, setPlaced]);
 
@@ -18328,7 +18342,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	          open={fourAnchorAutoBuildOpen}
 	          onOpenChange={setFourAnchorAutoBuildOpen}
 	          onBuild={buildFourAnchorAutoLayout}
-	          catalogLoading={autoFillCabinetsLoading}
+	          catalogLoading={autoFillCabinetsLoading || wallCabPoolLoading}
 	        />
 	      )}
 	      {isAdmin && fourAnchorCornerStage && (

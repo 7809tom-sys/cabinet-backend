@@ -68,6 +68,21 @@ describe("four-anchor wall-label mapping", () => {
 
     expect(autoBuildStraightBaseCatalog(catalog).map((item) => item.masterCode)).toEqual(["B24"]);
   });
+
+  it("defaults to regular door bases with top drawers, not unrequested specialty or all-drawer boxes", () => {
+    const catalog = [
+      { masterCode: "3DB48", description: "48 inch Three Drawer Base", numberOfDoors: 0, numberOfDrawers: 3 },
+      { masterCode: "B-36", description: "Double Door Single Drawer Base Cabinet", numberOfDoors: 2, numberOfDrawers: 1 },
+      { masterCode: "B24", description: "Standard Base Cabinet", numberOfDoors: 2, numberOfDrawers: 1 },
+      { masterCode: "B18PO", description: "Pull-Out Base Cabinet" },
+      { masterCode: "B30MW", description: "Microwave Base Cabinet" },
+      { masterCode: "BFH36", description: "Full Height Door Base" },
+      { masterCode: "VB36", description: "Vanity Base Cabinet", category: "Vanity" },
+      { masterCode: "BEC24", description: "Square Double Door Base End" },
+      { masterCode: "BF3", description: "Base Filler" },
+    ].map((row) => ({ ...row, placement: "base" as const }));
+    expect(autoBuildStraightBaseCatalog(catalog).map((row) => row.masterCode)).toEqual(["B-36", "B24"]);
+  });
 });
 
 describe("four-anchor auto-build", () => {

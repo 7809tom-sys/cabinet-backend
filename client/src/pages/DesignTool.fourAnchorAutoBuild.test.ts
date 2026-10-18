@@ -87,4 +87,19 @@ describe("admin four-anchor Designer wiring", () => {
     expect(pageSource).toContain("completeFourAnchorAutoLayout");
     expect(pageSource).toContain("A corner cabinet is required at every Four-anchor L/U corner");
   });
+
+  it("runs aligned source-priced wall cabinets only after required corners and regular base runs", () => {
+    const completion = pageSource.slice(pageSource.indexOf("const completeFourAnchorAutoLayout"), pageSource.indexOf("const cancelFourAnchorCornerStage"));
+    const corners = completion.indexOf("for (const slot of stage.slots)");
+    const bases = completion.indexOf("autoFillSpan(segment.length");
+    const walls = completion.indexOf("buildFourAnchorWallCabinets({");
+    const commit = completion.indexOf("setPlaced(working)");
+    expect(corners).toBeGreaterThanOrEqual(0);
+    expect(bases).toBeGreaterThan(corners);
+    expect(walls).toBeGreaterThan(bases);
+    expect(commit).toBeGreaterThan(walls);
+    expect(completion).toContain("catalog: stage.wallPool");
+    expect(completion).toContain("wallCabinetHeightIn: stage.input.wallCabinetHeightIn ?? 30");
+    expect(completion).toContain("upperResult.skipped");
+  });
 });

@@ -171,3 +171,12 @@
 - [x] Verify Reaves Way storefront footer sign-in returns to the affiliate management entry, which resolves Reaves Way’s own dashboard, instead of the generic Cabinet Dealz page.
 - [x] Resolve the authenticated Gmail user to an affiliate at OAuth completion and redirect affiliate users directly to their own Administration dashboard.
 - [x] Add regression coverage proving Reaves Way Gmail sign-in routes to `/affiliate?viewAs=<Reaves Way affiliate ID>` or its own equivalent Administration destination.
+
+## Measured kitchen build order — 2026-10-18
+
+- [x] Inspect the current appliances → required corner → straight-run fill flow.
+- [x] Default surrounding base runs to larger regular base cabinets, excluding unrequested specialty units.
+- [x] Add source-priced, appropriately aligned wall cabinets after corners and base runs are placed.
+- [x] Preserve appliance measurements, refrigerator bay validation, corner geometry, and opening clearances.
+- [x] Add and run focused regressions, TypeScript, and build validation.
+- [x] Verify the actual updated dialog and actual upper helper/elevation renderer using a clearly labeled in-memory sandbox fixture; remove horizontal dialog clipping. No customer records created. Full authenticated measured-build browser flow remains unverified; do not claim live deployment.

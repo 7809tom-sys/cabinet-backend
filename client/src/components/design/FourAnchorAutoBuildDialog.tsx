@@ -93,7 +93,7 @@ export function FourAnchorAutoBuildDialog({ open, onOpenChange, onBuild, catalog
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto" data-testid="four-anchor-auto-build-dialog">
+      <DialogContent className="max-h-[90vh] w-[calc(100vw-2rem)] sm:max-w-2xl overflow-y-auto overflow-x-hidden" data-testid="four-anchor-auto-build-dialog">
         <DialogHeader>
           <DialogTitle>Admin · Four-anchor auto-build</DialogTitle>
           <DialogDescription>
@@ -133,6 +133,11 @@ export function FourAnchorAutoBuildDialog({ open, onOpenChange, onBuild, catalog
           <div className="rounded-lg border bg-muted/20 p-3 text-xs text-muted-foreground">
             Choose Wall 1–4 for each appliance. The measurement is that item’s center from the selected wall’s labeled starting corner; raw X/Y floor coordinates are never used.
           </div>
+          <div className="rounded-lg border bg-muted/20 p-3 text-sm" data-testid="four-anchor-build-order">
+            <p className="font-semibold">Build order</p>
+            <p>1. Measured appliances and sink base. 2. Select and place the required corner cabinets. 3. Fill remaining runs with the largest practical regular base cabinets. 4. Place source-sized, aligned wall cabinets above.</p>
+            <p className="mt-1 text-xs text-muted-foreground">Specialty bases are not selected automatically. Wall cabinets respect the selected height, windows, doors, refrigerator bay, and ceiling; unavailable or blocked matches are flagged for review.</p>
+          </div>
           {catalogLoading && (
             <div role="status" data-testid="four-anchor-catalog-loading" className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
               Loading the selected line’s source-priced cabinets. Build measured kitchen will be available as soon as the catalog is ready.
@@ -149,17 +154,18 @@ export function FourAnchorAutoBuildDialog({ open, onOpenChange, onBuild, catalog
           </div>
 
           <div className="grid gap-2">
-            <div className="grid grid-cols-[minmax(8rem,1fr)_9rem_12rem] items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            <div className="hidden sm:grid sm:grid-cols-[minmax(0,1fr)_8rem_minmax(0,11rem)] items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
               <span>Appliance / fixture</span><span>Place on wall</span><span>Center from selected wall start (in.)</span>
             </div>
             {(Object.keys(labels) as PointField[]).map((field) => (
-              <div key={field} className="grid grid-cols-[minmax(8rem,1fr)_9rem_12rem] items-center gap-2">
+              <div key={field} className="grid min-w-0 grid-cols-1 sm:grid-cols-[minmax(0,1fr)_8rem_minmax(0,11rem)] items-center gap-2">
                 <Label htmlFor={`four-anchor-${field}-center`}>{labels[field]}</Label>
                 <Select value={values[field].wallLabel} onValueChange={(value) => setValue(field, { wallLabel: value as WallLabel })}>
-                  <SelectTrigger aria-label={wallSelectionLabels[field]}><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="w-full min-w-0" aria-label={wallSelectionLabels[field]}><SelectValue /></SelectTrigger>
                   <SelectContent>{wallLabels.map((wall) => <SelectItem key={wall} value={wall}>{wall}</SelectItem>)}</SelectContent>
                 </Select>
                 <Input
+                  className="min-w-0 w-full"
                   id={`four-anchor-${field}-center`}
                   type="number"
                   min="0"

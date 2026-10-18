@@ -1,4 +1,5 @@
 import { STD, isCornerCabinet, isSinkBaseCabinet, wallRunFrame, type RoomData, type WallRunFrame } from "./design";
+import { baseSubGroup, cabinetDrawingType, type CabinetLike } from "./cabinetGraphics";
 
 export type FourAnchorKind = "sink" | "stove" | "dishwasher" | "refrigerator";
 export type FourAnchorLayoutType = "galley" | "l-shape" | "u-shape" | "single-wall";
@@ -11,7 +12,7 @@ export type RefrigeratorEnclosureChoice = "none" | "cabinet-above";
 export type AnchorRunReservation = { start: number; end: number };
 
 /** Minimal source-catalog data used to constrain generated straight wall runs. */
-export type AutoBuildCatalogCandidate = {
+export type AutoBuildCatalogCandidate = CabinetLike & {
   masterCode: string;
   description?: string | null;
   subCategory?: string | null;
@@ -178,6 +179,11 @@ export function autoBuildStraightBaseCatalog<T extends AutoBuildCatalogCandidate
     && candidate.isCornerCabinet !== true
     && !isCornerCabinet(candidate.masterCode, candidate.description ?? undefined)
     && !isSinkBaseCabinet(candidate)
+    // A standard door base may have a top drawer. All-drawer, full-height,
+    // pull-out, appliance, vanity and other specialty boxes require an explicit
+    // design choice and are never a substitute for an ordinary base run.
+    && baseSubGroup(candidate) === "base"
+    && cabinetDrawingType(candidate) === "standard-door"
   ));
 }
 
