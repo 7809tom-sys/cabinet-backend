@@ -5,6 +5,10 @@ export type FourAnchorLayoutType = "galley" | "l-shape" | "u-shape" | "single-wa
 export type FourAnchorOriginCorner = "left" | "right";
 export type FourAnchorRunDirection = "left" | "right";
 export type WallLabel = "Wall 1" | "Wall 2" | "Wall 3" | "Wall 4";
+export type DishwasherSide = "left" | "right";
+export type RefrigeratorPanelChoice = "none" | "left" | "right" | "both";
+export type RefrigeratorEnclosureChoice = "none" | "cabinet-above";
+export type AnchorRunReservation = { start: number; end: number };
 
 export type FourAnchorMeasurement = {
   wallLabel: WallLabel;
@@ -25,15 +29,24 @@ export type FourAnchorInputs = {
   originCorner: FourAnchorOriginCorner;
   runDirection: FourAnchorRunDirection;
   sink: FourAnchorMeasurement;
+  /** Exact source-sized sink base requested by the admin (SB30/SB33/SB36/SB42). */
+  sinkBaseWidthIn?: 30 | 33 | 36 | 42;
   stove: FourAnchorMeasurement;
+  /** Optional exact dishwasher center. Null means seat it against the sink. */
   dishwasher?: FourAnchorMeasurement | null;
+  /** Used only when no exact dishwasher center is entered. */
+  dishwasherSide?: DishwasherSide;
   refrigerator: FourAnchorMeasurement;
+  refrigeratorWidthIn?: 30 | 33 | 36 | 42;
+  refrigeratorPanels?: RefrigeratorPanelChoice;
+  refrigeratorEnclosure?: RefrigeratorEnclosureChoice;
   sinkWindowCenter?: FourAnchorMeasurement | null;
 };
 
 export type FourAnchorPlacement = FourAnchorMeasurement & {
   kind: FourAnchorKind;
   source: "measured" | "adjacent-to-sink" | "sink-window-centered";
+  dishwasherSide?: DishwasherSide;
 };
 
 export type FourAnchorBuildPlan = {
@@ -117,6 +130,45 @@ export function anchorAlongStartIn(measurement: FourAnchorMeasurement, cabinetWi
   return fromPhysicalStart - cabinetWidthIn / 2;
 }
 
+/**
+ * Returns the wall-relative center for a dishwasher that butts the selected
+ * side of a sink base. The caller still validates the resulting center against
+ * the actual selected wall; this helper never clamps or relocates it.
+ */
+export function adjacentDishwasherCenterIn(
+  sinkCenterIn: number,
+  sinkWidthIn: number,
+  dishwasherWidthIn: number,
+  side: DishwasherSide,
+): number {
+  const offset = (sinkWidthIn + dishwasherWidthIn) / 2;
+  return sinkCenterIn + (side === "right" ? offset : -offset);
+}
+
+/** Remove measured refrigerator openings/panel spans from otherwise free wall segments. */
+export function subtractAnchorRunReservations(
+  segments: ReadonlyArray<{ start: number; length: number }>,
+  reservations: ReadonlyArray<AnchorRunReservation>,
+): Array<{ start: number; length: number }> {
+  const normalized = reservations
+    .filter((reservation) => Number.isFinite(reservation.start) && Number.isFinite(reservation.end) && reservation.end > reservation.start)
+    .sort((a, b) => a.start - b.start);
+  const result: Array<{ start: number; length: number }> = [];
+  for (const segment of segments) {
+    const end = segment.start + segment.length;
+    let cursor = segment.start;
+    for (const reservation of normalized) {
+      if (reservation.end <= cursor || reservation.start >= end) continue;
+      const beforeEnd = Math.min(end, Math.max(cursor, reservation.start));
+      if (beforeEnd > cursor) result.push({ start: cursor, length: beforeEnd - cursor });
+      cursor = Math.max(cursor, Math.min(end, reservation.end));
+      if (cursor >= end) break;
+    }
+    if (cursor < end) result.push({ start: cursor, length: end - cursor });
+  }
+  return result.filter((segment) => segment.length > 0.01);
+}
+
 export function planFourAnchorAutoBuild(input: FourAnchorInputs): FourAnchorBuildResult {
   const missing: FourAnchorKind[] = [];
   if (!validMeasurement(input.sink)) missing.push("sink");
@@ -132,7 +184,13 @@ export function planFourAnchorAutoBuild(input: FourAnchorInputs): FourAnchorBuil
     : { ...input.sink, kind: "sink" as const, source: "measured" as const };
   const dishwasherPlacement = dishwasher
     ? { ...dishwasher, kind: "dishwasher" as const, source: "measured" as const }
-    : { wallLabel: input.sink.wallLabel, centerOffsetIn: input.sink.centerOffsetIn, kind: "dishwasher" as const, source: "adjacent-to-sink" as const };
+    : {
+      wallLabel: sink.wallLabel,
+      centerOffsetIn: sink.centerOffsetIn,
+      kind: "dishwasher" as const,
+      source: "adjacent-to-sink" as const,
+      dishwasherSide: input.dishwasherSide ?? "right",
+    };
 
   return {
     ok: true,

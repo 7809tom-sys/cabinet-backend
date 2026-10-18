@@ -33,4 +33,31 @@ describe("admin four-anchor Designer wiring", () => {
     expect(dialogSource).not.toContain("RUN / X");
     expect(dialogSource).not.toContain("DEPTH / Y");
   });
+
+  it("offers a left or right sink-adjacent dishwasher choice when no exact center is entered", () => {
+    expect(dialogSource).toContain("Dishwasher position");
+    expect(dialogSource).toContain("Left of sink");
+    expect(dialogSource).toContain("Right of sink");
+    expect(dialogSource).toContain("dishwasherSide");
+    expect(dialogSource).toContain("Optional exact dishwasher center");
+  });
+
+  it("collects selected sink-base and refrigerator enclosure choices instead of using generic floor appliances", () => {
+    expect(dialogSource).toContain("Sink base size");
+    expect(dialogSource).toContain("SB{width}");
+    expect(dialogSource).toContain("Refrigerator width");
+    expect(dialogSource).toContain("Side panels");
+    expect(dialogSource).toContain("Over-fridge enclosure");
+    expect(pageSource).toContain("No source-priced SB${sinkBaseWidth} sink base");
+    expect(pageSource).toContain("makeDefaultSinkForCabinet(sinkBase");
+    expect(pageSource).toContain("initialChoice:");
+  });
+
+  it("uses the existing wall and collision engines for selected-wall fill, never a hard-coded bottom-wall run", () => {
+    expect(pageSource).toContain("freeSegmentsOnWall(");
+    expect(pageSource).toContain("wallPlacementAt(along, width, depth, wallId, room)");
+    expect(pageSource).toContain("appendCollisionFreePlacements(working, [candidate], room)");
+    expect(pageSource).toContain("subtractAnchorRunReservations");
+    expect(pageSource).not.toContain("y: room.depth - STD.BASE_DEPTH");
+  });
 });

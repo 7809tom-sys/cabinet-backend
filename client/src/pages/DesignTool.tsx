@@ -178,7 +178,7 @@ import { CabinetHandlesControl, DEFAULT_DESIGNER_HARDWARE_STYLE_ID } from "@/com
 import { HardwareCatalogPicker } from "@/components/design/HardwareCatalogPicker";
 import { isPanelPaletteItem } from "./designToolPanels";
 import { normalizePaletteSearch, matchesPaletteSearch } from "@/lib/paletteSearch";
-import { anchorAlongStartIn, canRunFourAnchorAutoBuild, planFourAnchorAutoBuild, wallLabelToEngineWallId, type FourAnchorInputs } from "@/lib/fourAnchorAutoBuild";
+import { adjacentDishwasherCenterIn, anchorAlongStartIn, canRunFourAnchorAutoBuild, planFourAnchorAutoBuild, subtractAnchorRunReservations, wallLabelToEngineWallId, type FourAnchorInputs } from "@/lib/fourAnchorAutoBuild";
 import { validatePlacedCornerRefrigerator } from "@/lib/cornerRefrigeratorPlacement";
 import { validatePlacedCornerRange, CORNER_RANGE_HANDLE_FILLER_IN } from "@/lib/cornerRangePlacement";
 import { buildGlassCornerCatalogChoices } from "@/lib/glassCornerCatalog";
@@ -256,7 +256,7 @@ import { FillerAttributesDialog } from "@/components/design/FillerAttributesDial
 import { FloatingShelfAttributesDialog } from "@/components/design/FloatingShelfAttributesDialog";
 import { WindowAttributesDialog } from "@/components/design/WindowAttributesDialog";
 import { IslandAttributesDialog } from "@/components/design/IslandAttributesDialog";
-import { RefrigeratorOptionsDialog } from "@/components/design/RefrigeratorOptionsDialog";
+import { RefrigeratorOptionsDialog, type FridgeSurroundChoice } from "@/components/design/RefrigeratorOptionsDialog";
 import { RollOutTrayPicker } from "@/components/design/RollOutTrayPicker";
 import { DoorDrawerDiagram } from "@/components/design/DoorDrawerDiagram";
 // PhotorealPreview removed — replaced by deterministic preview modes
@@ -2971,6 +2971,12 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     setSelectedOpeningUid((cur) => (cur === uid ? null : cur));
   }, []);
 
+  // A refrigerator is a source-priced assembly. Load the selected line's
+  // buyable caps and end panels before the admin auto-build seats its anchors.
+  const { data: refrigeratorSurroundCatalog } = trpc.design.surroundForFridge.useQuery(
+    { styleId: styleId ?? 0 },
+    { enabled: !!styleId },
+  );
   // Appliances/fixtures are a synthetic, client-side catalog (no DB rows),
   // filtered to the current room type (kitchen appliances vs bath/laundry
   // fixtures). Falls back to all appliances for rooms with no fixture set.
@@ -2992,8 +2998,17 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       toast.error(`Missing required measurement: ${result.missing.join(", ")}.`);
       return;
     }
+    const sinkBaseWidth = input.sinkBaseWidthIn ?? 36;
+    const refrigeratorWidth = input.refrigeratorWidthIn ?? 36;
+    const pool = (autoFillCabinets as DesignCabinet[] | undefined) ?? [];
+    const sinkBaseSource = pool.find((item) => item.placement === "base"
+      && isSinkBaseCabinet(item)
+      && Math.abs(dim(item.width, 0) - sinkBaseWidth) < 0.1);
+    if (!sinkBaseSource) {
+      toast.error(`No source-priced SB${sinkBaseWidth} sink base is available for the selected line.`);
+      return;
+    }
     const applianceByKind: Record<string, DesignCabinet | undefined> = {
-      sink: appliancePalette.find((item) => item.masterCode === "SINK-33"),
       stove: appliancePalette.find((item) => item.masterCode === "RANGE-30"),
       dishwasher: appliancePalette.find((item) => item.masterCode === "DW-24"),
       refrigerator: appliancePalette.find((item) => item.masterCode === "FRIDGE-36"),
@@ -3002,63 +3017,186 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       toast.error("The kitchen appliance palette is still loading. Try the admin build again in a moment.");
       return;
     }
-    const baseSource = ((autoFillCabinets as DesignCabinet[] | undefined) ?? [])
+    const baseSource = pool
       .find((item) => item.placement === "base" && !isSinkBaseCabinet(item) && !isCornerCabinet(item.masterCode, item.description) && Math.abs(dim(item.width, 0) - 24) < 0.1)
-      ?? ((autoFillCabinets as DesignCabinet[] | undefined) ?? []).find((item) => item.placement === "base" && !isSinkBaseCabinet(item));
+      ?? pool.find((item) => item.placement === "base" && !isSinkBaseCabinet(item));
     if (!baseSource) {
       toast.error("No source-priced standard base cabinet is available for the selected line.");
       return;
     }
-    const anchorPlacements: PlacedCabinet[] = [];
+    const fridgeParts = refrigeratorSurroundCatalog as
+      | { endPanels?: DesignCabinet[] }
+      | undefined;
+    const needsFridgePanel = (input.refrigeratorPanels ?? "none") !== "none";
+    const selectedEndPanel = needsFridgePanel ? fridgeParts?.endPanels?.[0] ?? null : null;
+    if (needsFridgePanel && !selectedEndPanel) {
+      toast.error("The selected line’s source-priced refrigerator end panels are still loading or unavailable. The measured build was not changed.");
+      return;
+    }
+
+    let working: PlacedCabinet[] = [];
+    const anchorsByKind = new Map<string, PlacedCabinet>();
+    const selectedWalls: WallSide[] = [];
     for (const anchor of result.plan.anchors) {
-      const source = applianceByKind[anchor.kind]!;
-      const width = dim(source.width, 24);
+      const source = anchor.kind === "sink" ? sinkBaseSource : applianceByKind[anchor.kind]!;
+      const width = anchor.kind === "sink"
+        ? sinkBaseWidth
+        : anchor.kind === "refrigerator"
+        ? refrigeratorWidth
+        : dim(source.width, 24);
       const depth = dim(source.depth, STD.BASE_DEPTH);
-      const height = dim(source.height, standardHeight("appliance"));
-      const wall = wallLabelToEngineWallId(anchor.wallLabel, room, input.originCorner, input.runDirection);
+      const height = dim(source.height, standardHeight(anchor.kind === "sink" ? "base" : "appliance"));
+      const measuredAnchor = anchor.kind === "dishwasher" && anchor.source === "adjacent-to-sink"
+        ? {
+          ...anchor,
+          wallLabel: input.sink.wallLabel,
+          centerOffsetIn: adjacentDishwasherCenterIn(
+            input.sink.centerOffsetIn,
+            sinkBaseWidth,
+            width,
+            input.dishwasherSide ?? "right",
+          ),
+        }
+        : anchor;
+      const wall = wallLabelToEngineWallId(measuredAnchor.wallLabel, room, input.originCorner, input.runDirection);
       if (!wall) {
-        toast.error(`${anchor.kind} cannot be placed because ${anchor.wallLabel} is not available in this room.`);
+        toast.error(`${anchor.kind} cannot be placed because ${measuredAnchor.wallLabel} is not available in this room.`);
         return;
       }
-      const along = anchorAlongStartIn(anchor, width, wall);
+      const along = anchorAlongStartIn(measuredAnchor, width, wall);
       const usableStart = wall.frame.runStart;
       const usableEnd = wall.frame.runEnd;
       if (along < usableStart - COLLISION_EPSILON_IN || along + width > usableEnd + COLLISION_EPSILON_IN) {
-        toast.error(`${anchor.kind} does not fit on ${anchor.wallLabel} at the selected center measurement.`);
+        toast.error(`${anchor.kind} does not fit on ${measuredAnchor.wallLabel} at the selected center measurement.`);
         return;
       }
       const spot = wallPlacementAt(along, width, depth, wall.engineWallId as WallSide, room);
-      anchorPlacements.push({
-        uid: makeUid(), cabinetId: source.id, masterCode: source.masterCode, description: source.description,
-        category: source.category, subCategory: source.subCategory, placement: "appliance", applianceRole: "base-height",
+      const candidate: PlacedCabinet = {
+        uid: makeUid(), cabinetId: source.id,
+        masterCode: anchor.kind === "refrigerator" ? `FRIDGE-${refrigeratorWidth}` : source.masterCode,
+        description: anchor.kind === "refrigerator" ? `${refrigeratorWidth}″ Refrigerator` : source.description,
+        category: source.category, subCategory: source.subCategory,
+        placement: anchor.kind === "sink" ? "base" : "appliance",
+        ...(anchor.kind === "sink" ? {} : { applianceRole: "base-height" as const }),
         ...spot, width, depth, height, mountBottom: source.mountBottom ?? 0, catalogImageUrl: source.catalogImageUrl ?? null,
         numberOfDoors: source.numberOfDoors, numberOfDrawers: source.numberOfDrawers, styleId: styleIdRef.current ?? null,
-      });
+      };
+      const available = freeSegmentsOnWall(
+        wall.engineWallId as WallSide,
+        room,
+        working,
+        openings,
+        width,
+        0,
+        "base",
+        false,
+        candidate,
+        depth,
+      ).some((segment) => along >= segment.start - COLLISION_EPSILON_IN
+        && along + width <= segment.start + segment.length + COLLISION_EPSILON_IN);
+      if (!available) {
+        toast.error(`${anchor.kind} cannot be placed at that exact measurement on ${measuredAnchor.wallLabel}: it overlaps a same-wall anchor, door, or required corner clearance. No layout was built.`);
+        return;
+      }
+      const preflight = appendCollisionFreePlacements(working, [candidate], room);
+      if (preflight.rejected.length > 0) {
+        toast.error(`${anchor.kind} cannot be placed at that exact measurement on ${measuredAnchor.wallLabel}: it overlaps an existing anchor, opening, or adjoining wall clearance. No layout was built.`);
+        return;
+      }
+      working = preflight.placed;
+      anchorsByKind.set(anchor.kind, candidate);
+      if (!selectedWalls.includes(wall.engineWallId as WallSide)) selectedWalls.push(wall.engineWallId as WallSide);
     }
-    const occupied = anchorPlacements.map((item) => ({ start: item.x, end: item.x + item.width }));
     const surrounding: PlacedCabinet[] = [];
-    const source = baseSource;
-    const width = dim(source.width, 24);
-    for (let start = 0; start + width <= room.width + 0.001; start += width) {
-      const overlapsAnchor = occupied.some((span) => start < span.end - 0.01 && start + width > span.start + 0.01);
-      if (overlapsAnchor) continue;
-      surrounding.push({
-        uid: makeUid(), cabinetId: source.id, masterCode: source.masterCode, description: source.description,
-        category: source.category, subCategory: source.subCategory, placement: "base", x: start, y: room.depth - STD.BASE_DEPTH,
-        width, depth: dim(source.depth, STD.BASE_DEPTH), height: dim(source.height, standardHeight("base")), rotation: 0,
-        catalogImageUrl: source.catalogImageUrl ?? null, numberOfDoors: source.numberOfDoors, numberOfDrawers: source.numberOfDrawers,
-        styleId: styleIdRef.current ?? null,
-      });
+    const refrigerator = anchorsByKind.get("refrigerator");
+    const refrigeratorReservation = refrigerator ? (() => {
+      const bay = refrigeratorBayRunMetrics(refrigerator, room);
+      const panelThickness = selectedEndPanel
+        ? refrigeratorEndPanelThickness(selectedEndPanel.width, 0.75)
+        : 0;
+      return {
+        wall: bay.side,
+        start: bay.openingStart - ((input.refrigeratorPanels === "left" || input.refrigeratorPanels === "both") ? panelThickness : 0),
+        end: bay.openingEnd + ((input.refrigeratorPanels === "right" || input.refrigeratorPanels === "both") ? panelThickness : 0),
+      };
+    })() : null;
+
+    for (const wallId of selectedWalls) {
+      const rawSegments = freeSegmentsOnWall(wallId, room, working, openings, 9, 0, "base", false, undefined, footprintDepth(baseSource));
+      const segments = refrigeratorReservation?.wall === wallId
+        ? subtractAnchorRunReservations(rawSegments, [{ start: refrigeratorReservation.start, end: refrigeratorReservation.end }])
+        : rawSegments;
+      for (const segment of segments) {
+        const fill = autoFillSpan(segment.length, "kitchen", pool);
+        let along = segment.start;
+        for (const item of fill.items) {
+          const catalogFillerCandidate = item.isFiller
+            ? catalogFillerForGap(pool, item.width, "base")
+            : null;
+          const catalogFiller = catalogFillerCandidate
+            ? pool.find((candidate) => candidate.id === catalogFillerCandidate.id) ?? null
+            : null;
+          if (item.isFiller && !catalogFiller) {
+            along += item.width;
+            continue;
+          }
+          const source = catalogFiller ?? item.cabinet;
+          const width = item.width;
+          const depth = footprintDepth(source);
+          const spot = wallPlacementAt(along, width, depth, wallId, room);
+          if (!spot) {
+            along += width;
+            continue;
+          }
+          const candidate: PlacedCabinet = {
+            uid: makeUid(), cabinetId: source.id, masterCode: source.masterCode,
+            description: item.isFiller ? fittedCatalogFillerDescription(source, width) : source.description,
+            category: source.category, subCategory: source.subCategory, placement: "base",
+            ...spot, width, depth, height: dim(source.height, standardHeight("base")),
+            catalogImageUrl: source.catalogImageUrl ?? null,
+            numberOfDoors: source.numberOfDoors, numberOfDrawers: source.numberOfDrawers,
+            styleId: styleIdRef.current ?? null,
+          };
+          const accepted = appendCollisionFreePlacements(working, [candidate], room);
+          if (accepted.rejected.length === 0) {
+            working = accepted.placed;
+            surrounding.push(candidate);
+          }
+          along += width;
+        }
+      }
     }
-    const committed = [...surrounding, ...anchorPlacements];
-    placedRef.current = committed;
-    setPlaced(committed);
+
+    const sinkBase = anchorsByKind.get("sink");
+    if (sinkBase) {
+      const defaultSinkType: SinkType = isFarmSinkBasePaletteItem(sinkBase)
+        ? "farmhouse"
+        : sinkBase.width >= 33 ? "double" : "single";
+      const defaultSink = makeDefaultSinkForCabinet(sinkBase, room, defaultSinkType);
+      setSinks([defaultSink]);
+      setSelectedSinkUid(defaultSink.uid);
+    }
+    placedRef.current = working;
+    setPlaced(working);
     setCountertop(true);
     setFourAnchorAutoBuildOpen(false);
     setViewMode("threeD");
     setSelectedUid(null);
-    toast.success(`Admin test kitchen built from four measured anchors with ${surrounding.length} surrounding ${source.masterCode} cabinets.`);
-  }, [appliancePalette, autoFillCabinets, isAdmin, isCornerCabinet, placedRef, room, setCountertop, setPlaced]);
+    if (refrigerator && ((input.refrigeratorPanels ?? "none") !== "none" || input.refrigeratorEnclosure === "cabinet-above")) {
+      setFridgeDialog({
+        fridgeUid: refrigerator.uid,
+        initialChoice: {
+          above: input.refrigeratorEnclosure === "cabinet-above" ? "bridge" : "none",
+          panels: input.refrigeratorPanels ?? "none",
+          fridgeWidth: refrigeratorWidth,
+          fridgeHeight: refrigerator.height,
+          fridgeDepth: refrigerator.depth,
+          smooth: false,
+        },
+      });
+    }
+    toast.success(`Admin test kitchen built from exact wall anchors with ${surrounding.length} source-priced surrounding cabinets.`);
+  }, [appliancePalette, autoFillCabinets, isAdmin, isCornerCabinet, openings, placedRef, refrigeratorSurroundCatalog, room, setCountertop, setPlaced]);
   // A previous automatic microwave workflow could persist WSC30—the real
   // 30×6 spice cabinet—directly above an MW-30. Convert only that centered
   // legacy microwave assembly to the selected source W30 bridge; ordinary spice
@@ -3334,16 +3472,6 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       ),
     [placed]
   );
-  // A refrigerator is a source-priced assembly, not an appliance plus later
-  // visual patches. Load the selected line's buyable caps and end panels before
-  // the appliance is dropped so their price rows can join the first request.
-  // Width selection remains in the shared bay fitter; the server only returns
-  // availability-gated source rows for the selected style.
-  const { data: refrigeratorSurroundCatalog } = trpc.design.surroundForFridge.useQuery(
-    { styleId: styleId ?? 0 },
-    { enabled: !!styleId },
-  );
-
   // TWO-TONE pricing: price each cabinet at its EFFECTIVE finish (per-cabinet
   // override, else the design default). Build the distinct (cabinetId, styleId)
   // pairs the design actually uses so we fetch every needed price in one call.
@@ -7826,7 +7954,12 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   // bridge, or none), refrigerator END PANELS (left / right / both / none), and
   // an optional smooth refrigerator PANEL. Everything is placed flush to the
   // dropped fridge's footprint and is fully movable/deletable afterward.
-	  const [fridgeDialog, setFridgeDialog] = useState<{ fridgeUid: string; replaceCabinetUid?: string } | null>(null);
+  const [fridgeDialog, setFridgeDialog] = useState<{
+    fridgeUid: string;
+    replaceCabinetUid?: string;
+    /** Auto-build may preselect intent; the normal dialog still confirms exact source SKUs. */
+    initialChoice?: Partial<FridgeSurroundChoice>;
+  } | null>(null);
 	  // Refrigerator choices are explicit: the attributes dialog supplies optional
 	  // source-backed panels or an upper cabinet only after the user chooses them.
   // Oven type dialog: opens when an oven tall cabinet (O-code) is placed.
@@ -7942,9 +8075,17 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	    () => (fridgeDialog ? placed.find((p) => p.uid === fridgeDialog.fridgeUid) ?? null : null),
 	    [fridgeDialog, placed]
 	  );
-	  const fridgeDialogInitialChoice = useMemo(() => {
-	    if (!fridgeForDialog) return null;
-	    // Only parts created through this popup are returned as its editable
+  const fridgeDialogInitialChoice = useMemo(() => {
+    if (!fridgeForDialog) return null;
+    if (fridgeDialog?.initialChoice) {
+      return {
+        ...fridgeDialog.initialChoice,
+        fridgeWidth: fridgeDialog.initialChoice.fridgeWidth ?? wallRunSpan(fridgeForDialog, cabinetWall(fridgeForDialog, room), room),
+        fridgeHeight: fridgeDialog.initialChoice.fridgeHeight ?? fridgeForDialog.height,
+        fridgeDepth: fridgeDialog.initialChoice.fridgeDepth ?? fridgeForDialog.depth,
+      };
+    }
+    // Only parts created through this popup are returned as its editable
 	    // selection.  A nearby W1842, filler, or manually placed end panel is an
 	    // independent catalog item and must never be absorbed into a refrigerator.
 	    const members = placed.filter((item) => item.refrigeratorAssemblyId === fridgeForDialog.uid && item.refrigeratorAssemblyRole);
@@ -7970,7 +8111,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	      fridgeHeight: fridgeForDialog.height,
 	      fridgeDepth: fridgeForDialog.depth,
 	    };
-	  }, [fridgeForDialog, placed, room]);
+  }, [fridgeDialog?.initialChoice, fridgeForDialog, placed, room]);
   const refrigeratorCabinetToReplace = useMemo(
     () => (fridgeDialog?.replaceCabinetUid ? placed.find((p) => p.uid === fridgeDialog.replaceCabinetUid) ?? null : null),
     [fridgeDialog?.replaceCabinetUid, placed],

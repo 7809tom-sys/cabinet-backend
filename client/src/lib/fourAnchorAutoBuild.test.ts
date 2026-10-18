@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_ROOM } from "./design";
-import { anchorAlongStartIn, buildWallLabelMap, canRunFourAnchorAutoBuild, planFourAnchorAutoBuild, wallLabelToEngineWallId } from "./fourAnchorAutoBuild";
+import { adjacentDishwasherCenterIn, anchorAlongStartIn, buildWallLabelMap, canRunFourAnchorAutoBuild, planFourAnchorAutoBuild, subtractAnchorRunReservations, wallLabelToEngineWallId } from "./fourAnchorAutoBuild";
 
 describe("four-anchor wall-label mapping", () => {
   it.each([
@@ -25,6 +25,18 @@ describe("four-anchor wall-label mapping", () => {
     expect(wall?.engineWallId).toBe("left");
     expect(wall?.startCorner).toBe("end");
     expect(anchorAlongStartIn({ wallLabel: "Wall 2", centerOffsetIn: 48 }, 36, wall!)).toBe(DEFAULT_ROOM.depth - 48 - 18);
+  });
+
+  it("computes a flush left or right dishwasher center from the selected sink base width", () => {
+    expect(adjacentDishwasherCenterIn(60, 36, 24, "left")).toBe(30);
+    expect(adjacentDishwasherCenterIn(60, 36, 24, "right")).toBe(90);
+  });
+
+  it("keeps a refrigerator opening and requested panel span empty while tiling its selected wall", () => {
+    expect(subtractAnchorRunReservations([{ start: 0, length: 144 }], [{ start: 48.75, end: 87.25 }])).toEqual([
+      { start: 0, length: 48.75 },
+      { start: 87.25, length: 56.75 },
+    ]);
   });
 });
 
@@ -51,11 +63,18 @@ describe("four-anchor auto-build", () => {
     expect(result.plan.surroundingRules).toEqual(["fillers", "blind corners", "molding", "substitution"]);
   });
 
-  it("places the dishwasher on the sink wall when no separate center is supplied", () => {
-    const result = planFourAnchorAutoBuild({ ...required, layoutType: "galley", originCorner: "right", runDirection: "left" });
+  it("places an unmeasured dishwasher to the requested right of the sink", () => {
+    const result = planFourAnchorAutoBuild({ ...required, layoutType: "galley", originCorner: "right", runDirection: "left", dishwasher: null, dishwasherSide: "right" });
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.plan.anchors[2]).toMatchObject({ wallLabel: "Wall 1", centerOffsetIn: 60, source: "adjacent-to-sink" });
+    expect(result.plan.anchors[2]).toMatchObject({ wallLabel: "Wall 1", centerOffsetIn: 60, source: "adjacent-to-sink", dishwasherSide: "right" });
+  });
+
+  it("preserves a left-of-sink choice for an unmeasured dishwasher", () => {
+    const result = planFourAnchorAutoBuild({ ...required, layoutType: "galley", originCorner: "right", runDirection: "left", dishwasher: null, dishwasherSide: "left" });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.plan.anchors[2]).toMatchObject({ wallLabel: "Wall 1", source: "adjacent-to-sink", dishwasherSide: "left" });
   });
 
   it("asks for missing required measurements instead of guessing", () => {
