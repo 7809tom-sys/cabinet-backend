@@ -90,6 +90,24 @@ export async function getDb() {
   return _db;
 }
 
+/**
+ * An owner may authenticate through email/password and through more than one
+ * OAuth provider, each with a distinct OpenID. Owner access must follow the
+ * configured, normalized owner email as well as the legacy explicit OpenID.
+ */
+export function isOwnerIdentity(
+  user: Pick<InsertUser, "openId" | "email">,
+  owner: Pick<typeof ENV, "ownerOpenId" | "ownerEmail"> = ENV,
+): boolean {
+  const ownerOpenId = owner.ownerOpenId.trim();
+  const ownerEmail = owner.ownerEmail.trim().toLowerCase();
+  const email = user.email?.trim().toLowerCase() ?? "";
+  return Boolean(
+    (ownerOpenId && user.openId === ownerOpenId)
+    || (ownerEmail && email === ownerEmail),
+  );
+}
+
 export async function upsertUser(user: InsertUser): Promise<void> {
   if (!user.openId) {
     throw new Error("User openId is required for upsert");
@@ -124,12 +142,14 @@ export async function upsertUser(user: InsertUser): Promise<void> {
       values.lastSignedIn = user.lastSignedIn;
       updateSet.lastSignedIn = user.lastSignedIn;
     }
-    if (user.role !== undefined) {
-      values.role = user.role;
-      updateSet.role = user.role;
-    } else if (user.openId === ENV.ownerOpenId) {
+    // Explicitly preserve the platform owner's access even if a provider sends
+    // a default "user" role on a later OAuth identity with the same email.
+    if (isOwnerIdentity(user)) {
       values.role = 'admin';
       updateSet.role = 'admin';
+    } else if (user.role !== undefined) {
+      values.role = user.role;
+      updateSet.role = user.role;
     }
 
     if (!values.lastSignedIn) {
