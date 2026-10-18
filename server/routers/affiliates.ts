@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { eq, desc, or, and, inArray, sql, isNull } from "drizzle-orm";
+import bcrypt from "bcryptjs";
 import { storagePut } from "../storage";
 import { notifyOwner } from "../_core/notification";
 import { TRPCError } from "@trpc/server";
@@ -10,7 +11,7 @@ import {
   router,
 } from "../_core/trpc";
 import { getDb } from "../db";
-import { affiliates, affiliateTestimonials, orderRequests, affiliateStyleBranding, affiliateDistributorSelections, affiliateFeaturedDistributorEvents, doorStyles, distributors, distributorSkus, affiliatePayouts, affiliateBannerSchedules, affiliatePromoDiscounts, designConsultations, designLeads, affiliateTeamMembers, emailSettings, affiliateHardwareCommissionSnapshots } from "../../drizzle/schema";
+import { affiliates, affiliateTestimonials, orderRequests, affiliateStyleBranding, affiliateDistributorSelections, affiliateFeaturedDistributorEvents, doorStyles, distributors, distributorSkus, affiliatePayouts, affiliateBannerSchedules, affiliatePromoDiscounts, designConsultations, designLeads, affiliateTeamMembers, emailSettings, affiliateHardwareCommissionSnapshots, users } from "../../drizzle/schema";
 import { emailSettingsReady, sendEmailViaSettings } from "../email";
 import { buildSalesDemoInvite, deliverInviteThenGrant, SALES_DEMO_AFFILIATE_SLUG, SALES_DEMO_TEAM_ACCESS } from "../salesDemoInvite";
 import { resolveAffiliateAccess } from "../lib/affiliateAccess";
@@ -676,11 +677,98 @@ export const affiliatesRouter = router({
       const { id, commissionRate, ...rest } = input;
       const set: Record<string, unknown> = { ...rest };
       if (commissionRate !== undefined) set.commissionRate = commissionRate.toFixed(4);
+      if (typeof set.email === "string") {
+        const email = set.email.trim();
+        const emailLower = email.toLowerCase();
+        const [affiliate] = await db.select({ userId: affiliates.userId }).from(affiliates).where(eq(affiliates.id, id)).limit(1);
+        if (affiliate?.userId != null) {
+          const duplicate = await db.select({ id: users.id }).from(users)
+            .where(and(eq(users.emailLower, emailLower), sql`${users.id} <> ${affiliate.userId}`)).limit(1);
+          if (duplicate[0]) throw new TRPCError({ code: "CONFLICT", message: "That email is already used by another login." });
+          await db.update(users).set({ email, emailLower }).where(eq(users.id, affiliate.userId));
+        }
+        set.email = email;
+      }
       // Remove undefined keys so we only update provided fields.
       Object.keys(set).forEach((k) => set[k] === undefined && delete set[k]);
       if (Object.keys(set).length === 0) return { id };
       await db.update(affiliates).set(set).where(eq(affiliates.id, id));
       return { id };
+    }),
+  // ─── Admin: manage the affiliate's sign-in identity ───────────────────────
+  // This intentionally creates/updates a normal user account, never an admin
+  // account. Affiliate portal access is relationship-scoped; cabinet catalog
+  // configuration remains protected by adminProcedure.
+  adminManageCredentials: adminProcedure
+    .input(z.object({
+      id: z.number().int().positive(),
+      email: z.string().email().max(320).optional(),
+      password: z.string().min(8).max(128).optional(),
+    }).refine((value) => value.email !== undefined || value.password !== undefined, {
+      message: "Enter a new email, a new password, or both.",
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      const [affiliate] = await db.select().from(affiliates).where(eq(affiliates.id, input.id)).limit(1);
+      if (!affiliate) throw new TRPCError({ code: "NOT_FOUND", message: "Affiliate not found." });
+
+      const email = input.email?.trim();
+      const emailLower = email?.toLowerCase();
+      let userId = affiliate.userId;
+      let user = userId == null ? undefined : (await db.select().from(users).where(eq(users.id, userId)).limit(1))[0];
+
+      if (emailLower) {
+        const duplicateWhere = userId == null
+          ? eq(users.emailLower, emailLower)
+          : and(eq(users.emailLower, emailLower), sql`${users.id} <> ${userId}`);
+        const duplicate = await db.select({ id: users.id, role: users.role }).from(users).where(duplicateWhere).limit(1);
+        if (duplicate[0]) throw new TRPCError({ code: "CONFLICT", message: "That email is already used by another login." });
+      }
+
+      if (!user) {
+        const accountEmail = email ?? affiliate.email?.trim();
+        if (!accountEmail) throw new TRPCError({ code: "BAD_REQUEST", message: "An email is required to create the affiliate login." });
+        const accountEmailLower = accountEmail.toLowerCase();
+        const existing = await db.select().from(users).where(eq(users.emailLower, accountEmailLower)).limit(1);
+        if (existing[0]) {
+          if (existing[0].role === "admin") throw new TRPCError({ code: "CONFLICT", message: "An administrator account cannot be reassigned to an affiliate." });
+          user = existing[0];
+          userId = existing[0].id;
+        } else {
+          const result = await db.insert(users).values({
+            openId: `affiliate_${crypto.randomUUID()}`,
+            name: affiliate.contactName ?? affiliate.storeName,
+            email: accountEmail,
+            emailLower: accountEmailLower,
+            passwordHash: input.password ? await bcrypt.hash(input.password, 12) : null,
+            loginMethod: "password",
+            role: "user",
+            companyName: affiliate.storeName,
+          });
+          userId = Number((result as unknown as [{ insertId: number }])[0].insertId);
+        }
+      }
+
+      if (userId != null && user) {
+        const updates: Record<string, unknown> = {};
+        if (email) { updates.email = email; updates.emailLower = emailLower; }
+        if (input.password) {
+          updates.passwordHash = await bcrypt.hash(input.password, 12);
+          updates.failedLoginAttempts = 0;
+          updates.lockedUntil = null;
+          updates.loginMethod = "password";
+        }
+        // Never elevate an affiliate while repairing credentials.
+        if (user.role === "admin") throw new TRPCError({ code: "CONFLICT", message: "An administrator account cannot be used as an affiliate login." });
+        if (Object.keys(updates).length) await db.update(users).set(updates).where(eq(users.id, userId));
+      }
+
+      const affiliateUpdates: Record<string, unknown> = {};
+      if (email) affiliateUpdates.email = email;
+      if (userId != null && affiliate.userId !== userId) affiliateUpdates.userId = userId;
+      if (Object.keys(affiliateUpdates).length) await db.update(affiliates).set(affiliateUpdates).where(eq(affiliates.id, input.id));
+      return { id: input.id, email: email ?? affiliate.email, linkedUserId: userId };
     }),
 
   // A restrictive-covenant allegation must never independently deactivate a site.

@@ -14,7 +14,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  Store, Plus, ExternalLink, Copy, DollarSign, Package, Mail, Phone, MapPin, Eye, Send, FileText, CheckCircle2,
+  Store, Plus, ExternalLink, Copy, DollarSign, Package, Mail, Phone, MapPin, Eye, Send, FileText, CheckCircle2, KeyRound,
   Calculator, Save, Info, BarChart2, TrendingUp, Users, UserPlus, QrCode, Megaphone, BookOpen, Download, Youtube,
 } from "lucide-react";
 import {
@@ -375,6 +375,7 @@ function AffiliateDetailsPanel({ affiliate: a, origin }: { affiliate: AffiliateI
               >
                 <Copy className="h-3.5 w-3.5" /> Copy All
               </Button>
+              <AffiliateLoginManager affiliateId={a.id} currentEmail={a.email ?? ""} />
               <SendCredentialsButton affiliateId={a.id} />
             </div>
           </div>
@@ -1456,7 +1457,66 @@ function SendCredentialsButton({ affiliateId }: { affiliateId: number }) {
     </Dialog>
   );
 }
-
+// ─── Admin affiliate login manager ───────────────────────────────────────────
+// Passwords are never displayed or returned; the admin supplies a replacement
+// password and the server stores only its bcrypt hash.
+function AffiliateLoginManager({ affiliateId, currentEmail }: { affiliateId: number; currentEmail: string }) {
+  const utils = trpc.useUtils();
+  const [open, setOpen] = useState(false);
+  const [email, setEmail] = useState(currentEmail);
+  const [password, setPassword] = useState("");
+  const manage = trpc.affiliates.adminManageCredentials.useMutation({
+    onSuccess: (data) => {
+      utils.affiliates.adminList.invalidate();
+      toast.success(`Affiliate login updated for ${data.email ?? email}`);
+      setPassword("");
+      setOpen(false);
+    },
+    onError: (error) => toast.error(error.message),
+  });
+  const submit = () => {
+    const nextEmail = email.trim();
+    manage.mutate({
+      id: affiliateId,
+      ...(nextEmail && nextEmail !== currentEmail.trim() ? { email: nextEmail } : {}),
+      ...(password ? { password } : {}),
+    });
+  };
+  return (
+    <Dialog open={open} onOpenChange={(value) => { setOpen(value); if (value) { setEmail(currentEmail); setPassword(""); } }}>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm" className="gap-1.5">
+          <KeyRound className="h-3.5 w-3.5" /> Manage Login
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Manage Affiliate Login</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Change the sign-in email and/or set a new password. Affiliate accounts remain ordinary non-admin accounts and cannot edit Cabinet Configuration.
+          </p>
+          <div className="space-y-1.5">
+            <Label htmlFor={`affiliate-email-${affiliateId}`}>Sign-in email</Label>
+            <Input id={`affiliate-email-${affiliateId}`} type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="off" />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor={`affiliate-password-${affiliateId}`}>New password</Label>
+            <Input id={`affiliate-password-${affiliateId}`} type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Leave blank to keep the current password" autoComplete="new-password" />
+            <p className="text-xs text-muted-foreground">Minimum 8 characters. The password is never shown after saving.</p>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+          <Button onClick={submit} disabled={manage.isPending || (!password && email.trim() === currentEmail.trim())}>
+            {manage.isPending ? "Saving…" : "Save Login"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
 // ─── Admin W-9 Review Panel ────────────────────────────────────────────────────
 function AffiliateW9Review({ affiliate: a }: { affiliate: AffiliateItem }) {
   const utils = trpc.useUtils();
