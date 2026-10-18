@@ -3417,6 +3417,23 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   }), [placed, styleId, pricePairs.length, priceRowsFetched, priceRowsFetching, unitPriceFor, pricingStyleIdFor]);
   const missingPriceUids = missingPriceSummary.uids;
   const checkoutBlockedForMissingPrices = checkoutBlockedByMissingPrices(missingPriceSummary);
+  // A catalog item without a positive authorized price is not a valid Designer
+  // item. Older saved plans may still contain one from before the price gate;
+  // remove it from the in-memory plan after the authoritative lookup completes
+  // so it cannot remain as a quote-only/conflict line or be saved again.
+  // Synthetic layout appliances use cabinetId <= 0 and are outside this
+  // catalog cleanup path.
+  useEffect(() => {
+    if (!priceRowsFetched || priceRowsFetching || missingPriceUids.size === 0) return;
+    setPlaced((current) => {
+      const next = current.filter((item) => item.cabinetId <= 0 || !missingPriceUids.has(item.uid));
+      if (next.length === current.length) return current;
+      const removed = current.length - next.length;
+      toast.info(`${removed} unpriced catalog item${removed === 1 ? " was" : "s were"} removed from the Designer.`);
+      placedRef.current = next;
+      return next;
+    });
+  }, [missingPriceUids, priceRowsFetched, priceRowsFetching]);
   const logMissingPrices = trpc.designMissingPrice.logMissing.useMutation();
   const loggedMissingPriceKeysRef = useRef<Set<string>>(new Set());
   useEffect(() => {
@@ -4417,33 +4434,6 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
           qty: t.qty,
           category: "Trim & molding",
         }));
-    const pricedTrimCodes = new Set(pricedTrimLines.map((line) => line.masterCode));
-    const trimQuoteLines: CartItem[] = activeTrims
-      .filter((trim) => !pricedTrimCodes.has(TRIM_MASTER_CODES[trim.kind] ?? trim.kind.toUpperCase()))
-      .map((trim) => ({
-        masterCode: TRIM_MASTER_CODES[trim.kind] ?? trim.kind.toUpperCase(),
-        name: `${trim.kind === "toeKick" ? "Toe kick" : trim.kind === "lightRail" ? "Light rail" : trim.kind === "valance" ? "Arched valance" : trim.kind === "batten" ? "Batten molding" : "Crown molding"} (quote)`,
-        styleId: styleId ?? 0,
-        styleLabel: activeStyleName ?? "",
-        distributorId: lockedDistributorId ?? null,
-        tier: DESIGN_TIER_TO_SHARED[tier],
-        unitPrice: null,
-        qty: trim.pieces,
-        category: "Trim & molding",
-      }));
-    const countertopQuoteLines: CartItem[] = countertop && !surfaceCartLines.some((line) => /counter/i.test(line.category ?? "") || /counter/i.test(line.name))
-      ? [{
-          masterCode: "COUNTERTOP-QUOTE",
-          name: `${countertopMaterial(countertopMaterialId).name} countertop (quote)`,
-          styleId: styleId ?? 0,
-          styleLabel: activeStyleName ?? "",
-          distributorId: null,
-          tier: DESIGN_TIER_TO_SHARED[tier],
-          unitPrice: null,
-          qty: 1,
-          category: "Countertops",
-        }]
-      : [];
     const hardwareLines: CartItem[] = hasSelectedPricedHardware && selectedPricedHardware && hwSchedule.total > 0
       ? [{
           masterCode: selectedPricedHardware.sku,
@@ -4466,21 +4456,9 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
             hwSchedule.cupPulls > 0 ? `${hwSchedule.cupPulls} cup pulls` : null,
           ].filter(Boolean).join(" · "),
         }]
-      : !hasSelectedPricedHardware && hwSchedule.total > 0
-        ? [{
-            masterCode: `HARDWARE-${hardwareStyleId.toUpperCase()}`,
-            name: `${hwSchedule.styleLabel} cabinet hardware (quote)`,
-            styleId: styleId ?? 0,
-            styleLabel: activeStyleName ?? "",
-            distributorId: null,
-            tier: DESIGN_TIER_TO_SHARED[tier],
-            unitPrice: null,
-            qty: hwSchedule.total,
-            category: "Handles & hardware",
-          }]
-        : [];
-    return mergeDesignCartLines([...cabinetCartLines, ...aefWindowEndPanelCartLines, ...pricedTrimLines, ...trimQuoteLines, ...surfaceCartLines, ...countertopQuoteLines, ...hardwareLines]);
-  }, [activeStyleName, activeTrims, aefWindowEndPanelCartLines, cabinetCartLines, catalogHardwareSelection?.finish, countertop, countertopMaterialId, hardwareStyleId, hasSelectedPricedHardware, hwSchedule, lockedDistributorId, selectedPricedHardware, surfaceCartLines, styleId, tier]);
+      : [];
+    return mergeDesignCartLines([...cabinetCartLines, ...aefWindowEndPanelCartLines, ...pricedTrimLines, ...surfaceCartLines, ...hardwareLines]);
+  }, [activeTrims, aefWindowEndPanelCartLines, cabinetCartLines, catalogHardwareSelection?.finish, hasSelectedPricedHardware, hwSchedule, lockedDistributorId, selectedPricedHardware, surfaceCartLines, styleId, tier]);
 
   // The designer total, cart, checkout, and 3D order drawer now share the same
   // complete price-locked line basis. Keep unpriced placed cabinets as pending
@@ -5465,100 +5443,24 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     };
     for (const trim of activeTrims) {
       const priced = trimPriceForKind(trim.kind, trimPriceByCode);
-      const code = priced?.masterCode ?? TRIM_MASTER_CODES[trim.kind] ?? trim.kind.toUpperCase();
-      if (priced && pricedCodes.has(priced.masterCode)) continue;
+      if (!priced || pricedCodes.has(priced.masterCode)) continue;
       out.push({
-        code,
+        code: priced.masterCode,
         description: trimLabels[trim.kind],
         category: "Trim & molding",
         qty: trim.pieces,
-        supplier: priced ? (lockedDistributorId != null ? distributorNameById.get(lockedDistributorId) ?? "Cabinet supplier" : "Cabinet supplier") : "Cabinet supplier / quote",
+        supplier: lockedDistributorId != null ? distributorNameById.get(lockedDistributorId) ?? "Cabinet supplier" : "Cabinet supplier",
         styleColor,
         // The compact material list is a customer-facing BOM, so reuse the
         // exact tier-resolved trim price already shown in Price & Cart. A
         // current source SKU such as TK-8(TKC) must never appear as pending
         // merely because its historic short key was TK-8.
-        unitPrice: priced?.unitPrice ?? null,
+        unitPrice: priced.unitPrice,
       });
     }
 
-    if (countertop && counter && counter.squareFeet > 0 && !surfaceRoles.has("countertop")) {
-      const material = countertopMaterial(countertopMaterialId);
-      const edge = edgeProfile(edgeProfileId);
-      out.push({
-        code: "COUNTERTOP-QUOTE",
-        description: material?.name ?? "Countertop material",
-        category: "Countertop",
-        qty: 1,
-        supplier: "Fabricator / quote",
-        styleColor: material?.name ?? null,
-        dimensions: `${counter.squareFeet} sq ft · ${counter.linearFeet} lin ft`,
-        unitPrice: null,
-        notes: `${edge.name} edge profile`,
-      });
-    }
-
-    const selectedSurfaceIds = new Set(selectedSurfaces.map((surface) => surface.id));
-    const unpricedSinks = sinks.filter((sink) => !sink.pelicanProductId || !selectedSurfaceIds.has(sink.pelicanProductId));
-    const sinkGroups = new Map<string, { description: string; qty: number; width: number; depth: number }>();
-    for (const sink of unpricedSinks) {
-      const preset = SINK_PRESETS[sink.type];
-      const description = sink.pelicanProductName?.trim() || preset.name;
-      const current = sinkGroups.get(description);
-      if (current) current.qty += 1;
-      else sinkGroups.set(description, { description, qty: 1, width: sink.sourceWidth ?? sink.width, depth: sink.sourceDepth ?? sink.depth });
-    }
-	    for (const [description, group] of Array.from(sinkGroups.entries())) {
-      out.push({ code: `SINK-${description.toUpperCase().replace(/[^A-Z0-9]+/g, "-")}`, description, category: "Sink", qty: group.qty, supplier: "Fixture supplier / quote", dimensions: `${group.width}\" W × ${group.depth}\" D`, unitPrice: null });
-    }
-    const faucetCount = sinks.filter((sink) => sink.faucet).length;
-    if (faucetCount > 0 && !surfaceRoles.has("faucet")) {
-      out.push({ code: "FAUCET-QUOTE", description: "Selected sink faucet", category: "Faucet", qty: faucetCount, supplier: "Fixture supplier / quote", unitPrice: null });
-    }
-
-    if (!hasSelectedPricedHardware && hwSchedule.total > 0) {
-      out.push({
-        code: `HARDWARE-${hwSchedule.styleId.toUpperCase()}`,
-        description: hwSchedule.styleLabel,
-        category: "Handles & hardware",
-        qty: hwSchedule.total,
-        supplier: "Hardware supplier / quote",
-        styleColor: hwSchedule.styleLabel,
-        unitPrice: null,
-        notes: [hwSchedule.knobs > 0 ? `${hwSchedule.knobs} knobs` : null, hwSchedule.barPulls > 0 ? `${hwSchedule.barPulls} bar pulls` : null, hwSchedule.cupPulls > 0 ? `${hwSchedule.cupPulls} cup pulls` : null].filter(Boolean).join(" · "),
-      });
-    }
-
-    if (flooringMaterialId && !surfaceRoles.has("flooring")) {
-      const material = flooringMaterial(flooringMaterialId);
-      if (material.id !== "none") out.push({ code: `FLOOR-${material.id.toUpperCase()}`, description: material.name, category: "Flooring", qty: 1, supplier: "Flooring supplier / quote", styleColor: material.name, dimensions: `${Math.round((room.width * room.depth) / 144 * 10) / 10} sq ft`, unitPrice: null, notes: `Layout: ${flooringPattern}` });
-    }
-    if (backsplashEnabled && backsplashMaterialId && !surfaceRoles.has("backsplash")) {
-      const material = backsplashMaterial(backsplashMaterialId);
-      if (material.id !== "none") out.push({ code: `BACKSPLASH-${material.id.toUpperCase()}`, description: material.name, category: "Backsplash", qty: 1, supplier: "Tile supplier / quote", styleColor: material.name, unitPrice: null });
-    }
-
-	    const furnitureGroups = new Map<string, number>();
-	    // Wizard seating stools are space-planning guides, not sellable furniture.
-	    // Retain manually added furniture as quote-required lines, but never let a
-	    // generated stool become a material-list, cart, or price item.
-	    for (const item of furniture) {
-	      if (item.uid.startsWith("peninsula-stool:")) continue;
-	      // Source-priced Pelican bathroom fixtures already appear in the same
-	      // authoritative cart/material line through their persisted placement.
-	      // Do not duplicate them as an unpriced generic Furniture supplement.
-	      if (item.pelicanProductId && pricedCodes.has(`PEL-${item.pelicanProductId}`)) continue;
-	      furnitureGroups.set(item.defId, (furnitureGroups.get(item.defId) ?? 0) + 1);
-	    }
-	    for (const [defId, qty] of Array.from(furnitureGroups.entries())) {
-      const definition = FURNITURE_CATALOG.find((item) => item.id === defId);
-      if (!definition) continue;
-      out.push({ code: definition.id.toUpperCase(), description: definition.name, category: "Furniture", qty, supplier: "Furniture supplier / quote", dimensions: `${definition.w}\" W × ${definition.d}\" D`, unitPrice: null });
-    }
-    if (island) out.push({ code: "ISLAND-LAYOUT", description: "Kitchen island structure", category: "Layout feature", qty: 1, supplier: "Fabricator / quote", dimensions: `${island.width}\" W × ${island.depth}\" D`, unitPrice: null });
-    if (ponyWalls.length > 0) out.push({ code: "PONY-WALL", description: "Pony wall construction", category: "Layout feature", qty: ponyWalls.length, supplier: "Contractor / quote", unitPrice: null });
     return out;
-  }, [activeStyleName, activeTrims, backsplashEnabled, backsplashMaterialId, cartableLines, counter, countertop, countertopMaterialId, distributorNameById, edgeProfileId, flooringMaterialId, flooringPattern, furniture, hasSelectedPricedHardware, hwSchedule, island, lockedDistributorId, ponyWalls.length, room.depth, room.width, selectedSurfaces, sinks, trimPriceByCode]);
+  }, [activeStyleName, activeTrims, cartableLines, distributorNameById, lockedDistributorId, trimPriceByCode]);
 
   const materialsListRows = useMemo(() => buildMaterialsListRows({
     buildRows,
