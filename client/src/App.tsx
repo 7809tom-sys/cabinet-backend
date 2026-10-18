@@ -61,6 +61,7 @@ const VendorClosetStudio = lazy(() => import("@/pages/VendorClosetStudio"));
 const PhotoToCart = lazy(() => import("@/pages/PhotoToCart"));
 const FixturePhotoToCart = lazy(() => import("@/pages/FixturePhotoToCart"));
 const SignIn = lazy(() => import("@/pages/SignIn"));
+const ResetPassword = lazy(() => import("@/pages/ResetPassword"));
 const AffiliateSetup = lazy(() => import("@/pages/AffiliateSetup"));
 const Account = lazy(() => import("@/pages/Account"));
 const PlanSheet = lazy(() => import("@/pages/PlanSheet"));
@@ -780,6 +781,14 @@ export default function App() {
           <AppLayout>
             <Suspense fallback={<PageLoader />}>
               <SignIn />
+            </Suspense>
+          </AppLayout>
+        </Route>
+
+        <Route path="/reset-password">
+          <AppLayout>
+            <Suspense fallback={<PageLoader />}>
+              <ResetPassword />
             </Suspense>
           </AppLayout>
         </Route>

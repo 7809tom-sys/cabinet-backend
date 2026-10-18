@@ -1345,6 +1345,13 @@
       "when": 1792282370146,
       "tag": "0192_luxuriant_mulholland_black",
       "breakpoints": true
+    },
+    {
+      "idx": 193,
+      "version": "5",
+      "when": 1792343542705,
+      "tag": "0193_lean_lila_cheney",
+      "breakpoints": true
     }
   ]
 }

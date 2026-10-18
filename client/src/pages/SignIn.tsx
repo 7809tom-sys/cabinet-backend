@@ -90,6 +90,8 @@ export default function SignIn() {
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [showLoginPw, setShowLoginPw] = useState(false);
+  const [showResetRequest, setShowResetRequest] = useState(false);
+  const [resetEmail, setResetEmail] = useState("");
 
   // Signup state
   const [name, setName] = useState("");
@@ -129,6 +131,11 @@ export default function SignIn() {
     onError: (e) => toast.error(errMessage(e, "Unable to create account.")),
   });
 
+  const resetMutation = trpc.emailAuth.requestPasswordReset.useMutation({
+    onSuccess: () => toast.success("If that email is registered, a reset link is on its way."),
+    onError: (e) => toast.error(errMessage(e, "Unable to request a password reset.")),
+  });
+
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     if (!loginEmail || !loginPassword) {
@@ -158,6 +165,16 @@ export default function SignIn() {
       name: name || undefined,
       companyName: companyName || undefined,
     });
+  };
+
+  const handleResetRequest = (e: React.FormEvent) => {
+    e.preventDefault();
+    const email = resetEmail.trim() || loginEmail.trim();
+    if (!email) {
+      toast.error("Enter the account email first.");
+      return;
+    }
+    resetMutation.mutate({ email });
   };
 
   return (
@@ -199,15 +216,15 @@ export default function SignIn() {
                       value={loginPassword}
                       onChange={(e) => setLoginPassword(e.target.value)}
                       placeholder="••••••••"
-                      className="pr-10"
+                      className="pr-20"
                     />
                     <button
                       type="button"
                       onClick={() => setShowLoginPw((v) => !v)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                      className="absolute right-3 top-1/2 inline-flex -translate-y-1/2 items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
                       aria-label={showLoginPw ? "Hide password" : "Show password"}
                     >
-                      {showLoginPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      {showLoginPw ? <><EyeOff className="h-4 w-4" />Hide</> : <><Eye className="h-4 w-4" />Show</>}
                     </button>
                   </div>
                 </div>
@@ -223,6 +240,38 @@ export default function SignIn() {
                   )}
                 </Button>
               </form>
+              <div className="mt-3 text-center">
+                <button
+                  type="button"
+                  className="text-sm font-medium text-primary underline underline-offset-4 hover:text-primary/80"
+                  onClick={() => {
+                    setResetEmail(loginEmail);
+                    setShowResetRequest((value) => !value);
+                  }}
+                >
+                  Forgot password?
+                </button>
+              </div>
+              {showResetRequest && (
+                <form onSubmit={handleResetRequest} className="mt-4 space-y-3 rounded-md border bg-muted/30 p-3 text-left">
+                  <div>
+                    <Label htmlFor="password-reset-email">Account email</Label>
+                    <Input
+                      id="password-reset-email"
+                      type="email"
+                      autoComplete="email"
+                      value={resetEmail}
+                      onChange={(event) => setResetEmail(event.target.value)}
+                      placeholder="you@example.com"
+                      className="mt-1"
+                      required
+                    />
+                  </div>
+                  <Button type="submit" variant="outline" className="w-full" disabled={resetMutation.isPending}>
+                    {resetMutation.isPending ? "Sending reset link…" : "Email password-reset link"}
+                  </Button>
+                </form>
+              )}
             </TabsContent>
 
             <TabsContent value="signup" className="mt-6">

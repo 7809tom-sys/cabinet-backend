@@ -48,6 +48,28 @@ export const users = mysqlTable("users", {
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 
+// ─── One-time password reset links ──────────────────────────────────────────
+// Only a SHA-256 digest of the email-delivered token is persisted. A reset link
+// may be consumed once and expires after the short window set by emailAuth.
+export const passwordResetTokens = mysqlTable(
+  "password_reset_tokens",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("userId").notNull(),
+    tokenHash: varchar("tokenHash", { length: 64 }).notNull().unique(),
+    expiresAt: timestamp("expiresAt").notNull(),
+    consumedAt: timestamp("consumedAt"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  (t) => ({
+    userIndex: index("password_reset_tokens_user_idx").on(t.userId),
+    expiresIndex: index("password_reset_tokens_expires_idx").on(t.expiresAt),
+  }),
+);
+
+export type PasswordResetToken = typeof passwordResetTokens.$inferSelect;
+export type InsertPasswordResetToken = typeof passwordResetTokens.$inferInsert;
+
 // ─── Customer favorites ───────────────────────────────────────────────────────
 // Favorites are scoped by storefront slug so a customer can save different
 // cabinet families for the main site and for each white-label affiliate store.
