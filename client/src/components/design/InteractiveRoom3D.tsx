@@ -4368,7 +4368,10 @@ export function addCabinet(
     applyStructuralFinish(color, doorTexture);
   }
 	  const trimMaterial = new THREE.MeshPhysicalMaterial({ color: faceColor, map: doorTexture, ...doorFinishSurface });
-	  textureMaterials.push(faceMaterial);
+	  // A per-host Door Style sample can fail to load. Faces and their physical
+	  // rails must then fall back together to the chosen style color instead of
+	  // leaving the rails with an unresolved (black) texture map.
+	  textureMaterials.push(faceMaterial, trimMaterial);
 	  const frameMaterialFor = (piece: "rail" | "stile" | "panel") => {
 	    // The catalog profile can explicitly request traditional frame grain: rails
 	    // run horizontally, stiles and center panels vertically. A cloned material
@@ -4628,7 +4631,10 @@ export function addCabinet(
     frontGroup.add(reveal);
   };
   const addFaceShadow = (faceWidth: number, faceHeight: number, x: number, y: number, z = 0.008) => {
-    const shadow = new THREE.Mesh(new THREE.BoxGeometry(faceWidth + 0.024, faceHeight + 0.024, 0.012), shadowRevealMaterial);
+    // Keep this backing behind the opaque physical face. Enlarging it beyond
+    // the face exposed a 0.144-inch near-black band around every white door
+    // and drawer; genuine drawer/door seams remain separately modeled.
+    const shadow = new THREE.Mesh(new THREE.BoxGeometry(faceWidth, faceHeight, 0.012), shadowRevealMaterial);
     shadow.position.set(x, y, z);
     shadow.userData = { cabinetFaceShadowGap: true, dimensionalCabinetDetail: true };
     frontGroup.add(shadow);

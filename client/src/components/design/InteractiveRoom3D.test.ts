@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import * as THREE from "three";
 import { canSyncThreeDOrderToCart, constrainedThreeDWallHeight, exactFittedFillerInches, filteredThreeDCatalogItems, hybridPlanUnderlayModel, resolvedPlacedCabinetDoorProfile, resolvedPlacedCabinetDoorSampleUrl, resolvedPlacedCabinetFinish, resolvedThreeDWallHeights, shouldShowThreeDCatalog, THREE_D_EMBEDDED_TOOLBAR_CLASS, THREE_D_WORKSPACE_ACTIONS, threeDCabinetHitFromObject, threeDDecorativeEndSides, threeDDrawerZoneHeight, threeDFittedFillerWidthText, threeDFrontDatumSnapIndicators, threeDHasVerifiedDoorLayout, threeDOrderLineForSelectedCabinet, threeDPointerSelectsCabinet, threeDPreviewFadeAllowed, threeDSelectedCabinetDescription, threeDSelectedCabinetDockClass, threeDSelectionFromPlaced, threeDStructuralFinish, threeDTallPantryDoorsPerRow, threeDTemporaryPreviewCounterText, threeDTouchTapOpensWindow, threeDUpperCabinetWallMinimums, threeDUsesAuthoritativePlanScene, threeDUsesCatalogFrontVisual, threeDWallClearanceText, threeDWallFitGuideText, threeDWallSideForEdge, threeDWallSideForPolygonEdge, updatedThreeDWallHeights } from "./InteractiveRoom3D";
@@ -2077,6 +2077,105 @@ describe("interactive 3D room scene helpers", () => {
   it("uses a verified selected Door Style frame width for the 3D physical-frame fallback", () => {
     expect(threeDShakerRailThickness(24 / 12, 30 / 12, 1)).toBeCloseTo(1 / 12, 12);
     expect(threeDShakerRailThickness(24 / 12, 30 / 12, null)).toBeCloseTo(3 / 12, 12);
+  });
+
+  it("keeps a white Shaker cabinet's physical rails and drawer reveals without exposing a perimeter shadow beyond each face", () => {
+    const root = new THREE.Group();
+    addCabinet(root, {
+      distributorSkuId: 1,
+      cabinetId: 1,
+      placementUid: "white-shaker-face-seams",
+      masterCode: "B30",
+      description: "30 inch Base Cabinet",
+      placementType: "base",
+      width: 30,
+      height: 34.5,
+      depth: 24,
+      mountBottom: 0,
+      numberOfDoors: 2,
+      numberOfDrawers: 1,
+    }, null, {}, 144, 120, "#f8f8f6", "#f8f8f6", {
+      doorStyle: "Shaker",
+      doorPanelType: "shaker",
+      railWidth: 3,
+      stileWidth: 3,
+    });
+
+    const fronts: THREE.Mesh[] = [];
+    const rails: THREE.Mesh[] = [];
+    const faceShadows: THREE.Mesh[] = [];
+    const drawerReveals: THREE.Mesh[] = [];
+    root.traverse((node) => {
+      if (!(node instanceof THREE.Mesh)) return;
+      if (node.userData.cabinetFront) fronts.push(node);
+      if (node.userData.physicalRail) rails.push(node);
+      if (node.userData.cabinetFaceShadowGap) faceShadows.push(node);
+      if (node.userData.cabinetDrawerReveal) drawerReveals.push(node);
+    });
+
+    expect(fronts.length).toBeGreaterThan(0);
+    expect(rails.length).toBeGreaterThan(0);
+    expect(rails.every((rail) => (rail.material as THREE.MeshStandardMaterial).color.getHexString() === "f8f8f6")).toBe(true);
+    expect(faceShadows.length).toBeGreaterThan(0);
+    expect(drawerReveals.length).toBeGreaterThan(0);
+    for (const shadow of faceShadows) {
+      const face = fronts.find((candidate) =>
+        Math.abs(candidate.position.x - shadow.position.x) < 1e-9
+        && Math.abs(candidate.position.y - shadow.position.y) < 1e-9,
+      );
+      expect(face).toBeDefined();
+      const faceGeometry = face!.geometry as THREE.BoxGeometry;
+      const shadowGeometry = shadow.geometry as THREE.BoxGeometry;
+      // The backed recess may retain the selected profile's depth/shading, but
+      // it must never extend past an opaque face as a black perimeter band.
+      expect(shadowGeometry.parameters.width).toBeLessThanOrEqual(faceGeometry.parameters.width);
+      expect(shadowGeometry.parameters.height).toBeLessThanOrEqual(faceGeometry.parameters.height);
+    }
+  });
+
+  it("restores both white Shaker faces and physical rails when an affiliate's selected door sample fails to load", () => {
+    let failTexture: (() => void) | null = null;
+    const load = vi.spyOn(THREE.TextureLoader.prototype, "load").mockImplementation(((_url, _onLoad, _onProgress, onError) => {
+      const texture = new THREE.Texture();
+      failTexture = () => onError?.(new Error("sample unavailable"));
+      return texture;
+    }) as THREE.TextureLoader["load"]);
+
+    try {
+      const root = new THREE.Group();
+      addCabinet(root, {
+        distributorSkuId: 1,
+        cabinetId: 1,
+        placementUid: "affiliate-white-shaker-fallback",
+        masterCode: "B30",
+        description: "30 inch Base Cabinet",
+        placementType: "base",
+        width: 30,
+        height: 34.5,
+        depth: 24,
+        mountBottom: 0,
+        numberOfDoors: 2,
+        numberOfDrawers: 1,
+      }, null, {}, 144, 120, "#f8f8f6", "#f8f8f6", {
+        doorStyle: "Shaker",
+        doorPanelType: "shaker",
+        railWidth: 3,
+        stileWidth: 3,
+      }, undefined, "https://example.invalid/affiliate-door-sample.webp");
+
+      expect(failTexture).not.toBeNull();
+      failTexture?.();
+
+      const selectedFinishMaterials: THREE.MeshStandardMaterial[] = [];
+      root.traverse((node) => {
+        if (!(node instanceof THREE.Mesh) || !(node.userData.cabinetFront || node.userData.physicalRail)) return;
+        selectedFinishMaterials.push(node.material as THREE.MeshStandardMaterial);
+      });
+      expect(selectedFinishMaterials.length).toBeGreaterThan(0);
+      expect(selectedFinishMaterials.every((material) => material.map === null && material.color.getHexString() === "f8f8f6")).toBe(true);
+    } finally {
+      load.mockRestore();
+    }
   });
 
   it("uses an exact unlit material for supplied CabinetDealz door samples", () => {
