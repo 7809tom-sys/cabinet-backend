@@ -30,6 +30,10 @@ export const AEF_PROFESSIONAL_ASSETS = {
   base2Drawer: "/manus-storage/aef-base-2drawer-render-v2_5d3ab62b.webp",
   base3Drawer: "/manus-storage/frameless-three-drawer-source-proportions_68086f93.webp",
   baseBlindCorner: "/manus-storage/aef-base-blind-corner-render_6c3ba901.webp",
+  baseBlindBBC37: "/manus-storage/blind-base-BBC37-40-single-door_65fcb587.webp",
+  baseBlindBBC40: "/manus-storage/blind-base-BBC40-43-single-door_b626c519.webp",
+  baseBlindBBC43: "/manus-storage/blind-base-BBC43-46-single-door_a09da923.webp",
+  baseBlindBBC46: "/manus-storage/blind-base-BBC46-49-single-door_6cff02e8.webp",
   baseBlindCornerDoubleDoor: "/manus-storage/frameless-base-blind-double-door_67c3cc28.webp",
   baseDoubleDoorDrawer: "/manus-storage/frameless-base-double-door-top-drawer_641a6258.webp",
   baseEasyReach: "/manus-storage/aef-base-easy-reach-render_4ae2e579.webp",
@@ -55,6 +59,9 @@ export const AEF_PROFESSIONAL_ASSETS = {
   vanitySingleDoor: "/manus-storage/aef-vanity-single-door-false-drawer-render_06518436.webp",
   vanityStandard: "/manus-storage/aef-vanity-standard-render_4998e085.webp",
   wallBlindCorner: "/manus-storage/aef-wall-blind-corner-render_ad19ebad.webp",
+  wallBlindWBC24x30: "/manus-storage/wall-blind-WBC24-2730_4d24f532.webp",
+  wallBlindWBC24x35: "/manus-storage/wall-blind-WBC24-2735_f1abbb30.webp",
+  wallBlindWBC24x40: "/manus-storage/wall-blind-WBC24-2740_93e75adf.webp",
   wallBlindCornerDoubleDoor: "/manus-storage/frameless-wall-blind-double-door_b04cb793.webp",
   wallBridge: "/manus-storage/frameless-wall-bridge-single-door-empty_c1482a36.webp",
   wallEasyReach: "/manus-storage/frameless-wall-easyreach-one-door_2f3448e4.webp",
@@ -122,7 +129,13 @@ export function professionalAefImageFor(input: CatalogCabinet): AssetName {
   if (category === "WALL") {
     if (code === "W2430S") return "wallSingleDoor";
     if (/^WFD/.test(code)) return "wallFlipup";
-    if (/^WBC/.test(code)) return (cabinet.numberOfDoors ?? 1) >= 2 ? "wallBlindCornerDoubleDoor" : "wallBlindCorner";
+    if (/^WBC/.test(code)) {
+      if ((cabinet.numberOfDoors ?? 1) >= 2) return "wallBlindCornerDoubleDoor";
+      if (code === "WBC24/2730") return "wallBlindWBC24x30";
+      if (code === "WBC24/2735") return "wallBlindWBC24x35";
+      if (code === "WBC24/2740") return "wallBlindWBC24x40";
+      return "wallBlindCorner";
+    }
     if (/^WER/.test(code)) return "wallEasyReach";
     if (/^W(?:09|12|15|18)\d/.test(code)) return "wallSingleDoor";
     if (numeric(cabinet.depth) >= 20) return (cabinet.numberOfDoors ?? 2) >= 2 ? "wallRefrigeratorDoubleDoor" : "wallRefrigerator";
@@ -134,7 +147,16 @@ export function professionalAefImageFor(input: CatalogCabinet): AssetName {
     return "wallStandard30";
   }
   if (code === "B24S" || code === "SB24S") return "baseSingleDoorDrawer";
-  if (/^BBC/.test(code)) return (cabinet.numberOfDoors ?? 1) >= 2 ? "baseBlindCornerDoubleDoor" : "baseBlindCorner";
+  if (/^BBC/.test(code)) {
+    if ((cabinet.numberOfDoors ?? 1) >= 2) return "baseBlindCornerDoubleDoor";
+    // Manufacturer single-door BBCs have a FIXED blind face, not a full-width
+    // operating door. BBC46 uses a 15-inch blind/21-inch door, unlike BBC43's 18/18.
+    if (code === "BBC37/40FH") return "baseBlindBBC37";
+    if (code === "BBC40/43FH") return "baseBlindBBC40";
+    if (code === "BBC43/46FH") return "baseBlindBBC43";
+    if (code === "BBC46/49FH") return "baseBlindBBC46";
+    return "baseBlindCorner";
+  }
   // LSB's manufacturer page 19 has TWO DER door components even where a legacy
   // source configuration counts its lazy-susan assembly as one. Keep both faces.
   if (/^(BER|LSB)/.test(code)) return "baseEasyReach";

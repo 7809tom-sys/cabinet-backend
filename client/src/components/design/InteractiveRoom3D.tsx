@@ -31,6 +31,7 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { normalizeCode } from "@shared/cabinetCodeMatch";
 import { AEF_PRINTED_GEOMETRY_MARKER } from "@shared/aefFramelessGeometry";
 import { toast } from "sonner";
+import { pantryDrawerFrontLayout } from "@/lib/pantryDrawerLayout";
 import { masterTracProduct, masterTracFinishColor } from "@/lib/closet";
 import { geminiHardwareReference, type GeminiMaterialManifestEntry } from "@/lib/geminiHardwareReference";
 import { geminiMaterialReference, geminiInferredMaterialLabels } from "@/lib/geminiMaterialReference";
@@ -4491,6 +4492,7 @@ export function addCabinet(
   const doorCount = isStandardSinkBase ? Math.max(2, resolvedFaceLayout.doorCount) : resolvedFaceLayout.doorCount;
   const drawerCount = isStandardSinkBase ? Math.max(2, resolvedFaceLayout.drawerCount) : resolvedFaceLayout.drawerCount;
   const usableHeight = bodyHeight - 0.08;
+  const pantryLayout = pantryDrawerFrontLayout({ ...sku, numberOfDoors: doorCount, numberOfDrawers: drawerCount }, usableHeight / INCH);
   const wd18Layout = wd18CountertopFaceLayout(
     { masterCode: sku.masterCode, placement, numberOfDrawers: drawerCount },
     usableHeight / INCH,
@@ -4499,7 +4501,7 @@ export function addCabinet(
   // A drawer-only cabinet's authored rows own its whole usable face. The former
   // generic 35% allowance left an invented blank upper section in 3D even though
   // the 2D elevation renders the saved drawer stack full height.
-  const drawerHeight = wd18Layout
+  const drawerHeight = pantryLayout ? pantryLayout.drawerHeight * INCH : wd18Layout
     ? wd18Layout.drawerHeights.reduce((sum, heightIn) => sum + heightIn, 0) * INCH
     : threeDDrawerZoneHeight({
       availableHeight: usableHeight,
@@ -4511,7 +4513,7 @@ export function addCabinet(
       masterCode: sku.masterCode,
     });
   const configuredDoorHeight = sku.doorHeight != null ? numberValue(sku.doorHeight, 0) * INCH : 0;
-  const doorHeight = Math.max(0.2, wd18Layout ? wd18Layout.doorHeight * INCH : configuredDoorHeight || usableHeight - drawerHeight);
+  const doorHeight = pantryLayout ? pantryLayout.doorHeight * INCH : Math.max(0.2, wd18Layout ? wd18Layout.doorHeight * INCH : configuredDoorHeight || usableHeight - drawerHeight);
   const frontGroup = new THREE.Group();
   frontGroup.userData = {
     decorativeFrontClearanceIn: 0.004 / INCH,
@@ -5242,7 +5244,7 @@ export function addCabinet(
       addOvenCutout();
       addDrawers();
     }
-  } else if (isTall && /pantry/i.test(`${sku.masterCode} ${sku.description ?? ""}`)) {
+  } else if (isTall && !pantryLayout && /pantry/i.test(`${sku.masterCode} ${sku.description ?? ""}`)) {
     // A two-door pantry is one tall lower door plus one upper door. Wider pantry
     // models, or records explicitly configured with four doors, retain paired
     // leaves in both the upper and lower openings.
@@ -5725,10 +5727,10 @@ export function addCabinet(
     addFaceShadow(doorWidth - 0.03, faceHeight, door.position.x, door.position.y);
     addPull(doorWidth - 0.03, faceHeight, door.position.x, door.position.y, false, 0.086, "lower", singleDoorHinge);
   } else {
-	  const standardDoorCenterY = hasConfiguredOpening && sku.openingType === "bottom"
-	    ? bodyHeight / 2 - 0.04 - doorHeight / 2
-	    : -bodyHeight / 2 + 0.04 + doorHeight / 2;
-	  if (sku.glassDoor && doorCount > 0) {
+		  const standardDoorCenterY = pantryLayout || (hasConfiguredOpening && sku.openingType === "bottom")
+		    ? bodyHeight / 2 - 0.04 - doorHeight / 2
+		    : -bodyHeight / 2 + 0.04 + doorHeight / 2;
+		  if (sku.glassDoor && doorCount > 0) {
 	    const interior = new THREE.Mesh(
 	      new THREE.BoxGeometry(Math.max(0.08, bodyWidth - 0.14), Math.max(0.08, doorHeight - 0.08), 0.018),
 	      glassInteriorMaterial,
@@ -5787,7 +5789,9 @@ export function addCabinet(
 	      frontGroup.add(seam);
 	    }
 	  }
-	  const drawerRows = wd18Layout
+		  const drawerRows = pantryLayout
+    ? pantryLayout.rows.map(row => ({ count: row.count, height: row.height * INCH }))
+    : wd18Layout
     ? wd18Layout.drawerHeights.map((heightIn) => ({ count: 1, height: heightIn * INCH }))
     : resolvedThreeDDrawerRows(
       sku,
@@ -5796,10 +5800,13 @@ export function addCabinet(
       placement === "base" && doorCount === 0 && drawerCount > 1,
     );
   const drawersAtBottom = hasConfiguredOpening || Boolean(wd18Layout);
-  let drawerCursor = drawersAtBottom ? -bodyHeight / 2 + 0.04 : bodyHeight / 2 - 0.04;
-	  for (const row of drawerRows) {
-	    const rowHeight = Math.max(0.08, row.height - 0.025);
-	    const drawerColumns = threeDCabinetFrontColumnLayout(bodyWidth, row.count);
+  // Start at the TOP of the pantry's lower bank, retaining source row order.
+  let drawerCursor = pantryLayout
+    ? -bodyHeight / 2 + 0.04 + drawerHeight
+    : drawersAtBottom ? -bodyHeight / 2 + 0.04 : bodyHeight / 2 - 0.04;
+		  for (const row of drawerRows) {
+		    const rowHeight = Math.max(0.08, row.height - 0.025);
+		    const drawerColumns = threeDCabinetFrontColumnLayout(bodyWidth, row.count);
 	    const drawerWidth = drawerColumns.columnWidth;
 	    for (let column = 0; column < row.count; column++) {
 	      const drawer = new THREE.Mesh(new THREE.BoxGeometry(drawerWidth, rowHeight, 0.048), faceMaterial);

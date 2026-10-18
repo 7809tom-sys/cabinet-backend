@@ -26,6 +26,7 @@ import { toeKickHeightForElevation } from "@/lib/elevationToeKick";
 import { drawerPanelInsetPx, elevationFrameInsetPx, isShakerElevationStyle, shakerFacePanelGeometry } from "@/lib/elevationFrameGeometry";
 import { isCustomCabinetProfile } from "@/lib/customCabinetProfiles";
 import { resolveCustomCabinetRender } from "@/lib/customCabinetRender";
+import { pantryDrawerFrontLayout } from "@/lib/pantryDrawerLayout";
 import { createContext, useContext, useRef, useEffect, useState, useCallback } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { masterTracFinishColor, masterTracProduct } from "@/lib/closet";
@@ -629,6 +630,12 @@ export function ElevationView({
               layoutSpec={p.layoutSpec ?? null}
               drawerLayout={p.drawerLayout ?? null}
               masterCode={p.masterCode}
+	              graphicType={customProfile}
+	              category={cabType === "pantry" ? "Tall" : undefined}
+	              placementType={p.placement}
+	              description={p.description}
+	              numberOfDoors={displayCounts.doors}
+	              numberOfDrawers={displayCounts.drawers}
               facePattern={p.facePattern ?? null}
 	              shelfCount={visibleGlassShelfCount}
 	              glassDoor={isGlassDoor}
@@ -2406,7 +2413,7 @@ export function CustomProfileFace({
   );
 }
 
-export function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, drawerSampleUrl, cabinetType, blindOnLeft, cabinetHeightIn, cabinetWidthIn, faceFillOverride, ovenType, openingType, doorHeight, drawerHeight, doorOrientation, layoutSpec, drawerLayout, masterCode, facePattern, shelfCount, glassDoor, frameInsetPx, frameMetrics }: { kind: DoorPanelKind; edge: string; face: string; doors?: number; drawers?: number; isWall?: boolean; doorSampleUrl?: string | null; drawerSampleUrl?: string | null; cabinetType?: CabinetDrawingType | null; blindOnLeft?: boolean; cabinetHeightIn?: number; cabinetWidthIn?: number; faceFillOverride?: string; ovenType?: "single" | "double" | null; openingType?: "top" | "middle" | "bottom" | null; doorHeight?: number | null; drawerHeight?: number | null; doorOrientation?: "side-by-side" | "stacked" | null; layoutSpec?: string | null; drawerLayout?: string | null; masterCode?: string | null; facePattern?: "slats" | "criss-cross" | "lattice" | "open" | null; shelfCount?: number | null; glassDoor?: boolean; frameInsetPx?: number; frameMetrics?: { stileInches?: number | null; railInches?: number | null } }) {
+export function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, drawerSampleUrl, cabinetType, blindOnLeft, cabinetHeightIn, cabinetWidthIn, faceFillOverride, ovenType, openingType, doorHeight, drawerHeight, doorOrientation, layoutSpec, drawerLayout, masterCode, graphicType, category, placementType, description, numberOfDoors, numberOfDrawers, facePattern, shelfCount, glassDoor, frameInsetPx, frameMetrics }: { kind: DoorPanelKind; edge: string; face: string; doors?: number; drawers?: number; isWall?: boolean; doorSampleUrl?: string | null; drawerSampleUrl?: string | null; cabinetType?: CabinetDrawingType | null; blindOnLeft?: boolean; cabinetHeightIn?: number; cabinetWidthIn?: number; faceFillOverride?: string; ovenType?: "single" | "double" | null; openingType?: "top" | "middle" | "bottom" | null; doorHeight?: number | null; drawerHeight?: number | null; doorOrientation?: "side-by-side" | "stacked" | null; layoutSpec?: string | null; drawerLayout?: string | null; masterCode?: string | null; graphicType?: string | null; category?: string | null; placementType?: string | null; description?: string | null; numberOfDoors?: number | null; numberOfDrawers?: number | null; facePattern?: "slats" | "criss-cross" | "lattice" | "open" | null; shelfCount?: number | null; glassDoor?: boolean; frameInsetPx?: number; frameMetrics?: { stileInches?: number | null; railInches?: number | null } }) {
   const drawerCount = drawers ?? 0;
   const doorCount = doors ?? 0;
   const stroke = `${edge}99`;
@@ -2750,12 +2757,81 @@ export function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSample
     }
   }
 
+  const pantryDrawerLayout = pantryDrawerFrontLayout({
+    masterCode,
+    graphicType,
+    category,
+    placementType,
+    description,
+    numberOfDoors: numberOfDoors ?? doorCount,
+    numberOfDrawers: numberOfDrawers ?? drawerCount,
+    doorHeight,
+    drawerHeight,
+    drawerLayout,
+    openingType,
+    ovenType,
+  }, faceHeight);
+
   // ─── SPECIALTY TYPE: PANTRY (tall cabinet) ───────────────────────────
   // Pantry cabinets split at ~54" from floor into upper and lower sections.
   // Uses admin-configured doorCount to determine layout:
   //   - 2 doors total → 1 top + 1 bottom (stacked, for narrow pantries like 18")
   //   - 4 doors total → 2 top + 2 bottom (side-by-side, for wider pantries)
   //   - fallback: 4 doors (classic pantry layout)
+  if (pantryDrawerLayout) {
+      const upperDoorPct = Math.max(0, Math.min(100, (pantryDrawerLayout.doorHeight / faceHeight) * 100));
+      const upperDoorWidthPct = 100 / pantryDrawerLayout.doorCount;
+      let previousDrawerHeight = 0;
+      let drawerNumber = 0;
+      return withFace(
+        <>
+          <div
+            data-pantry-door-count={pantryDrawerLayout.doorCount}
+            data-pantry-door-height-in={pantryDrawerLayout.doorHeight}
+            className="absolute left-0 right-0 top-0"
+            style={{ height: `${upperDoorPct}%` }}
+          >
+            {Array.from({ length: pantryDrawerLayout.doorCount }).map((_, index) => (
+              <div
+                key={`pantry-upper-door-${index}`}
+                data-pantry-upper-doors="true"
+                className="absolute top-0 bottom-0"
+                style={{ left: `${upperDoorWidthPct * index}%`, width: `${upperDoorWidthPct}%` }}
+              >
+                {index > 0 && <div className="absolute top-0 bottom-0 left-0" style={{ width: 2, background: stroke }} />}
+                <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} doorSampleUrl={doorSampleUrl} isWall={isWall} frameInsetPx={frameInsetPx} {...doorPanelProps(pantryDrawerLayout.doorCount, upperDoorPct)} />
+              </div>
+            ))}
+          </div>
+          <div className="absolute left-0 right-0" style={{ top: `${upperDoorPct}%`, height: 2, background: stroke }} />
+          {pantryDrawerLayout.rows.map((row, rowIndex) => {
+            const rowPct = Math.max(0, (row.height / faceHeight) * 100);
+            const rowTopPct = upperDoorPct + previousDrawerHeight;
+            previousDrawerHeight += rowPct;
+            const drawerWidthPct = 100 / row.count;
+            return Array.from({ length: row.count }).map((_, columnIndex) => {
+              drawerNumber += 1;
+              return (
+                <div
+                  key={`pantry-bottom-drawer-${rowIndex}-${columnIndex}`}
+                  data-pantry-bottom-drawer="true"
+                  data-pantry-drawer-number={drawerNumber}
+                  data-pantry-drawer-row={rowIndex}
+                  data-pantry-drawer-height-in={row.height}
+                  className="absolute"
+                  style={{ top: `${rowTopPct}%`, height: `${rowPct}%`, left: `${drawerWidthPct * columnIndex}%`, width: `${drawerWidthPct}%` }}
+                >
+                  {(rowIndex > 0 || columnIndex > 0) && <div className="absolute top-0 left-0 right-0" style={{ height: 2, background: stroke }} />}
+                  {columnIndex > 0 && <div className="absolute top-0 bottom-0 left-0" style={{ width: 2, background: stroke }} />}
+                  <StylePanel kind={kind} edge={edge} face={face} drawer doorSampleUrl={doorSampleUrl} drawerSampleUrl={drawerSampleUrl} frameInsetPx={frameInsetPx} {...drawerPanelProps(row.count, rowPct)} />
+                </div>
+              );
+            });
+          })}
+        </>,
+      );
+  }
+
   if (cabinetType === "pantry") {
     const totalH = cabinetHeightIn ?? 84; // default 84" if not provided
     const splitIn = 54; // split point in inches from floor

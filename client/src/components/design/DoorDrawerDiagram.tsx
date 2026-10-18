@@ -18,6 +18,7 @@
 import React from "react";
 import { cabinetDrawingType, isEqualHeightTwoDrawerBase, resolveDoorDrawerCounts, threeDrawerBaseRowHeights } from "@/lib/cabinetGraphics";
 import type { CabinetLike } from "@/lib/cabinetGraphics";
+import { pantryDrawerFrontLayout } from "@/lib/pantryDrawerLayout";
 
 // ─── Palette ────────────────────────────────────────────────────────────────
 const CLR = {
@@ -107,11 +108,17 @@ function Zone({
   label, subLabel,
   fontSize = 11,
   subFontSize = 9,
+  pantryUpperDoor,
+  pantryBottomDrawer,
+  pantryDrawerHeightIn,
 }: {
   x: number; y: number; w: number; h: number;
   fill: string; stroke: string;
   label: string; subLabel?: string;
   fontSize?: number; subFontSize?: number;
+  pantryUpperDoor?: boolean;
+  pantryBottomDrawer?: boolean;
+  pantryDrawerHeightIn?: number;
 }) {
   const cx = x + w / 2;
   const cy = y + h / 2;
@@ -122,6 +129,9 @@ function Zone({
         x={x + 1} y={y + 1} width={w - 2} height={h - 2}
         rx={3} ry={3}
         fill={fill} stroke={stroke} strokeWidth={1.5}
+        data-pantry-upper-doors={pantryUpperDoor ? "true" : undefined}
+        data-pantry-bottom-drawer={pantryBottomDrawer ? "true" : undefined}
+        data-pantry-drawer-height-in={pantryDrawerHeightIn}
       />
       <text
         x={cx} y={showSub ? cy - 5 : cy}
@@ -250,6 +260,9 @@ export function DoorDrawerDiagram({ cabinet, width = 180, className }: Props) {
     x: number; y: number; w: number; h: number;
     fill: string; stroke: string;
     label: string; subLabel?: string;
+    pantryUpperDoor?: boolean;
+    pantryBottomDrawer?: boolean;
+    pantryDrawerHeightIn?: number;
   };
   const zones: ZoneSpec[] = [];
   const rails: { y: number }[] = [];  // horizontal rails between zones
@@ -274,6 +287,21 @@ export function DoorDrawerDiagram({ cabinet, width = 180, className }: Props) {
       effectiveDoors = w !== null && w >= 24 ? 2 : 1;
     }
   }
+
+  const pantryDrawerLayout = pantryDrawerFrontLayout({
+    masterCode: cabinet.masterCode,
+    graphicType: cabinet.graphicType,
+    category: cabinet.category,
+    placementType: cabinet.placementType,
+    description: cabinet.description,
+    numberOfDoors: effectiveDoors,
+    numberOfDrawers: effectiveDrawers,
+    doorHeight: toNum(cabinet.doorHeight),
+    drawerHeight: toNum(cabinet.drawerHeight),
+    drawerLayout: cabinet.drawerLayout,
+    openingType: cabinet.openingType,
+    ovenType: cabinet.ovenType,
+  }, cabinetH);
 
   // ── Panel / Decorative Door rendering ─────────────────────────────────────────
   // Panels render as a simple flat rectangle with measurements and grain/door indicator
@@ -818,7 +846,52 @@ export function DoorDrawerDiagram({ cabinet, width = 180, className }: Props) {
       }
     }
 
-  } else if (type === "pantry") {
+  } else if (pantryDrawerLayout || type === "pantry") {
+    if (pantryDrawerLayout) {
+      const drawerAreaIn = pantryDrawerLayout.rows.reduce((sum, row) => sum + row.height, 0);
+      const doorH = Math.max(0, Math.min(iH, (pantryDrawerLayout.doorHeight / cabinetH) * iH));
+      const drawerAreaH = Math.max(0, Math.min(iH - doorH, (drawerAreaIn / cabinetH) * iH));
+      const doorColW = iW / pantryDrawerLayout.doorCount;
+
+      for (let index = 0; index < pantryDrawerLayout.doorCount; index++) {
+        const label = pantryDrawerLayout.doorCount === 1 ? "Door" : index === 0 ? "Left Door" : "Right Door";
+        zones.push({
+          x: PAD + index * doorColW,
+          y: PAD,
+          w: doorColW,
+          h: doorH,
+          fill: CLR.door,
+          stroke: CLR.doorStroke,
+          label,
+          subLabel: "upper",
+          pantryUpperDoor: true,
+        });
+      }
+      rails.push({ y: PAD + doorH });
+
+      let rowY = PAD + doorH;
+      let drawerIndex = 0;
+      pantryDrawerLayout.rows.forEach((row, rowIndex) => {
+        const rowH = drawerAreaIn > 0 ? (row.height / drawerAreaIn) * drawerAreaH : 0;
+        const drawerColW = iW / row.count;
+        for (let columnIndex = 0; columnIndex < row.count; columnIndex++) {
+          drawerIndex += 1;
+          zones.push({
+            x: PAD + columnIndex * drawerColW,
+            y: rowY,
+            w: drawerColW,
+            h: rowH,
+            fill: CLR.drawer,
+            stroke: CLR.drawerStroke,
+            label: `Drawer ${drawerIndex}`,
+            pantryBottomDrawer: true,
+            pantryDrawerHeightIn: row.height,
+          });
+        }
+        if (rowIndex < pantryDrawerLayout.rows.length - 1) rails.push({ y: rowY + rowH });
+        rowY += rowH;
+      });
+    } else {
     // Pantry: split at ~54" from floor into upper and lower sections.
     // Use actual door count from admin config to determine layout:
     //   - 2 doors total → 1 top + 1 bottom (stacked, for narrow pantries like 18")
@@ -858,6 +931,7 @@ export function DoorDrawerDiagram({ cabinet, width = 180, className }: Props) {
         label,
         subLabel: "upper",
       });
+    }
     }
 
   } else if (effectiveDrawers > 0 && effectiveDoors > 0) {

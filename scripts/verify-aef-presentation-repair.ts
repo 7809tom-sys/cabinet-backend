@@ -3,7 +3,7 @@ import path from "node:path";
 import mysql from "mysql2/promise";
 import { createHash } from "node:crypto";
 
-const folder = "/home/ubuntu/frameless-audit";
+const folder = process.argv.find(arg => arg.startsWith("--output-dir="))?.slice("--output-dir=".length) || "/home/ubuntu/frameless-audit";
 const hash = (rows: unknown) => createHash("sha256").update(JSON.stringify(rows)).digest("hex");
 const db = await mysql.createConnection(process.env.DATABASE_URL!);
 try {
