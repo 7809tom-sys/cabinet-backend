@@ -682,6 +682,7 @@ export function ElevationView({
               frameStileIn={cabFrameMetrics?.stileInches}
               frameRailIn={cabFrameMetrics?.railInches}
               cabinetHeightIn={height}
+              pantryLayout={pantryDrawerFrontLayout({ ...p, placementType: p.placement, graphicType: customProfile, numberOfDoors: displayCounts.doors, numberOfDrawers: displayCounts.drawers }, height)}
             />
           )}
           {/* Appliance-specific detail overlays */}
@@ -2070,7 +2071,7 @@ export function ElevationView({
 // Pieces are tiny CSS shapes positioned by percentage so they scale with zoom.
 //   knob → small filled circle   pull → short horizontal bar   cup → half-moon
 export function HardwareOverlay({
-  doors, drawers, doorPiece, drawerPiece, accent, hardwarePosition, swing, isWall = false, faceWidthIn, frameStileIn, frameRailIn, cabinetHeightIn, raisedDoorPullOnRail = false,
+  doors, drawers, doorPiece, drawerPiece, accent, hardwarePosition, swing, isWall = false, faceWidthIn, frameStileIn, frameRailIn, cabinetHeightIn, raisedDoorPullOnRail = false, pantryLayout,
 }: {
   doors: number;
   drawers: number;
@@ -2085,6 +2086,7 @@ export function HardwareOverlay({
   frameRailIn?: number | null;
   cabinetHeightIn?: number | null;
   raisedDoorPullOnRail?: boolean;
+  pantryLayout?: ReturnType<typeof pantryDrawerFrontLayout>;
 }) {
   // Brushed-metal sheen: diagonal light streak over accent color with crisp
   // top highlight and soft drop shadow so pieces read as real metal hardware.
@@ -2093,7 +2095,7 @@ export function HardwareOverlay({
   const normalizedDoorPosition = normalizeDoorHardwareFramePosition(hardwarePosition);
   // For door hardware (knobs), position on the handle side (opposite of hinge).
   // Drawers always center their hardware.
-  const piece = (kind: "knob" | "pull" | "cup", key: string, topPct: number, isDoor?: boolean, index = 0) => {
+  const piece = (kind: "knob" | "pull" | "cup", key: string, topPct: number, isDoor?: boolean, index = 0, drawerColumns = 1) => {
     // Drawer hardware is an authoritative center-only construction rule. Door
     // fronts retain their individual Attributes choice, including paired pulls.
     const requestedPosition = isDoor ? normalizedDoorPosition : "center";
@@ -2116,7 +2118,7 @@ export function HardwareOverlay({
     const centerFromLeftIn = pairedDoorPull
       ? (index === 0 ? 0 : doorWidthIn) + doorHardwareCenterFromLeftIn(doorWidthIn, horizontalPosition, frameStileIn)
       : doorHardwareCenterFromLeftIn(doorWidthIn, horizontalPosition, frameStileIn);
-    const leftPos = physicalWidthIn > 0 ? `${(centerFromLeftIn / physicalWidthIn) * 100}%` : "50%";
+    const leftPos = !isDoor && drawerColumns > 1 ? `${((index + 0.5) / drawerColumns) * 100}%` : physicalWidthIn > 0 ? `${(centerFromLeftIn / physicalWidthIn) * 100}%` : "50%";
     const requestedStile = Number(frameStileIn);
     const edgeInsetIn = Math.min(
       Number.isFinite(requestedStile) && requestedStile > 0 ? requestedStile / 2 : FRAMED_STILE_CENTER_IN,
@@ -2142,7 +2144,9 @@ export function HardwareOverlay({
       const pullStyle = horizontalTopRailPull
         ? { left: "25%", right: "25%", top: `${topPct}%`, height: 5, marginTop: -2.5, background: metal, boxShadow: metalShadow, zIndex: 8, borderRadius: 3 }
         : isDoor
-        ? { left: leftPos, top: `${topPct}%`, width: 5, height: "24%", marginLeft: -2.5, transform: "translateY(-50%)", background: metal, boxShadow: metalShadow, zIndex: 8, borderRadius: 3 }
+        ? { left: leftPos, top: `${topPct}%`, width: 5, height: `${verticalDoorPullHeightPct}%`, marginLeft: -2.5, transform: "translateY(-50%)", background: metal, boxShadow: metalShadow, zIndex: 8, borderRadius: 3 }
+        : drawerColumns > 1
+        ? { left: `${((index + 0.25) / drawerColumns) * 100}%`, width: `${50 / drawerColumns}%`, top: `${topPct}%`, height: 5, marginTop: -2.5, background: metal, boxShadow: metalShadow, zIndex: 8, borderRadius: 3 }
         : { left: "25%", right: "25%", top: `${topPct}%`, height: 5, marginTop: -2.5, background: metal, boxShadow: metalShadow, zIndex: 8, borderRadius: 3 };
       return (
         <div
@@ -2162,7 +2166,7 @@ export function HardwareOverlay({
         key={key}
         className="absolute"
         style={{
-          left: "30%", right: "30%", top: `${topPct}%`, height: 7,
+          left: drawerColumns > 1 ? `${((index + 0.3) / drawerColumns) * 100}%` : "30%", right: drawerColumns > 1 ? undefined : "30%", width: drawerColumns > 1 ? `${40 / drawerColumns}%` : undefined, top: `${topPct}%`, height: 7,
           borderBottomLeftRadius: 10, borderBottomRightRadius: 10,
           border: `2px solid ${accent}`, borderTop: "none",
           background: `linear-gradient(180deg, transparent 0%, color-mix(in srgb, ${accent} 35%, transparent) 100%)`,
@@ -2174,18 +2178,36 @@ export function HardwareOverlay({
 
   const pieces: React.ReactNode[] = [];
   // Drawers stack from the top; doors fill the remainder below. When both are
-  // present we give the top portion to the drawer stack (typical drawer base).
+  // present retain the typical base layout unless a source-backed pantry owns its bands.
   const hasDrawers = drawers > 0 && drawerPiece !== "none";
   const hasDoors = doors > 0 && doorPiece !== "none";
   // Vertical share for the drawer band (rest goes to doors). All-drawer = 100%.
   const drawerBand = hasDrawers ? (hasDoors ? 45 : 100) : 0;
+  const pantryFaceHeight = pantryLayout ? pantryLayout.doorHeight + pantryLayout.drawerHeight : 0;
+  const pantryDoorPct = pantryLayout && pantryFaceHeight > 0 ? (pantryLayout.doorHeight / pantryFaceHeight) * 100 : null;
+  // Match the generic 3D vertical pull limit (0.12–0.86 feet) for pantry doors.
+  // The legacy 24%-of-the-whole-tall-cabinet bar could extend above the door.
+  const verticalDoorPullHeightPct = pantryLayout && pantryFaceHeight > 0
+    ? (Math.min(Math.max(0.12 * 12, pantryLayout.doorHeight * 0.28), 0.86 * 12) / pantryFaceHeight) * 100
+    : 24;
 
   if (hasDrawers) {
-    for (let i = 0; i < drawers; i++) {
-      // Center each drawer's pull within its slice of the drawer band.
-      const sliceH = drawerBand / drawers;
-      const center = sliceH * i + sliceH / 2;
-      pieces.push(piece(drawerPiece as "knob" | "pull" | "cup", `dr-${i}`, center, false));
+    if (pantryLayout && pantryDoorPct != null) {
+      let rowTop = pantryDoorPct;
+      pantryLayout.rows.forEach((row, rowIndex) => {
+        const rowPct = (row.height / pantryFaceHeight) * 100;
+        for (let column = 0; column < row.count; column++) {
+          pieces.push(piece(drawerPiece as "knob" | "pull" | "cup", `dr-${rowIndex}-${column}`, rowTop + rowPct / 2, false, column, row.count));
+        }
+        rowTop += rowPct;
+      });
+    } else {
+      for (let i = 0; i < drawers; i++) {
+        // Ordinary bases keep their existing top drawer band.
+        const sliceH = drawerBand / drawers;
+        const center = sliceH * i + sliceH / 2;
+        pieces.push(piece(drawerPiece as "knob" | "pull" | "cup", `dr-${i}`, center, false));
+      }
     }
   }
   if (hasDoors) {
@@ -2193,15 +2215,20 @@ export function HardwareOverlay({
     // the handle side (opposite of the hinge).
     // Bar pulls: position near the bottom 20% of the door (like real kitchens).
     // Knobs: position near the top 15% of the door (near the handle side corner).
-    const doorHeightPct = 100 - drawerBand;
+    const doorHeightPct = pantryDoorPct ?? 100 - drawerBand;
+    const doorBandTop = pantryDoorPct == null ? drawerBand : 0;
     const resolvedCabinetHeight = Number(cabinetHeightIn);
     const resolvedRail = Number(frameRailIn ?? frameStileIn);
     const topRailCenterPct = Number.isFinite(resolvedCabinetHeight) && resolvedCabinetHeight > 0
       ? (resolvedRail > 0 ? resolvedRail : 3) / 2 / (resolvedCabinetHeight * (doorHeightPct / 100)) * doorHeightPct
       : doorHeightPct * 0.06;
-    const doorTop = raisedDoorPullOnRail || normalizedDoorPosition === "top-center"
-      ? drawerBand + topRailCenterPct
-      : drawerBand + (100 - drawerBand) * (doorPiece === "knob" ? 0.15 : isWall ? 0.76 : 0.24);
+    const requestedDoorTop = raisedDoorPullOnRail || normalizedDoorPosition === "top-center"
+      ? doorBandTop + topRailCenterPct
+      : doorBandTop + doorHeightPct * (doorPiece === "knob" ? 0.15 : isWall ? 0.76 : 0.24);
+    const isVerticalDoorPull = doorPiece === "pull" && (normalizedDoorPosition !== "top-center" || raisedDoorPullOnRail);
+    const doorTop = pantryLayout && isVerticalDoorPull
+      ? Math.min(doorBandTop + doorHeightPct - verticalDoorPullHeightPct / 2 - topRailCenterPct, Math.max(doorBandTop + verticalDoorPullHeightPct / 2 + topRailCenterPct, requestedDoorTop))
+      : requestedDoorTop;
     const visibleDoorPieces = normalizedDoorPosition === "paired" || (normalizedDoorPosition === "auto" && doors > 1)
       ? Math.min(doors, 2)
       : 1;
