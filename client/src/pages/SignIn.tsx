@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useLocation } from "wouter";
 import { TRPCClientError } from "@trpc/client";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
@@ -81,7 +80,6 @@ function SocialButton({
 }
 
 export default function SignIn() {
-  const [, navigate] = useLocation();
   const utils = trpc.useUtils();
   const { t, lang } = useLanguage();
   useSeo({ title: t("seo_signin_t"), description: t("seo_signin_d"), lang });
@@ -105,20 +103,20 @@ export default function SignIn() {
   const afterAuth = async () => {
     await utils.auth.me.invalidate();
     toast.success("Signed in successfully.");
-    // Fetch fresh user to determine role-based redirect
+    // Fetch fresh user to determine a safe same-host destination. A full
+    // document navigation deliberately remounts the shared header so it reads
+    // the newly-issued host-only session cookie instead of retaining a prior
+    // anonymous auth.me query while entering the Designer.
     const me = await utils.auth.me.fetch();
     const requestedReturn = new URLSearchParams(window.location.search).get("returnTo");
-    if (isSafeSiteReturnPath(requestedReturn)) {
-      navigate(requestedReturn);
-      return;
-    }
-    if (me && (me as { role?: string }).role === "distributor") {
-      navigate("/vendor");
-    } else if (me && (me as { role?: string }).role === "admin") {
-      navigate("/admin");
-    } else {
-      navigate("/account");
-    }
+    const destination = isSafeSiteReturnPath(requestedReturn)
+      ? requestedReturn
+      : me && (me as { role?: string }).role === "distributor"
+        ? "/vendor"
+        : me && (me as { role?: string }).role === "admin"
+          ? "/admin"
+          : "/account";
+    window.location.assign(destination);
   };
 
   const loginMutation = trpc.emailAuth.login.useMutation({

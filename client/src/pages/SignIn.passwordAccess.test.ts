@@ -11,4 +11,10 @@ describe("SignIn password access", () => {
     expect(source).toContain('trpc.emailAuth.requestPasswordReset.useMutation');
     expect(source).toContain("Email password-reset link");
   });
+
+  it("reloads the same-host destination after email sign-in so the mounted Designer header reads the new session", () => {
+    expect(source).toContain("const destination =");
+    expect(source).toContain("window.location.assign(destination)");
+    expect(source).toContain("await utils.auth.me.fetch()");
+  });
 });
