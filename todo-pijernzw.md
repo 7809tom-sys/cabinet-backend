@@ -180,3 +180,14 @@
 - [x] Preserve appliance measurements, refrigerator bay validation, corner geometry, and opening clearances.
 - [x] Add and run focused regressions, TypeScript, and build validation.
 - [x] Verify the actual updated dialog and actual upper helper/elevation renderer using a clearly labeled in-memory sandbox fixture; remove horizontal dialog clipping. No customer records created. Full authenticated measured-build browser flow remains unverified; do not claim live deployment.
+
+## Refrigerator panel Cart lookup — 2026-10-18
+
+- [x] Reproduce exact REP2496 Cart price refresh returning no row despite its active, published, available source price.
+- [x] Admit literal requested source masters independently of general canonical browsing aliases, preserving active/nonconflict and source-price gates.
+- [x] Verify exact REP2496, canonical REPV2496, approved fallback and wrong-style/distributor behavior; panel regression failed before correction and passes 5/5 afterward. Broader price/cart/alias suites pass 69/69.
+- [x] Verify the corrected price lookup and exact Order code matching in the sandbox browser without creating an order or changing customer data.
+- [x] Inspect the supplied 180-inch back/right layout screenshots without reopening the attachments: no real corner, unwanted drawer banks, and no standard uppers.
+- [x] Verify live Designer asset DesignTool-DoqdHjOJ.js lacks the current regular-base and upper-stage markers; do not call preview corrections live.
+- [x] Reproduce adjoining measured walls skipping the corner when Single wall remains selected; require actual shared vertices independent of that dropdown. New corner regressions fail before correction and pass afterward; all six measured-builder suites pass 54/54.
+- [x] Render the actual corrected corner-selection dialog using real catalog options and an in-memory 180-inch back/right fixture; confirm mandatory corner and corners → bases → walls sequence. Confirm real catalog base filtering rejects 2DB24, 2DB36, and 3DB21. Customer draft untouched.

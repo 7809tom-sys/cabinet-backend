@@ -3174,7 +3174,9 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     wallCabHeightRef.current = selectedWallCabinetHeight;
     wallCabHeightPromptedRef.current = true;
     setCountertop(true);
-    const slots = fourAnchorCornerSlots(input.layoutType);
+    const slots = fourAnchorCornerSlots(input.layoutType, {
+      wallIds: selectedWalls, room, originCorner: input.originCorner, runDirection: input.runDirection,
+    });
     const cornerOptions = autoBuildCornerCatalog(pool) as AutoBuildCornerCandidate[];
     setFourAnchorAutoBuildOpen(false);
     setFourAnchorCornerStage({

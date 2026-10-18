@@ -9,7 +9,7 @@ export type FourAnchorCornerSlot = {
   secondWall: WallLabel;
 };
 
-/** An explicit source-priced selection: null deliberately preserves an open room corner. */
+/** An explicit source-priced selection: null is incomplete and cannot confirm a required corner. */
 export type FourAnchorCornerChoice = {
   cabinetId: number | null;
   /** Required only when the chosen SKU is a configured base blind corner. */
@@ -28,22 +28,39 @@ export type AutoBuildCornerCandidate = AutoBuildCatalogCandidate & {
 };
 
 /**
- * This is deliberately independent from the four fixed anchors. A single-wall
- * or galley request has no shared wall vertex to populate; an L has one and a U
- * has two. Remaining perimeter vertices are left open unless separately placed
- * through the normal catalog workflow.
+ * Keep the requested L/U vertices, and also require any real shared vertex
+ * between the measured appliance runs. A Single wall dropdown must not permit
+ * appliances on adjoining walls to create a cornerless L-shaped kitchen.
+ * Opposing galley runs have no shared endpoint and remain corner-free.
  */
-export function fourAnchorCornerSlots(layoutType: FourAnchorLayoutType): FourAnchorCornerSlot[] {
-  if (layoutType === "l-shape") {
-    return [{ id: "wall-1-wall-2", label: "Corner between Wall 1 and Wall 2", firstWall: "Wall 1", secondWall: "Wall 2" }];
+export function fourAnchorCornerSlots(layoutType: FourAnchorLayoutType, measured?: {
+  wallIds: readonly string[];
+  room: RoomData;
+  originCorner: FourAnchorOriginCorner;
+  runDirection: FourAnchorRunDirection;
+}): FourAnchorCornerSlot[] {
+  const slots: FourAnchorCornerSlot[] = [];
+  const add = (firstWall: WallLabel, secondWall: WallLabel) => {
+    const id = `${firstWall}-${secondWall}`.toLowerCase().replaceAll(" ", "-");
+    if (!slots.some((slot) => slot.id === id)) slots.push({ id, label: `Corner between ${firstWall} and ${secondWall}`, firstWall, secondWall });
+  };
+  if (layoutType === "l-shape" || layoutType === "u-shape") add("Wall 1", "Wall 2");
+  if (layoutType === "u-shape") add("Wall 2", "Wall 3");
+  if (!measured) return slots;
+  const labels: WallLabel[] = ["Wall 1", "Wall 2", "Wall 3", "Wall 4"];
+  const occupied = labels.filter((label) => {
+    const ref = wallLabelToEngineWallId(label, measured.room, measured.originCorner, measured.runDirection);
+    return ref != null && measured.wallIds.includes(ref.engineWallId);
+  });
+  for (let first = 0; first < occupied.length; first++) {
+    for (let second = first + 1; second < occupied.length; second++) {
+      const candidate = { id: "", label: "", firstWall: occupied[first], secondWall: occupied[second] };
+      if (fourAnchorCornerSlotPoint(candidate, measured.room, measured.originCorner, measured.runDirection)) {
+        add(candidate.firstWall, candidate.secondWall);
+      }
+    }
   }
-  if (layoutType === "u-shape") {
-    return [
-      { id: "wall-1-wall-2", label: "Corner between Wall 1 and Wall 2", firstWall: "Wall 1", secondWall: "Wall 2" },
-      { id: "wall-2-wall-3", label: "Corner between Wall 2 and Wall 3", firstWall: "Wall 2", secondWall: "Wall 3" },
-    ];
-  }
-  return [];
+  return slots;
 }
 
 /** Resolve the exact shared engine vertex for a selected wall-label pair. */

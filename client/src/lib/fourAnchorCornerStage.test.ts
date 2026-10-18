@@ -28,6 +28,34 @@ describe("Four-anchor appliance-first corner stage", () => {
     )).toEqual({ x: DEFAULT_ROOM.width, y: 0, firstWallId: "top" });
   });
 
+  it("requires the real corner between measured back and right runs even if Single wall was left selected", () => {
+    expect(fourAnchorCornerSlots("single-wall", {
+      wallIds: ["top", "right"], room: DEFAULT_ROOM, originCorner: "left", runDirection: "right",
+    })).toEqual([
+      { id: "wall-1-wall-2", label: "Corner between Wall 1 and Wall 2", firstWall: "Wall 1", secondWall: "Wall 2" },
+    ]);
+  });
+
+  it("does not invent a corner between opposing galley runs", () => {
+    expect(fourAnchorCornerSlots("galley", {
+      wallIds: ["top", "bottom"], room: DEFAULT_ROOM, originCorner: "left", runDirection: "right",
+    })).toEqual([]);
+  });
+
+  it("deduplicates the declared L corner and retains both requested U corners", () => {
+    const measured = { wallIds: ["top", "right"], room: DEFAULT_ROOM, originCorner: "left" as const, runDirection: "right" as const };
+    expect(fourAnchorCornerSlots("l-shape", measured)).toHaveLength(1);
+    expect(fourAnchorCornerSlots("u-shape", measured)).toHaveLength(2);
+  });
+
+  it("uses actual wall frames rather than a hard-coded top-right vertex on reversed traversal", () => {
+    const measured = { wallIds: ["top", "left"], room: DEFAULT_ROOM, originCorner: "right" as const, runDirection: "left" as const };
+    const slots = fourAnchorCornerSlots("single-wall", measured);
+    expect(slots).toHaveLength(1);
+    expect(fourAnchorCornerSlotPoint(slots[0], measured.room, measured.originCorner, measured.runDirection))
+      .toEqual({ x: 0, y: 0, firstWallId: "top" });
+  });
+
   it("shows only real source-priced base-corner options after appliances, never a straight base, sink base, or base-end return", () => {
     const catalog = [
       { id: 1, masterCode: "B24", description: "24 inch Base Cabinet", placement: "base" as const },

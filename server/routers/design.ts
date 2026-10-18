@@ -3155,8 +3155,9 @@ Return an empty actions array ONLY if the user asked a pure question with no wal
       // fallback for retired/renamed records, never a reason to bypass a live
       // source row with the exact code (for example a normal wall cabinet that
       // also appears as a historical refrigerator-wall alias).
+      const requestedMasterCodes = Array.from(new Set(input.items.map((item) => item.masterCode)));
       const masterCodes = Array.from(new Set([
-        ...input.items.map((item) => item.masterCode),
+        ...requestedMasterCodes,
         ...canonicalItems.map((item) => item.masterCode),
       ]));
       const styleIds = Array.from(new Set(canonicalItems.map((i) => i.styleId)));
@@ -3188,6 +3189,16 @@ Return an empty actions array ONLY if the user asked a pure question with no wal
             inArray(distributorSkus.styleId, styleIds),
 	          or(
 	            and(eq(cabinets.isActive, true), notInConflict()),
+              // Browsing aliases can hide a live source-specific master such
+              // as REP2496. Admit only a literal Cart request with its own
+              // active, nonconflicting, positive-price source; style and
+              // distributor selection below still prohibit cross-line prices.
+              and(
+                inArray(cabinets.masterCode, requestedMasterCodes),
+                eq(cabinets.isActive, true),
+                ne(cabinets.conflictStatus, "conflict"),
+                sql`(COALESCE(${distributorSkus.listPrice}, 0) > 0 OR COALESCE(${distributorSkus.yourCost}, 0) > 0)`,
+              ),
 	            ...(retiredLegacyPriceCodes.length > 0
 	              ? [inArray(cabinets.masterCode, retiredLegacyPriceCodes)]
 	              : []),

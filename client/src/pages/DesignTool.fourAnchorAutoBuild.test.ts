@@ -82,7 +82,8 @@ describe("admin four-anchor Designer wiring", () => {
   it("seats the measured appliances before prompting for catalog-backed room corners and filling the remaining runs", () => {
     expect(pageSource).toContain("setFourAnchorCornerStage");
     expect(pageSource).toContain("FourAnchorCornerSelectionDialog");
-    expect(pageSource).toContain("fourAnchorCornerSlots(input.layoutType)");
+    expect(pageSource).toContain("fourAnchorCornerSlots(input.layoutType, {");
+    expect(pageSource).toContain("wallIds: selectedWalls, room, originCorner: input.originCorner, runDirection: input.runDirection");
     expect(pageSource).toContain("nextAvailableRoomCornerPlacement");
     expect(pageSource).toContain("completeFourAnchorAutoLayout");
     expect(pageSource).toContain("A corner cabinet is required at every Four-anchor L/U corner");
