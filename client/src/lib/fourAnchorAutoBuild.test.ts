@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_ROOM } from "./design";
-import { adjacentDishwasherCenterIn, anchorAlongStartIn, buildWallLabelMap, canRunFourAnchorAutoBuild, planFourAnchorAutoBuild, subtractAnchorRunReservations, wallLabelToEngineWallId } from "./fourAnchorAutoBuild";
+import { adjacentDishwasherCenterIn, anchorAlongStartIn, autoBuildSelectedWallCornerReservations, buildWallLabelMap, canRunFourAnchorAutoBuild, planFourAnchorAutoBuild, subtractAnchorRunReservations, wallLabelToEngineWallId } from "./fourAnchorAutoBuild";
 
 describe("four-anchor wall-label mapping", () => {
   it.each([
@@ -37,6 +37,16 @@ describe("four-anchor wall-label mapping", () => {
       { start: 0, length: 48.75 },
       { start: 87.25, length: 56.75 },
     ]);
+  });
+
+  it("reserves a corner shared by selected anchor walls from automatic straight-base fill", () => {
+    const reservations = autoBuildSelectedWallCornerReservations("right", DEFAULT_ROOM, ["top", "right"]);
+    expect(reservations).toEqual([{ start: 0, end: 24 }]);
+  });
+
+  it("does not reserve an unselected adjoining corner", () => {
+    const reservations = autoBuildSelectedWallCornerReservations("right", DEFAULT_ROOM, ["top", "left"]);
+    expect(reservations).toEqual([]);
   });
 });
 

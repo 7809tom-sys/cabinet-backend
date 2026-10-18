@@ -58,6 +58,9 @@ describe("admin four-anchor Designer wiring", () => {
     expect(pageSource).toContain("wallPlacementAt(along, width, depth, wallId, room)");
     expect(pageSource).toContain("appendCollisionFreePlacements(working, [candidate], room)");
     expect(pageSource).toContain("subtractAnchorRunReservations");
+    expect(pageSource).toContain("autoBuildSelectedWallCornerReservations(wallId, room, selectedWalls)");
+    expect(pageSource).toContain("refrigeratorReservation.start");
+    expect(pageSource).toContain("refrigeratorReservation.end");
     expect(pageSource).not.toContain("y: room.depth - STD.BASE_DEPTH");
   });
 });

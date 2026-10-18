@@ -1,4 +1,4 @@
-import { wallRunFrame, type RoomData, type WallRunFrame } from "./design";
+import { STD, wallRunFrame, type RoomData, type WallRunFrame } from "./design";
 
 export type FourAnchorKind = "sink" | "stove" | "dishwasher" | "refrigerator";
 export type FourAnchorLayoutType = "galley" | "l-shape" | "u-shape" | "single-wall";
@@ -167,6 +167,38 @@ export function subtractAnchorRunReservations(
     if (cursor < end) result.push({ start: cursor, length: end - cursor });
   }
   return result.filter((segment) => segment.length > 0.01);
+}
+
+/**
+ * A straight base cabinet cannot occupy the inside depth of a room corner when
+ * another auto-build anchor owns the adjoining wall. The builder leaves that
+ * area open rather than silently choosing a corner SKU or creating a cabinet
+ * body behind a sink, range, dishwasher, or refrigerator. A real corner box
+ * remains a deliberate catalog selection through the normal placement engine.
+ */
+export function autoBuildSelectedWallCornerReservations(
+  targetWallId: string,
+  room: RoomData,
+  selectedWallIds: readonly string[],
+  depthIn = STD.BASE_DEPTH,
+): AnchorRunReservation[] {
+  const target = wallRunFrame(targetWallId, room);
+  if (!target || depthIn <= 0 || !selectedWallIds.includes(targetWallId)) return [];
+  const samePoint = (a: { x: number; y: number }, b: { x: number; y: number }) =>
+    Math.hypot(a.x - b.x, a.y - b.y) <= 0.01;
+  const reserved: AnchorRunReservation[] = [];
+  for (const adjacentWallId of selectedWallIds) {
+    if (adjacentWallId === targetWallId) continue;
+    const adjacent = wallRunFrame(adjacentWallId, room);
+    if (!adjacent) continue;
+    if (samePoint(target.start, adjacent.start) || samePoint(target.start, adjacent.end)) {
+      reserved.push({ start: target.runStart, end: Math.min(target.runEnd, target.runStart + depthIn) });
+    }
+    if (samePoint(target.end, adjacent.start) || samePoint(target.end, adjacent.end)) {
+      reserved.push({ start: Math.max(target.runStart, target.runEnd - depthIn), end: target.runEnd });
+    }
+  }
+  return reserved;
 }
 
 export function planFourAnchorAutoBuild(input: FourAnchorInputs): FourAnchorBuildResult {

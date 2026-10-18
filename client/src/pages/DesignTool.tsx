@@ -178,7 +178,7 @@ import { CabinetHandlesControl, DEFAULT_DESIGNER_HARDWARE_STYLE_ID } from "@/com
 import { HardwareCatalogPicker } from "@/components/design/HardwareCatalogPicker";
 import { isPanelPaletteItem } from "./designToolPanels";
 import { normalizePaletteSearch, matchesPaletteSearch } from "@/lib/paletteSearch";
-import { adjacentDishwasherCenterIn, anchorAlongStartIn, canRunFourAnchorAutoBuild, planFourAnchorAutoBuild, subtractAnchorRunReservations, wallLabelToEngineWallId, type FourAnchorInputs } from "@/lib/fourAnchorAutoBuild";
+import { adjacentDishwasherCenterIn, anchorAlongStartIn, autoBuildSelectedWallCornerReservations, canRunFourAnchorAutoBuild, planFourAnchorAutoBuild, subtractAnchorRunReservations, wallLabelToEngineWallId, type FourAnchorInputs } from "@/lib/fourAnchorAutoBuild";
 import { validatePlacedCornerRefrigerator } from "@/lib/cornerRefrigeratorPlacement";
 import { validatePlacedCornerRange, CORNER_RANGE_HANDLE_FILLER_IN } from "@/lib/cornerRangePlacement";
 import { buildGlassCornerCatalogChoices } from "@/lib/glassCornerCatalog";
@@ -3123,9 +3123,13 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 
     for (const wallId of selectedWalls) {
       const rawSegments = freeSegmentsOnWall(wallId, room, working, openings, 9, 0, "base", false, undefined, footprintDepth(baseSource));
-      const segments = refrigeratorReservation?.wall === wallId
-        ? subtractAnchorRunReservations(rawSegments, [{ start: refrigeratorReservation.start, end: refrigeratorReservation.end }])
-        : rawSegments;
+      const reservations = [
+        ...autoBuildSelectedWallCornerReservations(wallId, room, selectedWalls),
+        ...(refrigeratorReservation?.wall === wallId
+          ? [{ start: refrigeratorReservation.start, end: refrigeratorReservation.end }]
+          : []),
+      ];
+      const segments = subtractAnchorRunReservations(rawSegments, reservations);
       for (const segment of segments) {
         const fill = autoFillSpan(segment.length, "kitchen", pool);
         let along = segment.start;
