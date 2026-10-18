@@ -11,8 +11,8 @@ function publicCtx(): TrpcContext {
   };
 }
 
-describe("design WDC2442 replacement glass door", () => {
-  it("links the cabinet to PGWDC42, keeps the door out of wall placement, and returns both verified prices", async () => {
+describe("design diagonal corner glass catalog", () => {
+	  it("keeps the opaque corner and replacement PGWDC42 door distinct from the included-glass WDC42PG wall cabinet", async () => {
     if (!(await getDb())) return;
     const caller = appRouter.createCaller(publicCtx());
     const common = { styleId: 330007, distributorId: 210001 };
@@ -21,32 +21,37 @@ describe("design WDC2442 replacement glass door", () => {
       caller.design.placeableCabinets({ placement: "accessory", ...common }),
     ]);
 
-    const wdc = wall.find((item) => item.masterCode === "WDC2442");
-    const pgwdc = accessories.find((item) => item.masterCode === "PGWDC42");
-    expect(wdc).toMatchObject({
-      id: 9390174,
-      masterCode: "WDC2442",
-      numberOfDoors: 1,
-      numberOfAdjShelves: 3,
-      glassDoorAddonCode: "PGWDC42",
-    });
-    expect(wall.some((item) => item.masterCode === "PGWDC42")).toBe(false);
-    expect(pgwdc).toMatchObject({ id: 9390057, masterCode: "PGWDC42" });
+	    const wdc = wall.find((item) => item.masterCode === "DCW2442");
+	    const includedGlassCorner = wall.find((item) => item.masterCode === "WDC42PG");
+	    const pgwdc = accessories.find((item) => item.masterCode === "PGWDC42");
+	    expect(wdc).toMatchObject({
+	      id: 9360151,
+	      masterCode: "DCW2442",
+	      numberOfDoors: 1,
+	      numberOfAdjShelves: 3,
+	    });
+	    expect(includedGlassCorner).toMatchObject({
+	      id: 9390175,
+	      masterCode: "WDC42PG",
+	      placement: "wall",
+	      numberOfDoors: 1,
+	      glassIncluded: true,
+	    });
+	    expect(wall.some((item) => item.masterCode === "PGWDC42")).toBe(false);
+	    expect(accessories.some((item) => item.masterCode === "WDC42PG")).toBe(false);
+	    expect(pgwdc).toMatchObject({ id: 9390057, masterCode: "PGWDC42" });
 
-    const prices = await caller.design.priceForCabinetsByStyles({
-      pairs: [
-        { cabinetId: 9390174, styleId: 330007 },
-        { cabinetId: 9390057, styleId: 330007 },
-      ],
-      distributorId: 210001,
-    });
-    expect(prices.find((row) => row.cabinetId === 9390174)).toMatchObject({
-      listPrice: "682.12",
-      homeownerPrice: "427.70",
-    });
-    expect(prices.find((row) => row.cabinetId === 9390057)).toMatchObject({
-      listPrice: "338.39",
-      homeownerPrice: "212.17",
-    });
-  });
+	    const prices = await caller.design.priceForCabinetsByStyles({
+	      pairs: [
+	        { cabinetId: 9360151, styleId: 330007 },
+	        { cabinetId: 9390057, styleId: 330007 },
+	        { cabinetId: 9390175, styleId: 330007 },
+	      ],
+	      distributorId: 210001,
+	    });
+	    expect(prices.find((row) => row.cabinetId === 9390175)).toMatchObject({
+	      listPrice: "1020.52",
+	      homeownerPrice: "612.72",
+	    });
+	  });
 });

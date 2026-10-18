@@ -34,4 +34,17 @@ describe("glass corner catalog choices", () => {
     expect(buildGlassCornerCatalogChoices([base], [])).toEqual([]);
     expect(buildGlassCornerCatalogChoices([base], [cabinet("PGWDC42", 422, 42), cabinet("PG-WDC-42", 423, 42)])).toEqual([]);
   });
+
+  it("does not replace a separately cataloged included-glass WDC42PG cabinet with a synthetic door-only choice", () => {
+    const opaque = cabinet("WDC2442", 421, 42);
+    const includedGlass = {
+      ...cabinet("WDC42PG", 425, 42),
+      description: "Diagonal corner wall cabinet with plain glass included",
+      glassDoor: true,
+    };
+    const choices = buildGlassCornerCatalogChoices([opaque, includedGlass], [cabinet("PGWDC42", 422, 42)]);
+    expect(choices.map((choice) => choice.id)).toEqual([421]);
+    expect(choices[0]?.displayMasterCode).toBe("WDC2442GD");
+    expect(includedGlass.masterCode).toBe("WDC42PG");
+  });
 });

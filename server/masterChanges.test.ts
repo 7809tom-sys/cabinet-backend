@@ -53,6 +53,12 @@ describe("per-distributor cabinet config rule (shared helper)", () => {
     const parsed = parseDistributorCabinetConfig(JSON.stringify({ depth: "21", listPrice: "999" }));
     expect(parsed).toEqual({ depth: "21" });
   });
+  it("permits a source-verified cabinet-level glass policy without changing its shared identity", () => {
+    const master = { id: 9390175, masterCode: "WDC42PG", glassIncluded: false, listPrice: "1020.52" };
+    const parsed = parseDistributorCabinetConfig(JSON.stringify({ glassIncluded: true, listPrice: "0" }));
+    expect(parsed).toEqual({ glassIncluded: true });
+    expect(applyDistributorCabinetConfig(master, parsed)).toEqual({ ...master, glassIncluded: true });
+  });
   it("treats invalid JSON / invalid values as an empty rule", () => {
     expect(parseDistributorCabinetConfig("not json")).toEqual({});
     expect(parseDistributorCabinetConfig(null)).toEqual({});

@@ -25,7 +25,7 @@ import { COUNTERTOP_DEPTH_IN, DEFAULT_ROOM, STD, countertopRunFaceNormal, counte
 import { AEF_PRINTED_GEOMETRY_MARKER } from "@shared/aefFramelessGeometry";
 import { ovenOpeningGeometry } from "@/lib/ovenOpening";
 import { addThreeDCrownMolding, applyThreeDStructuralFinishMaterials, threeDStructuralSampleTexture } from "./InteractiveRoom3D";
-import { addThreeDProductionLightRig, normalizeThreeDPlanarUv, THREE_D_BACKSPLASH_TILE_SIZE_IN, threeDBacksplashSegments, threeDBacksplashSupportSpans, threeDBacksplashTileTextureTransform, threeDBacksplashTransform, threeDCountertopUpstandSegments, threeDCountertopSlabTextureTransform, threeDDoorFinishSurfaceProfile, threeDFlooringPatternProfile, threeDPhysicalSurfaceProfile, threeDPlankAtlasProfile, threeDProductMaterialSource, threeDProductSurfaceTextureTransform, threeDRenderQualityProfile, threeDSupportsBacksplash, threeDSurfaceImageCrop, threeDSurfaceTextureTransform } from "./InteractiveRoom3D";
+import { addThreeDProductionLightRig, normalizeThreeDPlanarUv, THREE_D_BACKSPLASH_TILE_SIZE_IN, threeDBacksplashSegments, threeDBacksplashSupportSpans, threeDBacksplashTileTextureTransform, threeDBacksplashTransform, threeDCabinetGrainTransform, threeDCountertopUpstandSegments, threeDCountertopSlabTextureTransform, threeDDoorFinishSurfaceProfile, threeDFlooringPatternProfile, threeDPhysicalSurfaceProfile, threeDPlankAtlasProfile, threeDProductMaterialSource, threeDProductSurfaceTextureTransform, threeDRenderQualityProfile, threeDSupportsBacksplash, threeDSurfaceImageCrop, threeDSurfaceTextureTransform } from "./InteractiveRoom3D";
 import type { PlacedCabinet, RoomData, WallOpening } from "@/lib/design";
 
 // The production default is intentionally push-to-open/no decorative hardware.
@@ -1923,6 +1923,19 @@ describe("interactive 3D room scene helpers", () => {
 	    expect(structuralGrain.wrapT).toBe(THREE.RepeatWrapping);
 	    expect(structuralGrain.repeat.toArray()).toEqual([1, 1]);
 	    expect(structuralGrain.offset.toArray()).toEqual([0, 0]);
+	  });
+
+	  it("gives each curated Hickory cabinet a stable, distinct source-grain crop without changing its vertical repeat", () => {
+	    const hickory = "/manus-storage/rustic_hickory_vertical_grain_32d9e28a.webp";
+	    const first = threeDCabinetGrainTransform("cab-hickory-a", hickory);
+	    const firstAgain = threeDCabinetGrainTransform("cab-hickory-a", hickory);
+	    const second = threeDCabinetGrainTransform("cab-hickory-b", hickory);
+	    expect(first).toEqual(firstAgain);
+	    expect(second).not.toEqual(first);
+	    expect(first.offsetX).toBeGreaterThan(0);
+	    expect(first.offsetX).toBeLessThan(1);
+	    expect(first.offsetY).toBeGreaterThan(0);
+	    expect(first.offsetY).toBeLessThan(1);
 	  });
 
 	  it("shares the owning cabinet's selected structural finish material with its crown molding", () => {

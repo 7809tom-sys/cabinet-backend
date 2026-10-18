@@ -530,8 +530,11 @@ export const designRouter = router({
         if (sub.includes("filler") || sub.includes("panel") || sub.includes("leg") || sub.includes("scribe")) return true;
         if (sub.includes("rail") || sub.includes("rope") || sub.includes("cove") || sub.includes("skin")) return true;
         // Replacement glass doors such as PGWDC42 are priced BOM accessories,
-        // not standalone cabinet boxes that can be dragged onto a wall.
-        if (/^(?:pgwdc|wdc\d+pg)/.test((r as { masterCode?: string | null }).masterCode?.toLowerCase() ?? "")) return true;
+        // not standalone cabinet boxes that can be dragged onto a wall. A
+        // complete WDC42PG is different: it is the source-priced diagonal wall
+        // cabinet with its plain glass door already included and must remain in
+        // the Corner palette.
+        if (/^pgwdc/.test((r as { masterCode?: string | null }).masterCode?.toLowerCase() ?? "")) return true;
         if (/glass door.*(?:fits|for)\s+(?:only\s+)?wdc|glass door sold separately/.test(desc)) return true;
         // Description-based fallback: items whose description contains trim keywords
         // but have no subCategory (e.g. ALRM, LRM, SCR, DCM, ICM, BF-*, BEP-*, etc.)

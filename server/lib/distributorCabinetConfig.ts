@@ -59,6 +59,8 @@ export const distributorCabinetConfigSchema = z
     specNotes: z.string().nullable(),
     facePattern: z.enum(["slats", "criss-cross", "lattice", "open"]).nullable(),
     glassDoorAddonCode: z.string().nullable(),
+    /** Source-specific glass policy for a cabinet that differs from its wider distributor line. */
+    glassIncluded: z.boolean().nullable(),
     isCornerCabinet: z.boolean().nullable(),
   })
   .partial();

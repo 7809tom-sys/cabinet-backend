@@ -56,6 +56,36 @@ export const THREE_D_PATH_TRACE_PREVIEW = {
  */
 export const THREE_D_PRODUCTION_HDRI_URL = "/manus-storage/photo_studio_01_1k_5f7e3d4e.hdr";
 
+/**
+ * Returns a stable UV offset for the curated Hickory material assigned to one
+ * saved cabinet placement. A placement UID is durable through save/load and
+ * moves, so a cabinet keeps its own wood figure without render-time randomness.
+ *
+ * The curated asset remains vertical at a 1:1 repeat. Only the source crop is
+ * shifted; cabinet geometry, door construction, and rail direction are not
+ * changed.
+ */
+export function threeDCabinetGrainTransform(
+  placementUid: string | null | undefined,
+  doorSampleUrl: string | null | undefined,
+): { offsetX: number; offsetY: number } {
+  const source = `${placementUid?.trim() || "legacy-cabinet"}|${doorSampleUrl?.trim() || "curated-grain"}`;
+  let hash = 2166136261;
+  for (let index = 0; index < source.length; index += 1) {
+    hash ^= source.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  const primary = hash >>> 0;
+  const secondary = Math.imul(primary ^ 0x9e3779b9, 2246822519) >>> 0;
+  // Keep both values away from an exact wrap seam. Hickory needs stronger
+  // horizontal variation and only a modest vertical shift to retain its grain
+  // direction and recognizable character.
+  return {
+    offsetX: 0.035 + (primary / 0xffffffff) * 0.93,
+    offsetY: 0.015 + (secondary / 0xffffffff) * 0.31,
+  };
+}
+
 /** Room wall meshes are Designer context only. They must never become part of
  * the locked cabinet-image crop that Gemini uses as its product-layout source. */
 export function photoReferenceRoomWallMeshes(scene: THREE.Scene): THREE.Mesh[] {
@@ -4292,10 +4322,14 @@ export function addCabinet(
 	    // The renderer already builds the saved door profile physically, so use only
 	    // the uninterrupted center finish grain as its material map.
 	    doorTexture.repeat.set(usesCuratedCabinetGrain ? 1 : 0.42, usesCuratedCabinetGrain ? 1 : 0.42);
-	    doorTexture.offset.set(usesCuratedCabinetGrain ? 0 : 0.29, usesCuratedCabinetGrain ? 0 : 0.29);
+	    const grainTransform = usesCuratedCabinetGrain
+	      ? threeDCabinetGrainTransform(sku.placementUid, doorSampleUrl)
+	      : null;
+	    doorTexture.offset.set(grainTransform?.offsetX ?? 0.29, grainTransform?.offsetY ?? 0.29);
 	    doorTexture.userData = {
 	      ...doorTexture.userData,
 	      curatedCabinetFinish: usesCuratedCabinetGrain,
+	      ...(grainTransform ? { cabinetGrainTransform: grainTransform, grainPlacementUid: sku.placementUid ?? "legacy-cabinet" } : {}),
 	      materialOnlyNoDoorGeometry: true,
 	    };
 	  }
