@@ -1,7 +1,7 @@
 import { COOKIE_NAME, ONE_YEAR_MS } from "@shared/const";
 import type { Express, Request, Response } from "express";
 import * as db from "../db";
-import { getSessionCookieOptions } from "./cookies";
+import { clearLegacyCabinetDealzParentSession, getSessionCookieOptions } from "./cookies";
 import { sdk } from "./sdk";
 import { resolveOAuthReturnPath } from "../oauthReturnPath";
 import { resolveAffiliateAdministrationDestination } from "../oauthAffiliateDestination";
@@ -61,6 +61,7 @@ export function registerOAuthRoutes(app: Express) {
       });
 
       const cookieOptions = getSessionCookieOptions(req);
+      clearLegacyCabinetDealzParentSession(req, res);
       res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: ONE_YEAR_MS });
 
 	      const returnPath = resolveOAuthReturnPath(state);

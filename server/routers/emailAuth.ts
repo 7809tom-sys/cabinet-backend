@@ -5,7 +5,7 @@ import { randomBytes } from "node:crypto";
 import { and, eq, gt, isNull } from "drizzle-orm";
 import { z } from "zod";
 import * as db from "../db";
-import { getSessionCookieOptions } from "../_core/cookies";
+import { clearLegacyCabinetDealzParentSession, getSessionCookieOptions } from "../_core/cookies";
 import { sdk } from "../_core/sdk";
 import { publicProcedure, router } from "../_core/trpc";
 import { emailSettings, passwordResetTokens, users } from "../../drizzle/schema";
@@ -33,6 +33,7 @@ async function setSessionCookie(
     { expiresInMs: ONE_YEAR_MS }
   );
   const cookieOptions = getSessionCookieOptions(ctx.req);
+  clearLegacyCabinetDealzParentSession(ctx.req, ctx.res);
   ctx.res.cookie(COOKIE_NAME, token, { ...cookieOptions, maxAge: ONE_YEAR_MS });
 }
 
@@ -217,6 +218,7 @@ export const emailAuthRouter = router({
   logout: publicProcedure.mutation(({ ctx }) => {
     const cookieOptions = getSessionCookieOptions(ctx.req);
     ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
+    clearLegacyCabinetDealzParentSession(ctx.req, ctx.res);
     return { success: true } as const;
   }),
 });

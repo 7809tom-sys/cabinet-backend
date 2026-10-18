@@ -53,6 +53,7 @@ function mockRes() {
       return res;
     },
     cookie: vi.fn(),
+    clearCookie: vi.fn(),
   };
   return { res, calls };
 }
@@ -98,11 +99,15 @@ describe("OAuth callback hardening", () => {
     const { res, calls } = mockRes();
 
     await handler(
-      { query: { code: "abc", state: "xyz" }, protocol: "https", headers: {} },
+      { query: { code: "abc", state: "xyz" }, protocol: "https", hostname: "www.cabinetdealz.com", headers: {} },
       res
     );
 
     expect(res.cookie).toHaveBeenCalledOnce();
+    expect(res.clearCookie).toHaveBeenCalledWith("app_session_id", expect.objectContaining({
+      domain: ".cabinetdealz.com",
+      maxAge: -1,
+    }));
     expect(calls.redirect?.[0]).toBe(302);
     expect(calls.redirect?.[1]).toBe("/");
   });

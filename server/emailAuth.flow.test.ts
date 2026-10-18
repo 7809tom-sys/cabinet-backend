@@ -7,17 +7,22 @@ import { eq } from "drizzle-orm";
 import { MAX_FAILED_ATTEMPTS } from "./routers/emailAuth.logic";
 
 /** A throwaway context that captures any cookie set/cleared during the call. */
-function makeCtx(): { ctx: TrpcContext; cookies: Array<{ name: string; value: string }> } {
+function makeCtx(hostname?: string): {
+  ctx: TrpcContext;
+  cookies: Array<{ name: string; value: string }>;
+  cleared: Array<{ name: string; options: Record<string, unknown> }>;
+} {
   const cookies: Array<{ name: string; value: string }> = [];
+  const cleared: Array<{ name: string; options: Record<string, unknown> }> = [];
   const ctx: TrpcContext = {
     user: null,
-    req: { protocol: "https", headers: {} } as TrpcContext["req"],
+    req: { protocol: "https", hostname, headers: {} } as TrpcContext["req"],
     res: {
       cookie: (name: string, value: string) => cookies.push({ name, value }),
-      clearCookie: () => {},
+      clearCookie: (name: string, options: Record<string, unknown>) => cleared.push({ name, options }),
     } as unknown as TrpcContext["res"],
   };
-  return { ctx, cookies };
+  return { ctx, cookies, cleared };
 }
 
 function uniqueEmail(prefix: string): string {
@@ -136,6 +141,39 @@ describe("emailAuth signup/login flow", () => {
         appRouter.createCaller(bad.ctx).emailAuth.login({ email, password: "WrongPassword" })
       ).rejects.toThrow();
       expect(bad.cookies.length).toBe(0);
+    } finally {
+      await cleanup(lower);
+    }
+  });
+
+  it("clears only the obsolete Cabinet Dealz parent-domain session after a successful password login", async () => {
+    const db = await getDb();
+    if (!db) return;
+    const email = uniqueEmail("legacy-parent-session");
+    const lower = email.toLowerCase();
+    try {
+      await appRouter.createCaller(makeCtx().ctx).emailAuth.signup({ email, password: "Right1Password" });
+
+      const login = makeCtx("www.cabinetdealz.com");
+      await appRouter.createCaller(login.ctx).emailAuth.login({ email, password: "Right1Password" });
+
+      expect(login.cookies).toHaveLength(1);
+      expect(login.cleared).toContainEqual(expect.objectContaining({
+        name: "app_session_id",
+        options: expect.objectContaining({
+          domain: ".cabinetdealz.com",
+          httpOnly: true,
+          path: "/",
+          secure: true,
+          sameSite: "none",
+          maxAge: -1,
+        }),
+      }));
+
+      const customAffiliateLogin = makeCtx("dealer.example.com");
+      await appRouter.createCaller(customAffiliateLogin.ctx).emailAuth.login({ email, password: "Right1Password" });
+      expect(customAffiliateLogin.cookies).toHaveLength(1);
+      expect(customAffiliateLogin.cleared).toHaveLength(0);
     } finally {
       await cleanup(lower);
     }

@@ -1,4 +1,5 @@
-import type { CookieOptions, Request } from "express";
+import type { CookieOptions, Request, Response } from "express";
+import { COOKIE_NAME } from "@shared/const";
 
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
 
@@ -44,4 +45,21 @@ export function getSessionCookieOptions(
     sameSite: "none",
     secure: isSecureRequest(req),
   };
+}
+
+/**
+ * Retire only the old `.cabinetdealz.com` session cookie. It can coexist with
+ * today's host-only cookie and be selected first by a browser, making a valid
+ * new sign-in look anonymous. Custom affiliate domains intentionally remain
+ * untouched so their sessions stay host-isolated.
+ */
+export function clearLegacyCabinetDealzParentSession(req: Request, res: Response) {
+  const hostname = (req.hostname || req.headers.host || "").split(":")[0]?.toLowerCase() ?? "";
+  if (hostname !== "cabinetdealz.com" && !hostname.endsWith(".cabinetdealz.com")) return;
+
+  res.clearCookie(COOKIE_NAME, {
+    ...getSessionCookieOptions(req),
+    domain: ".cabinetdealz.com",
+    maxAge: -1,
+  });
 }

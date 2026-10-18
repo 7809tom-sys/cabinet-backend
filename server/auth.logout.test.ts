@@ -29,6 +29,7 @@ function createAuthContext(): { ctx: TrpcContext; clearedCookies: CookieCall[] }
     user,
     req: {
       protocol: "https",
+      hostname: "www.cabinetdealz.com",
       headers: {},
     } as TrpcContext["req"],
     res: {
@@ -49,7 +50,7 @@ describe("auth.logout", () => {
     const result = await caller.auth.logout();
 
     expect(result).toEqual({ success: true });
-    expect(clearedCookies).toHaveLength(1);
+    expect(clearedCookies).toHaveLength(2);
     expect(clearedCookies[0]?.name).toBe(COOKIE_NAME);
     expect(clearedCookies[0]?.options).toMatchObject({
       maxAge: -1,
@@ -57,6 +58,13 @@ describe("auth.logout", () => {
       sameSite: "none",
       httpOnly: true,
       path: "/",
+    });
+    expect(clearedCookies[1]).toMatchObject({
+      name: COOKIE_NAME,
+      options: {
+        domain: ".cabinetdealz.com",
+        maxAge: -1,
+      },
     });
   });
 });
