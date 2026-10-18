@@ -675,6 +675,9 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   // switching responsive layouts never silently discards entered measurements.
   const [continuousWallDraft, setContinuousWallDraft] = useState<WallBuilderDraft | null>(null);
   const [selectedLayoutPresetId, setSelectedLayoutPresetId] = useState<string | null>(null);
+  // Fresh room layouts require a supply line and door style before cabinet
+  // placement begins. Saved plans restore their existing choices instead.
+  const [catalogSetupOpen, setCatalogSetupOpen] = useState(false);
   const [beginnerFirstCabinetGuideOpen, setBeginnerFirstCabinetGuideOpen] = useState(false);
   const [interactive3dOpen, setInteractive3dOpen] = useState(false);
   const [requestedThreeDPreview, setRequestedThreeDPreview] = useState(() => typeof window !== "undefined" && new URLSearchParams(window.location.search).get("preview") === "3d");
@@ -2196,6 +2199,12 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     const label = distributorNameById.get(nextDistributorId) ?? "that distributor";
     toast.info(`Showing ${label} — choose a door style for this line.`);
   }, [catalogDistributorScopeId, distributorNameById, placed.length, selectedStyleDistributorId, styleDistributorIdById, styleId, t]);
+  const handleRoomLayoutSelected = useCallback((layoutPresetId: string) => {
+    setSelectedLayoutPresetId(layoutPresetId);
+    setLayoutStarterOpen(false);
+    setBeginnerFirstCabinetGuideOpen(false);
+    setCatalogSetupOpen(true);
+  }, []);
   const activeSceneLayoutPresetId = selectedLayoutPresetId ?? "kitchen_l_standard";
   const hasPersistedRoomLayout = hasDesignedRoomGeometry(room);
   const hasPersistedTwoDPlan = hasPersistedRoomLayout || placed.length > 0 || openings.length > 0 || sinks.length > 0 || island != null || furniture.length > 0 || ponyWalls.length > 0;
@@ -18987,11 +18996,8 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                       setDrawMode(false);
                       setMeasureMode(false);
                     }}
-	                    onLayoutSelected={(layoutPresetId) => {
-	                      setSelectedLayoutPresetId(layoutPresetId);
-	                      toast.success("Room shape applied. Choose cabinets from your active catalog to continue.");
-	                    }}
-	                    onBeginnerRoomApplied={() => setBeginnerFirstCabinetGuideOpen(true)}
+              onLayoutSelected={handleRoomLayoutSelected}
+              onBeginnerRoomApplied={() => setBeginnerFirstCabinetGuideOpen(false)}
 	                  />
                   {selectedLayoutPresetId ? (
                     <Button className="mt-3 w-full" variant="outline" onClick={() => { setMobilePanel(null); setViewMode("threeD"); }} disabled={!canLoadInteractive3d || interactive3dLoading}>
@@ -19489,14 +19495,80 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                 setDrawMode(false);
                 setMeasureMode(false);
               }}
-	              onLayoutSelected={(layoutPresetId) => {
-	                setSelectedLayoutPresetId(layoutPresetId);
-	                setLayoutStarterOpen(false);
-	                toast.success("Room shape applied. Choose cabinets from your active catalog to continue.");
-	              }}
-	              onBeginnerRoomApplied={() => setBeginnerFirstCabinetGuideOpen(true)}
+	              onLayoutSelected={handleRoomLayoutSelected}
+	              onBeginnerRoomApplied={() => setBeginnerFirstCabinetGuideOpen(false)}
 	            />
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={catalogSetupOpen} onOpenChange={(open) => { if (open) setCatalogSetupOpen(true); }}>
+        <DialogContent
+          data-testid="fresh-room-catalog-setup"
+          className="max-w-lg"
+          onPointerDownOutside={(event) => event.preventDefault()}
+          onInteractOutside={(event) => event.preventDefault()}
+        >
+          <DialogHeader>
+            <DialogTitle className="font-serif text-xl">Set up your cabinet catalog</DialogTitle>
+            <DialogDescription>
+              Your room is ready. Choose the cabinet distributor first, then choose the door style before placing anything in the design.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5" data-testid="fresh-room-distributor-step">
+              <Label htmlFor="fresh-room-distributor">1. Cabinet distributor</Label>
+              <Select
+                value={catalogDistributorId == null ? "" : String(catalogDistributorId)}
+                onValueChange={(value) => chooseCatalogDistributor(Number(value))}
+              >
+                <SelectTrigger id="fresh-room-distributor" className="h-11" aria-label="Choose cabinet distributor">
+                  <Building2 className="mr-2 h-4 w-4 text-[#a87f33]" />
+                  <SelectValue placeholder="Choose a distributor" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(distributorLabels ?? []).map((distributor) => (
+                    <SelectItem key={distributor.id} value={String(distributor.id)}>{distributor.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {(distributorLabels ?? []).length === 0 && <p className="text-xs text-muted-foreground">Loading available cabinet distributors…</p>}
+            </div>
+            <div className="space-y-1.5" data-testid="fresh-room-door-style-step">
+              <Label htmlFor="fresh-room-door-style">2. Door style and finish</Label>
+              <Select
+                value={styleId == null ? "" : String(styleId)}
+                onValueChange={(value) => setSlotStyle("A", Number(value))}
+                disabled={catalogDistributorId == null || displayUniqueDoorStyles.length === 0}
+              >
+                <SelectTrigger id="fresh-room-door-style" className="h-11" aria-label="Choose door style" disabled={catalogDistributorId == null || displayUniqueDoorStyles.length === 0}>
+                  <Palette className="mr-2 h-4 w-4 text-[#a87f33]" />
+                  <SelectValue placeholder={catalogDistributorId == null ? "Choose a distributor first" : "Choose a door style"} />
+                </SelectTrigger>
+                <SelectContent className="max-h-[min(65vh,26rem)]">
+                  {displayUniqueDoorStyles.map((style) => (
+                    <SelectItem key={style.id} value={String(style.id)}>{affiliateStyleName(style)}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {catalogDistributorId != null && displayUniqueDoorStyles.length === 0 && <p className="text-xs text-amber-700">No door styles are currently available for this distributor.</p>}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              className="w-full bg-[#a87f33] text-white hover:bg-[#8f6b29]"
+              disabled={catalogDistributorId == null || styleId == null}
+              onClick={() => {
+                setCatalogSetupOpen(false);
+                setPaletteType("base");
+                if (panelDrawerMode) setMobilePanel("catalog");
+                toast.success("Catalog ready. Choose a cabinet to begin your design.");
+              }}
+            >
+              Continue to cabinet catalog
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
