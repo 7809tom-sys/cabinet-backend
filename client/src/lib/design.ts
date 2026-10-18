@@ -8234,8 +8234,15 @@ export function freeSegmentsOnWall(
       const sourceLength = sourceFrame.length;
       const sourceStart = wallRunOffset(p, assignedWall, room);
       const sourceEnd = sourceStart + wallRunSpan(p, assignedWall, room);
-      const atSourceStart = sourceStart <= 2;
-      const atSourceEnd = sourceEnd >= sourceLength - 2;
+      // A configured BBC stays at the same room corner even when its blind
+      // portion is deliberately pulled 3–6 inches along its owning wall. Its
+      // full 24-inch adjoining leg must still reserve the adjacent run;
+      // otherwise a false 0–24-inch opening invites a DW-24 into the BBC body.
+      const cornerSeatTolerance = isBaseBlindCorner(p)
+        ? Math.max(2, blindPullRange(p)?.max ?? 0)
+        : 2;
+      const atSourceStart = sourceStart <= cornerSeatTolerance;
+      const atSourceEnd = sourceEnd >= sourceLength - cornerSeatTolerance;
       for (const at of ["start", "end"] as const) {
         const join = wallRunJoinAt(frame, at, room);
         if (!join || join.frame.id !== sourceFrame.id) continue;
