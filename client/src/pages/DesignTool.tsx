@@ -122,7 +122,7 @@ import {
 		  normalizeLCornerDepths, normalizeBlindCornerDoorSides, blindCornerPullPlacement, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation, refrigeratorBayRunMetrics, refrigeratorMagneticSnapEnvelope, fitExplicitRefrigeratorOptionPlacements, commitIndependentCabinetCandidate, commitConfiguredRefrigeratorCandidate, isMicrowaveOverRangePair,
 	  conflictingUids, blindCornerViolations, blindCornerSpecViolations, ceilingFitViolations, roomCeiling, inchesToFeetInches, isBlindCorner, BLIND_CORNER_FILLER_WIDTH_IN, blindPullRange, isOnIsland, isCornerCabinet, isAngledWallCabinet, isProtectedCornerCabinet, requiresRoomCornerPlacement, missingCornerBaseViolations,
 	  isSinkBaseCabinet, isFarmSinkBasePaletteItem, fixtureBelongsToCabinet, fixtureIsOnCabinetFootprint, placedFootprint, hasCollision, cabinetCollisionDetail, COLLISION_EPSILON_IN, CABINET_CONFLICT_LOCK_IN, nearestCollisionFreeMountBottom, collisionReason, wallCabinetFitMeasure, wallCabinetPlacementReason, cabinetWallRunSegment, compatibleWallCabinetAlternatives, snapCabinetSeamOverlap, shouldBlockPlacementCollision, appendCollisionFreePlacements, appendRefrigeratorEnclosurePlacements, removeOverlappingPlacements, effectiveStyleId, pricingStyleId, rebaseFormerDefaultStyleOverrides, clearForeignSavedStyleOverrides, distinctStyleIds, isMixedFinish, paletteActiveWallPlacement, refrigeratorAdjacentOpeningPlacement, nextAvailableRoomCornerPlacement, nextAvailablePeninsulaCornerPlacement, cabinetCornerPlacementInfo, blindCornerSnapInfo, wallCabinetVerticalMoveLimit, repairWallCabinetPlanSeamForVerticalMove, selectedSinkBaseWallPlacement, sinkBaseWindowPlacement, selectedLowerCabinetWallPlacement, selectedCornerBaseWallPlacement, matchingLowerCabinetWallPlacement, snapWallCabinetToOwningWall, normalizeStandardWallMounts,
-		  isPlaceableAccessory, accessoryPlacement, isPanelItem, isFillerItem, adjacentCabinetForFiller, matchInstalledFillerToCabinet, isFloatingShelfItem, isWallOpenShelfCabinet, isKneeDrawerItem, kitchenCrestGenericOpenEndShelfCount, KNEE_DRAWER_MIN_MOUNT_BOTTOM_IN, KNEE_DRAWER_MAX_MOUNT_BOTTOM_IN, fillerWidthRange, alternateWallPlacementRecommendation, PENINSULA_INSIDE_CORNER_CLEARANCE_IN,
+  		  isPlaceableAccessory, accessoryPlacement, isPanelItem, isDishwasherPanel, normalizeDishwasherPanelPlacement, isFillerItem, adjacentCabinetForFiller, matchInstalledFillerToCabinet, isFloatingShelfItem, isWallOpenShelfCabinet, isKneeDrawerItem, kitchenCrestGenericOpenEndShelfCount, KNEE_DRAWER_MIN_MOUNT_BOTTOM_IN, KNEE_DRAWER_MAX_MOUNT_BOTTOM_IN, fillerWidthRange, alternateWallPlacementRecommendation, PENINSULA_INSIDE_CORNER_CLEARANCE_IN,
   resolveSwing, cycleSwing, swingText, hasDoorSwing, DoorSwing, resolveCabinetHardwarePosition, cabinetHardwarePositionPatch, isCabinetDoorHardwareEligible, applyCabinetDoorHardwareToAll, supportsCenteredTopDoorPull, requiresCenteredTopDoorPull, usesRaisedFloorWallDoorPull, isWd18CountertopDrawerCabinet, normalizeWd18CountertopMounts, ordinaryWallMountBottom,
   // (closet helpers imported separately below)
   APPLIANCES, applianceAsDesignCabinet, appliancesForRoom, ROOM_TYPES, type RoomType,
@@ -3763,9 +3763,10 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       const rawPlaced = Array.isArray(d.placed) ? d.placed : [];
       const normalizedPlaced = rawPlaced.map((p) => {
 	        const shelf = normalizeWallOpenShelfPlacement(normalizeFloatingShelfPlacement(p));
-	        return isApplianceCode(shelf.masterCode ?? "") && shelf.placement !== "appliance"
-	          ? { ...shelf, placement: "appliance" as const }
-	          : shelf;
+	        const normalizedPanel = normalizeDishwasherPanelPlacement(shelf);
+	        return isApplianceCode(normalizedPanel.masterCode ?? "") && normalizedPanel.placement !== "appliance"
+	          ? { ...normalizedPanel, placement: "appliance" as const }
+	          : normalizedPanel;
       });
       const cooktopConversion = convertLegacyCooktopPlacements(
         normalizedPlaced,
@@ -5611,7 +5612,9 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       // filter surfaces them from the Base tab. They must never inherit a base
       // run, an island face, or a room-center fallback from that filter state.
       const isAccessory = ((forceAccessory || paletteType === "accessory" || paletteType === "panel") && isPlaceableAccessory(c)) || isFloatingShelf || isWallOpenShelf;
-      const accPlacement = isFloatingShelf || isWallOpenShelf ? "wall" : isAccessory ? accessoryPlacement(c) : c.placement;
+      const accPlacement = isDishwasherPanel(c)
+        ? "base"
+        : isFloatingShelf || isWallOpenShelf ? "wall" : isAccessory ? accessoryPlacement(c) : c.placement;
       if (!glassCabinetPlacementAllowed({ ...c, placement: accPlacement })) {
         const message = `${c.masterCode} is a glass-front cabinet and can only be placed as a wall cabinet or wall stacker.`;
         setPlacementWarning(message);
@@ -6096,6 +6099,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
             ? Math.max(4, Math.min(roomCeiling(room) - height, 84 - height))
             : ordinaryWallMountBottom({ ...c, placement: accPlacement, height }) } : {}),
 	        ...(accPlacement === "appliance" && (c as any).mountBottom != null ? { mountBottom: Number((c as any).mountBottom) } : {}),
+	        ...(isDishwasherPanel(c) ? { mountBottom: 0, mountBottomAdjusted: false } : {}),
 	        ...(isWd18CountertopDrawerCabinet({ masterCode: c.masterCode, placement: accPlacement }) ? { mountBottom: STD.COUNTERTOP_HEIGHT } : {}),
 		        ...(stackerMountBottom != null ? { mountBottom: stackerMountBottom } : {}),
 		        ...(stackerParentUid ? { stackedOnCabinetUid: stackerParentUid, depthPositionAdjusted: true } : {}),
@@ -9831,6 +9835,9 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	    };
 	    if (!cabinet) return blocked("The selected cabinet is no longer in this design. Select it again and retry the move.");
 	    if (cabinet.locked) return blocked(`${cabinet.masterCode} is locked — unlock it before moving.`);
+	    if (isDishwasherPanel(cabinet) && (direction === "up" || direction === "down")) {
+	      return blocked(`${cabinet.masterCode} is a dishwasher/base end panel and must remain on the ground level (no more than 1/3 inch above the floor).`);
+	    }
 		    const requiredFillerGroupId = requiredBlindCornerFillerGroupId(cabinet);
 		    const placedWithoutLinkedFiller = prev.filter(
 		      (item) => item.fillerPieceGroupId !== requiredFillerGroupId,
@@ -11278,12 +11285,13 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
           if (d.room) setRoom(d.room);
           if (Array.isArray(d.placed)) {
             // Normalize appliance placement (same fix as loadSavedDesign)
-	            const normalizedDraft = (d.placed as PlacedCabinet[]).map((p) => {
-	              const shelf = normalizeWallOpenShelfPlacement(normalizeFloatingShelfPlacement(p));
-	              return isApplianceCode(shelf.masterCode ?? "") && shelf.placement !== "appliance"
-	                ? { ...shelf, placement: "appliance" as const }
-	                : shelf;
-	            });
+            const normalizedDraft = (d.placed as PlacedCabinet[]).map((p) => {
+              const shelf = normalizeWallOpenShelfPlacement(normalizeFloatingShelfPlacement(p));
+              const normalizedPanel = normalizeDishwasherPanelPlacement(shelf);
+              return isApplianceCode(normalizedPanel.masterCode ?? "") && normalizedPanel.placement !== "appliance"
+                ? { ...normalizedPanel, placement: "appliance" as const }
+                : normalizedPanel;
+            });
             const draftCooktopConversion = convertLegacyCooktopPlacements(
               normalizedDraft,
               ((autoFillCabinets as DesignCabinet[] | undefined) ?? []),

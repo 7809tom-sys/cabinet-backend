@@ -44,6 +44,39 @@ export function isPanelItem(c: { description?: string | null; masterCode?: strin
   return /\bpanel\b|\bskin\b|end panel|dishwasher panel|refrigerator panel|decorative panel/.test(hay);
 }
 
+/** Base end/dishwasher panels are floor-level flat stock, not decorative or refrigerator skins. */
+export function isDishwasherPanel(c: {
+  description?: string | null;
+  masterCode?: string | null;
+  subCategory?: string | null;
+}): boolean {
+  const hay = `${c.subCategory ?? ""} ${c.description ?? ""} ${c.masterCode ?? ""}`.toLowerCase();
+  if (/refrigerator|decorative/.test(hay)) return false;
+  const code = `${c.masterCode ?? ""}`.replace(/[^a-z0-9]/gi, "").toUpperCase();
+  return /^DW(?:EP|PANEL)$/.test(code)
+    || /dishwasher\s*(?:end\s*)?panel|\bdw\s*[-_ ]?(?:end\s*)?panel\b|\bbase\s+end\s+panel\b/.test(hay);
+}
+
+export const DISHWASHER_PANEL_MAX_MOUNT_BOTTOM_IN = 1 / 3;
+
+/** Enforce the physical installation envelope on new and restored DW panels. */
+export function normalizeDishwasherPanelPlacement<T extends {
+  placement: Placement;
+  mountBottom?: number | null;
+  mountBottomAdjusted?: boolean;
+} & {
+  description?: string | null;
+  masterCode?: string | null;
+  subCategory?: string | null;
+}>(item: T): T {
+  if (!isDishwasherPanel(item)) return item;
+  const requestedBottom = Number(item.mountBottom);
+  const mountBottom = Number.isFinite(requestedBottom)
+    ? Math.max(0, Math.min(DISHWASHER_PANEL_MAX_MOUNT_BOTTOM_IN, requestedBottom))
+    : 0;
+  return { ...item, placement: "base", mountBottom, mountBottomAdjusted: mountBottom > 0 };
+}
+
 /** Full-height refrigerator enclosure panels are architectural skins, never cabinet fronts. */
 export function isRefrigeratorEndPanel(c: {
   description?: string | null;
@@ -427,6 +460,7 @@ export function accessoryPlacement(c: {
 }): Placement {
   const hay = `${c.subCategory ?? ""} ${c.description ?? ""} ${c.masterCode ?? ""}`.toLowerCase();
   if (isKneeDrawerItem(c)) return "baseTop";
+  if (isDishwasherPanel(c)) return "base";
   if (/appliance garage|\bag-?\d/.test(hay)) return "wall";
   if (isFloatingShelfItem(c) || isWallOpenShelfCabinet(c)) return "wall";
   if (/wall ?skin|\bws\b|wall panel|refrigerator panel/.test(hay)) return "wall";

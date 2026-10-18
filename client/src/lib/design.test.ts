@@ -30,7 +30,7 @@ import {
   resolveSwing, cycleSwing, swingLabel, swingText, hasDoorSwing, type DoorSwing,
   isCustomWidth, isCustomHeight, isCustomDepth, isCustomSize, customSizeNote, customSizeFee, CUSTOM_SIZE_FEE, dimLabel,
 		  cabinetAttrNote, cabinetHardwarePositionPatch, isCabinetDoorHardwareEligible, applyCabinetDoorHardwareToAll, cabinetWallDragPreview, cabinetWallMovePreview, isWallRunDraggable, wallGapFreehandPreview, roomWithPersistedEntities, potFillerMountedRange, restoredSavedDesignStyle, clearForeignSavedStyleOverrides, pricingStyleId, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation,
-	  type PlacedCabinet, type RoomData, type WallOpening, isFillerItem, fillerWidthRange, normalizeFloatingShelfPlacement, normalizeWallOpenShelfPlacement, isFloatingShelfItem, isWallOpenShelfCabinet, isKneeDrawerItem, isPlaceableAccessory, accessoryPlacement, kitchenCrestGenericOpenEndShelfCount,
+  	  type PlacedCabinet, type RoomData, type WallOpening, isFillerItem, fillerWidthRange, normalizeFloatingShelfPlacement, normalizeWallOpenShelfPlacement, isFloatingShelfItem, isWallOpenShelfCabinet, isKneeDrawerItem, isPlaceableAccessory, accessoryPlacement, kitchenCrestGenericOpenEndShelfCount, isDishwasherPanel, normalizeDishwasherPanelPlacement,
 } from "./design";
 
 const ROOM_12x10: RoomData = { width: 144, depth: 120 };
@@ -4548,6 +4548,37 @@ describe("accessory placement (item 5: accessories into the drawing)", () => {
   });
 });
 
+describe("dishwasher/base end panel placement", () => {
+  it("identifies dishwasher end panels without misclassifying decorative or refrigerator panels", () => {
+    expect(isDishwasherPanel({ masterCode: "DWEP", description: "Dishwasher End Panel" })).toBe(true);
+    expect(isDishwasherPanel({ masterCode: "BDEP", description: "Base Decorative End Panel" })).toBe(false);
+    expect(isDishwasherPanel({ masterCode: "REPV2496", description: "Refrigerator End Panel" })).toBe(false);
+  });
+
+  it("normalizes a stale elevated dishwasher panel onto the base layer at floor level", () => {
+    const elevated: PlacedCabinet = {
+      uid: "dw-panel", cabinetId: 10, masterCode: "DWEP", description: "Dishwasher End Panel",
+      category: "Panel", subCategory: "Dishwasher End Panel", placement: "wall", x: 24, y: 0,
+      width: 24, depth: 0.75, height: 34.5, mountBottom: 18, rotation: 0,
+      numberOfDoors: 0, numberOfDrawers: 0,
+    };
+    expect(normalizeDishwasherPanelPlacement(elevated)).toMatchObject({
+      placement: "base",
+      mountBottom: 1 / 3,
+      mountBottomAdjusted: true,
+    });
+  });
+
+  it("does not allow a dishwasher panel to remain elevated, even at one-third inch", () => {
+    const panel: PlacedCabinet = {
+      uid: "dw-panel-valid", cabinetId: 11, masterCode: "DW-PANEL", description: "Base End Panel",
+      category: "Panel", subCategory: "Dishwasher Panel", placement: "base", x: 0, y: 0,
+      width: 24, depth: 0.75, height: 34.5, mountBottom: 0.33, rotation: 0,
+      numberOfDoors: 0, numberOfDrawers: 0,
+    };
+    expect(normalizeDishwasherPanelPlacement(panel)).toMatchObject({ placement: "base", mountBottom: 0.33, mountBottomAdjusted: true });
+  });
+});
 describe("filler identity", () => {
   it("recognizes both compact F342 and FILL-3 catalog codes as trimmable fillers", () => {
     expect(isFillerItem({ masterCode: "F342", description: '3" x 42" Filler' })).toBe(true);
