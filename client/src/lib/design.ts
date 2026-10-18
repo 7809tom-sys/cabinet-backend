@@ -2709,12 +2709,15 @@ export function rotatedSize(p: PlacedCabinet): { w: number; d: number } {
 // lazy-Susan stored as 36x24); squaring here makes both old and new placements
 // render correctly without a data migration. Non-corner cabinets fall back to
 // the plain rotated size.
-// Standard square box side for an L-corner cabinet, by placement. Every L-corner
-// cabinet (easy-reach, lazy-Susan, blind) is rendered with the SAME footprint as
-// the Corner Drawer Base (CDB-36): a 36" square for base/tall, 24" for wall —
-// regardless of the unit's nominal width (a 33" ERB still draws as a 36" box).
-export function lCornerBoxSide(placement: Placement): number {
-  return placement === "wall" ? 24 : 36;
+// A true L or diagonal corner needs a square plan box, but that square is the
+// selected catalog item's actual installed span on each wall. A 33-inch ERB or
+// Lazy Susan therefore owns 33 inches on both runs—not a generic 36-inch CDB
+// reservation. Only malformed legacy records fall back to the normal corner
+// dimensions for their placement bucket.
+export function lCornerBoxSide(p: Pick<PlacedCabinet, "width" | "placement">): number {
+  const sourceWidth = Number(p.width);
+  if (Number.isFinite(sourceWidth) && sourceWidth > COLLISION_EPSILON_IN) return sourceWidth;
+  return p.placement === "wall" ? 24 : 36;
 }
 
 /**
@@ -2762,7 +2765,7 @@ export function placedFootprint(p: PlacedCabinet): { w: number; d: number } {
   // classifier above is deliberately the only source of this decision for both
   // PlanCanvas and the deterministic 3D renderer.
   if (cornerKind === "diagonal" || cornerKind === "l-shape" || cornerKind === "corner-drawer") {
-    const side = lCornerBoxSide(p.placement);
+    const side = lCornerBoxSide(p);
     return { w: side, d: side };
   }
   if (cornerKind === "blind-corner") {
@@ -2797,7 +2800,7 @@ export function normalizeLCornerDepths(placed: PlacedCabinet[]): PlacedCabinet[]
   let changed = false;
   const next = placed.map((p) => {
     if (!isLCornerCabinet(p.masterCode, p.description)) return p;
-    const side = lCornerBoxSide(p.placement);
+    const side = lCornerBoxSide(p);
     if (p.depth === side && p.width === side) return p;
     changed = true;
     return { ...p, width: side, depth: side };
@@ -5766,10 +5769,11 @@ export function cornerLegRatioForPlaced(p: {
   width: number;
   placement: Placement;
 }): number {
-  // Use the SAME standard square box as the footprint (36" base / 24" wall) so the
-  // notch matches the Corner Drawer Base exactly: 24/36 = 0.667 for every base
-  // L-corner cabinet regardless of nominal width, 12/24 = 0.5 for wall.
-  const box = lCornerBoxSide(p.placement);
+  // The plan box is the source-backed nominal span of this exact corner
+  // cabinet. Its physical legs remain the standard 24-inch base/tall or
+  // 12-inch wall depth, so a 33-inch ERB keeps a 24/33 ratio and a 9-inch
+  // interior notch rather than inheriting a 36-inch cabinet's footprint.
+  const box = lCornerBoxSide(p);
   const legDepth = p.placement === "wall" ? STD.WALL_DEPTH : STD.BASE_DEPTH;
   const ratio = legDepth / box;
   return Math.max(0.3, Math.min(0.95, ratio));

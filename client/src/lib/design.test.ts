@@ -2416,6 +2416,40 @@ describe("freeSegmentsOnWall (break the run around openings)", () => {
     expect(nextAvailableRoomCornerPlacement(wdc, "top", ROOM_12x10, occupied)).toBeNull();
   });
 
+  it("seats ERB33 beside a Four-anchor appliance exactly 33 inches from the shared corner, while ERB36 remains blocked", () => {
+    const rightRunAnchor = cab({
+      uid: "four-anchor-right-run-range",
+      masterCode: "RANGE-30",
+      description: "30 inch Range",
+      placement: "appliance",
+      applianceRole: "base-height",
+      x: ROOM_12x10.width - 24,
+      y: 33,
+      width: 24,
+      depth: 24,
+      height: 36,
+      mountBottom: 0,
+      rotation: 90,
+      wallId: "right",
+      wallOffset: 33,
+    });
+    const erb33 = cab({
+      uid: "four-anchor-erb33",
+      masterCode: "ERB33",
+      description: '33" Easy Reach Base Cabinet with Lazy Susan',
+      placement: "base",
+      width: 33,
+      depth: 24,
+      height: 34.5,
+    });
+    const erb36 = { ...erb33, uid: "four-anchor-erb36", masterCode: "ERB36", width: 36, description: '36" Easy Reach Base Cabinet with Lazy Susan' };
+
+    expect(placedFootprint(erb33)).toEqual({ w: 33, d: 33 });
+    expect(nextAvailableRoomCornerPlacement(erb33, "top", ROOM_12x10, [rightRunAnchor], { x: ROOM_12x10.width, y: 0 }))
+      .toMatchObject({ x: 111, y: 0, rotation: 90, wallId: "right", wallOffset: 0 });
+    expect(nextAvailableRoomCornerPlacement(erb36, "top", ROOM_12x10, [rightRunAnchor], { x: ROOM_12x10.width, y: 0 })).toBeNull();
+  });
+
   it("places a normal W-30-42 in the first valid upper opening to the right of a full-height refrigerator", () => {
     const leftUpper = cab({ uid: "left-upper", masterCode: "W-24-42", placement: "wall", x: 0, y: 0, width: 24, depth: 12, height: 42 });
     const refrigerator = cab({ uid: "fridge", masterCode: "FRIDGE-36", description: "36 inch Refrigerator", placement: "appliance", x: 42, y: 0, width: 36, depth: 30, height: 70 });
@@ -3838,9 +3872,8 @@ describe("lazy-Susan / L-corner footprint", () => {
   it("keeps a 24\" leg on each wall: notch ratio = legDepth / boxWidth", () => {
     // 36" lazy-Susan: 24/36 = 0.667 -> inner 12x12 notch
     expect(cornerLegRatioForPlaced({ width: 36, placement: "base" })).toBeCloseTo(24 / 36, 3);
-    // Every base L-corner cabinet uses the SAME standard 36" box as the Corner
-    // Drawer Base, so a 33" unit also keeps 24/36 = 0.667 (not 24/33).
-    expect(cornerLegRatioForPlaced({ width: 33, placement: "base" })).toBeCloseTo(24 / 36, 3);
+    // ERB33 keeps its true 33-inch square plan box: 24/33 = 0.727 -> 9x9 notch.
+    expect(cornerLegRatioForPlaced({ width: 33, placement: "base" })).toBeCloseTo(24 / 33, 3);
     // Wall corner uses the 12" wall depth.
     expect(cornerLegRatioForPlaced({ width: 24, placement: "wall" })).toBeCloseTo(12 / 24, 3);
   });
@@ -3862,13 +3895,14 @@ describe("lazy-Susan / L-corner footprint", () => {
     expect(fp.d).toBe(36); // squared, NOT the stale 24
   });
 
-  it("placedFootprint draws every base L-corner as the standard 36\" Corner Drawer Base box", () => {
-    // A 33" lazy-Susan is DRAWN with the same 36" square footprint + notch as the
-    // Corner Drawer Base (CDB-36), regardless of its nominal width or rotation.
-    const rotated = cab({ masterCode: "LSB33", description: '33" Base Lazy Susan Cabinet', width: 33, depth: 24, rotation: 90 });
+  it("placedFootprint keeps a source-priced 33-inch L-corner at its actual square span", () => {
+    // ERB33 occupies a 33-by-33 plan box with actual 24-inch cabinet legs. It
+    // must not inherit a 36-inch CDB reservation and consume three imaginary
+    // inches on both adjoining measured wall runs.
+    const rotated = cab({ masterCode: "ERB33", description: '33" Easy Reach Base Cabinet with Lazy Susan', width: 33, depth: 24, rotation: 90 });
     const fp = placedFootprint(rotated);
-    expect(fp.w).toBe(36);
-    expect(fp.d).toBe(36);
+    expect(fp.w).toBe(33);
+    expect(fp.d).toBe(33);
   });
 
   it("derives a WDC2430 diagonal wall footprint from the same shared corner classifier used by 3D", () => {
