@@ -6924,8 +6924,9 @@ export interface BlindAutoFillerResult {
 // When a blind corner is seated in a room corner, the mandatory 3-inch filler
 // belongs on the PERPENDICULAR adjoining run at the BBC's exposed front edge.
 // That clearance keeps the next cabinet's door, drawer, and handles from
-// striking the blind-corner front. The filler follows a 3-6 inch perpendicular
-// BBC pull so it continues to butt the cabinet after a depth-position move.
+// striking the blind-corner front. The filler remains fixed at that same
+// corner-wall distance while the BBC itself pulls 3-6 inches along its owning
+// wall; the pull never moves, widens, or replaces the required filler.
 export function blindCornerAutoFiller(
   blind: PlacedCabinet,
   room: RoomData,

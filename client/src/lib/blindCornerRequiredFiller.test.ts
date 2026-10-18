@@ -134,6 +134,14 @@ describe("mandatory BBC filler", () => {
 	    expect(result.filler).toMatchObject({ x: 0, y: 27, width: 3, depth: 24, cabinetId: 501, masterCode: "BF-3" });
 	  });
 
+  it.each([3, 4, 5, 6])("keeps the required filler fixed at the corner while a top-wall BBC pulls %i inches along its own wall", (pull) => {
+    const cabinet = bbc({ x: pull, y: 0, blindPull: pull, wallId: "top", wallOffset: pull });
+    const result = buildRequiredBlindCornerFiller(cabinet, room, fillerCatalog, () => `fixed-${pull}`, 330011);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.filler).toMatchObject({ x: 0, y: 24, rotation: 90, width: 3, depth: 24 });
+  });
+
   it("fills exactly between the BBC open front and the adjoining cabinet with edge contact and zero physical overlap", () => {
     const cabinet = bbc({ x: 0, y: 3, rotation: 0 });
     const result = buildRequiredBlindCornerFiller(cabinet, room, fillerCatalog, () => "between", 330011);

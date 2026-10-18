@@ -735,6 +735,19 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     /** Cabinet whose resolved color/finish should be copied onto this filler. */
     finishSourceUid: string;
   } | null>(null);
+  const [blindCornerPullPrompt, setBlindCornerPullPrompt] = useState<{
+    cabinet: DesignCabinet;
+    x?: number;
+    y?: number;
+    forceAccessory: boolean;
+    rotation: number;
+    strictDropTarget: boolean;
+    targetCabinetUid?: string | null;
+    targetIslandFace?: IslandFace | null;
+    forceBackDepthAdjustment: boolean;
+    resolvedWallTarget?: { wallId: WallSide; wallOffset: number; peninsulaSide?: PeninsulaCabinetSide };
+    pullText: string;
+  } | null>(null);
   useEffect(() => {
     setSmallGapFillerCustomWidth(smallGapFillerPrompt?.remaining ?? null);
     setSmallGapFillerPreviewMode(smallGapFillerPrompt ? automaticSmallGapFillerMode(smallGapFillerPrompt) : null);
@@ -5718,7 +5731,28 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   }, [openings, room]);
 
   const addCabinet = useCallback(
-    (c: DesignCabinet, x?: number, y?: number, forceAccessory = false, rotation = 0, strictDropTarget = false, targetCabinetUid?: string | null, targetIslandFace?: IslandFace | null, forceBackDepthAdjustment = false, resolvedWallTarget?: { wallId: WallSide; wallOffset: number; peninsulaSide?: PeninsulaCabinetSide }) => {
+    (c: DesignCabinet, x?: number, y?: number, forceAccessory = false, rotation = 0, strictDropTarget = false, targetCabinetUid?: string | null, targetIslandFace?: IslandFace | null, forceBackDepthAdjustment = false, resolvedWallTarget?: { wallId: WallSide; wallOffset: number; peninsulaSide?: PeninsulaCabinetSide }, blindPullOverride?: number) => {
+      // A blind corner’s pull is an installation choice, not a hidden default.
+      // Ask before committing either the BBC/WBC or its mandatory linked filler;
+      // Cancel therefore leaves the plan exactly as it was.
+      if (isBlindCorner(c.masterCode, c.description) && blindPullOverride == null) {
+        const range = blindPullRange({ pullMin: c.pullMin ?? null, pullMax: c.pullMax ?? null }) ?? { min: 3, max: 6 };
+        setBlindCornerPullPrompt({
+          cabinet: c,
+          x,
+          y,
+          forceAccessory,
+          rotation,
+          strictDropTarget,
+          targetCabinetUid,
+          targetIslandFace,
+          forceBackDepthAdjustment,
+          resolvedWallTarget,
+          pullText: String(range.max),
+        });
+        setMobilePanel(null);
+        return;
+      }
       // Debounce guard: block re-entry within 500 ms to prevent double-placement
       // caused by mobile touch events firing both touchend and click.
 	      if (isAddingRef.current) return;
@@ -6352,7 +6386,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         const wallSide = cabinetWall(newCab, room);
         const horiz = wallSide === "top" || wallSide === "bottom";
         const wallLen = horiz ? room.width : room.depth;
-        const cabWidth = horiz ? newCab.width : newCab.width;
+        const cabWidth = newCab.width;
         const cabStart = horiz ? newCab.x : newCab.y;
         const cabEnd = cabStart + cabWidth;
         const range = blindPullRange(newCab);
@@ -6360,13 +6394,15 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         const atEnd = cabEnd >= wallLen - 2;
         const cornerAtStart = atStart || (!atEnd && cabStart < wallLen / 2);
         if (range) {
-          newCab.blindPull = range.max;
-          if (cornerAtStart) {
-            if (horiz) newCab.x = 0;
-            else newCab.y = 0;
-          } else {
-            if (horiz) newCab.x = wallLen - cabWidth;
-            else newCab.y = wallLen - cabWidth;
+          const requestedPull = Math.max(range.min, Math.min(range.max, Number(blindPullOverride) || range.max));
+          newCab.blindPull = requestedPull;
+          const pulledSpot = blindCornerPullPlacement(newCab, room, requestedPull);
+          if (pulledSpot) {
+            newCab.x = pulledSpot.x;
+            newCab.y = pulledSpot.y;
+            newCab.rotation = pulledSpot.rotation;
+            newCab.wallId = pulledSpot.wallId ?? newCab.wallId;
+            newCab.wallOffset = pulledSpot.wallOffset ?? newCab.wallOffset;
           }
         }
         newCab.swing = isWallBlindCornerCabinet(newCab) ? "right" : cornerAtStart ? "right" : "left";
@@ -12165,6 +12201,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     setSmallGapFillerPreviewMode(null);
     setFillerInsertionTransition(null);
     setBlindCornerFillerPrompt(null);
+    setBlindCornerPullPrompt(null);
     setAlternateWallRecommendation(null);
     setAlternateIslandFaceRecommendation(null);
     setIslandDepthTransition(null);
@@ -19419,6 +19456,79 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	          </AlertDialogFooter>
 	        </AlertDialogContent>
 	      </AlertDialog>
+
+	      <Dialog
+	        open={!!blindCornerPullPrompt}
+	        onOpenChange={(open) => { if (!open) setBlindCornerPullPrompt(null); }}
+	      >
+	        <DialogContent data-testid="blind-corner-pull-dialog" className="max-w-md">
+	          {blindCornerPullPrompt && (() => {
+	            const range = blindPullRange({
+	              pullMin: blindCornerPullPrompt.cabinet.pullMin ?? null,
+	              pullMax: blindCornerPullPrompt.cabinet.pullMax ?? null,
+	            }) ?? { min: 3, max: 6 };
+	            const requestedPull = Number(blindCornerPullPrompt.pullText);
+	            const validPull = Number.isFinite(requestedPull) && requestedPull >= range.min && requestedPull <= range.max;
+	            const place = () => {
+	              if (!validPull) return;
+	              const prompt = blindCornerPullPrompt;
+	              setBlindCornerPullPrompt(null);
+	              addCabinet(
+	                prompt.cabinet,
+	                prompt.x,
+	                prompt.y,
+	                prompt.forceAccessory,
+	                prompt.rotation,
+	                prompt.strictDropTarget,
+	                prompt.targetCabinetUid,
+	                prompt.targetIslandFace,
+	                prompt.forceBackDepthAdjustment,
+	                prompt.resolvedWallTarget,
+	                requestedPull,
+	              );
+	            };
+	            return <>
+	              <DialogHeader>
+	                <DialogTitle>Blind-corner pull from wall</DialogTitle>
+	                <DialogDescription>
+	                  How far should this blind corner pull from the wall? This is the hidden blind portion; the cabinet back remains seated on its selected wall.
+	                </DialogDescription>
+	              </DialogHeader>
+	              <div className="space-y-3">
+	                <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-950">
+	                  <strong>{blindCornerPullPrompt.cabinet.masterCode}</strong> requires a pull between {formatInches(range.min)} and {formatInches(range.max)}. Its required {formatInches(BLIND_CORNER_FILLER_WIDTH_IN)} blind-side filler will be added only after you place the cabinet.
+	                </div>
+	                <div className="space-y-1.5">
+	                  <Label htmlFor="blind-corner-pull-input">Pull from wall (inches)</Label>
+	                  <Input
+	                    id="blind-corner-pull-input"
+	                    data-testid="blind-corner-pull-input"
+	                    type="number"
+	                    inputMode="decimal"
+	                    min={range.min}
+	                    max={range.max}
+	                    step="0.125"
+	                    autoFocus
+	                    value={blindCornerPullPrompt.pullText}
+	                    onChange={(event) => setBlindCornerPullPrompt((current) => current ? { ...current, pullText: event.target.value } : current)}
+	                    onKeyDown={(event) => { if (event.key === "Enter" && validPull) place(); }}
+	                    aria-describedby="blind-corner-pull-help"
+	                  />
+	                  <p id="blind-corner-pull-help" className={`text-xs ${validPull ? "text-muted-foreground" : "text-destructive"}`}>
+	                    {validPull
+	                      ? `Allowed range: ${formatInches(range.min)}–${formatInches(range.max)}.`
+	                      : `Enter a pull from ${formatInches(range.min)} through ${formatInches(range.max)}.`}
+	                  </p>
+	                </div>
+	              </div>
+	              <DialogFooter className="gap-2">
+	                <Button variant="outline" onClick={() => setBlindCornerPullPrompt(null)}>Cancel placement</Button>
+	                <Button onClick={place} disabled={!validPull}>Place blind corner</Button>
+	              </DialogFooter>
+	            </>;
+	          })()}
+	        </DialogContent>
+	      </Dialog>
 
 	      <Dialog
 	        open={!!blindCornerFillerPrompt}
