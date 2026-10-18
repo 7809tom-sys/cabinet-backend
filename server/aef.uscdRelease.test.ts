@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { and, eq, inArray } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
-import { cabinets, distributorCabinetOverrides, distributorSkus, distributors, doorStyles } from "../drizzle/schema";
+import { cabinets, distributorCabinetOverrides, distributorSkus, distributors, doorStyles, vendorLines } from "../drizzle/schema";
 import { getDb } from "./db";
 import { appRouter } from "./routers";
 import { AEF_EXPANDED_SOURCE_GEOMETRY } from "../shared/aefFramelessExpandedGeometry";
@@ -45,6 +45,45 @@ const AEF_OVEN_FACE_EXPECTATIONS = [
 ] as const;
 
 describe("AEF USCD Frameless release integrity", () => {
+  it("routes the complete frameless line and all 49 finishes through the US Cabinet Depot Atlanta warehouse and supplier portal", async () => {
+    const db = await getDb();
+    if (!db) return;
+    const [aef] = await db
+      .select({
+        id: distributors.id,
+        warehouseName: distributors.warehouseName,
+        warehouseAddress: distributors.warehouseAddress,
+        warehouseZips: distributors.warehouseZips,
+      })
+      .from(distributors)
+      .where(eq(distributors.code, "AEF"))
+      .limit(1);
+
+    expect(aef).toMatchObject({
+      warehouseName: "U.S. Cabinet Depot — Atlanta warehouse",
+      warehouseAddress: "1950 North Norcross-Tucker Rd, Norcross, GA 30071",
+      warehouseZips: ["30071"],
+    });
+
+    const styles = await db
+      .select({ warehouseZip: doorStyles.warehouseZip, warehouseZips: doorStyles.warehouseZips })
+      .from(doorStyles)
+      .where(eq(doorStyles.distributorId, aef!.id));
+    expect(styles).toHaveLength(49);
+    expect(styles.every((style) => style.warehouseZip === "30071" && JSON.stringify(style.warehouseZips) === JSON.stringify(["30071"]))).toBe(true);
+
+    const [vendor] = await db
+      .select({ name: vendorLines.name, sourceKey: vendorLines.sourceKey, isApproved: vendorLines.isApproved })
+      .from(vendorLines)
+      .where(eq(vendorLines.name, "US Cabinet Depot"))
+      .limit(1);
+    expect(vendor).toMatchObject({
+      name: "US Cabinet Depot",
+      sourceKey: `dist:${aef!.id}`,
+      isApproved: true,
+    });
+  });
+
   it("uses the active USCD multiplier and the current homeowner tier for source list prices", async () => {
     const db = await getDb();
     if (!db) return;
