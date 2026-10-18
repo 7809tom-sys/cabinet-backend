@@ -1,6 +1,7 @@
 export type ApprovedVendorAccessRecord = {
   id: number;
   sourceKey: string | null;
+  linkedDistributorIds?: readonly number[] | null;
   contactEmail: string | null;
   isApproved?: boolean;
 };
@@ -17,6 +18,25 @@ const PEL_DIST_CODE = "PEL";
 const LEGACY_DISTRIBUTOR_CODE_ALIASES: Record<string, string> = {
   ucd: "uscd",
 };
+
+/**
+ * Return the configured, active catalog lines for one supplier profile. The
+ * primary source key remains part of the result for legacy profiles, and list
+ * entries are strictly numeric IDs—never inferred from supplier names.
+ */
+export function approvedVendorLinkedDistributorIds(
+  vendor: Pick<ApprovedVendorAccessRecord, "sourceKey" | "linkedDistributorIds">,
+  distributors: readonly ApprovedVendorDistributorRecord[],
+): number[] {
+  const activeIds = new Set(distributors.filter((distributor) => distributor.isActive !== false).map((distributor) => distributor.id));
+  const ids = new Set<number>();
+  const primaryId = approvedVendorSourceDistributorId(vendor.sourceKey, distributors);
+  if (primaryId != null) ids.add(primaryId);
+  for (const id of vendor.linkedDistributorIds ?? []) {
+    if (Number.isSafeInteger(id) && activeIds.has(id)) ids.add(id);
+  }
+  return Array.from(ids).sort((left, right) => left - right);
+}
 
 /**
  * Resolve one configured Approved Vendor source key to exactly one active
@@ -39,14 +59,17 @@ export function approvedVendorSourceDistributorId(
 }
 
 /**
- * Relates the Approved Vendors record to its single supply line. The source key
- * is administrative configuration, so it is deliberately evaluated exactly
- * against the distributor ID/code rather than using names or fuzzy matching.
+ * Relates an Approved Vendor record to a configured supply line. The primary
+ * source key and any explicit companion IDs are administrative configuration,
+ * deliberately evaluated by ID/code rather than supplier names or fuzzy
+ * matching.
  */
 export function approvedVendorMatchesDistributor(
-  vendor: Pick<ApprovedVendorAccessRecord, "sourceKey">,
-  distributor: Pick<ApprovedVendorDistributorRecord, "id" | "code">
+  vendor: Pick<ApprovedVendorAccessRecord, "sourceKey" | "linkedDistributorIds">,
+  distributor: Pick<ApprovedVendorDistributorRecord, "id" | "code" | "isActive">
 ): boolean {
+  if (distributor.isActive === false) return false;
+  if (vendor.linkedDistributorIds?.some((id) => id === distributor.id)) return true;
   const sourceKey = vendor.sourceKey?.trim().toLowerCase();
   if (!sourceKey) return false;
   const normalizedDistributorCode = distributor.code.trim().toLowerCase();

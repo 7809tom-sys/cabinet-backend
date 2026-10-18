@@ -2425,6 +2425,13 @@ export type InsertPelicanCategoryMarkup = typeof pelicanCategoryMarkups.$inferIn
 export const vendorLines = mysqlTable("vendor_lines", {
   id: int("id").autoincrement().primaryKey(),
   name: varchar("name", { length: 191 }).notNull().unique(),
+  /**
+   * Active catalog lines administered under this one supplier profile. sourceKey
+   * remains the primary line for backwards-compatible links and portal entry;
+   * this list preserves distinct companion lines such as USCD Framed + AEF
+   * Frameless without merging their SKU, price, or order identities.
+   */
+  linkedDistributorIds: json("linkedDistributorIds").$type<number[]>(),
   sourceKey: varchar("sourceKey", { length: 64 }),
   category: varchar("category", { length: 128 }).default("").notNull(),
   contactName: varchar("contactName", { length: 191 }).default("").notNull(),

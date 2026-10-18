@@ -179,6 +179,17 @@ describe("Vendor Portal Featured Styles and Shipping", () => {
     expect(source).toContain("approvedVendorList.filter((vendor) => vendor.isApproved)");
   });
 
+  it("lets an administrator switch only between a supplier profile's explicitly linked catalog lines", () => {
+    const profile = source.slice(source.indexOf("function SupplierProfilePage"), source.indexOf("function VendorProfileCatalogPanel"));
+    expect(profile).toContain("const linkedLines = profile.data.linkedDistributors ?? []");
+    expect(profile).toContain("Switch supplier catalog line");
+    expect(profile).toContain("Framed and Frameless stay separate catalog, pricing, and order lines.");
+    expect(profile).toContain("linkedLines.some((candidate) => candidate.id === id)");
+    expect(profile).toContain('url.searchParams.set("as", String(id))');
+    expect(source).toContain('if (line.code === "USCD") return `Framed — ${line.name}`');
+    expect(source).toContain('if (line.code === "AEF") return `Frameless — ${line.name}`');
+  });
+
   it("refreshes the displayed supplier profile after profile or PDF edits", () => {
     expect(source).toContain("utils.distributorPortal.supplierProfile.invalidate()");
   });

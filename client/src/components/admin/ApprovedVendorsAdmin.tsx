@@ -58,10 +58,18 @@ type VendorLine = {
   specBookPdfUrl: string | null;
   portalReadiness?: "not-approved" | "email-required" | "profile-only" | "ready";
   linkedDistributor?: { id: number; code: string; name: string } | null;
+  linkedDistributorIds?: number[];
+  linkedDistributors?: Array<{ id: number; code: string; name: string }>;
 };
 
 const money = (cents: number) =>
   (cents / 100).toLocaleString("en-US", { style: "currency", currency: "USD" });
+
+function supplierCatalogLineLabel(line: { code: string; name: string }) {
+  if (line.code === "USCD") return `Framed — ${line.name}`;
+  if (line.code === "AEF") return `Frameless — ${line.name}`;
+  return line.name;
+}
 
 const MAX_VENDOR_RESOURCE_BYTES = 12 * 1024 * 1024;
 
@@ -297,6 +305,7 @@ function VendorDialog({
   const [form, setForm] = useState({
     name: vendor?.name ?? "",
     sourceKey: vendor?.sourceKey ?? "",
+    linkedDistributorIds: vendor?.linkedDistributorIds ?? [],
     category: vendor?.category ?? "",
     contactName: vendor?.contactName ?? "",
     contactEmail: vendor?.contactEmail ?? "",
@@ -368,6 +377,30 @@ function VendorDialog({
                 This controls sales attribution and catalog tools. It is not required for an approved vendor to have its own editable supplier profile.
               </p>
             </div>
+          </div>
+          <div>
+            <Label className="text-xs">Additional catalog lines for this supplier (optional)</Label>
+            <div className="mt-2 grid max-h-36 gap-2 overflow-y-auto rounded-md border p-2">
+              {(supplierLines.data ?? []).filter((line: any) => line.isActive).map((line: any) => {
+                const selected = form.linkedDistributorIds.includes(line.id);
+                return (
+                  <label key={line.id} className="flex cursor-pointer items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={selected}
+                      onChange={(event) => setForm({
+                        ...form,
+                        linkedDistributorIds: event.target.checked
+                          ? [...form.linkedDistributorIds, line.id]
+                          : form.linkedDistributorIds.filter((id) => id !== line.id),
+                      })}
+                    />
+                    <span>{line.name} <span className="font-mono text-xs text-muted-foreground">({line.code})</span></span>
+                  </label>
+                );
+              })}
+            </div>
+            <p className="mt-1 text-[11px] text-muted-foreground">Use this for separate supplier catalog lines such as US Cabinet Depot Framed and Frameless. Their SKUs, pricing, availability, and orders remain separate.</p>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -448,6 +481,7 @@ function VendorDialog({
                 id: vendor?.id,
                 name: form.name.trim(),
                 sourceKey: form.sourceKey.trim() || null,
+                linkedDistributorIds: form.linkedDistributorIds,
                 category: form.category,
                 contactName: form.contactName,
                 contactEmail: form.contactEmail,
@@ -692,10 +726,11 @@ export default function ApprovedVendorsAdmin() {
               <Store className="h-5 w-5" /> Approved Vendors
             </CardTitle>
             <CardDescription>
-              Your supply-line scorecard. Track approval status and lifetime dollar
-              sales per vendor. Sales recompute from real, non-cancelled orders —
+              Your supplier scorecard. Track approval status and lifetime dollar
+              sales per supplier. Sales recompute from real, non-cancelled orders —
               a Pelican line stays at $0 until Pelican products are actually
-              ordered. Set a source key (<code>pelican</code> or{" "}
+              ordered. A supplier can carry distinct Framed and Frameless catalog
+              lines without merging their SKUs or prices. Set a source key (<code>pelican</code> or{" "}
               <code>dist:&lt;id&gt;</code>) to enable automatic totals. The exact
               contact email on an approved, linked line is also the supplier
               portal login email.
@@ -771,6 +806,16 @@ export default function ApprovedVendorsAdmin() {
                   <TableRow key={v.id}>
                     <TableCell>
                       <div className="font-medium">{v.name}</div>
+                      {v.linkedDistributors && v.linkedDistributors.length > 0 && (
+                        <div className="mt-1 flex flex-wrap gap-1" aria-label={`${v.name} linked catalog lines`}>
+                          {v.linkedDistributors.map((line) => (
+                            <Badge key={line.id} variant="secondary" className="gap-1 text-[10px] font-normal">
+                              <span className="font-mono font-semibold">{line.code}</span>
+                              <span>{supplierCatalogLineLabel(line)}</span>
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
                       {v.contactName && (
                         <div className="text-xs text-muted-foreground">{v.contactName}</div>
                       )}

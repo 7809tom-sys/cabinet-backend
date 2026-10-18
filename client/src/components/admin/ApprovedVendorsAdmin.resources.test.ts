@@ -46,4 +46,14 @@ describe("Approved vendor PDF resources", () => {
     expect(source).toContain("/vendor?vendor=${v.id}");
     expect(source).toContain("Preview ${v.name} Supplier Portal");
   });
+
+  it("shows and maintains separate configured Framed and Frameless catalog lines under one supplier", () => {
+    expect(source).toContain("linkedDistributors?: Array");
+    expect(source).toContain('aria-label={`${v.name} linked catalog lines`}');
+    expect(source).toContain("linkedDistributors.map");
+    expect(source).toContain("Additional catalog lines for this supplier (optional)");
+    expect(source).toContain("Their SKUs, pricing, availability, and orders remain separate.");
+    expect(source).toContain('if (line.code === "USCD") return `Framed — ${line.name}`');
+    expect(source).toContain('if (line.code === "AEF") return `Frameless — ${line.name}`');
+  });
 });

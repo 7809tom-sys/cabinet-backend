@@ -53,13 +53,16 @@ const PEL_DIST_CODE = "PEL";
 const ALL = "__all__";
 const MAX_PICKS = 8;
 const CATALOG_PAGE_SIZE = 100;
-
 function money(v: string | null | undefined): string {
   if (v == null) return "—";
   const n = Number(v);
   return Number.isFinite(n) ? `$${n.toFixed(2)}` : "—";
 }
-
+function supplierCatalogLineLabel(line: { code: string; name: string }) {
+  if (line.code === "USCD") return `Framed — ${line.name}`;
+  if (line.code === "AEF") return `Frameless — ${line.name}`;
+  return line.name;
+}
 const MAX_SUPPLIER_RESOURCE_BYTES = 12 * 1024 * 1024;
 
 async function readSupplierPdfAsBase64(file: File): Promise<string> {
@@ -691,6 +694,18 @@ function SupplierProfilePage() {
 
   const approvedVendor = profile.data.vendor;
   const line = myLine.data?.line ?? null;
+  const linkedLines = profile.data.linkedDistributors ?? [];
+  const canSwitchLinkedLine = Boolean(user?.role === "admin" && adminApprovedVendorLineId && linkedLines.length > 1);
+  const switchLinkedLine = (distributorId: string) => {
+    if (!adminApprovedVendorLineId) return;
+    const id = Number(distributorId);
+    if (!Number.isSafeInteger(id) || !linkedLines.some((candidate) => candidate.id === id)) return;
+    const url = new URL(window.location.href);
+    url.searchParams.set("vendor", String(adminApprovedVendorLineId));
+    url.searchParams.set("as", String(id));
+    url.searchParams.set("section", "supplier-profile");
+    window.location.assign(url.toString());
+  };
   return (
     <div data-testid="supplier-profile-page" className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -706,7 +721,18 @@ function SupplierProfilePage() {
         </CardHeader>
         <CardContent className="grid gap-3 text-sm md:grid-cols-2">
           <div><p className="text-muted-foreground">Signed-in account</p><p className="font-medium break-all">{user?.email || "—"}</p></div>
-          <div><p className="text-muted-foreground">Catalog / supply line</p><p className="font-medium">{line?.name ?? "Pending source-line link"}</p></div>
+          <div>
+            <p className="text-muted-foreground">Catalog / supply line</p>
+            {canSwitchLinkedLine ? (
+              <Select value={String(line?.id ?? "")} onValueChange={switchLinkedLine}>
+                <SelectTrigger aria-label="Switch supplier catalog line" className="mt-1 h-9"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {linkedLines.map((candidate) => <SelectItem key={candidate.id} value={String(candidate.id)}>{candidate.code} — {supplierCatalogLineLabel(candidate)}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            ) : <p className="font-medium">{line?.name ?? "Pending source-line link"}</p>}
+            {linkedLines.length > 1 && <p className="mt-1 text-xs text-muted-foreground">Framed and Frameless stay separate catalog, pricing, and order lines.</p>}
+          </div>
           <p className="text-xs text-muted-foreground md:col-span-2">For security, passwords are never displayed or stored in readable form.</p>
         </CardContent>
       </Card>

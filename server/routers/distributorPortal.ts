@@ -32,7 +32,7 @@ import {
   shippingRuleCanQuote,
   type DistributorShippingRuleMode,
 } from "@shared/distributorShipping";
-import { approvedVendorMatchesDistributor } from "../lib/approvedVendorAccess";
+import { approvedVendorLinkedDistributorIds, approvedVendorMatchesDistributor } from "../lib/approvedVendorAccess";
 import { designerCabinetReadinessBySku } from "../lib/designerCabinetReadiness";
 
 /**
@@ -89,9 +89,9 @@ async function resolveApprovedVendorProfile(
 
   const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, requestedDistributorId);
   const [line] = await db
-    .select({ id: distributors.id, code: distributors.code })
+    .select({ id: distributors.id, code: distributors.code, isActive: distributors.isActive })
     .from(distributors)
-    .where(eq(distributors.id, lineId))
+    .where(and(eq(distributors.id, lineId), eq(distributors.isActive, true)))
     .limit(1);
   if (!line) throw new TRPCError({ code: "NOT_FOUND", message: "Supply line not found" });
 
@@ -389,6 +389,8 @@ export const distributorPortalRouter = router({
         .select({
           id: vendorLines.id,
           name: vendorLines.name,
+          sourceKey: vendorLines.sourceKey,
+          linkedDistributorIds: vendorLines.linkedDistributorIds,
           category: vendorLines.category,
           contactName: vendorLines.contactName,
           contactEmail: vendorLines.contactEmail,
@@ -402,7 +404,14 @@ export const distributorPortalRouter = router({
         .where(eq(vendorLines.id, resolved.id))
         .limit(1);
       if (!vendor) throw new TRPCError({ code: "NOT_FOUND", message: "Approved vendor record not found" });
-      return { vendor };
+      const supplierLines = await db
+        .select({ id: distributors.id, code: distributors.code, name: distributors.name, isActive: distributors.isActive })
+        .from(distributors);
+      const linkedIds = approvedVendorLinkedDistributorIds(vendor, supplierLines);
+      const linkedDistributors = supplierLines
+        .filter((line) => linkedIds.includes(line.id))
+        .map((line) => ({ id: line.id, code: line.code, name: line.name }));
+      return { vendor, linkedDistributors };
     }),
 
 	/**

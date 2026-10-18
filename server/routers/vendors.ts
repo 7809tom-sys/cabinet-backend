@@ -1,26 +1,29 @@
 import { z } from "zod";
-import { and, asc, eq, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { router, adminProcedure, publicProcedure } from "../_core/trpc";
 import { getDb } from "../db";
 import { distributors, emailSettings, vendorLines, orders, orderItems } from "../../drizzle/schema";
 import { pelicanProducts } from "../../drizzle/pelicanSchema";
 import { storagePut } from "../storage";
-import { approvedVendorSourceDistributorId } from "../lib/approvedVendorAccess";
+import { approvedVendorLinkedDistributorIds, approvedVendorSourceDistributorId } from "../lib/approvedVendorAccess";
 import { emailSettingsReady, sendEmailViaSettings } from "../email";
 import { buildSupplierPortalInvite } from "../supplierPortalInvite";
 
 // Approved Vendors scorecard.
 //
-// Each row in vendor_lines represents one approved supply line (e.g. "Pelican
-// Surfaces & Fixtures"). totalSalesCents is a stored, admin-recomputable figure.
+// Each row in vendor_lines represents one approved supplier profile (e.g.
+// "US Cabinet Depot"). Profiles may list companion catalog lines without
+// merging their SKU, price, availability, or fulfillment identities.
+// totalSalesCents is a stored, admin-recomputable figure.
 // "Recompute" sums matching, non-cancelled order lines and writes the total back.
 //
 // Sales attribution:
 //  - sourceKey "pelican": order lines whose platformSku matches a known
 //    pelican_products.pelicanCode. (Zero until Pelican items are ordered — no
 //    fabricated sales.)
-//  - sourceKey "dist:<id>": orders whose distributorId = <id>.
+//  - sourceKey "dist:<id>" plus linkedDistributorIds: orders whose
+//    distributorId is any configured line for that supplier profile.
 //  - Any other/empty sourceKey: not auto-computed; admin can set manually.
 
 export const vendorsRouter = router({
@@ -37,6 +40,10 @@ export const vendorsRouter = router({
     return lines.map((line) => {
       const distributorId = approvedVendorSourceDistributorId(line.sourceKey, supplierLines);
       const distributor = supplierLines.find((candidate) => candidate.id === distributorId) ?? null;
+      const linkedDistributorIds = approvedVendorLinkedDistributorIds(line, supplierLines);
+      const linkedDistributors = supplierLines
+        .filter((candidate) => linkedDistributorIds.includes(candidate.id))
+        .map((candidate) => ({ id: candidate.id, code: candidate.code, name: candidate.name }));
       const hasContactEmail = Boolean(line.contactEmail?.trim());
       const portalReadiness: "not-approved" | "email-required" | "profile-only" | "ready" = !line.isApproved
         ? "not-approved"
@@ -47,6 +54,8 @@ export const vendorsRouter = router({
             : "profile-only";
       return {
         ...line,
+        linkedDistributorIds,
+        linkedDistributors,
         portalReadiness,
         linkedDistributor: distributor
           ? { id: distributor.id, code: distributor.code, name: distributor.name }
@@ -61,6 +70,7 @@ export const vendorsRouter = router({
         id: z.number().optional(),
         name: z.string().min(1).max(191),
         sourceKey: z.string().max(64).nullable().optional(),
+        linkedDistributorIds: z.array(z.number().int().positive()).max(12).optional(),
         category: z.string().max(128).optional(),
         contactName: z.string().max(191).optional(),
         contactEmail: z.string().max(255).optional(),
@@ -79,6 +89,19 @@ export const vendorsRouter = router({
       const { id, ...rest } = input;
       const patch: Record<string, unknown> = {};
       for (const [k, v] of Object.entries(rest)) if (v !== undefined) patch[k] = v;
+      if (input.linkedDistributorIds !== undefined) {
+        const requestedIds = Array.from(new Set(input.linkedDistributorIds));
+        if (requestedIds.length > 0) {
+          const activeLines = await db
+            .select({ id: distributors.id })
+            .from(distributors)
+            .where(and(inArray(distributors.id, requestedIds), eq(distributors.isActive, true)));
+          if (activeLines.length !== requestedIds.length) {
+            throw new TRPCError({ code: "BAD_REQUEST", message: "Every linked supplier line must be active." });
+          }
+        }
+        patch.linkedDistributorIds = requestedIds;
+      }
       if (id) {
         await db.update(vendorLines).set(patch).where(eq(vendorLines.id, id));
         return { success: true, id } as const;
@@ -274,18 +297,21 @@ export const vendorsRouter = router({
           .innerJoin(pelicanProducts, eq(orderItems.platformSku, pelicanProducts.pelicanCode))
           .where(sql`${orders.status} <> 'cancelled'`);
         totalDollars = Number(row?.total ?? 0);
-      } else if (key.startsWith("dist:")) {
-        const distId = Number(key.slice(5));
-        if (Number.isFinite(distId)) {
+      } else {
+        const supplierLines = await db
+          .select({ id: distributors.id, code: distributors.code, isActive: distributors.isActive })
+          .from(distributors);
+        const linkedIds = approvedVendorLinkedDistributorIds(line, supplierLines);
+        if (linkedIds.length > 0) {
           const [row] = await db
             .select({ total: sql<number>`coalesce(sum(${orders.total}), 0)` })
             .from(orders)
-            .where(sql`${orders.distributorId} = ${distId} and ${orders.status} <> 'cancelled'`);
+            .where(and(inArray(orders.distributorId, linkedIds), sql`${orders.status} <> 'cancelled'`));
           totalDollars = Number(row?.total ?? 0);
+        } else {
+          // No automatic attribution rule — leave the stored figure untouched.
+          return { success: true, totalSalesCents: line.totalSalesCents, autoComputed: false } as const;
         }
-      } else {
-        // No automatic attribution rule — leave the stored figure untouched.
-        return { success: true, totalSalesCents: line.totalSalesCents, autoComputed: false } as const;
       }
 
       const totalSalesCents = Math.round(totalDollars * 100);

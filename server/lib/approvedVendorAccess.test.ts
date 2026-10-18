@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   approvedVendorContactAccess,
   approvedVendorContactDistributorId,
+  approvedVendorLinkedDistributorIds,
   approvedVendorMatchesDistributor,
   approvedVendorSourceDistributorId,
 } from "./approvedVendorAccess";
@@ -29,6 +30,18 @@ describe("approved vendor supplier portal access", () => {
     expect(approvedVendorSourceDistributorId("Kitchen Crest", distributors)).toBeNull();
     expect(approvedVendorSourceDistributorId(null, distributors)).toBeNull();
     expect(approvedVendorSourceDistributorId("UCD", [{ id: 210002, code: "USCD", isActive: true }])).toBe(210002);
+  });
+
+  it("keeps explicitly linked Framed and Frameless catalog lines under one supplier profile", () => {
+    const framed = { id: 210001, code: "USCD", isActive: true };
+    const frameless = { id: 210002, code: "AEF", isActive: true };
+    const retired = { id: 210003, code: "OLD", isActive: false };
+    const vendor = { sourceKey: "dist:210001", linkedDistributorIds: [210002, 210003, 210002] };
+
+    expect(approvedVendorLinkedDistributorIds(vendor, [framed, frameless, retired])).toEqual([210001, 210002]);
+    expect(approvedVendorMatchesDistributor(vendor, framed)).toBe(true);
+    expect(approvedVendorMatchesDistributor(vendor, frameless)).toBe(true);
+    expect(approvedVendorMatchesDistributor(vendor, retired)).toBe(false);
   });
 
   it("links the exact approved contact email to one active supplier line", () => {
