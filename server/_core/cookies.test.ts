@@ -11,14 +11,20 @@ function requestFor(hostname: string): Request {
 }
 
 describe("getSessionCookieOptions", () => {
-  it("shares a new first-party session with Cabinet Dealz affiliate subdomains", () => {
-    expect(getSessionCookieOptions(requestFor("reaves-way-cabinet-shop.cabinetdealz.com"))).toMatchObject({
-      domain: ".cabinetdealz.com",
+  it("keeps affiliate sessions host-only so sibling sites remain independent", () => {
+    const options = getSessionCookieOptions(requestFor("reaves-way-cabinet-shop.cabinetdealz.com"));
+    expect(options.domain).toBeUndefined();
+    expect(options).toMatchObject({
       httpOnly: true,
       path: "/",
       sameSite: "none",
       secure: true,
     });
+  });
+
+  it("uses the same host-only behavior for the platform site", () => {
+    expect(getSessionCookieOptions(requestFor("www.cabinetdealz.com")).domain).toBeUndefined();
+    expect(getSessionCookieOptions(requestFor("cabinetdealz.com")).domain).toBeUndefined();
   });
 
   it("does not broaden a session cookie to an unrelated custom domain", () => {

@@ -31,19 +31,14 @@ function isSecureRequest(req: Request) {
   return protoList.some(proto => proto.trim().toLowerCase() === "https");
 }
 
-function cabinetDealzCookieDomain(hostname: string | undefined) {
-  const host = (hostname ?? "").trim().toLowerCase();
-  if (host === "cabinetdealz.com" || host.endsWith(".cabinetdealz.com")) {
-    return ".cabinetdealz.com";
-  }
-  return undefined;
-}
-
 export function getSessionCookieOptions(
   req: Request
 ): Pick<CookieOptions, "domain" | "httpOnly" | "path" | "sameSite" | "secure"> {
   return {
-    domain: cabinetDealzCookieDomain(req.hostname),
+    // Host-only is intentional. A login on one affiliate website must never
+    // replace or authenticate a different affiliate website in the same
+    // browser. Omitting `domain` scopes this cookie to the exact hostname
+    // that issued it, including custom affiliate domains.
     httpOnly: true,
     path: "/",
     sameSite: "none",
