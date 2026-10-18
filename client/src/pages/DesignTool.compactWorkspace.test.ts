@@ -114,6 +114,20 @@ describe("Designer Compact Workspace", () => {
     expect(source).toContain("if (current.locked)");
   });
 
+  it("keeps a text-labeled Save or Update action visible in the selected-cabinet row and main Designer toolbar", () => {
+    const contextualStart = source.indexOf("{/* Contextual row:");
+    const contextualEnd = source.indexOf("{isBaseBlindCorner(selectedCab)", contextualStart);
+    const contextualRow = source.slice(contextualStart, contextualEnd);
+
+    expect(contextualStart).toBeGreaterThan(-1);
+    expect(contextualEnd).toBeGreaterThan(contextualStart);
+    expect(contextualRow).toContain('data-testid="selected-cabinet-save-design"');
+    expect(contextualRow).toContain('currentSavedDesignId != null ? "Update design" : "Save design"');
+    expect(contextualRow).toContain("onClick={() => setSaveSignal((n) => n + 1)}");
+    expect(contextualRow).toContain("disabled={placed.length === 0}");
+    expect(source).toContain('data-testid="designer-save-design"');
+  });
+
   it("uses a broad tablet overlay and two-column cabinet browsing instead of a narrow catalog panel", () => {
     expect(source).toContain('w-[min(840px,96vw)]');
     expect(source).toContain('className={isCompactWorkspace ? "grid grid-cols-2 gap-2" : undefined}');

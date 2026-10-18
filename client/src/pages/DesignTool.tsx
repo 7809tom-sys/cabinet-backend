@@ -13141,16 +13141,22 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
           )}
         </div>
                 <div className={`${isCompactWorkspace ? "hidden" : "hidden lg:block"} h-5 w-px bg-border`} />
-        {/* Save Design — desktop only */}
-	        <button
-	          type="button"
-	          className={`${isCompactWorkspace ? "hidden" : "hidden lg:inline-flex"} items-center justify-center h-7 w-7 rounded-md border border-border text-muted-foreground transition-colors hover:text-foreground hover:bg-muted`}
-	          title="Save design"
-	          aria-label="Save design"
+        {/* Save Design / Update — keep an explicit action in every regular desktop workspace.
+            Compact mode previously hid this control and left only an ambiguous
+            icon in a crowded action rail. */}
+        <Button
+          type="button"
+          variant="default"
+          size="sm"
+          data-testid="designer-save-design"
+          className="hidden h-7 shrink-0 gap-1 bg-[#1a2744] px-2 text-[10px] font-semibold text-white hover:bg-[#24375f] lg:inline-flex"
+          title={currentSavedDesignId != null ? "Update this saved design" : "Save this design"}
+          aria-label={currentSavedDesignId != null ? "Update design" : "Save design"}
+          disabled={placed.length === 0}
           onClick={() => setSaveSignal((n) => n + 1)}
         >
-          <Save className="h-3.5 w-3.5" />
-        </button>
+          <Save className="h-3.5 w-3.5" /> {currentSavedDesignId != null ? "Update design" : "Save design"}
+        </Button>
         {/* Start New / Clear Design — desktop only */}
 	        <button
 	          type="button"
@@ -14465,6 +14471,18 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                   <Wrench className="h-3.5 w-3.5" /> Attributes
                 </Button>
               )}
+              <Button
+                type="button"
+                size="sm"
+                data-testid="selected-cabinet-save-design"
+                className="h-8 shrink-0 gap-1 bg-[#1a2744] px-2.5 text-xs font-semibold text-white hover:bg-[#24375f]"
+                title={currentSavedDesignId != null ? "Update this saved design" : "Save this design"}
+                aria-label={currentSavedDesignId != null ? "Update design" : "Save design"}
+                disabled={placed.length === 0}
+                onClick={() => setSaveSignal((n) => n + 1)}
+              >
+                <Save className="h-3.5 w-3.5" /> {currentSavedDesignId != null ? "Update design" : "Save design"}
+              </Button>
               {selectedCab.masterTracTowerId && (
                 <Button type="button" variant="outline" size="sm" className="h-8 shrink-0 gap-1 px-2.5 text-xs font-semibold" data-testid="edit-mastertrac-tower" onClick={() => {
                   const current = towerConfigFromPlacements(placedRef.current, selectedCab.masterTracTowerId!);

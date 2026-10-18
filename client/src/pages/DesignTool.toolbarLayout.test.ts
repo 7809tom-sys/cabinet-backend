@@ -120,8 +120,8 @@ describe("designer toolbar layout", () => {
 	  expect(iconControls).toContain('aria-label={t("dt_sh_front_view")}');
 	  expect(iconControls).toContain('title={t("dt_sh_split")}');
 	  expect(iconControls).toContain('aria-label={t("dt_sh_split")}');
-	  expect(iconControls).toContain('title="Save design"');
-	  expect(iconControls).toContain('aria-label="Save design"');
+	  expect(iconControls).toContain('title={currentSavedDesignId != null ? "Update this saved design" : "Save this design"}');
+	  expect(iconControls).toContain('aria-label={currentSavedDesignId != null ? "Update design" : "Save design"}');
 	  expect(iconControls).toContain('title="Start new design (clears all cabinets)"');
 	  expect(iconControls).toContain('aria-label="Start new design and clear all cabinets"');
 	  expect(iconControls).toContain('title="Export high-resolution Floor Plan image"');
