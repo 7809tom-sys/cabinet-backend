@@ -54,6 +54,37 @@ describe("Designer legacy price aliases against live catalog data", () => {
     expect(legacy?.listPrice).not.toBe("408.87");
   });
 
+  it("prefers active exact wall master rows over loose legacy cabinet-alias matches in Cart refresh", async () => {
+    const db = await getDb();
+    if (!db) return;
+    const caller = appRouter.createCaller(publicCtx());
+
+    const rows = await caller.design.priceForCartItems({
+      items: [
+        { masterCode: "W2430", styleId: 330007, distributorId: 210001 },
+        { masterCode: "W362424", styleId: 330007, distributorId: 210001 },
+      ],
+    });
+
+    expect(rows).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        masterCode: "W2430",
+        styleId: 330007,
+        distributorId: 210001,
+        listPrice: "440.50",
+        homeownerPrice: "264.48",
+      }),
+      expect.objectContaining({
+        masterCode: "W362424",
+        styleId: 330007,
+        distributorId: 210001,
+        listPrice: "572.63",
+        homeownerPrice: "343.81",
+      }),
+    ]));
+    expect(rows).toHaveLength(2);
+  });
+
   it("uses the same canonical alias in the owner-only affiliate Designer price list", async () => {
     const db = await getDb();
     if (!db) return;

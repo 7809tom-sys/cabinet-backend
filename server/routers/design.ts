@@ -3139,7 +3139,14 @@ Return an empty actions array ONLY if the user asked a pure question with no wal
       const affiliatePricing = await loadAffiliateStorefrontPricing(input.affiliateSlug);
 
       const canonicalItems = await resolveDesignPriceAliases(db, input.items);
-      const masterCodes = Array.from(new Set(canonicalItems.map((i) => i.masterCode)));
+      // First admit the cart line's exact master code. A legacy alias is a
+      // fallback for retired/renamed records, never a reason to bypass a live
+      // source row with the exact code (for example a normal wall cabinet that
+      // also appears as a historical refrigerator-wall alias).
+      const masterCodes = Array.from(new Set([
+        ...input.items.map((item) => item.masterCode),
+        ...canonicalItems.map((item) => item.masterCode),
+      ]));
       const styleIds = Array.from(new Set(canonicalItems.map((i) => i.styleId)));
 	      const retiredLegacyPriceCodes = Array.from(new Set(
 	        canonicalItems
@@ -3180,7 +3187,16 @@ Return an empty actions array ONLY if the user asked a pure question with no wal
 
       const ps = await getPricingSettings();
       return canonicalItems.flatMap((item) => {
-        const selected = selectExactCartPriceRows([item], rows, ps)[0];
+        const exactRequestedIdentity = {
+          masterCode: item.requestedMasterCode,
+          styleId: item.styleId,
+          distributorId: item.distributorId,
+        };
+        // Exact rows must win. Only a missing exact row may use the verified
+        // legacy alias, preserving historical saved-plan compatibility without
+        // hiding an active source-priced Cart line.
+        const selected = selectExactCartPriceRows([exactRequestedIdentity], rows, ps)[0]
+          ?? selectExactCartPriceRows([item], rows, ps)[0];
         if (!selected) return [];
         const r = selected.row;
         const sourceCostCents = r.yourCost == null ? null : Math.round(Number(r.yourCost) * 100);
