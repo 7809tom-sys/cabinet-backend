@@ -2203,7 +2203,10 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     setSelectedLayoutPresetId(layoutPresetId);
     setLayoutStarterOpen(false);
     setBeginnerFirstCabinetGuideOpen(false);
-    setCatalogSetupOpen(true);
+    // Let the room-layout dialog finish its close animation before opening
+    // the next modal. Opening two Radix dialogs in the same event can leave
+    // the responsive flow showing the inline "Pick a distributor" card.
+    window.setTimeout(() => setCatalogSetupOpen(true), 0);
   }, []);
   const activeSceneLayoutPresetId = selectedLayoutPresetId ?? "kitchen_l_standard";
   const hasPersistedRoomLayout = hasDesignedRoomGeometry(room);
@@ -19510,14 +19513,14 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
           onInteractOutside={(event) => event.preventDefault()}
         >
           <DialogHeader>
-            <DialogTitle className="font-serif text-xl">Set up your cabinet catalog</DialogTitle>
+            <DialogTitle className="font-serif text-xl">Choose your cabinet vendor and color</DialogTitle>
             <DialogDescription>
-              Your room is ready. Choose the cabinet distributor first, then choose the door style before placing anything in the design.
+              Your room is ready. Choose the cabinet vendor first, then choose the door style/color before placing anything in the design.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-1.5" data-testid="fresh-room-distributor-step">
-              <Label htmlFor="fresh-room-distributor">1. Cabinet distributor</Label>
+              <Label htmlFor="fresh-room-distributor">1. Cabinet vendor</Label>
               <Select
                 value={catalogDistributorId == null ? "" : String(catalogDistributorId)}
                 onValueChange={(value) => chooseCatalogDistributor(Number(value))}
@@ -19535,7 +19538,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
               {(distributorLabels ?? []).length === 0 && <p className="text-xs text-muted-foreground">Loading available cabinet distributors…</p>}
             </div>
             <div className="space-y-1.5" data-testid="fresh-room-door-style-step">
-              <Label htmlFor="fresh-room-door-style">2. Door style and finish</Label>
+              <Label htmlFor="fresh-room-door-style">2. Door style / color</Label>
               <Select
                 value={styleId == null ? "" : String(styleId)}
                 onValueChange={(value) => setSlotStyle("A", Number(value))}

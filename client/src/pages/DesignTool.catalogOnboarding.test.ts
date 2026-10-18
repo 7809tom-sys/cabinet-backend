@@ -8,6 +8,7 @@ describe("fresh room catalog onboarding", () => {
     expect(source).toContain("const [catalogSetupOpen, setCatalogSetupOpen] = useState(false);");
     expect(source).toContain("const handleRoomLayoutSelected = useCallback((layoutPresetId: string) => {");
     expect(source).toContain("setCatalogSetupOpen(true);");
+    expect(source).toContain("window.setTimeout(() => setCatalogSetupOpen(true), 0);");
     expect(source).toContain("onLayoutSelected={handleRoomLayoutSelected}");
     expect(source).toContain('data-testid="fresh-room-catalog-setup"');
   });
@@ -17,6 +18,8 @@ describe("fresh room catalog onboarding", () => {
     expect(source).toContain('data-testid="fresh-room-door-style-step"');
     expect(source).toContain('aria-label="Choose cabinet distributor"');
     expect(source).toContain('aria-label="Choose door style"');
+    expect(source).toContain("Choose your cabinet vendor and color");
+    expect(source).toContain("Door style / color");
     expect(source).toContain("disabled={catalogDistributorId == null || displayUniqueDoorStyles.length === 0}");
     expect(source).toContain("disabled={catalogDistributorId == null || styleId == null}");
     expect(source).toContain("onPointerDownOutside={(event) => event.preventDefault()}");
