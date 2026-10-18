@@ -102,18 +102,31 @@ export default function SignIn() {
 
   const afterAuth = async () => {
     await utils.auth.me.invalidate();
-    toast.success("Signed in successfully.");
     // Fetch fresh user to determine a safe same-host destination. A full
     // document navigation deliberately remounts the shared header so it reads
     // the newly-issued host-only session cookie instead of retaining a prior
     // anonymous auth.me query while entering the Designer.
-    const me = await utils.auth.me.fetch();
+    let me = await utils.auth.me.fetch();
+    if (!me) {
+      // A just-written secure cookie can take one browser task to become
+      // visible to the following tRPC request. Retry once before deciding the
+      // session was not established; never open a requested Designer route
+      // with an anonymous header.
+      await new Promise((resolve) => window.setTimeout(resolve, 150));
+      await utils.auth.me.invalidate();
+      me = await utils.auth.me.fetch();
+    }
+    if (!me) {
+      toast.error("Your sign-in session could not be confirmed. Please try again.");
+      return;
+    }
+    toast.success("Signed in successfully.");
     const requestedReturn = new URLSearchParams(window.location.search).get("returnTo");
     const destination = isSafeSiteReturnPath(requestedReturn)
       ? requestedReturn
-      : me && (me as { role?: string }).role === "distributor"
+      : (me as { role?: string }).role === "distributor"
         ? "/vendor"
-        : me && (me as { role?: string }).role === "admin"
+        : (me as { role?: string }).role === "admin"
           ? "/admin"
           : "/account";
     window.location.assign(destination);

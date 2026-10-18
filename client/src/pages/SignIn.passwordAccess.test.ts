@@ -17,4 +17,11 @@ describe("SignIn password access", () => {
     expect(source).toContain("window.location.assign(destination)");
     expect(source).toContain("await utils.auth.me.fetch()");
   });
+
+  it("retries the new session and refuses to enter a requested Designer route as anonymous", () => {
+    expect(source).toContain("await new Promise((resolve) => window.setTimeout(resolve, 150))");
+    expect(source).toContain("if (!me) {");
+    expect(source).toContain("Your sign-in session could not be confirmed. Please try again.");
+    expect(source).toContain("const destination = isSafeSiteReturnPath(requestedReturn)");
+  });
 });
