@@ -890,6 +890,21 @@ export const ordersRouter = router({
           };
         });
       }
+      // Cart intentionally retains every placed Designer cabinet, including a
+      // rare line whose source-price refresh has not settled yet. Preserve that
+      // line for review, but never persist an unpriced order, CRM record,
+      // freight quote, or payment at final submission.
+      if (input.submit) {
+        const pendingPriceCodes = normalizedLines
+          .filter((line) => line.unitPrice == null || !Number.isFinite(line.unitPrice) || line.unitPrice <= 0)
+          .map((line) => line.masterCode?.trim() || "a cabinet line");
+        if (pendingPriceCodes.length > 0) {
+          throw new TRPCError({
+            code: "PRECONDITION_FAILED",
+            message: `A current source-backed price is required before submission: ${Array.from(new Set(pendingPriceCodes)).join(", ")}.`,
+          });
+        }
+      }
       const hasOnlyTemporaryFreeShippingItems = isTemporaryOneDollarFreeShippingOrder(normalizedLines);
 
       // Family-lock: a single order must stay within one door-style family.

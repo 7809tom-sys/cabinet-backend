@@ -211,6 +211,24 @@ describe("orders.createRequest + confirm", () => {
     expect(source).toContain("freightQuoteItemsForOrder(normalizedLines)");
   });
 
+  it("rejects a submitted pending-price Cart line before it can create an order or CRM record", async () => {
+    const caller = appRouter.createCaller(publicCtx());
+    await expect(caller.orders.createRequest({
+      source: "manual",
+      tier: "Contractor",
+      submit: true,
+      lineItems: [{
+        cabinetId: 9390300,
+        masterCode: "W2430",
+        description: "24-inch Double Door Wall Cabinet",
+        qty: 1,
+        unitPrice: null,
+        linePrice: null,
+        matched: true,
+      }],
+    })).rejects.toThrow("current source-backed price is required before submission");
+  });
+
   it("rejects an order request with no line items", async () => {
     const caller = appRouter.createCaller(publicCtx());
     await expect(

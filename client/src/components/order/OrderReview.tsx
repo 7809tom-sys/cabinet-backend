@@ -689,6 +689,16 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
       toast.error("Enter your name, phone, complete delivery address, city, state, and ZIP before requesting or submitting shipping.");
       return;
     }
+    const pendingPriceCodes = pricedLines
+      .filter((line) => line.unitPrice == null || !Number.isFinite(line.unitPrice) || line.unitPrice <= 0)
+      .map((line) => line.masterCode ?? line.rawCode)
+      .filter((code, index, all) => Boolean(code) && all.indexOf(code) === index);
+    if (pendingPriceCodes.length > 0) {
+      toast.error("A current source-backed price is still required before submitting this order.", {
+        description: `Cart kept every design item. Refresh or contact us to price: ${pendingPriceCodes.join(", ")}.`,
+      });
+      return;
+    }
     const requiresCabinetOrSurfaceQuote = freightInput.items.length > 0 && !hasOnlyTemporaryFreeShippingItems;
     if (deliveryMethod === "ship" && requiresCabinetOrSurfaceQuote && !freightEstimate.data?.quoteToken) {
       toast.error("A current shipping quote is required before submitting this order.");

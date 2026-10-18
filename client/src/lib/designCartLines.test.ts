@@ -499,6 +499,46 @@ describe("designer cabinet cart lines", () => {
     expect(calculateCartSubtotal(lines)).toBe(365.95);
   });
 
+  it("keeps a placed wall cabinet in Cart exactly once while a source price is pending", () => {
+    const pendingWall = {
+      ...bec,
+      uid: "pending-wall-cart",
+      cabinetId: 9390300,
+      masterCode: "W2430",
+      description: '24" Double Door Wall Cabinet',
+      category: "Wall",
+      placement: "wall",
+      width: 24,
+      height: 30,
+      depth: 12,
+    } as PlacedCabinet;
+    const common = {
+      placed: [pendingWall],
+      styleId: 330001,
+      distributorId: 210001,
+      tier: "homeowner" as const,
+      styleNameById: new Map([[330001, "Ashford Style"]]),
+      unitPriceFor: () => null,
+    };
+
+    const cartLines = buildDesignCabinetCartLines(common);
+    const previewLines = buildDesignPreviewPricingLines(common);
+    const completeLines = completeDesignPricingLines(cartLines, previewLines);
+
+    expect(cartLines).toEqual([
+      expect.objectContaining({ masterCode: "W2430", unitPrice: null, qty: 1 }),
+    ]);
+    expect(cartLines[0]?.priceLocked).toBeUndefined();
+    expect(completeLines).toHaveLength(1);
+    expect(completeLines[0]).toMatchObject({ masterCode: "W2430", unitPrice: null, placementUids: ["pending-wall-cart"] });
+
+    const zeroPriceLines = buildDesignCabinetCartLines({ ...common, unitPriceFor: () => 0 });
+    expect(zeroPriceLines).toEqual([
+      expect.objectContaining({ masterCode: "W2430", unitPrice: null, qty: 1 }),
+    ]);
+    expect(zeroPriceLines[0]?.priceLocked).toBeUndefined();
+  });
+
   it("keeps the exact placed-cabinet UIDs on 3D preview price lines so a selected SB-33 reads its own price", () => {
     const pricedSinkBase = {
       ...bec,

@@ -4,10 +4,13 @@ import { readFileSync } from "node:fs";
 const source = readFileSync(new URL("./DesignTool.tsx", import.meta.url), "utf8");
 
 describe("regular Designer priced-item rule", () => {
-  it("removes legacy unpriced catalog placements after the authoritative lookup", () => {
-    expect(source).toContain("unpriced catalog item");
-    expect(source).toContain("item.cabinetId <= 0 || !missingPriceUids.has(item.uid)");
-    expect(source).toContain("if (!priceRowsFetched || priceRowsFetching || missingPriceUids.size === 0) return;");
+  it("keeps every placed cabinet in the design and Cart handoff when its price is pending", () => {
+    expect(source).toContain("They never delete a placed cabinet or remove it from Cart transfer.");
+    expect(source).toContain("Every placed cabinet stays in the Cart.");
+    expect(source).not.toContain("unpriced catalog item");
+    expect(source).not.toContain("checkoutBlockedByMissingPrices");
+    expect(source).not.toContain("notifyCheckoutBlockedByMissingPrices");
+    expect(source).not.toContain("disabled={cartableLines.length === 0 || checkoutBlockedForMissingPrices}");
   });
 
   it("does not add quote-only trim, countertop, or hardware cart lines", () => {

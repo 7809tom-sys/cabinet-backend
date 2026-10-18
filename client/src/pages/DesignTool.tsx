@@ -216,7 +216,7 @@ import { OptionalContactNudge } from "@/components/design/OptionalContactNudge";
 import { DesignDeliveryDialog } from "@/components/design/DesignDeliveryDialog";
 import { DesignActions, type BuildSheetRow } from "@/components/design/DesignActions";
 import { DesignMaterialsListDialog } from "@/components/design/DesignMaterialsListDialog";
-import { summarizeMissingPrices, checkoutBlockedByMissingPrices, missingPriceBannerText } from "@/lib/designMissingPrice";
+import { summarizeMissingPrices, missingPriceBannerText } from "@/lib/designMissingPrice";
 import { DesignMissingPricePopover, type MissingPriceAlternative } from "@/components/design/DesignMissingPricePopover";
 import { buildMaterialsListRows, type MaterialsListSupplement } from "@/lib/designMaterialsList";
 import { RoomSizeControl, RoomSizeInline } from "@/components/design/RoomSizeControl";
@@ -3732,11 +3732,10 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	    [priceMap, pricingIdForPlacedCabinet, pricingStyleIdFor, styleId, glassDoorAddonCodeFor, glassDoorCatalogProduct]
 	  );
 
-  // ── Part 1: no unpriced cabinet on a material list ───────────────────────
-  // Evaluated for the ACTIVE line as soon as the price query settles. Flags
-  // drive the red outline on the plan/3D cabinet, the materials-list line,
-  // the banner count, and the checkout block. Shared with the Wall Builder
-  // because both tools render through this same state.
+  // ── Part 1: every placed cabinet remains visible ─────────────────────────
+  // Evaluate the active line as soon as its price query settles. Flags drive
+  // the red outline, Materials & Parts state, and a visible pending-price
+  // notice. They never delete a placed cabinet or remove it from Cart transfer.
   const missingPriceSummary = useMemo(() => summarizeMissingPrices({
     placed,
     styleId,
@@ -3745,24 +3744,11 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     styleIdFor: (p) => pricingStyleIdFor(p) ?? styleId,
   }), [placed, styleId, pricePairs.length, priceRowsFetched, priceRowsFetching, unitPriceFor, pricingStyleIdFor]);
   const missingPriceUids = missingPriceSummary.uids;
-  const checkoutBlockedForMissingPrices = checkoutBlockedByMissingPrices(missingPriceSummary);
-  // A catalog item without a positive authorized price is not a valid Designer
-  // item. Older saved plans may still contain one from before the price gate;
-  // remove it from the in-memory plan after the authoritative lookup completes
-  // so it cannot remain as a quote-only/conflict line or be saved again.
-  // Synthetic layout appliances use cabinetId <= 0 and are outside this
-  // catalog cleanup path.
-  useEffect(() => {
-    if (!priceRowsFetched || priceRowsFetching || missingPriceUids.size === 0) return;
-    setPlaced((current) => {
-      const next = current.filter((item) => item.cabinetId <= 0 || !missingPriceUids.has(item.uid));
-      if (next.length === current.length) return current;
-      const removed = current.length - next.length;
-      toast.info(`${removed} unpriced catalog item${removed === 1 ? " was" : "s were"} removed from the Designer.`);
-      placedRef.current = next;
-      return next;
-    });
-  }, [missingPriceUids, priceRowsFetched, priceRowsFetching]);
+  const hasPendingCabinetPrices = missingPriceSummary.count > 0;
+  // A selected cabinet is part of the customer’s design whether its source
+  // price lookup is ready or not. Keep it on the canvas and send an explicit
+  // pending-price Cart line; secure Order Review and the server still require a
+  // current authoritative price before an order can be submitted.
   const logMissingPrices = trpc.designMissingPrice.logMissing.useMutation();
   const loggedMissingPriceKeysRef = useRef<Set<string>>(new Set());
   useEffect(() => {
@@ -3784,11 +3770,6 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       items: Array.from(byCode.values()),
     });
   }, [missingPriceSummary, lockedDistributorId, styleId, currentSavedDesignId, storeScope, logMissingPrices]);
-  const notifyCheckoutBlockedByMissingPrices = useCallback(() => {
-    toast.error(missingPriceBannerText(missingPriceSummary.count), {
-      description: `Checkout is blocked until every cabinet has a price on this line: ${missingPriceSummary.codes.join(", ")}. You can still save the design.`,
-    });
-  }, [missingPriceSummary.count, missingPriceSummary.codes]);
   // Part 4: the popover is offered for the selected flagged cabinet. Dismiss
   // hides it for that cabinet until the selection changes; the flag stays.
   const [dismissedMissingPricePopoverUid, setDismissedMissingPricePopoverUid] = useState<string | null>(null);
@@ -4915,16 +4896,12 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 
   const showCartSuccessToast = useCallback((itemCount: number) => {
     toast.success("Items successfully added to cart", {
-      description: `${itemCount} priced item${itemCount === 1 ? " is" : "s are"} ready to review in your cart.`,
+      description: `${itemCount} design item${itemCount === 1 ? " is" : "s are"} ready to review in your cart.`,
       duration: 5000,
     });
   }, []);
 
   const addAllToCart = useCallback(async () => {
-    if (checkoutBlockedForMissingPrices) {
-      notifyCheckoutBlockedByMissingPrices();
-      return;
-    }
     if (cartableLines.length === 0) {
       toast.info(t("dt_cart_nothing"));
       return;
@@ -4934,20 +4911,16 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     replaceWithDesignItems(cartableLines, currentSavedDesignId ?? null);
     showCartSuccessToast(cartableLines.reduce((count, line) => count + line.qty, 0));
     navigate(cartDestination);
-  }, [cartableLines, currentSavedDesignId, replaceWithDesignItems, navigate, cartDestination, showCartSuccessToast, t, checkoutBlockedForMissingPrices, notifyCheckoutBlockedByMissingPrices]);
+  }, [cartableLines, currentSavedDesignId, replaceWithDesignItems, navigate, cartDestination, showCartSuccessToast, t]);
 
   const syncThreeDOrderWithCart = useCallback(() => {
-    if (checkoutBlockedForMissingPrices) {
-      notifyCheckoutBlockedByMissingPrices();
-      return;
-    }
     if (cartableLines.length === 0) {
       toast.info("Add a cabinet to the design before synchronizing the cart.");
       return;
     }
     replaceWithDesignItems(cartableLines, currentSavedDesignId ?? null);
     toast.success(`3D design synchronized to cart (${cartableLines.reduce((count, line) => count + line.qty, 0)} items).`);
-  }, [cartableLines, replaceWithDesignItems, currentSavedDesignId, checkoutBlockedForMissingPrices, notifyCheckoutBlockedByMissingPrices]);
+  }, [cartableLines, replaceWithDesignItems, currentSavedDesignId]);
 
   // ─── Trim auto-apply ────────────────────────────────────────────────────────
   // Only physical construction trim may auto-apply when the layout needs it:
@@ -13682,9 +13655,9 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                 ) : (
                   <div className="px-2 pb-2">
                     {missingPriceSummary.count > 0 && (
-                      <div data-testid="missing-price-banner-mobile" className="mb-1.5 flex items-start gap-1.5 rounded border border-red-400 bg-red-600 px-2 py-1.5 text-[10px] font-semibold text-white">
+                      <div data-testid="missing-price-banner-mobile" className="mb-1.5 flex items-start gap-1.5 rounded border border-amber-300 bg-amber-50 px-2 py-1.5 text-[10px] font-semibold text-amber-900">
                         <TriangleAlert className="mt-0.5 h-3 w-3 shrink-0" />
-                        {missingPriceBannerText(missingPriceSummary.count)} Checkout blocked.
+                        {missingPriceBannerText(missingPriceSummary.count)} These cabinets stay in the Cart and need a current price before an order can be submitted.
                       </div>
                     )}
                     {hasConflicts && (
@@ -13719,10 +13692,8 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                     <button
                       type="button"
                       className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg bg-[#a87f33] px-3 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#a87f33]/90 active:scale-[0.97] disabled:opacity-50"
-                      disabled={cartableLines.length === 0 || checkoutBlockedForMissingPrices}
-                      data-missing-price-blocked={checkoutBlockedForMissingPrices ? "true" : undefined}
+                      disabled={cartableLines.length === 0}
                       onClick={() => {
-                        if (checkoutBlockedForMissingPrices) { notifyCheckoutBlockedByMissingPrices(); return; }
                         if (hasConflicts && !window.confirm(
                           t("dt_confirm_export_conflicts", { n: conflictUids.size, s: conflictUids.size > 1 ? "s" : "" })
                         )) return;
@@ -17763,11 +17734,11 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
           {/* Total */}
           <div className="p-3 border-t border-border shrink-0">
             {missingPriceSummary.count > 0 && (
-              <div data-testid="missing-price-banner" role="alert" className="mb-2 flex items-start gap-2 rounded-md border border-red-500 bg-red-600 p-2 text-[11px] font-semibold text-white shadow">
+              <div data-testid="missing-price-banner" role="alert" className="mb-2 flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 p-2 text-[11px] font-semibold text-amber-900 shadow">
                 <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                 <span>
                   {missingPriceBannerText(missingPriceSummary.count)}{" "}
-                  <span className="font-normal">Checkout is blocked until each flagged cabinet has a price on this line ({missingPriceSummary.codes.join(", ")}). Click a red-flagged cabinet for a priced alternative. Saving is still allowed.</span>
+                  <span className="font-normal">Every placed cabinet stays in the Cart. These flagged lines ({missingPriceSummary.codes.join(", ")}) need a current source price before a secure order can be submitted. Click a red-flagged cabinet for a priced alternative.</span>
                 </span>
               </div>
             )}
@@ -17965,18 +17936,17 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
             <div data-testid="price-panel-quick-actions" className="mt-3 grid grid-cols-4 gap-1.5">
               <Popover>
                 <Tooltip><TooltipTrigger asChild><PopoverTrigger asChild>
-                  <Button aria-label="Cart actions" data-missing-price-blocked={checkoutBlockedForMissingPrices ? "true" : undefined} className={`aspect-square min-h-12 w-full p-0 text-white ${checkoutBlockedForMissingPrices ? "bg-red-600 hover:bg-red-600" : "bg-[#a87f33] hover:bg-[#a87f33]/90"}`} disabled={cartableLines.length === 0}>
+                  <Button aria-label="Cart actions" className="aspect-square min-h-12 w-full bg-[#a87f33] p-0 text-white hover:bg-[#a87f33]/90" disabled={cartableLines.length === 0}>
                     <ShoppingCart className="h-4 w-4" />
                   </Button>
                 </PopoverTrigger></TooltipTrigger><TooltipContent>Add this design to cart</TooltipContent></Tooltip>
                 <PopoverContent align="start" className="w-64 space-y-2">
                   <p className="text-sm font-semibold">Add design to cart</p>
-                  <p className="text-xs text-muted-foreground">{cartableLines.length} orderable item{cartableLines.length === 1 ? "" : "s"} are ready.</p>
-                  {checkoutBlockedForMissingPrices && (
-                    <p data-testid="missing-price-checkout-blocked" className="rounded border border-red-300 bg-red-50 p-2 text-xs font-semibold text-red-700">{missingPriceBannerText(missingPriceSummary.count)} Checkout is blocked until every cabinet has a price.</p>
+                  <p className="text-xs text-muted-foreground">{cartableLines.length} design item{cartableLines.length === 1 ? "" : "s"} will be transferred to your Cart.</p>
+                  {hasPendingCabinetPrices && (
+                    <p data-testid="missing-price-cart-notice" className="rounded border border-amber-300 bg-amber-50 p-2 text-xs font-semibold text-amber-900">{missingPriceBannerText(missingPriceSummary.count)} The Cart keeps every design item; a current price is required only before secure order submission.</p>
                   )}
-                  <Button className="w-full bg-[#a87f33] text-white hover:bg-[#a87f33]/90" disabled={checkoutBlockedForMissingPrices} onClick={() => {
-                    if (checkoutBlockedForMissingPrices) { notifyCheckoutBlockedByMissingPrices(); return; }
+                  <Button className="w-full bg-[#a87f33] text-white hover:bg-[#a87f33]/90" onClick={() => {
                     if (hasConflicts && !window.confirm(t("dt_confirm_export_conflicts", { n: conflictUids.size, s: conflictUids.size > 1 ? "s" : "" }))) return;
                     addAllToCart();
                   }}>

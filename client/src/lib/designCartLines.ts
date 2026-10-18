@@ -70,7 +70,12 @@ export function installedFillerCartName(cabinet: Pick<PlacedCabinet, "masterCode
   return cut ? `Filler — ${cut}` : "Filler";
 }
 
-/** Turns the priced cabinets in a design into the exact cart lines submitted by Design Tool. */
+/**
+ * Turns every sellable cabinet placed in a regular design into its exact Cart
+ * line. A current verified price is locked when available. If a catalog refresh
+ * is temporarily missing a price, retain an explicit pending-price line instead
+ * of silently removing a physical cabinet from the design's Cart composition.
+ */
 export function buildDesignCabinetCartLines({
   placed,
   styleId,
@@ -96,8 +101,10 @@ export function buildDesignCabinetCartLines({
       cabinet.fillerBillingRole === "secondary" ||
       isCombinedSmallFiller(cabinet, placed)
     ) continue;
-    const unitPrice = adjustedDesignUnitPrice(cabinet, firstClassCooktop ? (cabinet.applianceCatalogPrice ?? null) : unitPriceFor(cabinet));
-    if (unitPrice == null) continue;
+    const resolvedUnitPrice = adjustedDesignUnitPrice(cabinet, firstClassCooktop ? (cabinet.applianceCatalogPrice ?? null) : unitPriceFor(cabinet));
+    const unitPrice = resolvedUnitPrice != null && Number.isFinite(resolvedUnitPrice) && resolvedUnitPrice > 0
+      ? resolvedUnitPrice
+      : null;
     const resolvedStyleId = pricingStyleIdFor?.(cabinet) ?? effectiveStyleId(cabinet, styleId) ?? styleId;
     // A linked glassDoorAddonCode is a separately priced replacement door. Keep
     // the cabinet itself on its canonical SKU; only full-cabinet GD swaps use an
@@ -111,7 +118,7 @@ export function buildDesignCabinetCartLines({
       : baseCode;
     // Different discounts or custom-size fees must remain separate locked
     // lines; combining them would assign one cabinet's adjusted price to both.
-    const key = `${masterCode}::${resolvedStyleId}::${unitPrice.toFixed(4)}::${fillerCartIdentity(cabinet)}`;
+    const key = `${masterCode}::${resolvedStyleId}::${unitPrice == null ? "pending" : unitPrice.toFixed(4)}::${fillerCartIdentity(cabinet)}`;
     const cutNotes = placed
       .filter((candidate) => fillerCutSourceFor(candidate, placed)?.uid === cabinet.uid)
       .map((candidate) => combinedFillerNote(candidate, placed))
@@ -130,7 +137,10 @@ export function buildDesignCabinetCartLines({
         distributorId,
         tier,
         unitPrice,
-        priceLocked: true,
+        // A price can only be locked when the Designer actually received a
+        // numeric source-backed value. A pending line remains visible in Cart
+        // and may refresh there, but it can never become a zero-dollar order.
+        ...(unitPrice != null ? { priceLocked: true } : {}),
         qty: 1,
         ...(cutNote ? { qtyNote: cutNote } : {}),
         catalogImageUrl: cabinet.catalogImageUrl ?? null,
@@ -326,10 +336,13 @@ export function completeDesignPricingLines(
   const pricedLines = cartableLines.map((line) => {
     const matchIndex = cabinetPreviewLines.findIndex((candidate, index) =>
       !matchedCabinetLines.has(index) &&
-      candidate.unitPrice != null &&
       candidate.masterCode === line.masterCode &&
       candidate.styleId === line.styleId &&
-      Math.abs(Number(candidate.unitPrice) - Number(line.unitPrice)) < 0.0001 &&
+      (
+        (candidate.unitPrice == null && line.unitPrice == null)
+        || (candidate.unitPrice != null && line.unitPrice != null
+          && Math.abs(Number(candidate.unitPrice) - Number(line.unitPrice)) < 0.0001)
+      ) &&
       candidate.qty === line.qty &&
       candidate.fillerStockWidthIn === line.fillerStockWidthIn &&
       candidate.fillerInstalledCutWidthIn === line.fillerInstalledCutWidthIn
@@ -338,7 +351,9 @@ export function completeDesignPricingLines(
     const match = matchIndex >= 0 ? cabinetPreviewLines[matchIndex] : null;
     return { ...line, placementUids: match?.placementUids };
   });
-  const pendingCabinets = cabinetPreviewLines.filter((line) => line.unitPrice == null);
+  const pendingCabinets = cabinetPreviewLines.filter((line, index) => (
+    line.unitPrice == null && !matchedCabinetLines.has(index)
+  ));
   return [...pricedLines, ...pendingCabinets];
 }
 
