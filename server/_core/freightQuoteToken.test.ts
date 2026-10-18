@@ -55,6 +55,26 @@ describe("freight quote token", () => {
     });
   });
 
+  it("binds a bundled-free Hardware Resources quote to the hardware shipping policy", () => {
+    const token = createFreightQuoteToken({
+      totalCents: 0,
+      merchandiseSubtotalCents: 500000,
+      destinationZip: "32801",
+      residential: false,
+      liftgate: false,
+      quoteKind: "hardware",
+      hardwareShippingMode: "bundled_free",
+      items: [{ vendorProductId: 55, qty: 56 }],
+    });
+
+    expect(verifyFreightQuoteToken(token)).toMatchObject({
+      totalCents: 0,
+      quoteKind: "hardware",
+      hardwareShippingMode: "bundled_free",
+      itemsHash: freightItemsHash([{ vendorProductId: 55, qty: 56 }]),
+    });
+  });
+
   it("rejects tampering and expired quotes", () => {
     const token = createFreightQuoteToken({
       totalCents: 92345,

@@ -675,8 +675,9 @@ export default function Cart() {
                     : `One verified consolidated package: $${((hardwareFreightQuote.data.shippingCents ?? 0) / 100).toFixed(2)} shipping.`}
                 </p>
               ) : (
-                <p className="mt-1">Request a shipping quote after entering your delivery ZIP. Checkout stays unavailable if the verified one-package profile is not enabled.</p>
+                <p className="mt-1">{hardwareFreightQuote.data?.reason ?? "Request a shipping quote after entering your delivery ZIP. Hardware-only checkout stays unavailable until Operations verifies the consolidated-package profile."}</p>
               )}
+              {containsKitchenMerchandise && <p className="mt-1">Hardware ships free when it is ordered with qualifying kitchen cabinets.</p>}
             </div>
           )}
           <label

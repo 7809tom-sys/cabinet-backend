@@ -321,7 +321,9 @@ export const hardwareRouter = router({
             destinationZip: input.destinationZip,
             residential: false,
             liftgate: false,
-            profileRevision: profile?.profileRevision ?? 0,
+            quoteKind: "hardware",
+            hardwareShippingMode: eligibility.promotionApplied ? "bundled_free" : "standalone_profile",
+            ...(eligibility.promotionApplied ? {} : { profileRevision: profile?.profileRevision ?? 0 }),
             items: input.items.map((item) => ({ vendorProductId: item.vendorProductId, qty: item.qty })),
           })
         : null;

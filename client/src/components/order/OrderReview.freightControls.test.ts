@@ -39,7 +39,8 @@ describe("OrderReview freight accessorial controls", () => {
     expect(source).toContain('residential: deliveryLocationType === "residential"');
     expect(source).toContain("liftgate: liftgateRequired");
     expect(source).toContain("distributorId: optionalPositiveFreightId(line.cartDistributorId)");
-    expect(source).toContain("distributorId: isSurfaceCheckoutLine(l) ? null : optionalPositiveFreightId(l.cartDistributorId)");
+    expect(source).toContain("isCabinetFreightLine(line)");
+    expect(source).toContain("optionalPositiveFreightId(line.cartDistributorId) != null");
     expect(source).toContain("final pallet dimensions and loaded weight");
   });
 
@@ -53,7 +54,7 @@ describe("OrderReview freight accessorial controls", () => {
     expect(source).toContain("setSubmittedRequestNumber(res.requestNumber)");
     expect(source).toContain("<PayWithStripe");
     expect(source).toContain("orderRequestId={submittedId}");
-    expect(source).toContain("total + taxAmount + (deliveryMethod === \"ship\" ? freightCents / 100 : 0)");
+    expect(source).toContain("total + taxAmount + (deliveryMethod === \"ship\" ? (freightCents + hardwareFreightCents) / 100 : 0)");
   });
 
   it("refreshes a stale or mismatched signed quote instead of submitting it", () => {

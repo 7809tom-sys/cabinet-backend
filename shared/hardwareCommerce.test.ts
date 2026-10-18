@@ -39,12 +39,18 @@ describe("Hardware Resources commerce policy", () => {
     expect(hardwareProfileIsComplete({ ...completeProfile, enabled: false })).toBe(false);
   });
 
-  it("applies the free hardware-shipping promotion only when kitchen merchandise is in the same one-package-eligible order", () => {
-    expect(hardwareCheckoutEligibility({ profile: completeProfile, hardwareUnits: 2, containsKitchenMerchandise: true }))
+  it("applies free hardware shipping with qualifying kitchen merchandise even before a standalone profile exists", () => {
+    expect(hardwareCheckoutEligibility({ profile: null, hardwareUnits: 56, containsKitchenMerchandise: true }))
       .toMatchObject({ eligible: true, shippingCents: 0, promotionApplied: true });
+    expect(hardwareCheckoutEligibility({ profile: { ...completeProfile, enabled: false }, hardwareUnits: 56, containsKitchenMerchandise: true }))
+      .toMatchObject({ eligible: true, shippingCents: 0, promotionApplied: true });
+    expect(hardwareCheckoutEligibility({ profile: null, hardwareUnits: 2, containsKitchenMerchandise: false }))
+      .toMatchObject({ eligible: false, promotionApplied: false });
     expect(hardwareCheckoutEligibility({ profile: completeProfile, hardwareUnits: 2, containsKitchenMerchandise: false }))
       .toMatchObject({ eligible: true, shippingCents: 1_895, promotionApplied: false });
     expect(hardwareCheckoutEligibility({ profile: completeProfile, hardwareUnits: 41, containsKitchenMerchandise: true }))
+      .toMatchObject({ eligible: true, shippingCents: 0, promotionApplied: true });
+    expect(hardwareCheckoutEligibility({ profile: completeProfile, hardwareUnits: 41, containsKitchenMerchandise: false }))
       .toMatchObject({ eligible: false, promotionApplied: false });
   });
 });

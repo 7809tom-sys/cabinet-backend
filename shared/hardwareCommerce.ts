@@ -64,14 +64,14 @@ export function hardwareCheckoutEligibility(input: {
 } {
   const units = Math.max(0, Math.round(input.hardwareUnits));
   if (units === 0) return { eligible: false, shippingCents: null, promotionApplied: false, reason: "Add hardware before requesting a hardware shipping quote." };
+  if (input.containsKitchenMerchandise) {
+    return { eligible: true, shippingCents: 0, promotionApplied: true, reason: "Free hardware shipping is applied because this hardware is ordered with kitchen merchandise." };
+  }
   if (!hardwareProfileIsComplete(input.profile)) {
     return { eligible: false, shippingCents: null, promotionApplied: false, reason: "Hardware checkout is not available until Operations verifies the Hardware Resources origin, consolidated package, package limit, and standalone shipping rate." };
   }
   if (units > (input.profile!.maxUnitsPerPackage ?? 0)) {
     return { eligible: false, shippingCents: null, promotionApplied: false, reason: `This order has ${units} hardware items and exceeds the verified one-package limit of ${input.profile!.maxUnitsPerPackage}.` };
-  }
-  if (input.containsKitchenMerchandise) {
-    return { eligible: true, shippingCents: 0, promotionApplied: true, reason: "Free hardware shipping is applied because this hardware is ordered with kitchen merchandise." };
   }
   return { eligible: true, shippingCents: input.profile!.standaloneShippingCents ?? null, promotionApplied: false, reason: null };
 }

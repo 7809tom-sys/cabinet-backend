@@ -558,7 +558,10 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
       .filter((line) => isHardwareCheckoutLine(line))
       .map((line) => ({ vendorProductId: line.cartVendorProductId!, qty: line.qty })),
     affiliateSlug: affiliateSlug ?? undefined,
-    containsKitchenMerchandise: pricedLines.some((line) => isCabinetFreightLine(line)),
+    containsKitchenMerchandise: pricedLines.some((line) => (
+      isCabinetFreightLine(line)
+      && optionalPositiveFreightId(line.cartDistributorId) != null
+    )),
     destinationZip: zipDebounced || "00000",
   }), [pricedLines, affiliateSlug, zipDebounced]);
   const hasHardwareLines = hardwareQuoteInput.items.length > 0;

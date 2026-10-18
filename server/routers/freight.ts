@@ -181,6 +181,7 @@ function attachFreightQuoteToken(
       destinationZip: input.destinationZip,
       residential: input.accessorials?.residential === true,
       liftgate: input.accessorials?.liftgate === true,
+      quoteKind: "freight",
       items: input.items,
     }),
   };

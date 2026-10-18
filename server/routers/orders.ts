@@ -911,6 +911,7 @@ export const ordersRouter = router({
         const expectedZip = (input.zip ?? "").replace(/\D/g, "").slice(0, 5);
         const expectedItemsHash = freightItemsHash(freightQuoteItemsForOrder(nonHardwareOrderLines));
         const quoteMatchesOrder =
+          quote.quoteKind !== "hardware" &&
           quote.destinationZip === expectedZip &&
           quote.merchandiseSubtotalCents === nonHardwareMerchandiseCents &&
           quote.residential === (deliveryLocationType === "residential") &&
@@ -935,6 +936,13 @@ export const ordersRouter = router({
           message: "Request a current shipping quote before submitting this order.",
         });
       }
+      const hasVerifiedKitchenFreight = freightQuoteVerified
+        && !hasOnlyTemporaryFreeShippingItems
+        && nonHardwareOrderLines.some((line) => (
+          line.productKind == null
+          && line.cabinetId != null
+          && line.distributorId != null
+        ));
       if (deliveryMethod === "ship" && hardwareOrderLines.length > 0) {
         if (!input.hardwareFreightQuoteToken) {
           throw new TRPCError({ code: "BAD_REQUEST", message: "Request the current consolidated Hardware Resources shipping quote before submitting this order." });
@@ -958,14 +966,24 @@ export const ordersRouter = router({
         const [currentHardwareProfile] = hardwareLine
           ? await db.select().from(hardwareShippingProfiles).where(eq(hardwareShippingProfiles.distributorId, hardwareLine.id)).limit(1)
           : [];
+        const isBundledFreeHardwareQuote = hardwareQuote.quoteKind === "hardware"
+          && hardwareQuote.hardwareShippingMode === "bundled_free";
+        const isStandaloneHardwareQuote = hardwareQuote.quoteKind === "hardware"
+          && hardwareQuote.hardwareShippingMode === "standalone_profile";
         const quoteMatchesOrder =
           hardwareQuote.destinationZip === expectedZip
           && hardwareQuote.merchandiseSubtotalCents === hardwareMerchandiseCents
           && hardwareQuote.residential === false
           && hardwareQuote.liftgate === false
-          && hardwareProfileIsComplete(currentHardwareProfile ?? null)
-          && hardwareQuote.profileRevision === (currentHardwareProfile?.profileRevision ?? -1)
-          && hardwareQuote.itemsHash === expectedItemsHash;
+          && hardwareQuote.itemsHash === expectedItemsHash
+          && (
+            (isBundledFreeHardwareQuote && hasVerifiedKitchenFreight && hardwareQuote.totalCents === 0)
+            || (
+              isStandaloneHardwareQuote
+              && hardwareProfileIsComplete(currentHardwareProfile ?? null)
+              && hardwareQuote.profileRevision === (currentHardwareProfile?.profileRevision ?? -1)
+            )
+          );
         if (!quoteMatchesOrder) {
           throw new TRPCError({ code: "BAD_REQUEST", message: "The Hardware Resources shipping quote no longer matches this order. Request a new quote." });
         }

@@ -16,6 +16,10 @@ export type FreightQuoteTokenPayload = {
   destinationZip: string;
   residential: boolean;
   liftgate: boolean;
+  /** Distinguishes a normal carrier quote from the Hardware Resources shipment quote. */
+  quoteKind?: "freight" | "hardware";
+  /** Hardware-only shipping authorization; bundled-free still requires verified kitchen freight at order submission. */
+  hardwareShippingMode?: "standalone_profile" | "bundled_free";
   /** Hardware Resources profile revision when the token was issued. */
   profileRevision?: number;
   itemsHash: string;
@@ -53,6 +57,8 @@ export function createFreightQuoteToken(input: Omit<FreightQuoteTokenPayload, "i
     destinationZip: input.destinationZip.replace(/\D/g, "").slice(0, 5),
     residential: input.residential,
     liftgate: input.liftgate,
+    ...(input.quoteKind ? { quoteKind: input.quoteKind } : {}),
+    ...(input.hardwareShippingMode ? { hardwareShippingMode: input.hardwareShippingMode } : {}),
     ...(input.profileRevision != null ? { profileRevision: Math.max(0, Math.round(input.profileRevision)) } : {}),
     itemsHash: freightItemsHash(input.items),
     expiresAt: Date.now() + (input.ttlMs ?? 30 * 60 * 1000),

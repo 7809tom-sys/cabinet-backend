@@ -13,9 +13,13 @@ describe("Hardware Resources checkout contract", () => {
     expect(orders).toContain("hardwareMarkupBps: markupBps");
   });
 
-  it("requires a distinct signed Hardware Resources quote and rejects a changed or disabled shipment profile", () => {
+  it("requires a distinct signed Hardware Resources quote and accepts bundled-free shipping only with verified kitchen freight", () => {
     expect(orders).toContain("hardwareFreightQuoteToken");
     expect(orders).toContain("freightQuoteItemsForOrder(hardwareOrderLines)");
+    expect(orders).toContain('hardwareQuote.quoteKind === "hardware"');
+    expect(orders).toContain('hardwareQuote.hardwareShippingMode === "bundled_free"');
+    expect(orders).toContain("hasVerifiedKitchenFreight");
+    expect(orders).toContain("hardwareQuote.totalCents === 0");
     expect(orders).toContain("hardwareProfileIsComplete(currentHardwareProfile ?? null)");
     expect(orders).toContain("hardwareQuote.profileRevision === (currentHardwareProfile?.profileRevision ?? -1)");
   });
