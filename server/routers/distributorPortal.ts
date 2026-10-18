@@ -1481,7 +1481,7 @@ export const distributorPortalRouter = router({
         })
         .from(distributorSkus)
         .leftJoin(cabinets, eq(distributorSkus.cabinetId, cabinets.id))
-        .innerJoin(doorStyles, eq(distributorSkus.styleId, doorStyles.id))
+        .leftJoin(doorStyles, eq(distributorSkus.styleId, doorStyles.id))
         .where(and(...conds));
 
       const rows = await base
@@ -1494,7 +1494,7 @@ export const distributorPortalRouter = router({
         .select({ n: sql<number>`count(*)` })
         .from(distributorSkus)
         .leftJoin(cabinets, eq(distributorSkus.cabinetId, cabinets.id))
-        .innerJoin(doorStyles, eq(distributorSkus.styleId, doorStyles.id))
+        .leftJoin(doorStyles, eq(distributorSkus.styleId, doorStyles.id))
         .where(and(...conds));
 
       return { items: rows, total: Number(tot?.n ?? 0) };

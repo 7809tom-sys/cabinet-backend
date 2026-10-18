@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { and, asc, count, desc, eq, like, or } from "drizzle-orm";
-import { router, publicProcedure, adminProcedure } from "../_core/trpc";
+import { router, publicProcedure, adminProcedure, distributorProcedure } from "../_core/trpc";
 import { getDb } from "../db";
 import { affiliates, distributors, hardwareShippingProfiles, vendorProducts } from "../../drizzle/schema";
 import {
@@ -8,6 +8,7 @@ import {
   hardwareCheckoutEligibility,
   hardwareProfileIsComplete,
   hardwareRetailCents,
+  hardwareVendorOriginZip,
 } from "@shared/hardwareCommerce";
 import { groupHardwareConfigurations } from "@shared/hardwareCatalogGrouping";
 import { createFreightQuoteToken } from "../_core/freightQuoteToken";
@@ -49,12 +50,10 @@ const deliveryAddressInput = z.object({
 
 const hardwareProfileInput = z.object({
   enabled: z.boolean(),
-  originZip: z.string().trim().max(16).nullable(),
   packageLengthIn: z.number().positive().max(999).nullable(),
   packageWidthIn: z.number().positive().max(999).nullable(),
   packageHeightIn: z.number().positive().max(999).nullable(),
   packageWeightLbs: z.number().positive().max(5000).nullable(),
-  maxUnitsPerPackage: z.number().int().min(1).max(9999).nullable(),
   standaloneShippingCents: z.number().int().min(0).max(10000000).nullable(),
   sourceReference: z.string().trim().max(512).nullable(),
 });
@@ -71,17 +70,21 @@ function publicHardwareConditions() {
 
 async function hardwareLineAndProfile(db: NonNullable<Awaited<ReturnType<typeof getDb>>>) {
   const [line] = await db
-    .select({ id: distributors.id })
+    .select({ id: distributors.id, warehouseZips: distributors.warehouseZips })
     .from(distributors)
     .where(eq(distributors.code, HARDWARE_LINE_CODE))
     .limit(1);
-  if (!line) return { lineId: null, profile: null };
+  if (!line) return { lineId: null, vendorOriginZip: null, profile: null };
   const [profile] = await db
     .select()
     .from(hardwareShippingProfiles)
     .where(eq(hardwareShippingProfiles.distributorId, line.id))
     .limit(1);
-  return { lineId: line.id, profile: profile ?? null };
+  return {
+    lineId: line.id,
+    vendorOriginZip: hardwareVendorOriginZip(line.warehouseZips),
+    profile: profile ?? null,
+  };
 }
 
 async function affiliateHardwareMarkupBps(
@@ -111,6 +114,46 @@ async function affiliateHardwareMarkupBps(
  * reason to invent a parcel rate.
  */
 export const hardwareRouter = router({
+  /** Read-only vendor catalog for the dedicated hardware supplier profile. */
+  vendorCatalog: distributorProcedure
+    .input(z.object({ distributorId: z.number().optional(), limit: z.number().int().min(1).max(500).default(100), offset: z.number().int().min(0).default(0) }))
+    .query(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+      const lineId = ctx.isAdmin ? input.distributorId : ctx.distributorId;
+      if (!lineId) throw new Error("Select a hardware vendor line before viewing its catalog.");
+      const [line] = await db.select({ id: distributors.id })
+        .from(distributors)
+        .where(and(eq(distributors.id, lineId), eq(distributors.code, HARDWARE_LINE_CODE)))
+        .limit(1);
+      if (!line) throw new Error("This vendor is not the configured hardware supplier.");
+      const [items, totals] = await Promise.all([
+        db.select({
+          id: vendorProducts.id,
+          sku: vendorProducts.vendorSku,
+          name: vendorProducts.name,
+          description: vendorProducts.description,
+          category: vendorProducts.category,
+          collection: vendorProducts.hardwareCollection,
+          productType: vendorProducts.hardwareProductType,
+          finish: vendorProducts.hardwareFinish,
+          configurationLabel: vendorProducts.hardwareConfigurationLabel,
+          isAvailable: vendorProducts.isAvailable,
+          isPublished: vendorProducts.isPublished,
+          status: vendorProducts.status,
+        })
+          .from(vendorProducts)
+          .where(eq(vendorProducts.distributorId, lineId))
+          .orderBy(asc(vendorProducts.category), asc(vendorProducts.vendorSku))
+          .limit(input.limit)
+          .offset(input.offset),
+        db.select({ count: count() })
+          .from(vendorProducts)
+          .where(eq(vendorProducts.distributorId, lineId)),
+      ]);
+      return { items, total: Number(totals[0]?.count ?? 0) };
+    }),
+
   categories: publicProcedure.query(async () => {
     const db = await getDb();
     if (!db) return [] as { category: string; count: number }[];
@@ -278,10 +321,10 @@ export const hardwareRouter = router({
     .query(async ({ input }) => {
       const db = await getDb();
       if (!db) return { checkoutEnabled: false, promotionAvailable: false };
-      const { profile } = await hardwareLineAndProfile(db);
+      const { profile, vendorOriginZip } = await hardwareLineAndProfile(db);
       return {
-        checkoutEnabled: hardwareProfileIsComplete(profile),
-        promotionAvailable: hardwareProfileIsComplete(profile) && input?.containsKitchenMerchandise === true,
+        checkoutEnabled: hardwareProfileIsComplete(profile) && Boolean(vendorOriginZip),
+        promotionAvailable: hardwareProfileIsComplete(profile) && Boolean(vendorOriginZip) && input?.containsKitchenMerchandise === true,
       };
     }),
 
@@ -295,7 +338,7 @@ export const hardwareRouter = router({
     .query(async ({ input }) => {
       const db = await getDb();
       if (!db) throw new Error("Database not available");
-      const { lineId, profile } = await hardwareLineAndProfile(db);
+      const { lineId, profile, vendorOriginZip } = await hardwareLineAndProfile(db);
       const affiliatePricing = await affiliateHardwareMarkupBps(db, input.affiliateSlug);
       if (!lineId) return { available: false, totalCents: 0, merchandiseCents: 0, shippingCents: null, promotionApplied: false, reason: "Hardware Resources is not configured." };
       const ids = input.items.map((item) => item.vendorProductId);
@@ -318,6 +361,7 @@ export const hardwareRouter = router({
       }
       const eligibility = hardwareCheckoutEligibility({
         profile,
+        vendorOriginZip,
         hardwareUnits: input.items.reduce((sum, item) => sum + item.qty, 0),
         containsKitchenMerchandise: input.containsKitchenMerchandise,
       });
@@ -331,6 +375,7 @@ export const hardwareRouter = router({
             liftgate: false,
             quoteKind: "hardware",
             hardwareShippingMode: eligibility.promotionApplied ? "bundled_free" : "standalone_profile",
+            originZip: vendorOriginZip ?? undefined,
             ...(eligibility.promotionApplied ? {} : { profileRevision: profile?.profileRevision ?? 0 }),
             items: input.items.map((item) => ({ vendorProductId: item.vendorProductId, qty: item.qty })),
           })
@@ -343,14 +388,22 @@ export const hardwareRouter = router({
         promotionApplied: eligibility.promotionApplied,
         reason: eligibility.reason,
         quoteToken,
+        shipment: eligibility.eligible ? {
+          originZip: vendorOriginZip,
+          packageCount: 1,
+          packageLengthIn: profile?.packageLengthIn ?? null,
+          packageWidthIn: profile?.packageWidthIn ?? null,
+          packageHeightIn: profile?.packageHeightIn ?? null,
+          packageWeightLbs: profile?.packageWeightLbs ?? null,
+        } : null,
       };
     }),
 
   adminGetShippingProfile: adminProcedure.query(async () => {
     const db = await getDb();
-    if (!db) return { profile: null, checkoutEnabled: false };
-    const { profile } = await hardwareLineAndProfile(db);
-    return { profile, checkoutEnabled: hardwareProfileIsComplete(profile) };
+    if (!db) return { profile: null, vendorOriginZip: null, checkoutEnabled: false };
+    const { profile, vendorOriginZip } = await hardwareLineAndProfile(db);
+    return { profile, vendorOriginZip, checkoutEnabled: hardwareProfileIsComplete(profile) && Boolean(vendorOriginZip) };
   }),
 
   adminSaveShippingProfile: adminProcedure
@@ -358,11 +411,10 @@ export const hardwareRouter = router({
     .mutation(async ({ input }) => {
       const db = await getDb();
       if (!db) throw new Error("Database not available");
-      const { lineId, profile } = await hardwareLineAndProfile(db);
+      const { lineId, profile, vendorOriginZip } = await hardwareLineAndProfile(db);
       if (!lineId) throw new Error("Hardware Resources supplier line is not configured.");
       const values = {
         ...input,
-        originZip: input.originZip?.trim() || null,
         sourceReference: input.sourceReference?.trim() || null,
         packageLengthIn: input.packageLengthIn == null ? null : input.packageLengthIn.toFixed(2),
         packageWidthIn: input.packageWidthIn == null ? null : input.packageWidthIn.toFixed(2),
@@ -370,11 +422,11 @@ export const hardwareRouter = router({
         packageWeightLbs: input.packageWeightLbs == null ? null : input.packageWeightLbs.toFixed(2),
         profileRevision: (profile?.profileRevision ?? 0) + 1,
       };
-      if (input.enabled && !hardwareProfileIsComplete(values)) {
-        throw new Error("Enter a valid origin ZIP, one consolidated package’s dimensions and weight, a positive one-package item limit, a standalone shipping amount, and a source reference before enabling hardware checkout.");
+      if (input.enabled && (!hardwareProfileIsComplete(values) || !vendorOriginZip)) {
+        throw new Error("Set the hardware vendor profile ZIP, one consolidated package’s dimensions and weight, a standalone shipping amount, and a source reference before enabling hardware checkout.");
       }
       if (profile) await db.update(hardwareShippingProfiles).set(values).where(eq(hardwareShippingProfiles.id, profile.id));
       else await db.insert(hardwareShippingProfiles).values({ distributorId: lineId, ...values });
-      return { checkoutEnabled: hardwareProfileIsComplete(values) };
+      return { checkoutEnabled: hardwareProfileIsComplete(values) && Boolean(vendorOriginZip) };
     }),
 });

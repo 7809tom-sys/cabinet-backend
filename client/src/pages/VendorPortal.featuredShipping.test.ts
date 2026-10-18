@@ -183,6 +183,26 @@ describe("Vendor Portal Featured Styles and Shipping", () => {
     expect(source).toContain("utils.distributorPortal.supplierProfile.invalidate()");
   });
 
+  it("opens the complete vendor SKU catalog from the supplier profile and pages beyond the first 100 rows", () => {
+    const profile = source.slice(source.indexOf("function SupplierProfilePage"), source.indexOf("function SupplierPdfResource"));
+    const catalog = source.slice(source.indexOf("function CatalogPage"), source.indexOf("// ─── CSV Upload Section"));
+    const profileCatalog = source.slice(source.indexOf("function VendorProfileCatalogPanel"), source.indexOf("function SupplierPdfResource"));
+    expect(profile).toContain("VendorProfileCatalogPanel");
+    expect(profile).toContain("Your vendor catalog");
+    expect(source).toContain("function VendorProfileCatalogPanel");
+    expect(source).toContain("const isHardwareVendor = lineCode === \"HRDW\"");
+    expect(source).toContain("trpc.hardware.vendorCatalog.useQuery");
+    expect(source).toContain("No catalog line is linked to this supplier profile yet.");
+    expect(source).toContain("const CATALOG_PAGE_SIZE = 100");
+    expect(catalog).toContain("offset: catalogPage * CATALOG_PAGE_SIZE");
+    expect(catalog).toContain("Previous page");
+    expect(catalog).toContain("Next page");
+    expect(catalog).toContain("setCatalogPage(0)");
+    expect(profileCatalog).not.toContain("updatePrice");
+    expect(profileCatalog).not.toContain("setVisibility");
+    expect(profileCatalog).not.toContain("updateImage");
+  });
+
 	  it("adds a separate WooCommerce/Magento-style non-cabinet product import workspace", () => {
 	    expect(source).toContain('id: "other-products", label: "Other Products"');
 	    expect(source).toContain('{page === "other-products" && <VendorOtherProducts');

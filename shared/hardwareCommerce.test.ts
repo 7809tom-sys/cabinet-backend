@@ -39,18 +39,43 @@ describe("Hardware Resources commerce policy", () => {
     expect(hardwareProfileIsComplete({ ...completeProfile, enabled: false })).toBe(false);
   });
 
+  it("uses the vendor profile ZIP and keeps every ordered handle in one consolidated shipment", () => {
+    expect(hardwareProfileIsComplete({ ...completeProfile, originZip: null, maxUnitsPerPackage: null })).toBe(true);
+
+    expect(hardwareCheckoutEligibility({
+      profile: { ...completeProfile, maxUnitsPerPackage: 1 },
+      vendorOriginZip: "30303",
+      hardwareUnits: 1,
+      containsKitchenMerchandise: false,
+    })).toMatchObject({ eligible: true, shippingCents: 1_895, promotionApplied: false });
+
+    expect(hardwareCheckoutEligibility({
+      profile: { ...completeProfile, maxUnitsPerPackage: 1 },
+      vendorOriginZip: "30303",
+      hardwareUnits: 9_999,
+      containsKitchenMerchandise: false,
+    })).toMatchObject({ eligible: true, shippingCents: 1_895, promotionApplied: false });
+
+    expect(hardwareCheckoutEligibility({
+      profile: completeProfile,
+      vendorOriginZip: null,
+      hardwareUnits: 100,
+      containsKitchenMerchandise: true,
+    })).toMatchObject({ eligible: false, promotionApplied: false, reason: expect.stringMatching(/vendor profile ZIP/i) });
+  });
+
   it("applies free hardware shipping with qualifying kitchen merchandise even before a standalone profile exists", () => {
-    expect(hardwareCheckoutEligibility({ profile: null, hardwareUnits: 56, containsKitchenMerchandise: true }))
+    expect(hardwareCheckoutEligibility({ profile: null, vendorOriginZip: "30303", hardwareUnits: 56, containsKitchenMerchandise: true }))
       .toMatchObject({ eligible: true, shippingCents: 0, promotionApplied: true });
-    expect(hardwareCheckoutEligibility({ profile: { ...completeProfile, enabled: false }, hardwareUnits: 56, containsKitchenMerchandise: true }))
+    expect(hardwareCheckoutEligibility({ profile: { ...completeProfile, enabled: false }, vendorOriginZip: "30303", hardwareUnits: 56, containsKitchenMerchandise: true }))
       .toMatchObject({ eligible: true, shippingCents: 0, promotionApplied: true });
-    expect(hardwareCheckoutEligibility({ profile: null, hardwareUnits: 2, containsKitchenMerchandise: false }))
+    expect(hardwareCheckoutEligibility({ profile: null, vendorOriginZip: "30303", hardwareUnits: 2, containsKitchenMerchandise: false }))
       .toMatchObject({ eligible: false, promotionApplied: false });
-    expect(hardwareCheckoutEligibility({ profile: completeProfile, hardwareUnits: 2, containsKitchenMerchandise: false }))
+    expect(hardwareCheckoutEligibility({ profile: completeProfile, vendorOriginZip: "30303", hardwareUnits: 2, containsKitchenMerchandise: false }))
       .toMatchObject({ eligible: true, shippingCents: 1_895, promotionApplied: false });
-    expect(hardwareCheckoutEligibility({ profile: completeProfile, hardwareUnits: 41, containsKitchenMerchandise: true }))
+    expect(hardwareCheckoutEligibility({ profile: completeProfile, vendorOriginZip: "30303", hardwareUnits: 41, containsKitchenMerchandise: true }))
       .toMatchObject({ eligible: true, shippingCents: 0, promotionApplied: true });
-    expect(hardwareCheckoutEligibility({ profile: completeProfile, hardwareUnits: 41, containsKitchenMerchandise: false }))
-      .toMatchObject({ eligible: false, promotionApplied: false });
+    expect(hardwareCheckoutEligibility({ profile: completeProfile, vendorOriginZip: "30303", hardwareUnits: 41, containsKitchenMerchandise: false }))
+      .toMatchObject({ eligible: true, shippingCents: 1_895, promotionApplied: false });
   });
 });

@@ -52,6 +52,7 @@ const PEL_DIST_CODE = "PEL";
 // ─── Constants ────────────────────────────────────────────────────────────────
 const ALL = "__all__";
 const MAX_PICKS = 8;
+const CATALOG_PAGE_SIZE = 100;
 
 function money(v: string | null | undefined): string {
   if (v == null) return "—";
@@ -725,11 +726,18 @@ function SupplierProfilePage() {
               <div><p className="text-muted-foreground">Contact email</p><p className="font-medium break-all">{approvedVendor.contactEmail || "—"}</p></div>
               <div><p className="text-muted-foreground">Contact phone</p><p className="font-medium">{approvedVendor.contactPhone || "—"}</p></div>
               <div className="lg:col-span-2"><p className="text-muted-foreground">Website</p>{approvedVendor.websiteUrl ? <a className="inline-flex items-center gap-1 font-medium text-primary hover:underline break-all" href={approvedVendor.websiteUrl} target="_blank" rel="noopener noreferrer"><ExternalLink className="h-3.5 w-3.5" />{approvedVendor.websiteUrl}</a> : <p className="font-medium">—</p>}</div>
-              {approvedVendor.notes && <div className="rounded-md bg-muted/50 p-3 md:col-span-2 lg:col-span-3"><p className="text-muted-foreground">Notes</p><p className="mt-1 whitespace-pre-wrap">{approvedVendor.notes}</p></div>}
-            </CardContent>
-          </Card>
+	              {approvedVendor.notes && <div className="rounded-md bg-muted/50 p-3 md:col-span-2 lg:col-span-3"><p className="text-muted-foreground">Notes</p><p className="mt-1 whitespace-pre-wrap">{approvedVendor.notes}</p></div>}
+	            </CardContent>
+	          </Card>
 
-          <Card>
+          <VendorProfileCatalogPanel
+            distributorId={line?.id ?? null}
+            distributorName={line?.name ?? null}
+            lineCode={line?.code ?? null}
+            adminDistributorId={adminDistId}
+          />
+
+	          <Card>
             <CardHeader>
               <CardTitle>Catalog &amp; specification resources</CardTitle>
             </CardHeader>
@@ -740,6 +748,127 @@ function SupplierProfilePage() {
           </Card>
       </>
     </div>
+  );
+}
+
+function VendorProfileCatalogPanel({
+  distributorId,
+  distributorName,
+  lineCode,
+  adminDistributorId,
+}: {
+  distributorId: number | null;
+  distributorName: string | null;
+  lineCode: string | null;
+  adminDistributorId?: number;
+}) {
+  const isHardwareVendor = lineCode === "HRDW";
+  const [offset, setOffset] = useState(0);
+  const input = useMemo(() => ({
+    ...(adminDistributorId ? { distributorId: adminDistributorId } : {}),
+    limit: 100,
+    offset,
+  }), [adminDistributorId, offset]);
+  const catalog = trpc.distributorPortal.catalog.useQuery(input, { enabled: distributorId != null && !isHardwareVendor });
+  const total = catalog.data?.total ?? 0;
+  const pageStart = total === 0 ? 0 : offset + 1;
+  const pageEnd = Math.min(offset + (catalog.data?.items.length ?? 0), total);
+
+  if (distributorId == null) {
+    return (
+      <Card data-testid="vendor-profile-catalog-unlinked">
+        <CardHeader><CardTitle>Your vendor catalog</CardTitle></CardHeader>
+        <CardContent><p className="text-sm text-muted-foreground">No catalog line is linked to this supplier profile yet.</p></CardContent>
+      </Card>
+    );
+  }
+
+  if (isHardwareVendor) {
+    return <HardwareVendorProfileCatalogPanel adminDistributorId={adminDistributorId} />;
+  }
+
+  return (
+    <Card data-testid="vendor-profile-catalog">
+      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3">
+        <div>
+          <CardTitle>Your vendor catalog</CardTitle>
+          <CardDescription>Read-only view of all SKUs linked to {distributorName ?? "this vendor"}.</CardDescription>
+        </div>
+        <Badge variant="outline">{total} SKUs</Badge>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {catalog.isLoading ? <Skeleton className="h-32 w-full" /> : (
+          <div className="rounded-md border overflow-x-auto">
+            <Table>
+              <TableHeader><TableRow><TableHead>SKU</TableHead><TableHead>Description</TableHead><TableHead>Style</TableHead><TableHead>Category</TableHead><TableHead>Status</TableHead></TableRow></TableHeader>
+              <TableBody>
+                {catalog.data?.items.map((item) => (
+                  <TableRow key={item.skuId}>
+                    <TableCell className="font-mono text-xs">{item.masterCode ?? item.distributorSku ?? item.platformSku ?? "—"}</TableCell>
+                    <TableCell className="max-w-[360px] truncate text-sm">{item.description ?? item.supplierCabinetName ?? "Pending master-cabinet mapping"}</TableCell>
+                    <TableCell>{item.styleName ?? "Unassigned style"}</TableCell>
+                    <TableCell>{item.category ?? "Unmapped"}</TableCell>
+                    <TableCell><Badge variant={item.status === "approved" ? "default" : item.status === "pending" ? "secondary" : "destructive"}>{item.status}</Badge></TableCell>
+                  </TableRow>
+                ))}
+                {catalog.data?.items.length === 0 && <TableRow><TableCell colSpan={5} className="py-6 text-center text-muted-foreground">No SKUs are linked to this vendor line.</TableCell></TableRow>}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+        {total > 0 && <div className="flex items-center justify-between gap-3 text-sm">
+          <span className="text-muted-foreground">Showing {pageStart}–{pageEnd} of {total} SKUs</span>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" aria-label="Previous page" disabled={offset === 0 || catalog.isFetching} onClick={() => setOffset((current) => Math.max(0, current - 100))}>Previous page</Button>
+            <Button variant="outline" size="sm" aria-label="Next page" disabled={offset + 100 >= total || catalog.isFetching} onClick={() => setOffset((current) => current + 100)}>Next page</Button>
+          </div>
+        </div>}
+      </CardContent>
+    </Card>
+  );
+}
+
+function HardwareVendorProfileCatalogPanel({ adminDistributorId }: { adminDistributorId?: number }) {
+  const [offset, setOffset] = useState(0);
+  const catalog = trpc.hardware.vendorCatalog.useQuery({
+    ...(adminDistributorId ? { distributorId: adminDistributorId } : {}),
+    limit: 100,
+    offset,
+  });
+  const total = catalog.data?.total ?? 0;
+  const pageStart = total === 0 ? 0 : offset + 1;
+  const pageEnd = Math.min(offset + (catalog.data?.items.length ?? 0), total);
+  return (
+    <Card data-testid="vendor-profile-hardware-catalog">
+      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3">
+        <div><CardTitle>Your vendor catalog</CardTitle><CardDescription>Read-only view of every handle and hardware SKU on this supplier line.</CardDescription></div>
+        <Badge variant="outline">{total} SKUs</Badge>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {catalog.isLoading ? <Skeleton className="h-32 w-full" /> : <div className="rounded-md border overflow-x-auto">
+          <Table>
+            <TableHeader><TableRow><TableHead>SKU</TableHead><TableHead>Description</TableHead><TableHead>Collection</TableHead><TableHead>Finish</TableHead><TableHead>Status</TableHead></TableRow></TableHeader>
+            <TableBody>
+              {catalog.data?.items.map((item) => <TableRow key={item.id}>
+                <TableCell className="font-mono text-xs">{item.sku}</TableCell>
+                <TableCell className="max-w-[360px] truncate text-sm">{item.description ?? item.name}</TableCell>
+                <TableCell>{item.collection ?? item.productType ?? "—"}</TableCell>
+                <TableCell>{item.finish ?? "—"}</TableCell>
+                <TableCell><Badge variant={item.status === "approved" ? "default" : item.status === "pending" ? "secondary" : "destructive"}>{item.status}</Badge></TableCell>
+              </TableRow>)}
+              {catalog.data?.items.length === 0 && <TableRow><TableCell colSpan={5} className="py-6 text-center text-muted-foreground">No hardware SKUs are linked to this vendor line.</TableCell></TableRow>}
+            </TableBody>
+          </Table>
+        </div>}
+        {total > 0 && <div className="flex items-center justify-between gap-3 text-sm">
+          <span className="text-muted-foreground">Showing {pageStart}–{pageEnd} of {total} SKUs</span>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" aria-label="Previous page" disabled={offset === 0 || catalog.isFetching} onClick={() => setOffset((current) => Math.max(0, current - 100))}>Previous page</Button>
+            <Button variant="outline" size="sm" aria-label="Next page" disabled={offset + 100 >= total || catalog.isFetching} onClick={() => setOffset((current) => current + 100)}>Next page</Button>
+          </div>
+        </div>}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -764,6 +893,7 @@ function CatalogPage() {
   const [category, setCategory] = useState<string>(ALL);
   const [search, setSearch] = useState("");
   const [onlyHidden, setOnlyHidden] = useState(false);
+  const [catalogPage, setCatalogPage] = useState(0);
   const [editingPrice, setEditingPrice] = useState<{ skuId: number; field: string; value: string } | null>(null);
   const [editingOnHand, setEditingOnHand] = useState<{ skuId: number; value: string } | null>(null);
   const [showNewProduct, setShowNewProduct] = useState(false);
@@ -775,10 +905,10 @@ function CatalogPage() {
       category: category === ALL ? undefined : category,
       search: search.trim() || undefined,
       onlyHidden: onlyHidden || undefined,
-      limit: 100,
-      offset: 0,
+      limit: CATALOG_PAGE_SIZE,
+      offset: catalogPage * CATALOG_PAGE_SIZE,
     }),
-    [styleId, category, search, onlyHidden, adminDistId]
+    [styleId, category, search, onlyHidden, catalogPage, adminDistId]
   );
 
   const catalog = trpc.distributorPortal.catalog.useQuery(catalogInput, {
@@ -889,11 +1019,11 @@ function CatalogPage() {
           <Input
             placeholder="Search SKU or description..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => { setSearch(e.target.value); setCatalogPage(0); }}
             className="pl-9"
           />
         </div>
-        <Select value={styleId} onValueChange={setStyleId}>
+        <Select value={styleId} onValueChange={(value) => { setStyleId(value); setCatalogPage(0); }}>
           <SelectTrigger className="w-48">
             <SelectValue placeholder="All Styles" />
           </SelectTrigger>
@@ -904,7 +1034,7 @@ function CatalogPage() {
             ))}
           </SelectContent>
         </Select>
-        <Select value={category} onValueChange={setCategory}>
+        <Select value={category} onValueChange={(value) => { setCategory(value); setCatalogPage(0); }}>
           <SelectTrigger className="w-40">
             <SelectValue placeholder="All Categories" />
           </SelectTrigger>
@@ -916,7 +1046,7 @@ function CatalogPage() {
           </SelectContent>
         </Select>
         <label className="flex items-center gap-2 text-sm">
-          <Switch checked={onlyHidden} onCheckedChange={setOnlyHidden} />
+          <Switch checked={onlyHidden} onCheckedChange={(value) => { setOnlyHidden(value); setCatalogPage(0); }} />
           Hidden only
         </label>
       </div>
@@ -1039,6 +1169,14 @@ function CatalogPage() {
           </Table>
         </div>
       )}
+
+      {(catalog.data?.total ?? 0) > 0 && <div className="flex items-center justify-between gap-3 text-sm">
+        <span className="text-muted-foreground">Page {catalogPage + 1} of {Math.max(1, Math.ceil((catalog.data?.total ?? 0) / CATALOG_PAGE_SIZE))}</span>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" aria-label="Previous page" disabled={catalogPage === 0 || catalog.isFetching} onClick={() => setCatalogPage((page) => Math.max(0, page - 1))}>Previous page</Button>
+          <Button variant="outline" size="sm" aria-label="Next page" disabled={(catalogPage + 1) * CATALOG_PAGE_SIZE >= (catalog.data?.total ?? 0) || catalog.isFetching} onClick={() => setCatalogPage((page) => page + 1)}>Next page</Button>
+        </div>
+      </div>}
 
       {/* Hidden file input for image upload */}
       <input

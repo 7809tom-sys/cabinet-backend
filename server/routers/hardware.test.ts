@@ -32,6 +32,23 @@ describe("public hardware catalog contract", () => {
     expect(source).toContain("...(eligibility.promotionApplied ? {} : { profileRevision: profile?.profileRevision ?? 0 })");
   });
 
+  it("uses the hardware vendor's profile ZIP and one package, without a per-handle package cap", () => {
+    expect(source).toContain("warehouseZips: distributors.warehouseZips");
+    expect(source).toContain("hardwareVendorOriginZip(line.warehouseZips)");
+    expect(source).toContain("vendorOriginZip,");
+    expect(source).toContain("originZip: vendorOriginZip ?? undefined");
+    expect(source).toContain("packageCount: 1");
+    expect(source).not.toContain("maxUnitsPerPackage: z.number");
+    expect(source).not.toContain("originZip: z.string");
+  });
+
+  it("gives the hardware vendor a read-only view of every SKU on its own supplier profile", () => {
+    expect(source).toContain("vendorCatalog: distributorProcedure");
+    expect(source).toContain("eq(distributors.code, HARDWARE_LINE_CODE)");
+    expect(source).toContain("eq(vendorProducts.distributorId, lineId)");
+    expect(source).not.toContain("yourCost: vendorProducts.yourCost");
+  });
+
   it("issues Hardware Resources shipping authorization only from a complete delivery address", () => {
     const quoteStart = source.indexOf("quote: publicProcedure");
     const quoteEnd = source.indexOf("\n  adminGetShippingProfile:", quoteStart);

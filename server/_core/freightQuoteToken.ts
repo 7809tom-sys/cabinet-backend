@@ -26,6 +26,8 @@ export type FreightQuoteTokenPayload = {
   quoteKind?: "freight" | "hardware";
   /** Hardware-only shipping authorization; bundled-free still requires verified kitchen freight at order submission. */
   hardwareShippingMode?: "standalone_profile" | "bundled_free";
+  /** Hardware-only, server-resolved vendor profile origin. Never supplied by the browser. */
+  originZip?: string;
   /** Hardware Resources profile revision when the token was issued. */
   profileRevision?: number;
   itemsHash: string;
@@ -75,6 +77,7 @@ export function createFreightQuoteToken(input: Omit<FreightQuoteTokenPayload, "i
     liftgate: input.liftgate,
     ...(input.quoteKind ? { quoteKind: input.quoteKind } : {}),
     ...(input.hardwareShippingMode ? { hardwareShippingMode: input.hardwareShippingMode } : {}),
+    ...(input.originZip ? { originZip: input.originZip.trim() } : {}),
     ...(input.profileRevision != null ? { profileRevision: Math.max(0, Math.round(input.profileRevision)) } : {}),
     itemsHash: freightItemsHash(input.items),
     expiresAt: Date.now() + (input.ttlMs ?? 30 * 60 * 1000),

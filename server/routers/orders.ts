@@ -52,7 +52,7 @@ import { normalizeFreightQuoteDeliveryAddress } from "@shared/freightQuoteAddres
 import { calcSalesTax } from "@shared/usSalesTax";
 import { isTemporaryOneDollarCheckoutTestItem, isTemporaryOneDollarFreeShippingOrder } from "@shared/temporaryCheckoutTest";
 import { isStagingTestHost } from "@shared/stagingTestMode";
-import { HARDWARE_LINE_CODE, hardwareProfileIsComplete, hardwareRetailCents } from "@shared/hardwareCommerce";
+import { HARDWARE_LINE_CODE, hardwareProfileIsComplete, hardwareRetailCents, hardwareVendorOriginZip } from "@shared/hardwareCommerce";
 
 // Map the order tierEnum to the shared PricingTier.
 const orderTier = (t: "Wholesale" | "Contractor" | "Homeowner") =>
@@ -1017,7 +1017,7 @@ export const ordersRouter = router({
         }
         const expectedItemsHash = freightItemsHash(freightQuoteItemsForOrder(hardwareOrderLines));
         const [hardwareLine] = await db
-          .select({ id: distributors.id })
+          .select({ id: distributors.id, warehouseZips: distributors.warehouseZips })
           .from(distributors)
           .where(eq(distributors.code, HARDWARE_LINE_CODE))
           .limit(1);
@@ -1041,7 +1041,8 @@ export const ordersRouter = router({
               && hardwareProfileIsComplete(currentHardwareProfile ?? null)
               && hardwareQuote.profileRevision === (currentHardwareProfile?.profileRevision ?? -1)
             )
-          );
+          )
+          && hardwareQuote.originZip === hardwareVendorOriginZip(hardwareLine?.warehouseZips);
         if (!quoteMatchesOrder) {
           throw new TRPCError({ code: "BAD_REQUEST", message: "The Hardware Resources shipping quote no longer matches this order. Request a new quote." });
         }

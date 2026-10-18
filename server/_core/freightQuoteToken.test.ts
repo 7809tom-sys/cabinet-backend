@@ -73,6 +73,7 @@ describe("freight quote token", () => {
       liftgate: false,
       quoteKind: "hardware",
       hardwareShippingMode: "bundled_free",
+      originZip: "30303",
       items: [{ vendorProductId: 55, qty: 56 }],
     });
 
@@ -80,6 +81,7 @@ describe("freight quote token", () => {
       totalCents: 0,
       quoteKind: "hardware",
       hardwareShippingMode: "bundled_free",
+      originZip: "30303",
       itemsHash: freightItemsHash([{ vendorProductId: 55, qty: 56 }]),
     });
   });

@@ -5,12 +5,14 @@ export const HARDWARE_COMMISSION_RATE_BPS = 2500;
 
 export type HardwareProfileFacts = {
   enabled: boolean;
-  originZip: string | null;
+  /** Legacy duplicate. The effective origin is now the vendor profile ZIP. */
+  originZip?: string | null;
   packageLengthIn: number | string | null;
   packageWidthIn: number | string | null;
   packageHeightIn: number | string | null;
   packageWeightLbs: number | string | null;
-  maxUnitsPerPackage: number | null;
+  /** Legacy item-count field. Hardware is now always one consolidated package. */
+  maxUnitsPerPackage?: number | null;
   standaloneShippingCents: number | null;
   sourceReference: string | null;
 };
@@ -20,17 +22,22 @@ function positiveNumber(value: number | string | null | undefined): boolean {
   return Number.isFinite(number) && number > 0;
 }
 
+/** Hardware always ships from the existing vendor/distributor profile, never a browser-supplied ZIP. */
+export function hardwareVendorOriginZip(warehouseZips: readonly string[] | null | undefined): string | null {
+  return warehouseZips
+    ?.map((zip) => zip.trim())
+    .find((zip) => /^\d{5}(?:-\d{4})?$/.test(zip))
+    ?? null;
+}
+
 /** A hardware profile cannot become sellable until Operations has supplied every shipping fact. */
 export function hardwareProfileIsComplete(profile: HardwareProfileFacts | null | undefined): boolean {
   if (!profile?.enabled) return false;
   return Boolean(
-    /^\d{5}(?:-\d{4})?$/.test(profile.originZip?.trim() ?? "")
-    && positiveNumber(profile.packageLengthIn)
+    positiveNumber(profile.packageLengthIn)
     && positiveNumber(profile.packageWidthIn)
     && positiveNumber(profile.packageHeightIn)
     && positiveNumber(profile.packageWeightLbs)
-    && Number.isInteger(profile.maxUnitsPerPackage)
-    && (profile.maxUnitsPerPackage ?? 0) > 0
     && Number.isInteger(profile.standaloneShippingCents)
     && (profile.standaloneShippingCents ?? -1) >= 0
     && Boolean(profile.sourceReference?.trim()),
@@ -54,6 +61,7 @@ export function hardwareAffiliateCommissionCents(hardwareMerchandiseCents: numbe
 
 export function hardwareCheckoutEligibility(input: {
   profile: HardwareProfileFacts | null | undefined;
+  vendorOriginZip: string | null | undefined;
   hardwareUnits: number;
   containsKitchenMerchandise: boolean;
 }): {
@@ -64,14 +72,14 @@ export function hardwareCheckoutEligibility(input: {
 } {
   const units = Math.max(0, Math.round(input.hardwareUnits));
   if (units === 0) return { eligible: false, shippingCents: null, promotionApplied: false, reason: "Add hardware before requesting a hardware shipping quote." };
+  if (!/^\d{5}(?:-\d{4})?$/.test(input.vendorOriginZip?.trim() ?? "")) {
+    return { eligible: false, shippingCents: null, promotionApplied: false, reason: "Hardware checkout is not available until the vendor profile ZIP is configured." };
+  }
   if (input.containsKitchenMerchandise) {
     return { eligible: true, shippingCents: 0, promotionApplied: true, reason: "Free hardware shipping is applied because this hardware is ordered with kitchen merchandise." };
   }
   if (!hardwareProfileIsComplete(input.profile)) {
-    return { eligible: false, shippingCents: null, promotionApplied: false, reason: "Hardware checkout is not available until Operations verifies the Hardware Resources origin, consolidated package, package limit, and standalone shipping rate." };
-  }
-  if (units > (input.profile!.maxUnitsPerPackage ?? 0)) {
-    return { eligible: false, shippingCents: null, promotionApplied: false, reason: `This order has ${units} hardware items and exceeds the verified one-package limit of ${input.profile!.maxUnitsPerPackage}.` };
+    return { eligible: false, shippingCents: null, promotionApplied: false, reason: "Hardware checkout is not available until Operations verifies one consolidated package’s dimensions and weight, a standalone shipping amount, and a source reference." };
   }
   return { eligible: true, shippingCents: input.profile!.standaloneShippingCents ?? null, promotionApplied: false, reason: null };
 }
