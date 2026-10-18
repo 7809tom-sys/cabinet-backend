@@ -53,6 +53,13 @@ describe("admin four-anchor Designer wiring", () => {
     expect(pageSource).toContain("initialChoice:");
   });
 
+  it("resolves the selected SB width only to a straight sink base and never fills a wall gap with a corner SKU", () => {
+    expect(pageSource).toContain("const straightBaseCatalog = autoBuildStraightBaseCatalog(pool);");
+    expect(pageSource).toContain("isAutoBuildStraightSinkBaseCandidate(item)");
+    expect(pageSource).toContain('autoFillSpan(segment.length, "kitchen", straightBaseCatalog)');
+    expect(pageSource).not.toContain('autoFillSpan(segment.length, "kitchen", pool)');
+  });
+
   it("uses the existing wall and collision engines for selected-wall fill, never a hard-coded bottom-wall run", () => {
     expect(pageSource).toContain("freeSegmentsOnWall(");
     expect(pageSource).toContain("wallPlacementAt(along, width, depth, wallId, room)");

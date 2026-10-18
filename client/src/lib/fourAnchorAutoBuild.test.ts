@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_ROOM } from "./design";
-import { adjacentDishwasherCenterIn, anchorAlongStartIn, autoBuildSelectedWallCornerReservations, buildWallLabelMap, canRunFourAnchorAutoBuild, planFourAnchorAutoBuild, subtractAnchorRunReservations, wallLabelToEngineWallId } from "./fourAnchorAutoBuild";
+import { adjacentDishwasherCenterIn, anchorAlongStartIn, autoBuildSelectedWallCornerReservations, autoBuildStraightBaseCatalog, buildWallLabelMap, canRunFourAnchorAutoBuild, isAutoBuildStraightSinkBaseCandidate, planFourAnchorAutoBuild, subtractAnchorRunReservations, wallLabelToEngineWallId } from "./fourAnchorAutoBuild";
 
 describe("four-anchor wall-label mapping", () => {
   it.each([
@@ -47,6 +47,26 @@ describe("four-anchor wall-label mapping", () => {
   it("does not reserve an unselected adjoining corner", () => {
     const reservations = autoBuildSelectedWallCornerReservations("right", DEFAULT_ROOM, ["top", "left"]);
     expect(reservations).toEqual([]);
+  });
+
+  it("uses SB36 as the straight sink anchor and never substitutes a corner sink base on a wall run", () => {
+    const sb36 = { id: 1, masterCode: "SB36", description: '36" Sink Base Cabinet', placement: "base" as const, width: "36" };
+    const cornerSink = { id: 2, masterCode: "CSB36", description: '36" Corner Sink Base Cabinet', placement: "base" as const, width: "36" };
+
+    expect(isAutoBuildStraightSinkBaseCandidate(sb36)).toBe(true);
+    expect(isAutoBuildStraightSinkBaseCandidate(cornerSink)).toBe(false);
+  });
+
+  it("never auto-fills a straight selected wall with a corner cabinet", () => {
+    const catalog = [
+      { id: 1, masterCode: "B24", description: '24" Base Cabinet', placement: "base" as const, width: "24" },
+      { id: 2, masterCode: "LSB36", description: '36" Lazy Susan Corner Base', placement: "base" as const, width: "36" },
+      { id: 3, masterCode: "BBC39", description: '39" Blind Corner Base', placement: "base" as const, width: "39" },
+      { id: 4, masterCode: "CSB36", description: '36" Corner Sink Base Cabinet', placement: "base" as const, width: "36" },
+      { id: 5, masterCode: "SB36", description: '36" Sink Base Cabinet', placement: "base" as const, width: "36" },
+    ];
+
+    expect(autoBuildStraightBaseCatalog(catalog).map((item) => item.masterCode)).toEqual(["B24"]);
   });
 });
 

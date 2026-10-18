@@ -178,7 +178,7 @@ import { CabinetHandlesControl, DEFAULT_DESIGNER_HARDWARE_STYLE_ID } from "@/com
 import { HardwareCatalogPicker } from "@/components/design/HardwareCatalogPicker";
 import { isPanelPaletteItem } from "./designToolPanels";
 import { normalizePaletteSearch, matchesPaletteSearch } from "@/lib/paletteSearch";
-import { adjacentDishwasherCenterIn, anchorAlongStartIn, autoBuildSelectedWallCornerReservations, canRunFourAnchorAutoBuild, planFourAnchorAutoBuild, subtractAnchorRunReservations, wallLabelToEngineWallId, type FourAnchorInputs } from "@/lib/fourAnchorAutoBuild";
+import { adjacentDishwasherCenterIn, anchorAlongStartIn, autoBuildSelectedWallCornerReservations, autoBuildStraightBaseCatalog, canRunFourAnchorAutoBuild, isAutoBuildStraightSinkBaseCandidate, planFourAnchorAutoBuild, subtractAnchorRunReservations, wallLabelToEngineWallId, type FourAnchorInputs } from "@/lib/fourAnchorAutoBuild";
 import { validatePlacedCornerRefrigerator } from "@/lib/cornerRefrigeratorPlacement";
 import { validatePlacedCornerRange, CORNER_RANGE_HANDLE_FILLER_IN } from "@/lib/cornerRangePlacement";
 import { buildGlassCornerCatalogChoices } from "@/lib/glassCornerCatalog";
@@ -3015,8 +3015,10 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     const sinkBaseWidth = input.sinkBaseWidthIn ?? 36;
     const refrigeratorWidth = input.refrigeratorWidthIn ?? 36;
     const pool = (autoFillCabinets as DesignCabinet[] | undefined) ?? [];
-    const sinkBaseSource = pool.find((item) => item.placement === "base"
-      && isSinkBaseCabinet(item)
+    // The SB size selector is a straight sink base on the chosen wall—not a
+    // CSB/DCSB corner sink box sharing the same nominal width.
+    const straightBaseCatalog = autoBuildStraightBaseCatalog(pool);
+    const sinkBaseSource = pool.find((item) => isAutoBuildStraightSinkBaseCandidate(item)
       && Math.abs(dim(item.width, 0) - sinkBaseWidth) < 0.1);
     if (!sinkBaseSource) {
       toast.error(`No source-priced SB${sinkBaseWidth} sink base is available for the selected line.`);
@@ -3031,9 +3033,9 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       toast.error("The kitchen appliance palette is still loading. Try the admin build again in a moment.");
       return;
     }
-    const baseSource = pool
-      .find((item) => item.placement === "base" && !isSinkBaseCabinet(item) && !isCornerCabinet(item.masterCode, item.description) && Math.abs(dim(item.width, 0) - 24) < 0.1)
-      ?? pool.find((item) => item.placement === "base" && !isSinkBaseCabinet(item));
+    const baseSource = straightBaseCatalog
+      .find((item) => Math.abs(dim(item.width, 0) - 24) < 0.1)
+      ?? straightBaseCatalog[0];
     if (!baseSource) {
       toast.error("No source-priced standard base cabinet is available for the selected line.");
       return;
@@ -3145,7 +3147,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       ];
       const segments = subtractAnchorRunReservations(rawSegments, reservations);
       for (const segment of segments) {
-        const fill = autoFillSpan(segment.length, "kitchen", pool);
+        const fill = autoFillSpan(segment.length, "kitchen", straightBaseCatalog);
         let along = segment.start;
         for (const item of fill.items) {
           const catalogFillerCandidate = item.isFiller

@@ -1,4 +1,4 @@
-import { STD, wallRunFrame, type RoomData, type WallRunFrame } from "./design";
+import { STD, isCornerCabinet, isSinkBaseCabinet, wallRunFrame, type RoomData, type WallRunFrame } from "./design";
 
 export type FourAnchorKind = "sink" | "stove" | "dishwasher" | "refrigerator";
 export type FourAnchorLayoutType = "galley" | "l-shape" | "u-shape" | "single-wall";
@@ -9,6 +9,15 @@ export type DishwasherSide = "left" | "right";
 export type RefrigeratorPanelChoice = "none" | "left" | "right" | "both";
 export type RefrigeratorEnclosureChoice = "none" | "cabinet-above";
 export type AnchorRunReservation = { start: number; end: number };
+
+/** Minimal source-catalog data used to constrain generated straight wall runs. */
+export type AutoBuildCatalogCandidate = {
+  masterCode: string;
+  description?: string | null;
+  subCategory?: string | null;
+  placement: string;
+  isCornerCabinet?: boolean | null;
+};
 
 export type FourAnchorMeasurement = {
   wallLabel: WallLabel;
@@ -143,6 +152,31 @@ export function adjacentDishwasherCenterIn(
 ): number {
   const offset = (sinkWidthIn + dishwasherWidthIn) / 2;
   return sinkCenterIn + (side === "right" ? offset : -offset);
+}
+
+/**
+ * The Sink base selector means a straight SB box on the selected wall—not a
+ * CSB/DCSB or any other corner sink SKU that happens to share its nominal width.
+ */
+export function isAutoBuildStraightSinkBaseCandidate(candidate: AutoBuildCatalogCandidate): boolean {
+  return candidate.placement === "base"
+    && candidate.isCornerCabinet !== true
+    && !isCornerCabinet(candidate.masterCode, candidate.description ?? undefined)
+    && isSinkBaseCabinet(candidate);
+}
+
+/**
+ * Four-anchor surrounding fill is deliberately straight-run only. Corner boxes
+ * belong to a physical room vertex and must be selected through the normal
+ * corner workflow; an auto-build must never place or substitute one mid-run.
+ */
+export function autoBuildStraightBaseCatalog<T extends AutoBuildCatalogCandidate>(catalog: readonly T[]): T[] {
+  return catalog.filter((candidate) => (
+    candidate.placement === "base"
+    && candidate.isCornerCabinet !== true
+    && !isCornerCabinet(candidate.masterCode, candidate.description ?? undefined)
+    && !isSinkBaseCabinet(candidate)
+  ));
 }
 
 /** Remove measured refrigerator openings/panel spans from otherwise free wall segments. */
