@@ -1099,6 +1099,19 @@ function csvCell(v: unknown): string {
   return /[",\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t;
 }
 
+function SavedDesignLink({ design }: { design?: { id: number; name: string; url: string } | null }) {
+  if (!design) return <span className="text-muted-foreground">No saved design</span>;
+  return (
+    <a
+      href={design.url}
+      className="font-medium text-primary underline underline-offset-2 hover:no-underline"
+      data-testid={`freight-design-link-${design.id}`}
+    >
+      {design.name || `Saved design #${design.id}`}
+    </a>
+  );
+}
+
 // ─── Permanent quote history (stored in the database, never pruned) ───────
 export function FreightQuoteHistoryPanel() {
   const [broker, setBroker] = useState<string>("");
@@ -1107,10 +1120,11 @@ export function FreightQuoteHistoryPanel() {
     limit: 300, broker: broker || undefined, onlyOk: onlyOk || undefined,
   });
   const exportCsv = () => {
-    const header = ["Date", "Broker", "From", "To", "Pallets", "Units", "Weight lb", "Class", "Accessorials", "Result", "Price", "Carrier", "Service", "Error"];
+    const header = ["Date", "Broker", "From", "To", "Pallets", "Units", "Weight lb", "Class", "Accessorials", "Saved design", "Design link", "Result", "Price", "Carrier", "Service", "Error"];
     const lines = (rows ?? []).map((r) => [
       new Date(r.createdAt).toISOString(), r.broker, r.fromZip, r.toZip, r.palletCount,
       packageSummary(r.packages as any).replace(/\n/g, " | "), r.totalWeightLbs, r.freightClass, r.accessorials,
+      r.design?.name ?? "No saved design", r.design?.url ?? "",
       r.ok ? "quoted" : "failed", r.ok ? (r.amountCents / 100).toFixed(2) : "", r.carrier, r.service, r.error,
     ].map(csvCell).join(","));
     const blob = new Blob([[header.join(","), ...lines].join("\n")], { type: "text/csv" });
@@ -1140,7 +1154,7 @@ export function FreightQuoteHistoryPanel() {
             <Button variant="outline" size="sm" className="bg-background" onClick={exportCsv} disabled={!rows?.length}>Export CSV</Button>
           </span>
         </CardTitle>
-        <p className="text-xs text-muted-foreground">Every quote request is saved with its pallet/carton sizes and weights so you can compare against rates you look up online.</p>
+        <p className="text-xs text-muted-foreground">Every quote request is saved with its pallet/carton sizes and weights so you can compare against rates you look up online. When a quote came from an authorized saved plan, its design link is retained here.</p>
       </CardHeader>
       <CardContent>
         {isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
@@ -1157,6 +1171,7 @@ export function FreightQuoteHistoryPanel() {
                   <TableHead className="text-xs">Weight</TableHead>
                   <TableHead className="text-xs">Class</TableHead>
                   <TableHead className="text-xs">Extras</TableHead>
+                  <TableHead className="text-xs">Saved design</TableHead>
                   <TableHead className="text-xs">Result</TableHead>
                 </TableRow>
               </TableHeader>
@@ -1170,6 +1185,7 @@ export function FreightQuoteHistoryPanel() {
                     <TableCell className="text-xs">{r.totalWeightLbs.toFixed(0)} lb</TableCell>
                     <TableCell className="text-xs">{r.freightClass ?? "—"}</TableCell>
                     <TableCell className="text-xs">{r.accessorials || "—"}</TableCell>
+                    <TableCell className="max-w-52 text-xs"><SavedDesignLink design={r.design} /></TableCell>
                     <TableCell className="text-xs">
                       {r.ok
                         ? <span className="text-emerald-600 font-medium">${(r.amountCents / 100).toFixed(2)} {r.carrier}{r.service ? ` · ${r.service}` : ""}</span>
@@ -1221,8 +1237,9 @@ export function FreightApiLogsPanel() {
                   <TableHead className="text-xs">Pallets / cartons (L×W×H, lb)</TableHead>
                   <TableHead className="text-xs">Weight</TableHead>
                   <TableHead className="text-xs">Class</TableHead>
-                <TableHead className="text-xs">Accessorials</TableHead>
+                  <TableHead className="text-xs">Accessorials</TableHead>
                   <TableHead className="text-xs">Packages</TableHead>
+                  <TableHead className="text-xs">Saved design</TableHead>
                   <TableHead className="text-xs">Result</TableHead>
                   <TableHead className="text-xs">ms</TableHead>
                 </TableRow>
@@ -1257,6 +1274,7 @@ export function FreightApiLogsPanel() {
                         {expanded ? <ChevronUp className="ml-1 h-3.5 w-3.5" /> : <ChevronDown className="ml-1 h-3.5 w-3.5" />}
                       </Button>
                     </TableCell>
+                    <TableCell className="max-w-52 text-xs"><SavedDesignLink design={log.design} /></TableCell>
                     <TableCell className="text-xs">
                       {log.ok ? (
                         <span className="text-emerald-600 font-medium">${(log.amountCents / 100).toFixed(2)} {log.carrier}</span>

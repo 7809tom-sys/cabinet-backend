@@ -14,6 +14,7 @@ describe("freight quote history is permanent and carries pallet details", () => 
     logFreightApiCall({
       broker: "worldwideexpress", fromZip: MARK, toZip: "53186", palletCount: 1, totalWeightLbs: 977,
       freightClass: "75", accessorials: ["RESIDENTIAL", "LIFTGATE"], ok: false, amountCents: 0,
+      kitchenDesignId: 987654,
       error: "503", durationMs: 12,
       packages: [{ kind: "pallet", index: 1, lengthIn: 96, widthIn: 40, heightIn: 60, weightLbs: 977 }],
     });
@@ -29,6 +30,7 @@ describe("freight quote history is permanent and carries pallet details", () => 
     const wwex = rows.find((r: any) => r.broker === "worldwideexpress");
     const ups = rows.find((r: any) => r.broker === "ups");
     expect(wwex.ok).toBeFalsy();
+    expect(wwex.kitchenDesignId).toBe(987654);
     expect(JSON.parse(wwex.packagesJson)[0]).toMatchObject({ lengthIn: 96, widthIn: 40, heightIn: 60, weightLbs: 977 });
     expect(ups.amountCents).toBe(4321);
     expect(ups.carrier).toBe("UPS");

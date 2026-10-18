@@ -3143,6 +3143,9 @@ export type InsertAffiliateLiterature = typeof affiliateLiterature.$inferInsert;
 export const freightQuoteHistory = mysqlTable("freight_quote_history", {
   id: int("id").autoincrement().primaryKey(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
+  // Present only when the caller supplied a saved plan that the server verified
+  // they may access. Quote history never infers a plan from rate inputs.
+  kitchenDesignId: int("kitchenDesignId"),
   broker: varchar("broker", { length: 40 }).notNull(),
   environment: varchar("environment", { length: 20 }),
   fromZip: varchar("fromZip", { length: 12 }).notNull(),
@@ -3158,4 +3161,6 @@ export const freightQuoteHistory = mysqlTable("freight_quote_history", {
   error: text("error"),
   durationMs: int("durationMs"),
   packagesJson: text("packagesJson"),
-});
+}, (t) => ({
+  kitchenDesignIdx: index("freight_quote_history_kitchen_design_idx").on(t.kitchenDesignId),
+}));

@@ -6,6 +6,8 @@
 export interface FreightApiLogEntry {
   id: number;
   ts: string; // ISO timestamp
+  /** Optional, server-authorized saved plan that originated this quote. */
+  kitchenDesignId?: number | null;
   broker: string; // "freightquote" | "globaltranz" | "worldwideexpress" | "easypost"
   fromZip: string;
   toZip: string;
@@ -69,6 +71,7 @@ async function persistFreightQuote(record: FreightApiLogEntry): Promise<void> {
     const db = await getDb();
     if (!db) return;
     await db.insert(freightQuoteHistory).values({
+      kitchenDesignId: record.kitchenDesignId ?? null,
       broker: record.broker,
       fromZip: record.fromZip,
       toZip: record.toZip,

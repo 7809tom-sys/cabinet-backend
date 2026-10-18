@@ -520,6 +520,9 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
 
   const freightInput = useMemo(
     () => ({
+      // Cart provides this only for an unchanged saved Designer plan. The server
+      // validates ownership/scope before retaining it in freight history.
+      kitchenDesignId: kitchenDesignId ?? undefined,
       deliveryAddress: {
         line1: addressLine1.trim(),
         line2: addressLine2.trim() || null,
@@ -550,7 +553,7 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
           pelicanProductId: isSurfaceCheckoutLine(line) ? line.cartPelicanProductId ?? null : null,
         })),
     }),
-    [zipDebounced, addressLine1, addressLine2, city, taxState, total, deliveryLocationType, liftgateRequired, carrierPreference, pricedLines, selectedStyle?.styleId],
+    [zipDebounced, addressLine1, addressLine2, city, taxState, total, deliveryLocationType, liftgateRequired, carrierPreference, pricedLines, selectedStyle?.styleId, kitchenDesignId],
   );
   const freightEstimate = trpc.freight.estimate.useQuery(freightInput, {
     enabled: deliveryMethod === "ship" && zipDebounced.length >= 5 && city.trim().length > 0 && taxState.length === 2 && addressLine1.trim().length > 0 && freightInput.items.length > 0,

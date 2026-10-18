@@ -50,13 +50,15 @@ export function DesignDeliveryDialog({ open, onOpenChange, designId, designName,
   const isVerified = verify.data?.verified === true && verifiedFor === addressKey;
 
   const freightInput = useMemo(() => ({
+    // An unsaved plan deliberately has no freight-history design link.
+    kitchenDesignId: designId ?? undefined,
     destinationZip: address.zip.trim().slice(0, 5),
     merchandiseSubtotalCents: Math.max(0, Math.round(designTotal * 100)),
     accessorials: { residential: true, liftgate: false },
     items: lines
       .filter((l) => l.productKind !== "surface" && l.unitPrice != null)
       .map((l) => ({ cabinetId: null, masterCode: l.masterCode, styleId: l.styleId > 0 ? l.styleId : null, distributorId: l.distributorId ?? null, qty: Math.max(1, Math.round(l.qty)), weightLbs: null })),
-  }), [address.zip, designTotal, lines]);
+  }), [address.zip, designId, designTotal, lines]);
 
   // A shipping quote needs the complete address, so it is gated on that.
   const quote = trpc.freight.estimate.useQuery(freightInput, {

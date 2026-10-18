@@ -12,6 +12,8 @@ import {
   distributorCabinetOverrides,
   doorStyles,
   kitchenDesigns,
+  affiliates,
+  freightQuoteHistory,
   type ShippingSettings,
 } from "../../drizzle/schema";
 import { pelicanProducts, pelicanShippingProfiles } from "../../drizzle/pelicanSchema";
@@ -56,6 +58,7 @@ import { createFreightQuoteToken } from "../_core/freightQuoteToken";
 import { normalizeFreightQuoteDeliveryAddress, type FreightQuoteDeliveryAddress } from "@shared/freightQuoteAddress";
 import { getPricingSettings } from "../db";
 import { sellPriceForTier } from "@shared/margins";
+import { resolveAffiliateAccess } from "../lib/affiliateAccess";
 import {
   resolveDistributorShippingRule,
   type DistributorShippingRuleMode,
@@ -84,6 +87,64 @@ const DEFAULT_SETTINGS: FreightSettings = {
   freeFreightThresholdCents: 0,
   defaultCabinetWeightLbs: 45,
 };
+
+/**
+ * A freight quote remains public, but a saved-plan association is optional and
+ * private. Do not reject the quote or disclose whether a requested plan exists:
+ * only retain the reference after confirming the caller can already access it.
+ */
+async function resolveAuthorizedFreightQuoteDesignId(
+  user: { id: number; email: string | null; role: string } | null | undefined,
+  requestedDesignId: number | undefined,
+): Promise<number | null> {
+  if (!requestedDesignId || !user) return null;
+  const db = await getDb();
+  if (!db) return null;
+  const [design] = await db
+    .select({ id: kitchenDesigns.id, userId: kitchenDesigns.userId, affiliateId: kitchenDesigns.affiliateId })
+    .from(kitchenDesigns)
+    .where(eq(kitchenDesigns.id, requestedDesignId))
+    .limit(1);
+  if (!design) return null;
+  if (user.role === "admin" || design.userId === user.id) return design.id;
+
+  const affiliateAccess = await resolveAffiliateAccess(db, user);
+  const authorizedAffiliateTeam = design.affiliateId != null
+    && affiliateAccess?.affiliateId === design.affiliateId
+    && (affiliateAccess.isOwner || affiliateAccess.accessDesigner || affiliateAccess.accessCrm);
+  return authorizedAffiliateTeam ? design.id : null;
+}
+
+function freightHistoryDesignPath(affiliateSlug: string | null, designId: number): string {
+  const path = affiliateSlug ? `/store/${encodeURIComponent(affiliateSlug)}/design` : "/design";
+  return `${path}?${new URLSearchParams({ load: String(designId), preview: "3d" }).toString()}`;
+}
+
+/** Adds an admin-safe saved-plan link to log/history rows that retain a verified ID. */
+async function attachFreightHistoryDesigns<T extends { kitchenDesignId?: number | null }>(
+  db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
+  rows: readonly T[],
+) {
+  const ids = Array.from(new Set(rows.flatMap((row) => row.kitchenDesignId != null ? [row.kitchenDesignId] : [])));
+  if (ids.length === 0) return rows.map((row) => ({ ...row, design: null }));
+  const designs = await db
+    .select({ id: kitchenDesigns.id, name: kitchenDesigns.name, affiliateSlug: affiliates.slug })
+    .from(kitchenDesigns)
+    .leftJoin(affiliates, eq(kitchenDesigns.affiliateId, affiliates.id))
+    .where(inArray(kitchenDesigns.id, ids));
+  const byId = new Map(designs.map((design) => [design.id, design]));
+  return rows.map((row) => {
+    const design = row.kitchenDesignId == null ? null : byId.get(row.kitchenDesignId) ?? null;
+    return {
+      ...row,
+      design: design ? {
+        id: design.id,
+        name: design.name,
+        url: freightHistoryDesignPath(design.affiliateSlug, design.id),
+      } : null,
+    };
+  });
+}
 
 function rowToSettings(row: ShippingSettings): FreightSettings {
   return {
@@ -1153,6 +1214,7 @@ async function requestLiveRate(input: {
   request: LiveRateRequest;
   palletCount: number;
   totalWeightLbs: number;
+  kitchenDesignId?: number | null;
 }): Promise<LiveRateResult> {
   const startedAt = Date.now();
   let live: LiveRateResult;
@@ -1213,6 +1275,7 @@ async function requestLiveRate(input: {
   }
 
   logFreightApiCall({
+    kitchenDesignId: input.kitchenDesignId ?? null,
     broker: input.provider,
     fromZip: input.request.fromZip,
     toZip: input.request.toZip,
@@ -1637,9 +1700,12 @@ export const freightRouter = router({
         // Optional: explicit supply line for this cart. When omitted we infer it
         // from the cart's cabinetIds so freight ships from the nearest warehouse.
         distributorId: z.number().int().positive().nullable().optional(),
+        // Optional saved plan for an internal quote-history link. It is never
+        // trusted until the request user is authorized against that saved plan.
+        kitchenDesignId: z.number().int().positive().optional(),
       })
     )
-    .query(async ({ input }): Promise<FreightQuote> => {
+    .query(async ({ input, ctx }): Promise<FreightQuote> => {
       const deliveryAddress = input.deliveryAddress
         ? normalizeFreightQuoteDeliveryAddress(input.deliveryAddress)
         : null;
@@ -1649,7 +1715,8 @@ export const freightRouter = router({
       }
       // Carrier integrations currently consume a destination ZIP, while the
       // signed checkout authorization remains bound to the full normalized address.
-      const quoteInput = { ...input, deliveryAddress, destinationZip };
+      const kitchenDesignId = await resolveAuthorizedFreightQuoteDesignId(ctx.user, input.kitchenDesignId);
+      const quoteInput = { ...input, kitchenDesignId, deliveryAddress, destinationZip };
       const settingsRow = await loadSettingsRow();
       const settings = settingsRow ? rowToSettings(settingsRow) : DEFAULT_SETTINGS;
 
@@ -1902,6 +1969,7 @@ export const freightRouter = router({
                   residential: quoteInput.accessorials?.residential,
                 }));
             logFreightApiCall({
+              kitchenDesignId: quoteInput.kitchenDesignId,
               broker: directUpsParcel ? "ups" : "easypost",
               fromZip: group.originZip,
               toZip: quoteInput.destinationZip,
@@ -2060,6 +2128,7 @@ export const freightRouter = router({
             request: liveReq,
             palletCount: plan.palletCount,
             totalWeightLbs: plan.totalWeightLbs,
+            kitchenDesignId: quoteInput.kitchenDesignId,
           });
           const carrierLabel = [live.carrier, live.service].filter(Boolean).join(" ") || null;
 
@@ -2679,7 +2748,11 @@ export const freightRouter = router({
   // ─── Admin: get recent freight API call logs ─────────────────────────────────
   adminGetApiLogs: adminProcedure
     .input(z.object({ limit: z.number().int().min(1).max(200).default(50) }))
-    .query(({ input }) => getFreightApiLogs(input.limit)),
+    .query(async ({ input }) => {
+      const entries = getFreightApiLogs(input.limit);
+      const db = await getDb();
+      return db ? attachFreightHistoryDesigns(db, entries) : entries.map((entry) => ({ ...entry, design: null }));
+    }),
 
   // Permanent quote history (database) so rates can be compared over time.
   adminQuoteHistory: adminProcedure
@@ -2691,7 +2764,6 @@ export const freightRouter = router({
     .query(async ({ input }) => {
       const db = await getDb();
       if (!db) return [];
-      const { freightQuoteHistory } = await import("../../drizzle/schema");
       const { desc, eq, and } = await import("drizzle-orm");
       const conds = [
         input.broker ? eq(freightQuoteHistory.broker, input.broker) : undefined,
@@ -2700,11 +2772,12 @@ export const freightRouter = router({
       const rows = await db.select().from(freightQuoteHistory)
         .where(conds.length ? and(...conds) : undefined)
         .orderBy(desc(freightQuoteHistory.id)).limit(input.limit);
-      return rows.map((r: any) => {
+      const parsedRows = rows.map((r) => {
         let packages: unknown[] = [];
         try { packages = JSON.parse(r.packagesJson ?? "[]"); } catch { /* ignore */ }
         return { ...r, totalWeightLbs: Number(r.totalWeightLbs), packages };
       });
+      return attachFreightHistoryDesigns(db, parsedRows);
     }),
 
 });
