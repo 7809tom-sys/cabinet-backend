@@ -124,6 +124,8 @@ interface Props {
   onReviewPlanFinding?: (finding: PreSavePlanReviewFinding) => void;
   /** Called after a design is successfully saved (after the user confirms in the dialog). */
   onSaveSuccess?: (designName: string, designId: number) => void;
+  /** Reports only a successful in-place automatic update so the Designer can show its timestamp. */
+  onAutomaticSaveSuccess?: (savedAt: number) => void;
   /** Called after the server permanently deletes a saved design. */
   onDeleteSuccess?: (designId: number, designName: string) => void;
   onLoad: (d: {
@@ -377,7 +379,7 @@ export function groupByProject(rows: SavedDesignRow[]): ProjectGroup[] {
 }
 
 export function DesignActions({
-  room, placed, openings, sinks, potFillers, island, furniture, ponyWalls, selectedSurfaces, threeDPresentation, styleId, lockedDistributorId, styleName, contactName, contactPhone, tier, total, extraLines, buildRows, roomType, contactEmail, affiliateSlug, currentDesignId, currentDesignName, currentPlanFingerprint, isCurrentPlanSaved = false, brandName, openSaveSignal, openLoadSignal, preSavePlanReview, onReviewPlanFinding, onSaveSuccess, onDeleteSuccess, onLoad,
+  room, placed, openings, sinks, potFillers, island, furniture, ponyWalls, selectedSurfaces, threeDPresentation, styleId, lockedDistributorId, styleName, contactName, contactPhone, tier, total, extraLines, buildRows, roomType, contactEmail, affiliateSlug, currentDesignId, currentDesignName, currentPlanFingerprint, isCurrentPlanSaved = false, brandName, openSaveSignal, openLoadSignal, preSavePlanReview, onReviewPlanFinding, onSaveSuccess, onAutomaticSaveSuccess, onDeleteSuccess, onLoad,
 }: Props) {
   const { user, isAuthenticated, loading: isAuthLoading, error: authError, refresh } = useAuth();
   const { t } = useLanguage();
@@ -459,7 +461,10 @@ export function DesignActions({
         toast.error(t("dt_act_save_err"), { description: "The design was saved but its plan reference was not returned. Please try saving once more." });
         return;
       }
-      toast.success(isUpdatingExistingDesign ? "Design updated" : t("dt_act_saved"), { description: savedName });
+      toast.success(isUpdatingExistingDesign ? "Design saved now" : t("dt_act_saved"), {
+        id: "designer-manual-save",
+        description: savedName,
+      });
       onSaveSuccess?.(savedName, res.id);
       setSaveOpen(false);
       setName("");
@@ -491,6 +496,7 @@ export function DesignActions({
       if (!pending || result.id !== pending.id) return;
       lastAutomaticSaveRef.current = pending;
       automaticSaveFailureNotifiedRef.current = false;
+      onAutomaticSaveSuccess?.(Date.now());
       void Promise.all([
         utils.design.byId.invalidate({ id: result.id, affiliateSlug: storeScope }),
         utils.design.myDesigns.invalidate({ affiliateSlug: storeScope }),

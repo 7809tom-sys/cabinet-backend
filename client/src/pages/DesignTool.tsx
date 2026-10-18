@@ -553,6 +553,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	  return Number.isInteger(value) && value > 0 ? value : null;
 	}, [search]);
   const [activeSavedDesignId, setActiveSavedDesignId] = useState<number | null>(() => loadDesignId);
+  const [automaticSaveAt, setAutomaticSaveAt] = useState<number | null>(null);
   useEffect(() => {
     // A route-provided design must become the active persisted plan.  But when
     // this Designer has no `load` parameter, do not erase the ID returned by a
@@ -561,6 +562,9 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     // this ID to lock its final reference to the existing saved plan.
     if (loadDesignId != null) setActiveSavedDesignId(loadDesignId);
   }, [loadDesignId]);
+  useEffect(() => {
+    setAutomaticSaveAt(null);
+  }, [activeSavedDesignId]);
   // Administration can inspect an existing saved design directly. This is a
   // read-only entry path into the same renderer and intentionally avoids
   // creating another customer lead merely to validate or support that design.
@@ -13159,6 +13163,18 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         >
           <Save className="h-3.5 w-3.5" /> {currentSavedDesignId != null ? "Update design" : "Save design"}
         </Button>
+        {automaticSaveAt != null && (
+          <span
+            data-testid="designer-automatic-save-status"
+            role="status"
+            aria-live="polite"
+            title={`Saved automatically at ${new Date(automaticSaveAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}`}
+            className="hidden h-7 shrink-0 items-center gap-1 rounded-md border border-emerald-700/20 bg-emerald-50 px-2 text-[10px] font-medium text-emerald-800 lg:inline-flex"
+          >
+            <Check className="h-3.5 w-3.5" aria-hidden="true" />
+            Saved automatically {new Date(automaticSaveAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}
+          </span>
+        )}
         {/* Start New / Clear Design — desktop only */}
 	        <button
 	          type="button"
@@ -14205,7 +14221,8 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	                setShowOptionalContactNudge(true);
 	              }
 	              if (isMobile) {
-                toast.success("Design saved", {
+                toast.success("Design saved now", {
+	                  id: "designer-manual-save",
                   description: designName,
                   action: {
                     label: "Edit name",
@@ -14218,6 +14235,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	                });
 	              }
 	            }}
+	            onAutomaticSaveSuccess={(savedAt) => setAutomaticSaveAt(savedAt)}
 	            onDeleteSuccess={(designId) => startBlankAfterDeletedDesign(designId)}
 	            onLoad={(d) =>
               {

@@ -128,6 +128,13 @@ describe("Designer Compact Workspace", () => {
     expect(source).toContain('data-testid="designer-save-design"');
   });
 
+  it("keeps the automatic-save timestamp compact and accessible in the Designer toolbar", () => {
+    expect(source).toContain('data-testid="designer-automatic-save-status"');
+    expect(source).toContain('role="status"');
+    expect(source).toContain('aria-live="polite"');
+    expect(source).toContain("Saved automatically {new Date(automaticSaveAt).toLocaleTimeString");
+  });
+
   it("uses a broad tablet overlay and two-column cabinet browsing instead of a narrow catalog panel", () => {
     expect(source).toContain('w-[min(840px,96vw)]');
     expect(source).toContain('className={isCompactWorkspace ? "grid grid-cols-2 gap-2" : undefined}');

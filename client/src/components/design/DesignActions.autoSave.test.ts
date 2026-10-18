@@ -28,4 +28,12 @@ describe("DesignActions one-minute automatic save", () => {
     expect(designTool).toContain("roomType: roomType ?? null,");
     expect(designTool).toContain("roomType: savedDesign.roomType ?? null,");
   });
+
+  it("reports successful automatic saves in the toolbar and gives manual updates an explicit confirmation", () => {
+    expect(actions).toContain("onAutomaticSaveSuccess?.(Date.now())");
+    expect(actions).toContain('toast.success(isUpdatingExistingDesign ? "Design saved now" : t("dt_act_saved")');
+    expect(designTool).toContain("const [automaticSaveAt, setAutomaticSaveAt] = useState<number | null>(null);");
+    expect(designTool).toContain('data-testid="designer-automatic-save-status"');
+    expect(designTool).toContain("onAutomaticSaveSuccess={(savedAt) => setAutomaticSaveAt(savedAt)}");
+  });
 });
