@@ -35,4 +35,10 @@ describe("professionalAefImageFor", () => {
   it("uses the tall finished-panel illustration for the refrigerator-only TEP3096 source panel", () => {
     expect(professionalAefImageFor(sourceCabinet("TEP3096", "Accessory"))).toBe("accessoryPanel");
   });
+
+  it("uses the neutral product render for all V8.2 mouldings, never a documentation or price-table asset", () => {
+    for (const masterCode of ["OCM8", "BM8", "SM8", "TKC", "TKC-PVC", "CORNER-PVC"]) {
+      expect(professionalAefImageFor(sourceCabinet(masterCode, "Accessory"))).toBe("accessoryMoulding");
+    }
+  });
 });

@@ -85,6 +85,41 @@ describe("AEF USCD Frameless release integrity", () => {
     ]));
   });
 
+  it("keeps V8.2 mouldings as clean USCD product entries, not a price-sheet image or source citation", async () => {
+    const db = await getDb();
+    if (!db) return;
+    const [aef] = await db.select().from(distributors).where(eq(distributors.code, "AEF")).limit(1);
+    const codeDescriptions = {
+      OCM8: "Outside Corner Moulding", BM8: "Base Moulding", SM8: "Scribe Moulding",
+      TKC: "Toe Kick", "TKC-PVC": "PVC Toe Kick", "CORNER-PVC": "PVC Corner",
+    } as const;
+    const rows = await db
+      .select({
+        code: cabinets.masterCode,
+        sourceDescription: distributorSkus.supplierDescription,
+        skuImageUrl: distributorSkus.imageUrl,
+        overrideImageUrl: distributorCabinetOverrides.imageUrl,
+        listPrice: distributorSkus.listPrice,
+        yourCost: distributorSkus.yourCost,
+        homeownerPrice: distributorSkus.homeownerPrice,
+      })
+      .from(distributorSkus)
+      .innerJoin(cabinets, eq(cabinets.id, distributorSkus.cabinetId))
+      .innerJoin(distributorCabinetOverrides, and(
+        eq(distributorCabinetOverrides.distributorId, distributorSkus.distributorId),
+        eq(distributorCabinetOverrides.cabinetId, distributorSkus.cabinetId),
+      ))
+      .where(and(eq(distributorSkus.distributorId, aef!.id), inArray(cabinets.masterCode, Object.keys(codeDescriptions))));
+    expect(rows).toHaveLength(65);
+    for (const row of rows) {
+      expect(row.sourceDescription).toBe(codeDescriptions[row.code as keyof typeof codeDescriptions]);
+      expect(row.skuImageUrl).toBe("/manus-storage/aef-accessory-moulding-render_fbee12a3.webp");
+      expect(row.overrideImageUrl).toBe("/manus-storage/aef-accessory-moulding-render_fbee12a3.webp");
+      expect(row.skuImageUrl).not.toContain("aef-accessory-moulding_56f3c613");
+      expect(row.homeownerPrice).toBe((Math.round(Number(row.yourCost) * 1.58 * 100) / 100).toFixed(2));
+    }
+  });
+
   it("keeps refrigerator-wall and oven face facts in AEF overrides, not shared masters", async () => {
     const db = await getDb();
     if (!db) return;

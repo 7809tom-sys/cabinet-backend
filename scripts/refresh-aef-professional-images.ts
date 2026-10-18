@@ -77,7 +77,7 @@ export function professionalAefImageFor(cabinet: CatalogCabinet): AssetName {
   if (category === "ACCESSORY" || category === "MOLDING") {
     if (code === "TEP3096") return "accessoryPanel";
     if (/^FS\d/.test(code)) return "accessoryShelf";
-    if (/^(EB|CORNER-PVC)/.test(code)) return "accessoryPanel";
+    if (/^EB/.test(code)) return "accessoryPanel";
     return "accessoryMoulding";
   }
 

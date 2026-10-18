@@ -23,6 +23,21 @@ const manifestPath = path.resolve(process.cwd(), "scripts/data/aef-complete-sour
 const sourceManifest = JSON.parse(fs.readFileSync(manifestPath, "utf8")) as SourceRecord[];
 const descriptionsBySku = new Map(sourceManifest.map((row) => [row.sku.toUpperCase(), row]));
 
+/**
+ * V8.2 page 17 identifies these parts under its Mouldings section by SKU only.
+ * The imported manifest therefore had generic "Frameless Collection accessory"
+ * text, which is not a customer-facing product name. Keep the existing catalog
+ * nomenclature, but never manufacture a dimension or supplier/source citation.
+ */
+export const AEF_PUBLIC_MOULDING_DESCRIPTIONS: Readonly<Record<string, string>> = {
+  OCM8: "Outside Corner Moulding",
+  BM8: "Base Moulding",
+  SM8: "Scribe Moulding",
+  TKC: "Toe Kick",
+  "TKC-PVC": "PVC Toe Kick",
+  "CORNER-PVC": "PVC Corner",
+};
+
 function quoteDimension(value: string | null): string | null {
   const parsed = Number(value);
   if (!Number.isFinite(parsed) || parsed <= 0) return null;
@@ -50,6 +65,9 @@ function cleanPublicDescription(value: string): string {
 }
 
 function lineSpecificDescription(row: AefCabinet): string {
+  const publicMouldingName = AEF_PUBLIC_MOULDING_DESCRIPTIONS[row.masterCode.toUpperCase()];
+  if (publicMouldingName) return publicMouldingName;
+
   const direct = descriptionsBySku.get(row.masterCode.toUpperCase());
   if (direct) return cleanPublicDescription(direct.description);
 
