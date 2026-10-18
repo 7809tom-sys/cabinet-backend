@@ -65,7 +65,7 @@ describe("admin four-anchor Designer wiring", () => {
   it("resolves the selected SB width only to a straight sink base and never fills a wall gap with a corner SKU", () => {
     expect(pageSource).toContain("const straightBaseCatalog = autoBuildStraightBaseCatalog(pool);");
     expect(pageSource).toContain("isAutoBuildStraightSinkBaseCandidate(item)");
-    expect(pageSource).toContain('autoFillSpan(segment.length, "kitchen", straightBaseCatalog)');
+    expect(pageSource).toContain('autoFillSpan(segment.length, "kitchen", stage.straightBaseCatalog)');
     expect(pageSource).not.toContain('autoFillSpan(segment.length, "kitchen", pool)');
   });
 
@@ -74,9 +74,17 @@ describe("admin four-anchor Designer wiring", () => {
     expect(pageSource).toContain("wallPlacementAt(along, width, depth, wallId, room)");
     expect(pageSource).toContain("appendCollisionFreePlacements(working, [candidate], room)");
     expect(pageSource).toContain("subtractAnchorRunReservations");
-    expect(pageSource).toContain("autoBuildSelectedWallCornerReservations(wallId, room, selectedWalls)");
+    expect(pageSource).toContain("autoBuildSelectedWallCornerReservations(wallId, room, openCornerWallIds)");
     expect(pageSource).toContain("refrigeratorReservation.start");
     expect(pageSource).toContain("refrigeratorReservation.end");
     expect(pageSource).not.toContain("y: room.depth - STD.BASE_DEPTH");
+  });
+
+  it("seats the measured appliances before prompting for catalog-backed room corners and filling the remaining runs", () => {
+    expect(pageSource).toContain("setFourAnchorCornerStage");
+    expect(pageSource).toContain("FourAnchorCornerSelectionDialog");
+    expect(pageSource).toContain("fourAnchorCornerSlots(input.layoutType)");
+    expect(pageSource).toContain("nextAvailableRoomCornerPlacement");
+    expect(pageSource).toContain("completeFourAnchorAutoLayout");
   });
 });

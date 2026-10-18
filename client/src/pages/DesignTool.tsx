@@ -179,6 +179,7 @@ import { HardwareCatalogPicker } from "@/components/design/HardwareCatalogPicker
 import { isPanelPaletteItem } from "./designToolPanels";
 import { normalizePaletteSearch, matchesPaletteSearch } from "@/lib/paletteSearch";
 import { adjacentDishwasherCenterIn, anchorAlongStartIn, autoBuildSelectedWallCornerReservations, autoBuildStraightBaseCatalog, canRunFourAnchorAutoBuild, isAutoBuildStraightSinkBaseCandidate, planFourAnchorAutoBuild, subtractAnchorRunReservations, wallLabelToEngineWallId, type FourAnchorInputs } from "@/lib/fourAnchorAutoBuild";
+import { autoBuildCornerCatalog, fourAnchorCornerSlotPoint, fourAnchorCornerSlots, isFourAnchorBlindCornerOption, type AutoBuildCornerCandidate, type FourAnchorCornerChoice, type FourAnchorCornerSlot } from "@/lib/fourAnchorCornerStage";
 import { validatePlacedCornerRefrigerator } from "@/lib/cornerRefrigeratorPlacement";
 import { validatePlacedCornerRange, CORNER_RANGE_HANDLE_FILLER_IN } from "@/lib/cornerRangePlacement";
 import { buildGlassCornerCatalogChoices } from "@/lib/glassCornerCatalog";
@@ -207,6 +208,7 @@ import { IslandElevationView } from "@/components/design/IslandElevationView";
 import { CsvImportDialog } from "@/components/design/CsvImportDialog";
 import { PlanImageImportDialog, type ReviewedPlan } from "@/components/design/PlanImageImportDialog";
 import { FourAnchorAutoBuildDialog } from "@/components/design/FourAnchorAutoBuildDialog";
+import { FourAnchorCornerSelectionDialog } from "@/components/design/FourAnchorCornerSelectionDialog";
 import { findClosestPlanCabinet } from "@/lib/planImportMapper";
 import { EmailGate, type LeadContact } from "@/components/design/EmailGate";
 import { OptionalContactNudge } from "@/components/design/OptionalContactNudge";
@@ -932,6 +934,19 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	  }, [islandFace, islandPlacementMode]);
   const [islandAttributesOpen, setIslandAttributesOpen] = useState(false);
   const [fourAnchorAutoBuildOpen, setFourAnchorAutoBuildOpen] = useState(false);
+  const [fourAnchorCornerStage, setFourAnchorCornerStage] = useState<{
+    input: FourAnchorInputs;
+    anchors: Record<string, PlacedCabinet>;
+    selectedWalls: WallSide[];
+    anchorPlaced: PlacedCabinet[];
+    pool: DesignCabinet[];
+    straightBaseCatalog: DesignCabinet[];
+    baseSource: DesignCabinet;
+    selectedEndPanel: DesignCabinet | null;
+    refrigeratorWidth: number;
+    slots: FourAnchorCornerSlot[];
+    cornerOptions: AutoBuildCornerCandidate[];
+  } | null>(null);
   const [islandSeatingOverhangPrompt, setIslandSeatingOverhangPrompt] = useState<{
     cabinetCode: string;
     face: IslandFace;
@@ -3120,70 +3135,6 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       anchorsByKind.set(anchor.kind, candidate);
       if (!selectedWalls.includes(wall.engineWallId as WallSide)) selectedWalls.push(wall.engineWallId as WallSide);
     }
-    const surrounding: PlacedCabinet[] = [];
-    const refrigerator = anchorsByKind.get("refrigerator");
-    const refrigeratorReservation = refrigerator ? (() => {
-      const bay = refrigeratorBayRunMetrics(refrigerator, room);
-      const panelThickness = selectedEndPanel
-        ? refrigeratorEndPanelThickness(selectedEndPanel.width, 0.75)
-        : 0;
-      return {
-        wall: bay.side,
-        start: bay.openingStart - ((input.refrigeratorPanels === "left" || input.refrigeratorPanels === "both") ? panelThickness : 0),
-        end: bay.openingEnd + ((input.refrigeratorPanels === "right" || input.refrigeratorPanels === "both") ? panelThickness : 0),
-      };
-    })() : null;
-
-    for (const wallId of selectedWalls) {
-      const rawSegments = freeSegmentsOnWall(wallId, room, working, openings, 9, 0, "base", false, undefined, footprintDepth(baseSource));
-      const reservations = [
-        ...autoBuildSelectedWallCornerReservations(wallId, room, selectedWalls),
-        ...(refrigeratorReservation?.wall === wallId
-          ? [{ start: refrigeratorReservation.start, end: refrigeratorReservation.end }]
-          : []),
-      ];
-      const segments = subtractAnchorRunReservations(rawSegments, reservations);
-      for (const segment of segments) {
-        const fill = autoFillSpan(segment.length, "kitchen", straightBaseCatalog);
-        let along = segment.start;
-        for (const item of fill.items) {
-          const catalogFillerCandidate = item.isFiller
-            ? catalogFillerForGap(pool, item.width, "base")
-            : null;
-          const catalogFiller = catalogFillerCandidate
-            ? pool.find((candidate) => candidate.id === catalogFillerCandidate.id) ?? null
-            : null;
-          if (item.isFiller && !catalogFiller) {
-            along += item.width;
-            continue;
-          }
-          const source = catalogFiller ?? item.cabinet;
-          const width = item.width;
-          const depth = footprintDepth(source);
-          const spot = wallPlacementAt(along, width, depth, wallId, room);
-          if (!spot) {
-            along += width;
-            continue;
-          }
-          const candidate: PlacedCabinet = {
-            uid: makeUid(), cabinetId: source.id, masterCode: source.masterCode,
-            description: item.isFiller ? fittedCatalogFillerDescription(source, width) : source.description,
-            category: source.category, subCategory: source.subCategory, placement: "base",
-            ...spot, width, depth, height: dim(source.height, standardHeight("base")),
-            catalogImageUrl: source.catalogImageUrl ?? null,
-            numberOfDoors: source.numberOfDoors, numberOfDrawers: source.numberOfDrawers,
-            styleId: styleIdRef.current ?? null,
-          };
-          const accepted = appendCollisionFreePlacements(working, [candidate], room);
-          if (accepted.rejected.length === 0) {
-            working = accepted.placed;
-            surrounding.push(candidate);
-          }
-          along += width;
-        }
-      }
-    }
-
     const sinkBase = anchorsByKind.get("sink");
     if (sinkBase) {
       const defaultSinkType: SinkType = isFarmSinkBasePaletteItem(sinkBase)
@@ -3200,25 +3151,176 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     wallCabHeightRef.current = selectedWallCabinetHeight;
     wallCabHeightPromptedRef.current = true;
     setCountertop(true);
+    const slots = fourAnchorCornerSlots(input.layoutType);
+    const cornerOptions = autoBuildCornerCatalog(pool) as AutoBuildCornerCandidate[];
     setFourAnchorAutoBuildOpen(false);
-    setViewMode("threeD");
+    setFourAnchorCornerStage({
+      input,
+      anchors: Object.fromEntries(anchorsByKind),
+      selectedWalls,
+      anchorPlaced: working,
+      pool,
+      straightBaseCatalog,
+      baseSource,
+      selectedEndPanel,
+      refrigeratorWidth,
+      slots,
+      cornerOptions,
+    });
+    setViewMode("plan");
     setSelectedUid(null);
-    if (refrigerator && ((input.refrigeratorPanels ?? "none") !== "none" || input.refrigeratorEnclosure === "cabinet-above")) {
+    toast.info(slots.length > 0
+      ? "Measured appliances are seated. Choose each real corner cabinet before the remaining wall runs are filled."
+      : "Measured appliances are seated. Confirm the next step to fill the remaining wall runs.");
+    return { ok: true as const };
+  }, [appliancePalette, autoFillCabinets, autoFillCabinetsLoading, isAdmin, isCornerCabinet, openings, placedRef, refrigeratorSurroundCatalog, room, setCountertop, setPlaced]);
+
+  /**
+   * The second half of a Four-anchor build. Nothing is guessed: appliances are
+   * already committed, every L/U corner must be explicitly selected or left
+   * open, and only then do straight base boxes/fillers tile the free run spans.
+   */
+  const completeFourAnchorAutoLayout = useCallback((choices: Record<string, FourAnchorCornerChoice>) => {
+    const stage = fourAnchorCornerStage;
+    const fail = (message: string) => {
+      toast.error(message);
+      return { ok: false as const, message };
+    };
+    if (!stage) return fail("The measured appliance stage is no longer active. Start the Four-anchor build again from an empty plan.");
+
+    let working = [...stage.anchorPlaced];
+    const selectedWalls = [...stage.selectedWalls];
+    const openCornerWallIds: WallSide[] = [];
+    let selectedCornerCount = 0;
+
+    for (const slot of stage.slots) {
+      const choice = choices[slot.id] ?? { cabinetId: null };
+      const firstWall = wallLabelToEngineWallId(slot.firstWall, room, stage.input.originCorner, stage.input.runDirection);
+      const secondWall = wallLabelToEngineWallId(slot.secondWall, room, stage.input.originCorner, stage.input.runDirection);
+      if (!firstWall || !secondWall) return fail(`${slot.label} is unavailable in this room. No remaining cabinets were added.`);
+      for (const wallId of [firstWall.engineWallId, secondWall.engineWallId] as WallSide[]) {
+        if (!selectedWalls.includes(wallId)) selectedWalls.push(wallId);
+      }
+      if (choice.cabinetId == null) {
+        openCornerWallIds.push(firstWall.engineWallId as WallSide, secondWall.engineWallId as WallSide);
+        continue;
+      }
+      const source = stage.cornerOptions.find((candidate) => candidate.id === choice.cabinetId);
+      if (!source) return fail(`${slot.label} must use a current source-priced corner cabinet. The selected catalog item is unavailable.`);
+      const sourceCatalog = stage.pool.find((candidate) => candidate.id === source.id);
+      if (!sourceCatalog) return fail(`${source.masterCode} is no longer present in the selected source-priced catalog.`);
+      const target = fourAnchorCornerSlotPoint(slot, room, stage.input.originCorner, stage.input.runDirection);
+      if (!target) return fail(`${slot.label} does not resolve to a real shared wall vertex. No remaining cabinets were added.`);
+      const width = dim(sourceCatalog.width, 0);
+      const depth = footprintDepth(sourceCatalog);
+      if (width <= 0 || depth <= 0) return fail(`${sourceCatalog.masterCode} has no valid installed corner footprint in Cabinet Config.`);
+      const preview: PlacedCabinet = {
+        uid: makeUid(), cabinetId: sourceCatalog.id, masterCode: sourceCatalog.masterCode, description: sourceCatalog.description,
+        category: sourceCatalog.category, subCategory: sourceCatalog.subCategory, placement: "base",
+        x: target.x, y: target.y, width, depth, height: dim(sourceCatalog.height, standardHeight("base")), rotation: 0,
+        numberOfDoors: sourceCatalog.numberOfDoors, numberOfDrawers: sourceCatalog.numberOfDrawers,
+        cornerType: sourceCatalog.cornerType ?? null, fillerRequired: sourceCatalog.fillerRequired ?? false,
+        catalogImageUrl: sourceCatalog.catalogImageUrl ?? null, styleId: styleIdRef.current ?? null,
+      };
+      const spot = nextAvailableRoomCornerPlacement(preview, target.firstWallId as WallSide, room, working, { x: target.x, y: target.y });
+      if (!spot) return fail(`${source.masterCode} cannot fit at ${slot.label}; that real corner is occupied or lacks its required footprint.`);
+      let corner = { ...preview, ...spot };
+      if (isFourAnchorBlindCornerOption(source)) {
+        const pulled = blindCornerPullPlacement(corner, room, choice.blindPullIn ?? source.pullMax ?? 6);
+        if (!pulled) return fail(`${source.masterCode} must use its Cabinet Config pull range at ${slot.label}.`);
+        corner = { ...corner, ...pulled };
+      }
+      const cornerCommit = appendCollisionFreePlacements(working, [corner], room);
+      if (!cornerCommit.placed.some((cabinet) => cabinet.uid === corner.uid)) return fail(`${source.masterCode} overlaps an appliance, opening, or adjoining wall clearance at ${slot.label}.`);
+      working = cornerCommit.placed;
+      selectedCornerCount++;
+
+      if (requiresConfiguredBlindCornerFiller(corner)) {
+        const required = buildRequiredBlindCornerFiller(corner, room, catalogFillers, makeUid, corner.styleId ?? null);
+        if (!required.ok) return fail(required.reason === "missing-catalog-filler"
+          ? `${source.masterCode} requires its configured ${formatInches(BLIND_CORNER_FILLER_WIDTH_IN)} filler, which is unavailable in this cabinet line.`
+          : `${source.masterCode} cannot create its configured blind-corner filler at ${slot.label}.`);
+        if (hasCollision(required.filler, working)) return fail(`${source.masterCode} cannot be placed because its required filler would overlap the adjoining cabinet run.`);
+        const fillerCommit = appendCollisionFreePlacements(working, [required.filler], room);
+        if (!fillerCommit.placed.some((cabinet) => cabinet.uid === required.filler.uid)) return fail(`${source.masterCode} cannot be placed because its required filler cannot be added without overlap.`);
+        working = fillerCommit.placed;
+      }
+    }
+
+    const refrigerator = stage.anchors.refrigerator;
+    const refrigeratorReservation = refrigerator ? (() => {
+      const bay = refrigeratorBayRunMetrics(refrigerator, room);
+      const panelThickness = stage.selectedEndPanel ? refrigeratorEndPanelThickness(stage.selectedEndPanel.width, 0.75) : 0;
+      return {
+        wall: bay.side,
+        start: bay.openingStart - ((stage.input.refrigeratorPanels === "left" || stage.input.refrigeratorPanels === "both") ? panelThickness : 0),
+        end: bay.openingEnd + ((stage.input.refrigeratorPanels === "right" || stage.input.refrigeratorPanels === "both") ? panelThickness : 0),
+      };
+    })() : null;
+    const surrounding: PlacedCabinet[] = [];
+    for (const wallId of selectedWalls) {
+      const rawSegments = freeSegmentsOnWall(wallId, room, working, openings, 9, 0, "base", false, undefined, footprintDepth(stage.baseSource));
+      const reservations = [
+        ...autoBuildSelectedWallCornerReservations(wallId, room, openCornerWallIds),
+        ...(refrigeratorReservation?.wall === wallId ? [{ start: refrigeratorReservation.start, end: refrigeratorReservation.end }] : []),
+      ];
+      for (const segment of subtractAnchorRunReservations(rawSegments, reservations)) {
+        const fill = autoFillSpan(segment.length, "kitchen", stage.straightBaseCatalog);
+        let along = segment.start;
+        for (const item of fill.items) {
+          const catalogFillerCandidate = item.isFiller ? catalogFillerForGap(stage.pool, item.width, "base") : null;
+          const catalogFiller = catalogFillerCandidate ? stage.pool.find((candidate) => candidate.id === catalogFillerCandidate.id) ?? null : null;
+          if (item.isFiller && !catalogFiller) { along += item.width; continue; }
+          const source = catalogFiller ?? item.cabinet;
+          const width = item.width;
+          const depth = footprintDepth(source);
+          const spot = wallPlacementAt(along, width, depth, wallId, room);
+          if (!spot) { along += width; continue; }
+          const candidate: PlacedCabinet = {
+            uid: makeUid(), cabinetId: source.id, masterCode: source.masterCode,
+            description: item.isFiller ? fittedCatalogFillerDescription(source, width) : source.description,
+            category: source.category, subCategory: source.subCategory, placement: "base", ...spot, width, depth,
+            height: dim(source.height, standardHeight("base")), catalogImageUrl: source.catalogImageUrl ?? null,
+            numberOfDoors: source.numberOfDoors, numberOfDrawers: source.numberOfDrawers, styleId: styleIdRef.current ?? null,
+          };
+          const accepted = appendCollisionFreePlacements(working, [candidate], room);
+          if (accepted.rejected.length === 0) { working = accepted.placed; surrounding.push(candidate); }
+          along += width;
+        }
+      }
+    }
+
+    placedRef.current = working;
+    setPlaced(working);
+    setFourAnchorCornerStage(null);
+    setViewMode("threeD");
+    if (refrigerator && ((stage.input.refrigeratorPanels ?? "none") !== "none" || stage.input.refrigeratorEnclosure === "cabinet-above")) {
       setFridgeDialog({
         fridgeUid: refrigerator.uid,
         initialChoice: {
-          above: input.refrigeratorEnclosure === "cabinet-above" ? "bridge" : "none",
-          panels: input.refrigeratorPanels ?? "none",
-          fridgeWidth: refrigeratorWidth,
+          above: stage.input.refrigeratorEnclosure === "cabinet-above" ? "bridge" : "none",
+          panels: stage.input.refrigeratorPanels ?? "none",
+          fridgeWidth: stage.refrigeratorWidth,
           fridgeHeight: refrigerator.height,
           fridgeDepth: refrigerator.depth,
           smooth: false,
         },
       });
     }
-    toast.success(`Admin test kitchen built from exact wall anchors with ${surrounding.length} source-priced surrounding cabinets.`);
+    toast.success(`Placed ${selectedCornerCount} selected corner cabinet${selectedCornerCount === 1 ? "" : "s"} and ${surrounding.length} source-priced surrounding cabinet${surrounding.length === 1 ? "" : "s"}.`);
     return { ok: true as const };
-  }, [appliancePalette, autoFillCabinets, autoFillCabinetsLoading, isAdmin, isCornerCabinet, openings, placedRef, refrigeratorSurroundCatalog, room, setCountertop, setPlaced]);
+  }, [catalogFillers, fourAnchorCornerStage, openings, room, setPlaced]);
+
+  const cancelFourAnchorCornerStage = useCallback(() => {
+    // The staged build is transactional. Cancelling this required choice leaves
+    // no auto-created appliance, sink, filler, or cabinet in the empty plan.
+    placedRef.current = [];
+    setPlaced([]);
+    setSinks([]);
+    setSelectedSinkUid(null);
+    setFourAnchorCornerStage(null);
+    toast.info("Measured appliance anchors were cancelled; the Designer remains empty.");
+  }, [setPlaced]);
   // A previous automatic microwave workflow could persist WSC30—the real
   // 30×6 spice cabinet—directly above an MW-30. Convert only that centered
   // legacy microwave assembly to the selected source W30 bridge; ordinary spice
@@ -18292,6 +18394,15 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	          onOpenChange={setFourAnchorAutoBuildOpen}
 	          onBuild={buildFourAnchorAutoLayout}
 	          catalogLoading={autoFillCabinetsLoading}
+	        />
+	      )}
+	      {isAdmin && fourAnchorCornerStage && (
+	        <FourAnchorCornerSelectionDialog
+	          open
+	          slots={fourAnchorCornerStage.slots}
+	          options={fourAnchorCornerStage.cornerOptions}
+	          onCancel={cancelFourAnchorCornerStage}
+	          onConfirm={completeFourAnchorAutoLayout}
 	        />
 	      )}
 	      <SurfacesPickerDialog
