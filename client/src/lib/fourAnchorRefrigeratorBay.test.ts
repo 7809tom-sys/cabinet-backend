@@ -60,6 +60,28 @@ describe("mandatory Four-anchor refrigerator bay", () => {
     expect(result.reservation).toMatchObject({ wall: "top", start: 46.75, end: 85.25 });
   });
 
+  it("uses a source-priced sheet panel when the catalog stores its thin face in depth", () => {
+    const result = buildMandatoryFourAnchorRefrigeratorBay({
+      refrigerator: refrigerator(),
+      room,
+      caps: [source({ id: 200, masterCode: "W3624", width: "36", height: "24", depth: "24" })],
+      // This real S2496 sheet-panel representation stores its 24-inch installed
+      // depth in width and its 3/4-inch thickness in depth. The Four-anchor bay
+      // must not call the exact source-priced panel missing.
+      endPanels: [source({ id: 201, masterCode: "S2496", description: "Tall Panel — 24 in. W × 96 in. H × 3/4 in. D", category: "Tall", subCategory: "Tall Panels", width: "24", height: "96", depth: "0.75", placement: "tall", numberOfDoors: 0 })],
+      styleId: 9,
+      makeUid: (() => { let index = 0; return () => `sheet-panel-${++index}`; })(),
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const panels = result.additions.filter((item) => item.refrigeratorAssemblyRole?.endsWith("panel"));
+    expect(panels).toHaveLength(2);
+    expect(panels).toEqual(expect.arrayContaining([
+      expect.objectContaining({ masterCode: "S2496", width: 0.75, depth: 24 }),
+    ]));
+  });
+
   it("rejects a Four-anchor refrigerator width other than the mandatory 36-inch bay", () => {
     const result = buildMandatoryFourAnchorRefrigeratorBay({
       refrigerator: { ...refrigerator(), masterCode: "FRIDGE-33", width: 33 },
