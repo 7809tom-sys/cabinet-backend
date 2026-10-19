@@ -187,6 +187,13 @@ describe("design photo render safeguards", () => {
     expect(source).toContain('kitchenDesignId: design?.id ?? null');
   });
 
+  it("never reopens, polls, or queues an earlier image job with a stale material-manifest wire format", () => {
+    const source = readFileSync(new URL("./designPhotoRenders.ts", import.meta.url), "utf8");
+    expect(source).toContain("hasCurrentGeminiMaterialManifestWireVersion");
+    expect(source.match(/hasCurrentGeminiMaterialManifestWireVersion\(/g)?.length).toBeGreaterThanOrEqual(4);
+    expect(source).toContain("This earlier Google image test used an outdated material package. Reopen Final preview and start a fresh test.");
+  });
+
   it("reads actual deterministic JPEG dimensions instead of trusting a client resolution claim", () => {
     // Minimal JPEG with a baseline SOF0 segment declaring a 2560 × 1440 capture.
     const bytes = Buffer.from([0xff, 0xd8, 0xff, 0xc0, 0x00, 0x11, 0x08, 0x05, 0xa0, 0x0a, 0x00, 0x03, 0x01, 0x11, 0x00, 0x02, 0x11, 0x01, 0x03, 0x11, 0x01, 0xff, 0xd9]);

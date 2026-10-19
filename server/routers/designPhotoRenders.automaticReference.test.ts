@@ -17,11 +17,16 @@ function request(entries: unknown[]) {
 describe("Gemini automatic missing-swatch rule", () => {
   it.each(["appliance", "cabinet door/finish", "countertop", "flooring", "backsplash", "sink", "faucet"])("renders %s from the locked image if its swatch is missing", role => {
     const fallback = { ...product, id: `${role}:item`, role, referenceUrl: null, referenceSource: "locked-designer-jpeg" };
-    expect(photoRenderProvenanceSchema.parse(request([fallback])).materialManifest[0]).toMatchObject({ ...fallback, provenance: `${role}: ${fallback.label}` });
+    const entry = photoRenderProvenanceSchema.parse(request([fallback])).materialManifest[0]!;
+    expect(entry).toMatchObject({ ...fallback, provenance: expect.stringMatching(/^source:locked-designer-jpeg;ref:/) });
+    expect(entry.provenance.length).toBeLessThanOrEqual(160);
+    expect(entry.provenanceDetails).toContain(fallback.provenance);
   });
   it("accepts the exact smooth-top planning cooktop from the screenshot without a fake product", () => {
     const fallback = { ...product, id: "appliance:cooktop", role: "appliance", label: "CATALOG-APPLIANCE-smooth-top — Smooth-glass cooktop layout visual", itemIds: ["sb36:cooktop"], referenceUrl: null, referenceSource: "locked-designer-jpeg" };
-    expect(photoRenderProvenanceSchema.parse(request([fallback])).materialManifest[0]).toMatchObject({ ...fallback, provenance: `appliance: ${fallback.label}` });
+    const entry = photoRenderProvenanceSchema.parse(request([fallback])).materialManifest[0]!;
+    expect(entry).toMatchObject({ ...fallback, provenance: "source:locked-designer-jpeg;ref:appliance:cooktop;cat:appliance" });
+    expect(entry.provenanceDetails).toContain(fallback.provenance);
   });
   it("does not accept unsupported fallback roles, missing item mappings, or absent source-image hashes", () => {
     const fallback = { ...product, referenceUrl: null, referenceSource: "locked-designer-jpeg" };

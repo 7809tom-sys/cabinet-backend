@@ -36,6 +36,7 @@ import { pantryDrawerFrontLayout } from "@/lib/pantryDrawerLayout";
 import { masterTracProduct, masterTracFinishColor } from "@/lib/closet";
 import { geminiHardwareReference, type GeminiMaterialManifestEntry } from "@/lib/geminiHardwareReference";
 import { geminiMaterialReference, geminiInferredMaterialLabels } from "@/lib/geminiMaterialReference";
+import { GEMINI_MATERIAL_MANIFEST_WIRE_VERSION, geminiMaterialManifestWireValidationIssues, serializeGeminiImageTestProvenanceForWire, serializeGeminiMaterialManifestForWire } from "@shared/geminiMaterialManifest";
 
 /**
  * The in-house browser path tracer is switched off: it opens a second WebGL
@@ -9859,6 +9860,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
       camera: { position: [number, number, number]; target: [number, number, number]; zoom: number };
       materials: Array<{ role: "cabinet" | "countertop" | "flooring" | "backsplash" | "faucet" | "sink"; productId: number | null; name: string | null; materialImageUrl: string | null }>;
       materialManifest: GeminiMaterialManifestEntry[];
+      materialManifestWireVersion: typeof GEMINI_MATERIAL_MANIFEST_WIRE_VERSION;
       missingMaterialInputs: string[];
       sourceImageHash: string;
       generationMethod: "manual-final-review-image-service" | "manual-final-review-gpt-image-2-high-v2" | "manual-final-review-deterministic-webgl-v1" | "manual-final-review-gemini-nano-banana-v1";
@@ -10007,12 +10009,15 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
   const geminiAutomaticRetryLabel = geminiAutomaticRetrySeconds >= 60
     ? `${Math.floor(geminiAutomaticRetrySeconds / 60)}m ${String(geminiAutomaticRetrySeconds % 60).padStart(2, "0")}s`
     : `${geminiAutomaticRetrySeconds}s`;
+  // Validate the final compact wire manifest, rather than an editable draft.
+  // This ensures browser-side success controls and the request use the same data.
+  const geminiWireMaterialManifest = useMemo(() => photoRenderDraft
+    ? serializeGeminiMaterialManifestForWire(photoRenderDraft.provenance.materialManifest)
+    : [], [photoRenderDraft]);
   const geminiManifestValidationIssues = photoRenderDraft
     ? [
         ...photoRenderDraft.provenance.missingMaterialInputs.map((label) => `Missing exact swatch: ${label}`),
-        ...photoRenderDraft.provenance.materialManifest
-          .filter((entry) => !entry.provenance.trim() || entry.provenance.trim().length > 160)
-          .map((entry) => `${entry.role} — ${entry.label} (${entry.provenance.trim().length} character provenance; maximum 160)`),
+        ...geminiMaterialManifestWireValidationIssues(geminiWireMaterialManifest),
       ]
     : [];
   const geminiManifestValidationReason = geminiManifestValidationIssues.length > 0
@@ -11812,6 +11817,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
       camera: cameraSnapshot,
       materials,
       materialManifest,
+      materialManifestWireVersion: GEMINI_MATERIAL_MANIFEST_WIRE_VERSION,
       missingMaterialInputs,
       renderSpecification,
       sourceImageHash,
@@ -11998,16 +12004,9 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
     setGeminiImageTestError(null);
     try {
       const googleImageInput = await compactGoogleImageTestInput(photoRenderDraft.sceneImageDataUrl);
-      const requestProvenance = {
-        ...photoRenderDraft.provenance,
-        materialManifest: photoRenderDraft.provenance.materialManifest.map((entry) => ({
-          ...entry,
-          provenanceDetails: entry.provenanceDetails ?? entry.provenance,
-          provenance: `${entry.role}: ${entry.label}`.slice(0, 160),
-        })),
-      };
+      const requestProvenance = serializeGeminiImageTestProvenanceForWire(photoRenderDraft.provenance);
       const result = await startGeminiImageTestMutation.mutateAsync({
-        sceneSignature: `${photoRenderDraft.sceneSignature}-gemini-test`,
+        sceneSignature: `${photoRenderDraft.sceneSignature}-gemini-test-v2`,
         sceneImageDataUrl: googleImageInput,
         provenance: requestProvenance,
         restartPending: Boolean(geminiImageTestJobId),
@@ -12423,7 +12422,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
 		          <DialogTitle>Request your photo-quality kitchen image</DialogTitle>
 		          <DialogDescription>We create one locked reference package from your saved plan, selected CabinetDealz and Pelican products, and camera view. Your editable plan does not change.</DialogDescription>
 	          </DialogHeader>
-          {canUseGeminiImageTest && <section data-testid="gemini-image-test" className="mt-3 rounded-lg border border-sky-200 bg-sky-50 p-3 text-xs leading-relaxed text-sky-950"><p className="font-semibold">Google/Gemini image test — locked plan</p><p className="mt-1">This sends the locked plan and selected-material names to Google Gemini. Affiliate results are saved automatically in this storefront’s Image Cabinet and become the selected door style’s newest primary room scene. It does not change pricing, customer image flow, or CRM.</p><Button type="button" size="sm" className="mt-2 bg-[#1a2744] text-white hover:bg-[#24375f]" onClick={() => void startGeminiImageTest()} disabled={startGeminiImageTestMutation.isPending || geminiCooldownActive} title={geminiImageTestBlockingReason ?? undefined}>{startGeminiImageTestMutation.isPending ? <LoaderCircle className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Sparkles className="mr-1.5 h-3.5 w-3.5" />}{startGeminiImageTestMutation.isPending ? "Starting Google image test…" : geminiCooldownActive ? `Try Google again in ${geminiCooldownLabel}` : geminiImageTestJobId ? "Start fresh Google image test" : "Run Google image test"}</Button>{geminiImageTestBlockingReason && <p data-testid="gemini-image-test-blocking-reason" role="status" className="mt-2 text-sky-900">{geminiImageTestBlockingReason}</p>}{geminiImageTestError && <p role="alert" className="mt-2 text-rose-800">{geminiImageTestError}</p>}</section>}
+          {canUseGeminiImageTest && <section data-testid="gemini-image-test" className="mt-3 rounded-lg border border-sky-200 bg-sky-50 p-3 text-xs leading-relaxed text-sky-950"><p className="font-semibold">Google/Gemini image test — locked plan</p><p className="mt-1">This sends the locked plan and selected-material names to Google Gemini. Affiliate results are saved automatically in this storefront’s Image Cabinet and become the selected door style’s newest primary room scene. It does not change pricing, customer image flow, or CRM.</p><Button type="button" size="sm" className="mt-2 bg-[#1a2744] text-white hover:bg-[#24375f]" onClick={() => void startGeminiImageTest()} disabled={Boolean(geminiManifestValidationReason) || startGeminiImageTestMutation.isPending || geminiCooldownActive} title={geminiImageTestBlockingReason ?? undefined}>{startGeminiImageTestMutation.isPending ? <LoaderCircle className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Sparkles className="mr-1.5 h-3.5 w-3.5" />}{startGeminiImageTestMutation.isPending ? "Starting Google image test…" : geminiCooldownActive ? `Try Google again in ${geminiCooldownLabel}` : geminiImageTestJobId ? "Start fresh Google image test" : "Run Google image test"}</Button>{geminiImageTestBlockingReason && <p data-testid="gemini-image-test-blocking-reason" role="status" className="mt-2 text-sky-900">{geminiImageTestBlockingReason}</p>}{geminiImageTestError && <p role="alert" className="mt-2 text-rose-800">{geminiImageTestError}</p>}</section>}
           {canUseGeminiImageTest && geminiInferredMaterials.length > 0 && <p data-testid="gemini-automatic-predictions" className="rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-950"><strong>Automatic predictions:</strong> No swatch for {geminiInferredMaterials.join("; ")}. Gemini will render these from the locked 3D view and descriptions. Appearance is inferred, not a verified product match. Supplied swatches stay exact.</p>}
           {canUseGeminiImageTest && photoRenderDraft && !geminiManifestValidationReason && geminiImageTestJobQuery.data?.status === "completed" && geminiImageTestJobQuery.data.imageUrl && <section data-testid="completed-gemini-image-test" className="mt-3 rounded-lg border border-emerald-300 bg-emerald-50 p-3 text-xs leading-relaxed text-emerald-950"><p className="font-semibold">Google image test is ready</p><p className="mt-1">The completed illustrative image is saved and can be reopened after a refresh. An affiliate result is also added to Image Cabinet and becomes this style’s newest primary room scene.</p><Button data-testid="open-completed-gemini-image-test" type="button" size="sm" className="mt-2 bg-[#1a2744] text-white hover:bg-[#24375f]" onClick={openCompletedGeminiImageTest}><Sparkles className="mr-1.5 h-3.5 w-3.5" />Open completed Google image</Button></section>}
           {canUseGeminiImageTest && !geminiManifestValidationReason && savedGeminiImageTestQuery.data && <section data-testid="saved-gemini-image-test" className="mt-3 rounded-lg border border-sky-200 bg-sky-50 p-3 text-xs leading-relaxed text-sky-950"><p className="font-semibold">Saved Google image test</p><p className="mt-1">Reopen the illustrative result saved for this exact plan revision after leaving the Designer page.</p><Button data-testid="open-saved-gemini-image-test" type="button" size="sm" className="mt-2 bg-[#1a2744] text-white hover:bg-[#24375f]" onClick={openSavedGeminiImageTest}><Sparkles className="mr-1.5 h-3.5 w-3.5" />Open saved Google test</Button></section>}

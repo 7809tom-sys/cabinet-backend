@@ -13,6 +13,7 @@ import { checkTwilioVerification, hashPhoneE164, isTwilioVerifyConfigured, norma
 import { generateGeminiExactPlanTest, isGeminiImageConfigured, pollGeminiExactPlanTest, startGeminiExactPlanTest, verifyGeminiImageAccess } from "../lib/geminiImageProvider";
 import { sendEmail } from "../email";
 import { resolveAffiliateAccess } from "../lib/affiliateAccess";
+import { GEMINI_MATERIAL_MANIFEST_WIRE_VERSION, hasCurrentGeminiMaterialManifestWireVersion, serializeGeminiMaterialManifestForWire } from "../../shared/geminiMaterialManifest";
 
 const DATA_IMAGE_PREFIX = /^data:image\/(png|jpeg|webp);base64,/;
 const CABINETDEALZ_MATERIAL_ORIGIN = "https://www.cabinetdealz.com";
@@ -127,13 +128,22 @@ const renderSpecificationSchema = z.object({
     falseBack: z.boolean(),
   })).max(100),
 });
-const boundedManifestProvenance = (role: string, label: string) => `${role}: ${label}`.trim().slice(0, 160);
 const materialManifestEntrySchema = z.preprocess((value) => {
   if (!value || typeof value !== "object" || Array.isArray(value)) return value;
   const entry = value as Record<string, unknown>;
   const role = typeof entry.role === "string" ? entry.role : "material";
   const label = typeof entry.label === "string" ? entry.label : "Selected material";
   const rawProvenance = typeof entry.provenance === "string" ? entry.provenance : "";
+  const materialManifestEntry = serializeGeminiMaterialManifestForWire([{
+    id: typeof entry.id === "string" ? entry.id : "",
+    role,
+    label,
+    itemIds: Array.isArray(entry.itemIds) ? entry.itemIds.filter((itemId): itemId is string => typeof itemId === "string") : [],
+    referenceUrl: typeof entry.referenceUrl === "string" ? entry.referenceUrl : null,
+    referenceSource: entry.referenceSource === "catalog-image" || entry.referenceSource === "locked-designer-jpeg" ? entry.referenceSource : undefined,
+    provenance: rawProvenance,
+    provenanceDetails: typeof entry.provenanceDetails === "string" ? entry.provenanceDetails : undefined,
+  }])[0]!;
   return {
     ...entry,
     // Older clients included the complete description + URL in this ID.
@@ -141,8 +151,8 @@ const materialManifestEntrySchema = z.preprocess((value) => {
     id: typeof entry.id === "string" && entry.id.trim().length > 160
       ? `material:${createHash("sha256").update(entry.id).digest("hex")}`
       : entry.id,
-    provenanceDetails: typeof entry.provenanceDetails === "string" ? entry.provenanceDetails.slice(0, 4_000) : rawProvenance.slice(0, 4_000),
-    provenance: boundedManifestProvenance(role, label),
+    provenanceDetails: materialManifestEntry.provenanceDetails,
+    provenance: materialManifestEntry.provenance,
   };
 }, z.object({
   id: z.string().trim().min(1).max(160),
@@ -151,7 +161,7 @@ const materialManifestEntrySchema = z.preprocess((value) => {
   itemIds: z.array(z.string().trim().min(1).max(160)).min(1).max(500),
   referenceUrl: safeMaterialUrl.nullable(),
   referenceSource: z.enum(["catalog-image", "locked-designer-jpeg"]).optional(),
-  provenanceDetails: z.string().trim().max(4_000).optional(),
+  provenanceDetails: z.string().trim().max(100_000).optional(),
   provenance: z.string().trim().min(1).max(160),
 }).superRefine((entry, ctx) => {
   if (entry.referenceSource === "locked-designer-jpeg") {
@@ -171,6 +181,9 @@ export const photoQualityLeadSchema = z.object({
 });
 export const photoRenderProvenanceSchema = z.object({
   contractVersion: z.literal("exact-plan-v1"),
+  // Default makes older callers safe on receipt; persisted unversioned Gemini
+  // results/jobs are explicitly hidden and invalidated below instead of reused.
+  materialManifestWireVersion: z.literal(GEMINI_MATERIAL_MANIFEST_WIRE_VERSION).default(GEMINI_MATERIAL_MANIFEST_WIRE_VERSION),
   // Design ID 0 is reserved for an administrator-only locked-view test. A
 	  // customer request must still have a persisted positive saved-design ID.
 	  designId: z.number().int().nonnegative(),
@@ -742,6 +755,15 @@ async function runQueuedGeminiImageTestJob(jobId: number) {
       .where(eq(designGeminiImageTestJobs.id, jobId)).limit(1);
     if (!job || job.status !== "queued" || !job.sourceImageKey) return;
     durableJob = job;
+    if (!hasCurrentGeminiMaterialManifestWireVersion(job.provenance)) {
+      await db.update(designGeminiImageTestJobs).set({
+        status: "failed",
+        errorMessage: "This earlier Google image test used an outdated material package. Reopen Final preview and start a fresh test.",
+        completedAt: new Date(),
+        nextRetryAt: null,
+      }).where(eq(designGeminiImageTestJobs.id, job.id));
+      return;
+    }
     if (job.nextRetryAt && job.nextRetryAt.getTime() > Date.now()) return;
     const sourceResponse = await fetch(await storageGetSignedUrl(job.sourceImageKey));
     if (!sourceResponse.ok) throw new Error("The locked Google test reference could not be read. Start a fresh test.");
@@ -1398,6 +1420,7 @@ export const designPhotoRendersRouter = router({
       )).orderBy(desc(designPhotoRenders.updatedAt)).limit(1);
       const provenance = saved?.provenance as PhotoRenderProvenanceInput | null | undefined;
       if (!saved || !provenance) return null;
+      if (!hasCurrentGeminiMaterialManifestWireVersion(provenance)) return null;
       if (provenance.designRevision !== savedPhotoPlanRevision(design) || provenance.planFingerprint !== savedPhotoPlanFingerprint(design)) {
         return null;
       }
@@ -1511,6 +1534,7 @@ export const designPhotoRendersRouter = router({
         eq(designGeminiImageTestJobs.kitchenDesignId, design?.id ?? 0),
       )).orderBy(desc(designGeminiImageTestJobs.updatedAt)).limit(1);
       if (!job || (!administratorSnapshot && (job.designRevision !== savedPhotoPlanRevision(design!) || job.planFingerprint !== savedPhotoPlanFingerprint(design!)))) return null;
+      if (!hasCurrentGeminiMaterialManifestWireVersion(job.provenance)) return null;
       if (job.status === "queued") queueGeminiImageTestJob(job.id);
       return { jobId: job.id, status: job.status, imageUrl: job.imageUrl, errorMessage: job.errorMessage, startedAt: job.startedAt, nextRetryAt: job.nextRetryAt, retryCount: job.retryCount };
     }),
@@ -1525,6 +1549,12 @@ export const designPhotoRendersRouter = router({
         eq(designGeminiImageTestJobs.userId, ctx.user.id),
       )).limit(1);
       if (!job) throw new Error("This Google image test is not available for your account.");
+      if (!hasCurrentGeminiMaterialManifestWireVersion(job.provenance)) {
+        const message = "This earlier Google image test used an outdated material package. Reopen Final preview and start a fresh test.";
+        await db.update(designGeminiImageTestJobs).set({ status: "failed", errorMessage: message, completedAt: new Date(), nextRetryAt: null })
+          .where(eq(designGeminiImageTestJobs.id, job.id));
+        return { status: "failed" as const, message };
+      }
       const design = job.kitchenDesignId > 0 ? await loadOwnedSavedDesign(db, ctx.user.id, job.kitchenDesignId) : null;
       if (job.kitchenDesignId === 0 && ctx.user.role !== "admin") {
         throw new TRPCError({ code: "FORBIDDEN", message: "This Google image test is not available for your account." });

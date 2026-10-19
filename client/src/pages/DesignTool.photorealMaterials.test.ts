@@ -119,12 +119,15 @@ describe("Designer programmed photoreal material wiring", () => {
 
   it("keeps malformed-provenance safeguards without blocking missing swatches", () => {
     const referenceSource = readFileSync(new URL("../lib/geminiMaterialReference.ts", import.meta.url), "utf8");
-    expect(referenceSource).toContain(".slice(0, 160)");
+    const manifestSource = readFileSync(new URL("../../../shared/geminiMaterialManifest.ts", import.meta.url), "utf8");
+    expect(referenceSource).toContain("serializeGeminiMaterialManifestForWire");
+    expect(manifestSource).toContain("GEMINI_MATERIAL_MANIFEST_PROVENANCE_MAX = 160");
     expect(rendererSource).toContain("geminiManifestValidationReason");
+    expect(rendererSource).toContain("geminiWireMaterialManifest");
     expect(rendererSource).toContain("setGeminiImageTestError(geminiManifestValidationReason)");
-    expect(rendererSource).toContain("disabled={startGeminiImageTestMutation.isPending || geminiCooldownActive}");
+    expect(rendererSource).toContain("disabled={Boolean(geminiManifestValidationReason) || startGeminiImageTestMutation.isPending || geminiCooldownActive}");
     expect(rendererSource).toContain("!geminiManifestValidationReason && geminiImageTestJobQuery.data?.status === \"completed\"");
     expect(rendererSource).toContain("!geminiManifestValidationReason && savedGeminiImageTestQuery.data");
-    expect(rendererSource).toContain("maximum 160");
+    expect(rendererSource).toContain("materialManifestWireVersion: GEMINI_MATERIAL_MANIFEST_WIRE_VERSION");
   });
 });

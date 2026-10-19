@@ -1,4 +1,5 @@
 import { hardwareStyle, type HardwareStyleId } from "./hardware";
+import { serializeGeminiMaterialManifestForWire } from "@shared/geminiMaterialManifest";
 
 export type GeminiMaterialManifestEntry = {
   id: string;
@@ -24,16 +25,16 @@ export function geminiHardwareReference(
   const style = hardwareStyle(styleId);
   const label = catalogLabel?.trim() || style.label;
   const source = referenceUrl ? "catalog-image" : "locked-designer-jpeg";
-  return {
+  return serializeGeminiMaterialManifestForWire([{
     id: "hardware:handles",
     role: "hardware/handles",
     label,
     itemIds,
     referenceUrl,
     referenceSource: source,
-    provenance: `hardware/handles: ${label} — ${source}`.slice(0, 160),
+    provenance: `hardware/handles: ${label} — ${source}`,
     provenanceDetails: referenceUrl
       ? `Selected hardware reference: ${label} · ${referenceUrl}`
       : `${style.label} is a planning style, not a catalog SKU. Copy the handles, finish and placement already visible in image 1; do not substitute a hardware product.`,
-  };
+  }])[0]!;
 }

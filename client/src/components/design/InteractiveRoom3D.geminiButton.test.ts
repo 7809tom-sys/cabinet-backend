@@ -47,14 +47,18 @@ describe("Gemini image button workflow", () => {
     expect(status({ geminiImageTestJobId: 42, geminiAutomaticRetrySeconds: 60, geminiAutomaticRetryLabel: "1m 00s" })).toContain("automatically in 1m 00s");
     expect(status({ geminiCooldownActive: true })).toContain("rate-limited");
   });
-  it("lets a click explain missing references while preventing duplicate requests and rate-limit bypass", () => {
+  it("disables any invalid manifest instead of permitting a request or showing a stale success action", () => {
     expect(disabled()).toBe(false);
-    expect(disabled({ geminiManifestValidationReason: "Missing swatch" })).toBe(false);
+    expect(disabled({ geminiManifestValidationReason: "Missing swatch" })).toBe(true);
     expect(disabled({ startGeminiImageTestMutation: { isPending: true } })).toBe(true);
     expect(disabled({ geminiCooldownActive: true })).toBe(true);
     const handler = source.slice(source.indexOf("const startGeminiImageTest = async () =>"), source.indexOf("const openSavedGeminiImageTest ="));
     expect(handler).toMatch(/if \(geminiManifestValidationReason\) \{\s*setGeminiImageTestError\(geminiManifestValidationReason\);\s*return;/);
     expect(handler.indexOf("if (geminiManifestValidationReason)")).toBeLessThan(handler.indexOf("mutateAsync("));
+    expect(handler).toContain("serializeGeminiImageTestProvenanceForWire(photoRenderDraft.provenance)");
+    expect(handler).toContain('sceneSignature: `${photoRenderDraft.sceneSignature}-gemini-test-v2`');
+    expect(source).toContain('!geminiManifestValidationReason && geminiImageTestJobQuery.data?.status === "completed"');
+    expect(source).toContain('!geminiManifestValidationReason && savedGeminiImageTestQuery.data');
   });
   it("keeps the in-house WebGL path tracer disabled", () => {
     expect(source).toContain("export const IN_HOUSE_PATH_TRACE_ENABLED = false;");
