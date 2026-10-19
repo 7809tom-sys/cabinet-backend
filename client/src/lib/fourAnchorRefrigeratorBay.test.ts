@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { wallPlacementAt, type DesignCabinet, type PlacedCabinet, type RoomData } from "./design";
 import { buildMandatoryFourAnchorRefrigeratorBay } from "./fourAnchorRefrigeratorBay";
+import catalogFixture from "./__fixtures__/fourAnchorRealCatalog.json";
 
 const room: RoomData = { width: 144, depth: 120, ceilingHeight: 96 };
 
@@ -95,3 +96,52 @@ describe("mandatory Four-anchor refrigerator bay", () => {
     expect(result).toMatchObject({ ok: false, message: expect.stringContaining("36") });
   });
 });
+
+describe("Four-anchor refrigerator cabinet above: always the 24-inch-deep refrigerator box", () => {
+  const panel = () => source({ id: 201, masterCode: "REP2496", category: "Panel", subCategory: "Refrigerator End Panel", width: "0.75", height: "96", depth: "24", placement: "tall", numberOfDoors: 0 });
+  const build = (caps: DesignCabinet[]) => buildMandatoryFourAnchorRefrigeratorBay({
+    refrigerator: refrigerator(), room, caps, endPanels: [panel()], styleId: 9, makeUid: (() => { let index = 0; return () => `cap-${++index}`; })(),
+  });
+  it("never picks a 12-inch-deep 36-inch wall cabinet even when it is listed first", () => {
+    // Real catalog order: the ordinary 12-deep W3612 comes before W361224.
+    const shallow = source({ id: 1, masterCode: "W3612", description: "36 x 12 x 12 Wall Cabinet", subCategory: "Wall Cabinet", width: "36", height: "12", depth: "12" });
+    const deep = source({ id: 2, masterCode: "W361224", width: "36", height: "12", depth: "24" });
+    const result = build([shallow, deep]);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const cap = result.additions[0];
+    expect(cap.masterCode).toBe("W361224");
+    expect(cap.depth).toBe(24);
+  });
+  it("refuses with a plain message instead of silently using a 12-inch-deep box", () => {
+    const result = build([source({ id: 1, masterCode: "W3612", width: "36", height: "12", depth: "12" })]);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.message).toMatch(/24-inch-deep/i);
+  });
+  it("chooses the height that tops out at the wall-cabinet line (54 + 30 = 84), not the first row", () => {
+    // Fridge top 70 + 2 clearance = 72, so a 12-inch box reaches 84 exactly.
+    const caps = [
+      source({ id: 3, masterCode: "W362424", width: "36", height: "24", depth: "24" }),
+      source({ id: 4, masterCode: "W361224", width: "36", height: "12", depth: "24" }),
+      source({ id: 5, masterCode: "W361824", width: "36", height: "18", depth: "24" }),
+    ];
+    const result = build(caps);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.additions[0].masterCode).toBe("W361224");
+    expect(result.additions[0].mountBottom! + result.additions[0].height).toBeCloseTo(84, 1);
+  });
+  it("on the real framed and frameless catalogs the cap is the 24-inch-deep refrigerator cabinet", () => {
+    for (const style of ["330011", "540005"] as const) {
+      const wall = (catalogFixture as unknown as Record<string, { wall: DesignCabinet[] }>)[style]!.wall;
+      const caps = wall.filter((row) => Number(row.width) === 36 && Number(row.depth) >= 12 && /refrigerator|W36\d{2}24$|^WR36/i.test(`${row.masterCode} ${row.description}`) || (Number(row.width) === 36 && Number(row.depth) <= 13));
+      const result = build(caps);
+      expect(result.ok, style).toBe(true);
+      if (!result.ok) continue;
+      expect(result.additions[0].depth, style).toBe(24);
+      expect(result.additions[0].masterCode, style).toMatch(/24$|^WR36/);
+    }
+  });
+});
+

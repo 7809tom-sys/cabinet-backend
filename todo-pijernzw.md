@@ -243,3 +243,12 @@
 - [x] New real-mesh regression `InteractiveRoom3D.farmhouseSinkBase.test.ts` (10) + `ElevationView.farmhouseFace.test.ts` (4) + island pull test; old 3-part expectation updated.
 - [x] Real-Designer before/after proof: `/home/ubuntu/apron-sink-proof/FSB_before_after_proof.png`.
 - [ ] Not published: Designer code must be published before www.cabinetdealz.com shows the corrected FSB.
+
+## Four-anchor first design: new kitchen rules (unpublished)
+- [x] Refrigerator panel cabinet-above must be 24" deep (only 24"-deep 36" caps; height reaches the selected wall-cabinet line) — `fourAnchorRefrigeratorBay.ts`
+- [x] Window above the sink is created from the entered window center and the sink base gets NO upper above it; neighbors keep 3" window clearance — `fourAnchorSinkWindow.ts`, `fourAnchorWallCabinets.ts`
+- [x] 12" wall cabinet in the corner square beside a blind corner (wall blind corner only as fallback when the line has no 12" upper)
+- [x] "What goes above the range?" prompt: range hood / bridge cabinet + microwave / leave open — `fourAnchorRangeHood.ts`, `DesignTool.tsx`
+- [x] Tests: fourAnchorKitchenRules, fourAnchorSinkWindow, fourAnchorRangeHood, DesignTool.fourAnchorKitchenRules, refrigerator bay (real-catalog fixtures). 131 related files: same 19 pre-existing failures as clean HEAD, zero new.
+- [x] Real Designer visual proof: /home/ubuntu/anchor-rules-proof/FOUR_ANCHOR_RULES_proof.png
+- [ ] Authenticated (real login) Four-anchor run still unverified; QA used a client-side-only admin shim with writes blocked.

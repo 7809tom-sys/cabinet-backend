@@ -206,12 +206,13 @@ export function FourAnchorAutoBuildDialog({ open, onOpenChange, onBuild, catalog
             </div>
           </div>
 
-          {layoutType !== "galley" && (
-            <div className="space-y-1.5">
-              <Label htmlFor="four-anchor-window-center">Optional window center from the selected sink wall’s starting corner (in.)</Label>
-              <Input id="four-anchor-window-center" type="number" min="0" step="0.125" placeholder="Leave blank when not applicable" value={windowCenter} onChange={(event) => setWindowCenter(event.target.value)} />
-            </div>
-          )}
+          <div className="space-y-1.5">
+            <Label htmlFor="four-anchor-window-center">Window above the sink: center from the sink wall’s starting corner (in.)</Label>
+            <Input id="four-anchor-window-center" type="number" min="0" step="0.125" placeholder="Leave blank when there is no window" value={windowCenter} onChange={(event) => setWindowCenter(event.target.value)} />
+            <p className="text-xs text-muted-foreground" data-testid="four-anchor-window-help">
+              The sink is centered on this measurement and a window as wide as the sink base is placed above it. No wall cabinet goes above the sink, and the next cabinets start 3 inches past the window. Leave blank for nothing above the sink.
+            </p>
+          </div>
           {submitError && (
             <div role="alert" data-testid="four-anchor-build-error" className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
               {submitError}

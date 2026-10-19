@@ -26,7 +26,44 @@ type Input = {
   endPanels: readonly DesignCabinet[];
   styleId: number | null;
   makeUid: () => string;
+  /** Selected 30/36/42-inch upper height. The cabinet above tops out on this run's line (54 + height). Defaults to 30. */
+  wallCabinetHeightIn?: number;
 };
+
+/** A refrigerator with end panels always gets the full-depth refrigerator box above it. */
+export const REFRIGERATOR_CAP_DEPTH_IN = 24;
+/** Standard upper-cabinet bottom datum. A bay's cabinet above tops out at this plus the selected upper height. */
+const UPPER_RUN_BOTTOM_IN = 54;
+
+/**
+ * The cabinet above a refrigerator is the 36-inch-wide, 24-inch-deep
+ * refrigerator wall box, never an ordinary 12-inch-deep wall cabinet that sits
+ * behind the panels' front edge. Among the true 24-inch boxes, take the height
+ * whose top lands closest to the neighboring upper line (shorter wins a tie).
+ */
+export function pickFourAnchorRefrigeratorCap(
+  caps: readonly DesignCabinet[],
+  refrigeratorTop: number,
+  wallCabinetHeightIn: number,
+  ceilingIn: number,
+): DesignCabinet | null {
+  const target = UPPER_RUN_BOTTOM_IN + wallCabinetHeightIn;
+  const mountBottom = refrigeratorSurroundElevation(null, refrigeratorTop, 0).mountBottom;
+  const eligible = caps
+    .filter((candidate) => (
+      Math.abs(dim(candidate.width, 0) - 36) <= 0.01
+      && Math.abs(dim(candidate.depth, 0) - REFRIGERATOR_CAP_DEPTH_IN) <= 0.01
+      && dim(candidate.height, 0) > 0
+      && mountBottom + dim(candidate.height, 0) <= ceilingIn + 0.01
+    ))
+    .map((candidate) => ({ candidate, top: mountBottom + dim(candidate.height, 0) }));
+  eligible.sort((a, b) => (
+    Math.abs(a.top - target) - Math.abs(b.top - target)
+    || dim(a.candidate.height, 0) - dim(b.candidate.height, 0)
+    || a.candidate.masterCode.localeCompare(b.candidate.masterCode)
+  ));
+  return eligible[0]?.candidate ?? null;
+}
 
 /**
  * Source catalogs use both orientations for refrigerator-panel dimensions:
@@ -69,14 +106,16 @@ export function buildMandatoryFourAnchorRefrigeratorBay({
   endPanels,
   styleId,
   makeUid,
+  wallCabinetHeightIn = 30,
 }: Input): FourAnchorRefrigeratorBayResult {
   if (Math.abs(refrigerator.width - 36) > 0.01) {
     return { ok: false, message: "Four-anchor refrigerator bays require the 36-inch refrigerator and matching 36-inch cabinet above." };
   }
 
-  const cap = caps.find((candidate) => Math.abs(dim(candidate.width, 0) - 36) <= 0.01);
+  const ceilingIn = Math.max(0, Number(room.ceilingHeight) || 96);
+  const cap = pickFourAnchorRefrigeratorCap(caps, refrigerator.height ?? 70, wallCabinetHeightIn, ceilingIn);
   if (!cap) {
-    return { ok: false, message: "No source-priced 36-inch refrigerator cabinet above is available for the selected cabinet line." };
+    return { ok: false, message: "No source-priced 36-inch-wide, 24-inch-deep refrigerator cabinet above is available for the selected cabinet line. A refrigerator with panels needs the 24-inch-deep box, so Four-anchor did not substitute a 12-inch-deep wall cabinet." };
   }
   const panelEntry = endPanels
     .map((candidate) => ({ candidate, dimensions: refrigeratorPanelDimensions(candidate) }))

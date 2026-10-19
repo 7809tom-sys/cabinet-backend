@@ -179,6 +179,8 @@ import { HardwareCatalogPicker } from "@/components/design/HardwareCatalogPicker
 import { isPanelPaletteItem } from "./designToolPanels";
 import { normalizePaletteSearch, matchesPaletteSearch } from "@/lib/paletteSearch";
 import { adjacentDishwasherCenterIn, anchorAlongStartIn, autoBuildStraightBaseCatalog, canRunFourAnchorAutoBuild, isAutoBuildStraightSinkBaseCandidate, planFourAnchorAutoBuild, subtractAnchorRunReservations, wallLabelToEngineWallId, type FourAnchorInputs } from "@/lib/fourAnchorAutoBuild";
+import { fourAnchorSinkWindow, windowOverlapsReservation } from "@/lib/fourAnchorSinkWindow";
+import { fourAnchorRangeHood, fourAnchorRangeNeedsVentilation } from "@/lib/fourAnchorRangeHood";
 import { autoBuildCornerCatalog, fourAnchorCornerSlotPoint, fourAnchorCornerSlots, isFourAnchorBlindCornerOption, type AutoBuildCornerCandidate, type FourAnchorCornerChoice, type FourAnchorCornerSlot } from "@/lib/fourAnchorCornerStage";
 import { buildMandatoryFourAnchorRefrigeratorBay } from "@/lib/fourAnchorRefrigeratorBay";
 import { buildFourAnchorWallCabinets, type FourAnchorUpperCorner } from "@/lib/fourAnchorWallCabinets";
@@ -955,7 +957,11 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     refrigeratorReservation: { wall: string; start: number; end: number } | null;
     slots: FourAnchorCornerSlot[];
     cornerOptions: AutoBuildCornerCandidate[];
+    /** The over-sink window the measured build creates when a window center was entered. */
+    sinkWindow: WallOpening | null;
   } | null>(null);
+  // After a measured build, a range with nothing above it asks what goes there.
+  const [fourAnchorRangeVentPrompt, setFourAnchorRangeVentPrompt] = useState<{ rangeUid: string } | null>(null);
   const [islandSeatingOverhangPrompt, setIslandSeatingOverhangPrompt] = useState<{
     cabinetCode: string;
     face: IslandFace;
@@ -3189,6 +3195,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       endPanels: fridgeParts.endPanels,
       styleId: styleIdRef.current ?? null,
       makeUid,
+      wallCabinetHeightIn: input.wallCabinetHeightIn ?? 30,
     });
     if (!refrigeratorBay.ok) return fail(refrigeratorBay.message);
     const fittedBay = fitExplicitRefrigeratorOptionPlacements(working, refrigeratorBay.additions, refrigerator.uid, room);
@@ -3209,6 +3216,22 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       const defaultSink = makeDefaultSinkForCabinet(sinkBase, room, defaultSinkType);
       setSinks([defaultSink]);
       setSelectedSinkUid(defaultSink.uid);
+    }
+    // A measured window center creates the real window above the sink, as wide as
+    // the sink base. Upper cabinets never go over it and stop 3 inches short of it.
+    let sinkWindow: WallOpening | null = null;
+    if (input.sinkWindowCenter && sinkBase) {
+      const proposedWindow = fourAnchorSinkWindow({ sink: sinkBase, room, uid: makeUid() });
+      const touchesOpening = openings.some((opening) => opening.side === proposedWindow.side
+        && opening.offset < proposedWindow.offset + proposedWindow.width - COLLISION_EPSILON_IN
+        && opening.offset + opening.width > proposedWindow.offset + COLLISION_EPSILON_IN);
+      if (windowOverlapsReservation(proposedWindow, refrigeratorReservation)) {
+        toast.warning("The sink window was not created: with its required 3-inch clearance it would run into the refrigerator’s cabinet above. Move the window center or the refrigerator, then build again.", { duration: 15000 });
+      } else if (touchesOpening) {
+        toast.warning("The sink window was not created because it would overlap an existing door or window on that wall.", { duration: 15000 });
+      } else {
+        sinkWindow = proposedWindow;
+      }
     }
     placedRef.current = working;
     setPlaced(working);
@@ -3234,6 +3257,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       refrigeratorReservation,
       slots,
       cornerOptions,
+      sinkWindow,
     });
     setViewMode("plan");
     setSelectedUid(null);
@@ -3258,6 +3282,10 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     if (!stage) return fail("The measured appliance stage is no longer active. Start the Four-anchor build again from an empty plan.");
 
     let working = [...stage.anchorPlaced];
+    // The sink window is part of the room for every remaining stage.
+    const stageOpenings = stage.sinkWindow && !openings.some((opening) => opening.uid === stage.sinkWindow!.uid)
+      ? [...openings, stage.sinkWindow]
+      : openings;
     const selectedWalls = [...stage.selectedWalls];
     let selectedCornerCount = 0;
     const upperCorners: FourAnchorUpperCorner[] = [];
@@ -3286,7 +3314,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       const seated = seatFourAnchorCorner({
         source: sourceCatalog, slotLabel: slot.label, target,
         cornerWallIds: [firstWall.engineWallId, secondWall.engineWallId],
-        working, room, openings,
+        working, room, openings: stageOpenings,
         blindPullIn: choice.blindPullIn ?? source.pullMax ?? 6,
         isBlindOption: isFourAnchorBlindCornerOption(source),
         catalogFillers, makeUid, styleId: styleIdRef.current ?? null,
@@ -3301,7 +3329,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 
     const surrounding: PlacedCabinet[] = [];
     for (const wallId of selectedWalls) {
-      const rawSegments = freeSegmentsOnWall(wallId, room, working, openings, 9, 0, "base", false, undefined, footprintDepth(stage.baseSource));
+      const rawSegments = freeSegmentsOnWall(wallId, room, working, stageOpenings, 9, 0, "base", false, undefined, footprintDepth(stage.baseSource));
       const reservations = [
         ...(stage.refrigeratorReservation?.wall === wallId ? [{ start: stage.refrigeratorReservation.start, end: stage.refrigeratorReservation.end }] : []),
       ];
@@ -3334,13 +3362,17 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     // Wall boxes are last. Match the completed lower projections, retaining
     // selected-line SKUs, height and opening clearances without moving anchors.
     const upperResult = buildFourAnchorWallCabinets({
-      placed: working, room, openings, catalog: stage.wallPool,
+      placed: working, room, openings: stageOpenings, catalog: stage.wallPool,
       wallCabinetHeightIn: stage.input.wallCabinetHeightIn ?? 30,
       styleId: styleIdRef.current ?? null, makeUid, corners: upperCorners, catalogFillers,
     });
     working = upperResult.placed;
     placedRef.current = working;
     setPlaced(working);
+    if (stage.sinkWindow) {
+      const windowToCommit = stage.sinkWindow;
+      setOpenings((previous) => (previous.some((opening) => opening.uid === windowToCommit.uid) ? previous : [...previous, windowToCommit]));
+    }
     setFourAnchorCornerStage(null);
     setViewMode("threeD");
     toast.success(`Placed ${selectedCornerCount} selected corners, ${surrounding.length} regular base-run pieces, and ${upperResult.additions.length} aligned wall cabinets.`);
@@ -3352,8 +3384,15 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       toast.info(`This cabinet line sells its ${requestedUpperIn}″ class as ${formatInches(upperResult.heightUsedIn)} wall cabinets, so those exact source SKUs were used.`);
     }
     if (upperResult.skipped.length) toast.info(`Upper review: ${upperResult.skipped.join(" ")}`, { duration: 15000 });
+    if (stage.sinkWindow) {
+      toast.info(`A ${formatInches(stage.sinkWindow.width)} window was placed above the sink as entered; no wall cabinet goes over it.`);
+    }
+    // A range with nothing above it asks what belongs there: hood, bridge + microwave, or nothing.
+    const bareRange = working.find((item) => item.placement === "appliance" && isRangeOrOven(item.masterCode, item.description)
+      && fourAnchorRangeNeedsVentilation(working, item));
+    if (bareRange) setFourAnchorRangeVentPrompt({ rangeUid: bareRange.uid });
     return { ok: true as const };
-  }, [catalogFillers, fourAnchorCornerStage, openings, room, setPlaced]);
+  }, [catalogFillers, fourAnchorCornerStage, openings, room, setPlaced, setOpenings]);
 
   const cancelFourAnchorCornerStage = useCallback(() => {
     // The staged build is transactional. Cancelling this required choice leaves
@@ -7162,7 +7201,36 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	      ? `${bridge.masterCode} was added above the existing ${microwave.masterCode}.`
 	      : `${bridge.masterCode} and ${microwave.masterCode} were centered above ${range.masterCode}.`);
 	  }, [appliancePalette, rangeCompanionPrompt, room]);
-	  const addWscSpiceStackUpper = useCallback((cabinetId: number) => {
+	  // Four-anchor leaves a range with nothing above it and asks what belongs there.
+  const addFourAnchorRangeHood = useCallback(() => {
+    const prompt = fourAnchorRangeVentPrompt;
+    setFourAnchorRangeVentPrompt(null);
+    if (!prompt) return;
+    const range = placedRef.current.find((cabinet) => cabinet.uid === prompt.rangeUid);
+    if (!range) { toast.error("The range changed before the hood was added. Nothing was added."); return; }
+    const built = fourAnchorRangeHood({ range, room, palette: appliancePalette, uid: makeUid() });
+    if (!built.ok) { toast.error(built.message); return; }
+    const resolution = appendCollisionFreePlacements(placedRef.current, [built.hood], room);
+    if (resolution.rejected.length > 0 || !resolution.placed.some((item) => item.uid === built.hood.uid)) {
+      toast.error("The hood needs a clear upper-wall span above this range. Existing cabinets were left unchanged.");
+      return;
+    }
+    placedRef.current = resolution.placed;
+    setPlaced(() => resolution.placed);
+    setSelectedUid(built.hood.uid);
+    toast.success(`${built.hood.masterCode} was centered above ${range.masterCode}.`);
+  }, [appliancePalette, fourAnchorRangeVentPrompt, room]);
+  const offerFourAnchorBridgeAndMicrowave = useCallback(() => {
+    const prompt = fourAnchorRangeVentPrompt;
+    setFourAnchorRangeVentPrompt(null);
+    if (!prompt) return;
+    const range = placedRef.current.find((cabinet) => cabinet.uid === prompt.rangeUid);
+    if (!range) { toast.error("The range changed before the bridge cabinet was offered. Nothing was added."); return; }
+    const proposal = rangeCompanionProposal(range, room, wallCabPoolRef.current, appliancePalette, wallCabHeightRef.current);
+    if (!proposal) { toast.error("A matching selected-line bridge cabinet and microwave are not available for this range."); return; }
+    setRangeCompanionPrompt({ rangeUid: range.uid, proposal, microwaveAlreadyPlaced: false });
+  }, [appliancePalette, fourAnchorRangeVentPrompt, room]);
+  const addWscSpiceStackUpper = useCallback((cabinetId: number) => {
 	    const prompt = spiceStackPrompt;
 	    if (!prompt) return;
 	    const spice = placedRef.current.find((cabinet) => cabinet.uid === prompt.spiceUid);
@@ -19572,7 +19640,22 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	        </DialogContent>
 	      </Dialog>
 
-	      <AlertDialog open={rangeCompanionPrompt != null} onOpenChange={(open) => { if (!open) setRangeCompanionPrompt(null); }}>
+	      <AlertDialog open={fourAnchorRangeVentPrompt != null} onOpenChange={(open) => { if (!open) setFourAnchorRangeVentPrompt(null); }}>
+        <AlertDialogContent className="max-w-md" data-testid="four-anchor-range-ventilation-dialog">
+          <AlertDialogHeader>
+            <AlertDialogTitle>What goes above the range?</AlertDialogTitle>
+            <AlertDialogDescription>
+              The measured build left the wall above the range open. Choose a range hood, or a bridge cabinet with an over-range microwave. Nothing else on the plan is moved.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="sm:flex-col sm:space-x-0 gap-2">
+            <AlertDialogAction onClick={addFourAnchorRangeHood} data-testid="four-anchor-range-hood">Add a range hood</AlertDialogAction>
+            <AlertDialogAction onClick={offerFourAnchorBridgeAndMicrowave} data-testid="four-anchor-range-bridge">Add a bridge cabinet and microwave</AlertDialogAction>
+            <AlertDialogCancel data-testid="four-anchor-range-leave-open">Leave it open</AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <AlertDialog open={rangeCompanionPrompt != null} onOpenChange={(open) => { if (!open) setRangeCompanionPrompt(null); }}>
 	        <AlertDialogContent className="max-w-md">
 	          <AlertDialogHeader>
 	            <AlertDialogTitle>Add microwave and bridge over range</AlertDialogTitle>
