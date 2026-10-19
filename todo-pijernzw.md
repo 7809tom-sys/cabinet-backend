@@ -218,3 +218,11 @@
 - [x] Record the user's frameless Panels & Fillers SKU table and Slim Cava flat/slab finish footnote without treating those accessories as cabinet boxes or guessing unlabeled dimensions/price columns.
 - [x] Restore original live QA storage, remove the disposable draft and backup, and save verified hardware checkpoint 0470fa36. Labeled live-3D and preview-elevation screenshots exist and were visually inspected. No final hardware live-completion claim is made.
 - [ ] Publish final hardware checkpoint only after the user confirms; then visually recheck the same four-family elevation on production before calling the final handle correction live.
+
+## Installation estimator material quantities — 2026-10-18
+- [x] Prefill countertop labor from saved-plan countertop square footage.
+- [x] Prefill cabinet assembly, installation, pantry, hanging, and handle quantities.
+- [x] Prefill fillers, crown molding with cut allowance, toe kick, light rail, and quarter round.
+- [x] Prefill decorative doors, roll-outs, Lazy Susan inserts, trash pull-outs, refrigerator panels, and dishwasher panels.
+- [x] Reuse existing invoice cost-sheet rows without duplicate categories.
+- [x] Validate with focused tests, TypeScript, and production build.

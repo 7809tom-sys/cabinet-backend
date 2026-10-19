@@ -21,7 +21,7 @@ describe("InstallationEstimatesPanel room and cost controls", () => {
     expect(source).toContain('value="material"');
     expect(source).toContain("kitchenCostDefaults.useQuery");
     expect(source).toContain("saveKitchenCostDefaults.useMutation");
-    expect(source).toContain("Save prices as defaults");
+    expect(source).toContain("Save rates as defaults");
     expect(source).toContain("downloadInstallationEstimateCsv");
     expect(source).toContain("downloadInstallationEstimatePdf");
     expect(source).toContain("kitchenPlans.useQuery");
