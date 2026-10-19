@@ -271,6 +271,10 @@ import { DoorDrawerDiagram } from "@/components/design/DoorDrawerDiagram";
 // PhotorealPreview removed — replaced by deterministic preview modes
 import type { PhotorealSceneInput } from "@/components/design/PhotorealPreview";
 import { FarmhouseSinkSelectionGuide, PelicanCountertopPicker, PelicanFaucetPicker, PelicanSinkPicker, type RecItem } from "@/components/design/PelicanProductPickers";
+import { PelicanConfigurationCard } from "@/components/design/PelicanConfigurationCard";
+import { groupPelicanConfigurations } from "@shared/pelicanConfigurationGrouping";
+/** The sink-base chooser records one sink at a time, so no card starts out as already selected. */
+const noSelectedPelicanIds: ReadonlySet<number> = new Set<number>();
 
 
 import { buildSurfaceCartLines } from "@/lib/surfaceCartLines";
@@ -8226,7 +8230,10 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   const { data: sinkBaseProducts } = trpc.surfaces.recommended.useQuery(
     // Fetch a broader set only while the sink-base dialog is open so verified
     // compatible products can be prioritized without altering catalog ranking.
-    { role: bathroomSinkDialog ? "vanity-sink" : "sink", limit: 24 },
+    // The whole role is requested (server cap 200): Pelican sells each gauge and
+    // corner radius as its own SKU, and the dialog folds them into one card per
+    // model after the exact-SKU compatibility and fit filters below.
+    { role: bathroomSinkDialog ? "vanity-sink" : "sink", limit: 200 },
     { enabled: !!sinkBaseDialog || selectedFarmSinkBaseForGuide }
   );
   // Fetch every source-priced, source-measured faucet supported by this
@@ -19151,16 +19158,14 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                     <button className="w-full text-xs text-muted-foreground border border-dashed rounded-lg py-3" onClick={() => { setPendingSinkProduct(null); setRangeTopStep("faucet"); }}>Continue without a sink product</button>
                   ) : (
                     <div className="grid grid-cols-2 gap-2">
-                      {filteredSinks.slice(0, 6).map(p => (
-                        <button key={p.id} className="overflow-hidden rounded-lg border border-border hover:border-[#a87f33] text-left transition-colors" onClick={() => { setPendingSinkProduct(p); setRangeTopStep("faucet"); }}>
-                          <div className="aspect-[4/3] w-full bg-muted">
-                            {p.imageUrl ? <img src={p.imageUrl} alt={p.name} className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center"><Droplets className="h-5 w-5 text-muted-foreground/40" /></div>}
-                          </div>
-                          <div className="p-1.5">
-                            <div className="line-clamp-2 text-[11px] font-semibold leading-snug">{p.name}</div>
-                            {p.sellPrice != null && <div className="text-[11px] font-bold text-[#1a2744] dark:text-foreground">${p.sellPrice.toFixed(2)}</div>}
-                          </div>
-                        </button>
+                      {groupPelicanConfigurations(filteredSinks).map((configuration) => (
+                        <PelicanConfigurationCard
+                          key={configuration.key}
+                          configuration={configuration}
+                          selectedIds={noSelectedPelicanIds}
+                          onUse={(item) => { setPendingSinkProduct(item as typeof filteredSinks[0]); setRangeTopStep("faucet"); }}
+                          testIdPrefix="sink-dialog-card"
+                        />
                       ))}
                     </div>
                   )}

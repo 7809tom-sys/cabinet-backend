@@ -4,20 +4,29 @@
  * Compact product grids that fetch real Pelican products via tRPC and let the
  * user select one. Replaces the old generic COUNTERTOP_MATERIALS dropdown and
  * SINK_PRESETS buttons in the Design Tool's right panel.
+ *
+ * Every picker shows ONE card per model, the same way the cabinet hardware
+ * picker does: photo, collection line, a clean title and a dropdown for the
+ * finish / gauge / slab / drain side. Each dropdown entry is an exact catalog
+ * SKU, and the callbacks below still receive that original row, so compatibility
+ * gates, fixture profiles and pricing are unchanged.
  */
 import { useMemo, useState } from "react";
 import { trpc } from "@/lib/trpc";
-import { formatPrice } from "@/lib/pelican";
 import { verifiedPelicanSinkProfile } from "@/lib/pelicanFixtureProfiles";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Check, Plus, ChevronRight, Waves } from "lucide-react";
+import { ChevronRight, Waves } from "lucide-react";
+import { groupPelicanConfigurations } from "@shared/pelicanConfigurationGrouping";
 import type { SelectedSurface } from "./SurfacesPickerDialog";
+import { PelicanConfigurationCard } from "./PelicanConfigurationCard";
 
 export type RecItem = {
   id: number;
   pelicanCode?: string | null;
   slug: string;
   name: string;
+  /** Source description; used only to title a grouped card cleanly. */
+  description?: string | null;
   category: string;
   subCategory: string | null;
   size: string | null;
@@ -25,6 +34,8 @@ export type RecItem = {
   sellPrice: number | null;
   unsupportedOverhangLimitIn?: number | null;
 };
+
+const NO_SELECTION: ReadonlySet<number> = new Set<number>();
 
 function toSurface(p: RecItem): SelectedSurface {
   return {
@@ -41,67 +52,7 @@ function toSurface(p: RecItem): SelectedSurface {
   };
 }
 
-function ProductCard({
-  item,
-  isSelected,
-  onSelect,
-}: {
-  item: RecItem;
-  isSelected: boolean;
-  onSelect: (item: SelectedSurface) => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={() => onSelect(toSurface(item))}
-      className={`group overflow-hidden rounded-lg border text-left transition-colors ${
-        isSelected
-          ? "border-[#a87f33] ring-1 ring-[#a87f33]/40 bg-[#a87f33]/5"
-          : "border-border hover:border-[#a87f33]/50 hover:bg-muted/40"
-      }`}
-    >
-      <div className="relative aspect-[4/3] w-full bg-muted">
-        {item.imageUrl ? (
-          <img
-            src={item.imageUrl}
-            alt={item.name}
-            loading="lazy"
-            className="h-full w-full object-cover"
-          />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center text-muted-foreground/40">
-            <Waves className="h-5 w-5" />
-          </div>
-        )}
-        <div
-          className={`absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full text-white transition-colors ${
-            isSelected ? "bg-[#a87f33]" : "bg-black/35 group-hover:bg-black/55"
-          }`}
-        >
-          {isSelected ? <Check className="h-3 w-3" /> : <Plus className="h-3 w-3" />}
-        </div>
-      </div>
-      <div className="space-y-0.5 p-1.5">
-        <div className="line-clamp-2 min-h-[1.9rem] text-[11px] font-semibold leading-snug text-foreground">
-          {item.name}
-        </div>
-        <div className="flex items-center justify-between">
-          <span className="text-[11px] font-bold text-[#1a2744] dark:text-foreground">
-            {formatPrice(item.sellPrice)}
-          </span>
-          {item.size && (
-            <span className="truncate pl-1 text-[9px] text-muted-foreground">
-              {item.size}
-            </span>
-          )}
-        </div>
-      </div>
-    </button>
-  );
-}
-
-/**
- * Keep farmhouse/apron-front sink choices isolated from ordinary sink bases.
+/** Keeps farmhouse/apron-front sink choices isolated from ordinary sink bases.
  * Only source-verified physical profiles are eligible for the Designer guide.
  */
 export function compatibleFarmhouseSinkOptions(products: RecItem[], openingWidthIn: number): RecItem[] {
@@ -130,8 +81,10 @@ export function FarmhouseSinkSelectionGuide({
   onSelect: (item: SelectedSurface) => void;
   onBrowseAll: () => void;
 }) {
-  const items = useMemo(
-    () => compatibleFarmhouseSinkOptions(products, openingWidthIn).slice(0, 6),
+  // Compatibility is decided per exact SKU first; only then are the surviving
+  // SKUs folded into one card per sink model.
+  const configurations = useMemo(
+    () => groupPelicanConfigurations(compatibleFarmhouseSinkOptions(products, openingWidthIn)).slice(0, 6),
     [products, openingWidthIn],
   );
 
@@ -153,11 +106,19 @@ export function FarmhouseSinkSelectionGuide({
           <div className="grid grid-cols-2 gap-2">
             {Array.from({ length: 2 }).map((_, index) => <Skeleton key={index} className="h-28 w-full rounded-lg" />)}
           </div>
-        ) : items.length > 0 ? (
+        ) : configurations.length > 0 ? (
           <>
             <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-[#4a718a]">Compatible verified farmhouse sinks</p>
             <div className="grid grid-cols-2 gap-2">
-              {items.map((item) => <ProductCard key={item.id} item={item} isSelected={false} onSelect={onSelect} />)}
+              {configurations.map((configuration) => (
+                <PelicanConfigurationCard
+                  key={configuration.key}
+                  configuration={configuration}
+                  selectedIds={NO_SELECTION}
+                  onUse={(item) => onSelect(toSurface(item))}
+                  testIdPrefix="farmhouse-sink-card"
+                />
+              ))}
             </div>
             <p className="mt-2 text-[10px] leading-snug text-[#4a718a]">Choose a sink first, then select a matching faucet or finish without one.</p>
           </>
@@ -173,6 +134,8 @@ export function FarmhouseSinkSelectionGuide({
   );
 }
 
+const COUNTERTOP_CARD_LIMIT = 8;
+
 export function PelicanCountertopPicker({
   selectedSurfaces,
   onSelect,
@@ -182,8 +145,11 @@ export function PelicanCountertopPicker({
   onSelect: (item: SelectedSurface) => void;
   onBrowseAll: () => void;
 }) {
-  const { data, isLoading } = trpc.surfaces.recommended.useQuery({ role: "countertop", limit: 8 });
+  // Slabs are sold as separate SKUs per size ("3cm" and "3cm Super Jumbo", Left
+  // and Right cuts), so request the whole palette and fold it into color cards.
+  const { data, isLoading } = trpc.surfaces.recommended.useQuery({ role: "countertop", limit: 60 });
   const items = (data ?? []) as RecItem[];
+  const configurations = useMemo(() => groupPelicanConfigurations(items), [items]);
   const selectedIds = useMemo(() => new Set(selectedSurfaces.map((s) => s.id)), [selectedSurfaces]);
   const [expanded, setExpanded] = useState(false);
   const selectedSummary = selectedSurfaces.length === 0
@@ -221,13 +187,13 @@ export function PelicanCountertopPicker({
         <div id="countertop-material-options" className="border-t border-[#d9c196]/70 p-2.5">
           <div className="mb-2 flex items-center justify-between gap-2">
             <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Pelican Quartz Slabs</span>
-            <span className="text-[10px] text-muted-foreground">Tap to select</span>
+            <span className="text-[10px] text-muted-foreground">Pick a slab size, then use it</span>
           </div>
           {isLoading ? (
             <div className="grid grid-cols-2 gap-2">
               {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24 w-full rounded-lg" />)}
             </div>
-          ) : items.length === 0 ? (
+          ) : configurations.length === 0 ? (
             <button
               type="button"
               onClick={onBrowseAll}
@@ -236,15 +202,36 @@ export function PelicanCountertopPicker({
               No countertops available — browse the full catalog
             </button>
           ) : (
-            <div className="grid grid-cols-2 gap-2">
-              {items.map((p) => <ProductCard key={p.id} item={p} isSelected={selectedIds.has(p.id)} onSelect={onSelect} />)}
-            </div>
+            <>
+              <div className="grid grid-cols-2 gap-2">
+                {configurations.slice(0, COUNTERTOP_CARD_LIMIT).map((configuration) => (
+                  <PelicanConfigurationCard
+                    key={configuration.key}
+                    configuration={configuration}
+                    selectedIds={selectedIds}
+                    onUse={(item) => onSelect(toSurface(item))}
+                    testIdPrefix="countertop-card"
+                  />
+                ))}
+              </div>
+              {configurations.length > COUNTERTOP_CARD_LIMIT && (
+                <button
+                  type="button"
+                  onClick={onBrowseAll}
+                  className="mt-2 w-full text-center text-[11px] font-semibold text-[#8a6828] underline underline-offset-2"
+                >
+                  Browse all {configurations.length} quartz colors
+                </button>
+              )}
+            </>
           )}
         </div>
       )}
     </div>
   );
 }
+
+const SINK_CARD_LIMIT = 8;
 
 export function PelicanSinkPicker({
   selectedSurfaces,
@@ -255,9 +242,11 @@ export function PelicanSinkPicker({
   onSelect: (item: SelectedSurface) => void;
   onBrowseAll: () => void;
 }) {
-  const { data, isLoading } = trpc.surfaces.recommended.useQuery({ role: "sink", limit: 8 });
-  const items = useMemo(
-    () => ((data ?? []) as RecItem[]).filter((item) => Boolean(verifiedPelicanSinkProfile(item.pelicanCode))),
+  const { data, isLoading } = trpc.surfaces.recommended.useQuery({ role: "sink", limit: 200 });
+  // Only source-verified sinks are eligible, and that test runs on the exact SKU
+  // before sinks are folded into one card per model.
+  const configurations = useMemo(
+    () => groupPelicanConfigurations(((data ?? []) as RecItem[]).filter((item) => Boolean(verifiedPelicanSinkProfile(item.pelicanCode)))),
     [data],
   );
   const selectedIds = useMemo(() => new Set(selectedSurfaces.map((s) => s.id)), [selectedSurfaces]);
@@ -282,7 +271,7 @@ export function PelicanSinkPicker({
             <Skeleton key={i} className="h-24 w-full rounded-lg" />
           ))}
         </div>
-      ) : items.length === 0 ? (
+      ) : configurations.length === 0 ? (
         <button
           type="button"
           onClick={onBrowseAll}
@@ -291,16 +280,28 @@ export function PelicanSinkPicker({
           No sinks available — browse the full catalog
         </button>
       ) : (
-        <div className="grid grid-cols-2 gap-2">
-          {items.map((p) => (
-            <ProductCard
-              key={p.id}
-              item={p}
-              isSelected={selectedIds.has(p.id)}
-              onSelect={onSelect}
-            />
-          ))}
-        </div>
+        <>
+          <div className="grid grid-cols-2 gap-2">
+            {configurations.slice(0, SINK_CARD_LIMIT).map((configuration) => (
+              <PelicanConfigurationCard
+                key={configuration.key}
+                configuration={configuration}
+                selectedIds={selectedIds}
+                onUse={(item) => onSelect(toSurface(item))}
+                testIdPrefix="sink-card"
+              />
+            ))}
+          </div>
+          {configurations.length > SINK_CARD_LIMIT && (
+            <button
+              type="button"
+              onClick={onBrowseAll}
+              className="w-full text-center text-[11px] font-semibold text-[#8a6828] underline underline-offset-2"
+            >
+              Browse all {configurations.length} verified sinks
+            </button>
+          )}
+        </>
       )}
     </div>
   );
@@ -313,6 +314,11 @@ export function PelicanSinkPicker({
  * the chosen code, image, price, and source-measured fixture profile persist.
  * It deliberately accepts only records that the server already determined are
  * active, priced, and valid for this kitchen or vanity workflow.
+ *
+ * A faucet that is sold in several finishes (PL-8237 in Brushed Gold, Brushed
+ * Nickel, Chrome, Matte Black) is one card with a finish dropdown, like the
+ * cabinet hardware picker; choosing a finish still returns that finish's exact
+ * catalog row.
  */
 export function PelicanFaucetPicker({
   faucets,
@@ -326,12 +332,12 @@ export function PelicanFaucetPicker({
   onSelect: (item: RecItem) => void;
 }) {
   const [showAll, setShowAll] = useState(false);
-  const selectableFaucets = useMemo(
-    () => faucets.filter((item) => Boolean(item.imageUrl) && (item.sellPrice ?? 0) > 0),
+  const configurations = useMemo(
+    () => groupPelicanConfigurations(faucets.filter((item) => Boolean(item.imageUrl) && (item.sellPrice ?? 0) > 0)),
     [faucets],
   );
-  const quickChoices = selectableFaucets.slice(0, 6);
-  const visibleFaucets = showAll ? selectableFaucets : quickChoices;
+  const quickChoices = configurations.slice(0, 6);
+  const visibleConfigurations = showAll ? configurations : quickChoices;
   const label = kind === "vanity" ? "vanity faucets" : "kitchen faucets";
 
   return (
@@ -340,14 +346,14 @@ export function PelicanFaucetPicker({
         <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
           Verified Pelican {kind === "vanity" ? "Vanity" : "Kitchen"} Faucets
         </span>
-        {!isLoading && selectableFaucets.length > 6 && (
+        {!isLoading && configurations.length > 6 && (
           <button
             type="button"
             onClick={() => setShowAll((current) => !current)}
             aria-expanded={showAll}
             className="text-[10px] font-semibold text-[#8a6828] underline underline-offset-2 transition-colors hover:text-[#5e451a]"
           >
-            {showAll ? "Show fewer faucets" : `Show all ${selectableFaucets.length} faucets`}
+            {showAll ? "Show fewer faucets" : `Show all ${configurations.length} faucets`}
           </button>
         )}
       </div>
@@ -355,36 +361,24 @@ export function PelicanFaucetPicker({
         <div className="grid grid-cols-2 gap-2">
           {Array.from({ length: 4 }).map((_, index) => <Skeleton key={index} className="h-28 w-full rounded-lg" />)}
         </div>
-      ) : selectableFaucets.length === 0 ? (
+      ) : configurations.length === 0 ? (
         <div className="rounded-lg border border-dashed border-border px-3 py-3 text-center text-[11px] text-muted-foreground">
           No source-priced, measured Pelican {label} are available for this fixture workflow.
         </div>
       ) : (
         <>
           <p className="text-[10px] leading-snug text-muted-foreground">
-            Tap a product to attach its exact Pelican finish, image, price, and measured fixture profile.
+            Choose a finish, then use it to attach that exact Pelican finish, image, price, and measured fixture profile.
           </p>
           <div className="grid grid-cols-2 gap-2">
-            {visibleFaucets.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => onSelect(item)}
-                className="group overflow-hidden rounded-lg border border-border text-left transition-colors hover:border-[#a87f33]/70 hover:bg-[#fffaf1]"
-              >
-                <div className="relative aspect-[4/3] w-full bg-muted">
-                  {item.imageUrl ? (
-                    <img src={item.imageUrl} alt={item.name} loading="lazy" className="h-full w-full object-cover" />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center text-[10px] text-muted-foreground">Official image unavailable</div>
-                  )}
-                </div>
-                <div className="space-y-0.5 p-1.5">
-                  <div className="line-clamp-2 min-h-[1.9rem] text-[11px] font-semibold leading-snug text-foreground">{item.name}</div>
-                  {item.pelicanCode && <div className="truncate text-[9px] font-medium uppercase tracking-wide text-muted-foreground">{item.pelicanCode}</div>}
-                  <div className="text-[11px] font-bold text-[#1a2744] dark:text-foreground">{formatPrice(item.sellPrice)}</div>
-                </div>
-              </button>
+            {visibleConfigurations.map((configuration) => (
+              <PelicanConfigurationCard
+                key={configuration.key}
+                configuration={configuration}
+                selectedIds={NO_SELECTION}
+                onUse={(item) => onSelect(item)}
+                testIdPrefix="faucet-card"
+              />
             ))}
           </div>
         </>

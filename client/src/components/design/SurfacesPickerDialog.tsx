@@ -35,6 +35,15 @@ import { hasVerifiedPelicanFixtureProfile } from "@/lib/pelicanFixtureProfiles";
 import { pelicanBathroomFixturePlacementText, verifiedPelicanBathroomFixtureProfile } from "@/lib/pelicanBathroomFixtureProfiles";
 import { Search, Plus, Check, Waves } from "lucide-react";
 import { usePreferredProducts } from "@/contexts/PreferredProductsContext";
+import {
+  groupPelicanConfigurations,
+  pelicanConfigurationStyles,
+  pelicanDisplayVariant,
+  pelicanSelectedSiblings,
+  pelicanUseLabel,
+  type PelicanConfiguration,
+} from "@shared/pelicanConfigurationGrouping";
+import { PelicanVariantSelect } from "./PelicanVariantSelect";
 import type { CountertopScope } from "@/lib/surfaceSelection";
 
 export type SelectedSurface = {
@@ -200,6 +209,10 @@ export function SurfacesPickerDialog({
   const [countertopSwatchFilter, setCountertopSwatchFilter] = useState<CountertopSwatchFilter>("all");
   const [bathroomFinish, setBathroomFinish] = useState<BathroomFixtureFinishFilter>("all");
   const [bathroomSize, setBathroomSize] = useState<BathroomFixtureSizeFilter>("all");
+  const ALL_PELICAN_STYLES = "__all_pelican_styles__";
+  const [styleFilter, setStyleFilter] = useState<string>(ALL_PELICAN_STYLES);
+  /** Finish / size / drain side the shopper picked on each model card (exact catalog SKU id). */
+  const [chosenVariantIds, setChosenVariantIds] = useState<Record<string, number>>({});
   const { products: preferredProducts } = usePreferredProducts();
   const bathroomSections = bathroomPaletteMode === "fixtures"
     ? BATHROOM_FIXTURE_RECOMMENDED_SECTIONS
@@ -323,6 +336,19 @@ export function SurfacesPickerDialog({
       ? filterBathroomFixtureItems(compatible, bathroomFinish, bathroomSize)
       : compatible;
   }, [bathroomFinish, bathroomPaletteMode, bathroomSize, category, countertopSwatchFilter, debounced, isBathroom, items]);
+  // One card per model. Saved favorites stay one card per exact SKU so a favorite
+  // is never merged with siblings the shopper did not save.
+  const allConfigurations = useMemo<PelicanConfiguration<SelectedSurface>[]>(() => (
+    !isBathroom && category === "Preferred"
+      ? visibleItems.flatMap((item) => groupPelicanConfigurations([item]))
+      : groupPelicanConfigurations(visibleItems)
+  ), [category, isBathroom, visibleItems]);
+  const styleOptions = useMemo(() => pelicanConfigurationStyles(allConfigurations), [allConfigurations]);
+  const activeStyle = styleOptions.includes(styleFilter) ? styleFilter : ALL_PELICAN_STYLES;
+  const configurations = useMemo(
+    () => activeStyle === ALL_PELICAN_STYLES ? allConfigurations : allConfigurations.filter((entry) => entry.style === activeStyle),
+    [activeStyle, allConfigurations],
+  );
   const countertopSwatchCounts = useMemo(() => {
     const countertops = items.filter((item) => item.category === "Quartz Slabs (Countertops)");
     const ready = countertops.filter((item) => matchesCountertopSwatchFilter(item, "swatch-ready")).length;
@@ -392,6 +418,17 @@ export function SurfacesPickerDialog({
                 className="pl-9"
               />
             </div>
+            {styleOptions.length > 1 && (
+              <Select value={activeStyle} onValueChange={setStyleFilter}>
+                <SelectTrigger data-testid="pelican-style-filter" aria-label="Filter Pelican products by style" className="w-full sm:w-[210px]">
+                  <SelectValue placeholder="All styles" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL_PELICAN_STYLES}>All styles</SelectItem>
+                  {styleOptions.map((style) => <SelectItem key={style} value={style}>{style}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            )}
             {!isBathroom && category === "Quartz Slabs (Countertops)" && (
               <Select value={countertopSwatchFilter} onValueChange={(value) => setCountertopSwatchFilter(value as CountertopSwatchFilter)}>
                 <SelectTrigger data-testid="countertop-swatch-filter" aria-label="Filter countertop 3D material readiness" className="w-full sm:w-[244px]">
@@ -548,14 +585,18 @@ export function SurfacesPickerDialog({
                   <Skeleton key={i} className="h-44 w-full rounded-lg" />
                 ))}
               </div>
-            ) : visibleItems.length === 0 ? (
+            ) : configurations.length === 0 ? (
               <div className="py-14 text-center text-sm text-muted-foreground">
                 {isBathroom ? "No source-priced bathroom fixtures match your search." : category === "Preferred" ? "No saved products currently meet the verified Designer gate." : `No ${category.toLowerCase()} items match your search.`}
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-                {visibleItems.map((p: any) => {
+                {configurations.map((configuration) => {
+                  const displayVariant = pelicanDisplayVariant(configuration, selectedIds, chosenVariantIds[configuration.key]);
+                  const p: any = displayVariant.item;
                   const isSel = selectedIds.has(p.id);
+                  const siblingSelected = isSel ? undefined : configuration.variants.find((entry) => selectedIds.has(entry.item.id));
+                  const hasVariants = configuration.variants.length > 1;
                   const gradient =
                     CATEGORY_GRADIENT[p.category] ?? "linear-gradient(135deg,#e5e7eb,#cbd5e1)";
                   const hasThreeDMaterialRole = /floor|tile|mosaic|backsplash|countertop|quartz|slab/i.test(`${p.category ?? ""} ${p.subCategory ?? ""}`);
@@ -579,18 +620,31 @@ export function SurfacesPickerDialog({
                   const bathroomFixtureProfile = isBathroom
                     ? verifiedPelicanBathroomFixtureProfile(item.pelicanCode)
                     : null;
+                  // One countertop, floor and wall tile are already replaced by choosing another;
+                  // everything else (sinks, faucets, fixtures) swaps a selected sibling finish
+                  // for the new one instead of adding a second copy of the same product.
+                  const replacesPrevious = p.category === "Quartz Slabs (Countertops)" || p.category === "Flooring" || p.category === "Tile & Mosaic";
+                  const choose = () => {
+                    if (!isSel && !replacesPrevious) {
+                      for (const sibling of pelicanSelectedSiblings(configuration, displayVariant, selectedIds)) {
+                        onToggle(sibling as SelectedSurface);
+                      }
+                    }
+                    onToggle(item);
+                  };
                   return (
                     <div
-                      key={p.id}
+                      key={configuration.key}
                       role="button"
                       tabIndex={0}
-                      aria-label={`${isSel ? "Remove" : "Select"} ${p.name}`}
+                      aria-label={`${isSel ? "Remove" : "Select"} ${configuration.label}${hasVariants ? ` — ${displayVariant.label}` : ""}`}
                       data-testid={`surface-card-${p.id}`}
-                      onClick={() => onToggle(item)}
+                      onClick={choose}
                       onKeyDown={(event) => {
+                        if (event.target !== event.currentTarget) return;
                         if (event.key === "Enter" || event.key === " ") {
                           event.preventDefault();
-                          onToggle(item);
+                          choose();
                         }
                       }}
                       className={`touch-manipulation cursor-pointer overflow-hidden rounded-lg border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-gold)] ${
@@ -599,7 +653,7 @@ export function SurfacesPickerDialog({
                     >
                       <div className="relative aspect-[4/3] w-full">
                         {p.imageUrl ? (
-                          <img src={p.imageUrl} alt={p.name} className="h-full w-full object-cover" />
+                          <img src={p.imageUrl} alt={`${configuration.label}${hasVariants ? ` in ${displayVariant.label}` : ""}`} className="h-full w-full object-cover" />
                         ) : (
                           <div
                             className="flex h-full w-full items-center justify-center"
@@ -612,11 +666,22 @@ export function SurfacesPickerDialog({
                         )}
                       </div>
                       <div className="space-y-1 p-2.5">
+                        <p className="truncate text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{configuration.eyebrow}</p>
                         <div className="line-clamp-2 min-h-[2.25rem] text-xs font-semibold leading-snug">
-                          {p.name}
+                          {configuration.label}
                         </div>
-                        {p.size && (
-                          <div className="text-[11px] text-muted-foreground">{p.size}</div>
+                        {hasVariants && (
+                          <PelicanVariantSelect
+                            configuration={configuration}
+                            value={displayVariant}
+                            onChange={(variantId) => setChosenVariantIds((current) => ({ ...current, [configuration.key]: variantId }))}
+                          />
+                        )}
+                        {(p.size || p.pelicanCode) && (
+                          <div className="truncate text-[11px] text-muted-foreground">{[p.size, p.pelicanCode].filter(Boolean).join(" · ")}</div>
+                        )}
+                        {siblingSelected && (
+                          <p data-testid={`surface-sibling-selected-${p.id}`} className="text-[10px] font-medium leading-snug text-[#8a6828]">In your design: {siblingSelected.label}</p>
                         )}
                         {hasThreeDMaterialRole && (
                           <p data-testid={`surface-material-readiness-${p.id}`} className={`text-[10px] font-medium leading-snug ${hasApprovedMaterialSwatch ? "text-emerald-700" : "text-amber-800"}`}>
@@ -649,7 +714,7 @@ export function SurfacesPickerDialog({
                             size="sm"
                             variant={isSel ? "secondary" : "default"}
                             className="h-7 gap-1 px-2 text-xs"
-                            onClick={(event) => { event.stopPropagation(); onToggle(item); }}
+                            onClick={(event) => { event.stopPropagation(); choose(); }}
                           >
                             {isSel ? (
                               <>
@@ -657,7 +722,7 @@ export function SurfacesPickerDialog({
                               </>
                             ) : (
                               <>
-                                <Plus className="h-3.5 w-3.5" /> Add
+                                <Plus className="h-3.5 w-3.5" /> {hasVariants ? pelicanUseLabel(configuration.optionLabel) : "Add"}
                               </>
                             )}
                           </Button>

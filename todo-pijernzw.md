@@ -265,3 +265,12 @@
 - [x] The blind-corner door pull was centred on the whole 36 in face (over the blind panel). Hardware overlay is now confined to the visible 60% door box (`data-blind-door-hardware`), pull on the door's inner edge, matching the 3D `addPull(hingeSide)` rule.
 - [x] 7 tests in `ElevationView.blindCornerSide.test.ts`; 415 related files: 53 failures on both unchanged HEAD and this copy, 0 new; tsc + build pass.
 - [ ] Not published.
+
+## Pelican products use the cabinet-hardware card + selector pattern
+- [x] Shared grouping (`shared/pelicanConfigurationGrouping.ts`): one card per product model, one selectable variant per exact SKU (finish, gauge/radius, size, drain side), clean titles instead of raw item codes, never drops/duplicates/rewrites a SKU. 330 real catalog rows fixture + tests.
+- [x] Shared UI: `PelicanVariantSelect`, `PelicanConfigurationCard`; compact faucet/sink/countertop pickers, Recommended rows, Browse-all dialog (+ Style filter) and the sink-base "Choose a Sink" step all use them.
+- [x] Sink lists no longer cut off at 6/24/60: whole role (cap 200) is requested, models folded into single cards after the exact-SKU fit filters.
+- [x] Swap, not duplicate: choosing another finish/size of the same model replaces the selected sibling (countertop roles already replaced).
+- [x] Real Designer verified (dev preview): Sinks & Faucets 98 -> 53 cards, quartz 35 -> 27, finish switch + swap keeps "1 added", Style filter "Farmhouse / apron front" -> 11 sinks. Proof: /home/ubuntu/pelican-picker-proof/PELICAN_PICKER_before_after.png
+- [x] tsc clean, build OK, 476 related test files: 0 new failures vs clean HEAD (59 pre-existing failures identical on HEAD).
+- [ ] Not published. Authenticated real-customer flow and bathroom (vanity) pickers on a live session remain unverified.
