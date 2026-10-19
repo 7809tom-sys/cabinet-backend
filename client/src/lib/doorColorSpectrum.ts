@@ -47,6 +47,15 @@ export function doorStyleColorHex(style: DoorStyleLike): string {
   return resolveSwatch(style).face;
 }
 
+/** Prefer a catalog door sample when supplier codes are not color names. */
+export function doorStyleSwatchImageUrl(style: DoorStyleLike): string | null {
+  const candidates = [style.doorSampleImageUrl, style.thumbnailImageUrl];
+  return candidates.find((url) => {
+    const value = url?.trim().toLowerCase() ?? "";
+    return Boolean(value) && !/(screenshot|screen[_-]?shot|room|scene)/i.test(value);
+  }) ?? null;
+}
+
 /** Creates a continuous white-to-dark color line from the ordered samples. */
 export function doorColorSpectrumGradient(styles: readonly DoorStyleLike[]): string {
   if (styles.length === 0) return "linear-gradient(90deg, #f4f2ec, #2a2a2c)";

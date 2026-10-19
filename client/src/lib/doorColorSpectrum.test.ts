@@ -5,6 +5,7 @@ import {
   doorColorSpectrumPage,
   doorColorSpectrumPageCount,
   orderDoorStylesByColor,
+  doorStyleSwatchImageUrl,
 } from "./doorColorSpectrum";
 
 const styles = [
@@ -53,5 +54,30 @@ describe("door color spectrum", () => {
     const gradient = doorColorSpectrumGradient(orderDoorStylesByColor(styles));
     expect(gradient).toContain("#f4f2ec 0%");
     expect(gradient).toContain("#2a2a2c 100%");
+  });
+
+  it("uses the actual door sample for coded finishes such as Syncron SCA", () => {
+    expect(doorStyleSwatchImageUrl({
+      color: "SCA",
+      finish: "Syncron Slim Cava",
+      doorSampleImageUrl: "/manus-storage/SCA_b2aee903.png",
+    })).toBe("/manus-storage/SCA_b2aee903.png");
+  });
+
+  it("falls back to a thumbnail when the door sample is unavailable", () => {
+    expect(doorStyleSwatchImageUrl({
+      color: "SSA",
+      finish: "Syncron Select",
+      doorSampleImageUrl: null,
+      thumbnailImageUrl: "/manus-storage/SSA_70be8248.png",
+    })).toBe("/manus-storage/SSA_70be8248.png");
+  });
+
+  it("does not use screenshot or room-scene URLs as finish swatches", () => {
+    expect(doorStyleSwatchImageUrl({
+      color: "Serene Sage",
+      doorSampleImageUrl: "/manus-storage/screenshot_2026.png",
+      thumbnailImageUrl: "/manus-storage/room-scene.png",
+    })).toBeNull();
   });
 });

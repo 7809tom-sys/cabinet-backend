@@ -34,7 +34,7 @@ import { affiliateCabinetDetailHref } from "@/lib/affiliateCabinetDetailRoute";
 import { sortStorefrontCategoryTabs, storefrontCategoryTabLabel } from "@/lib/storefrontCategoryTabs";
 import { affiliateDesignerPath } from "@/lib/affiliateStorefrontUrl";
 import { useSearch } from "wouter";
-import { doorStyleColorHex } from "@/lib/doorColorSpectrum";
+import { doorStyleColorHex, doorStyleSwatchImageUrl } from "@/lib/doorColorSpectrum";
 import {
   familyFinishKey,
   familyFinishLabel,
@@ -465,7 +465,14 @@ function FamilyPicker({
                                 title={label}
                                 onClick={() => setSelectedVariantIds((current) => ({ ...current, [family.key]: variant.styleId }))}
                                 className={`h-7 w-7 rounded-full border-2 shadow-sm transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${active ? "border-foreground ring-2 ring-primary/30" : "border-white"}`}
-                                style={{ backgroundColor: doorStyleColorHex(variant) }}
+                                style={{
+                                  backgroundColor: doorStyleColorHex(variant),
+                                  backgroundImage: doorStyleSwatchImageUrl(variant)
+                                    ? `url("${doorStyleSwatchImageUrl(variant)}")`
+                                    : undefined,
+                                  backgroundPosition: "center",
+                                  backgroundSize: "cover",
+                                }}
                               />
                             );
                           })}
