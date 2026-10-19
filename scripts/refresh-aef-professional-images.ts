@@ -24,6 +24,9 @@ export type CatalogCabinet = {
 export const AEF_PROFESSIONAL_ASSETS = {
   accessoryMoulding: "/manus-storage/aef-accessory-moulding-render_fbee12a3.webp",
   accessoryPanel: "/manus-storage/aef-accessory-panel-render_252d1d1a.webp",
+  accessoryApplianceFillerThreePack: "/manus-storage/aef-appliance-filler-three-pack_50708d9c.webp",
+  accessoryOverlayFillerThreeInch: "/manus-storage/aef-overlay-filler-3in_c10f1cc9.webp",
+  accessoryOverlayFillerSixInch: "/manus-storage/aef-overlay-filler-6in_1b42acbe.webp",
   accessoryShelf: "/manus-storage/aef-accessory-shelf-render_6b05a612.webp",
   accessoryEdgeBanding: "/manus-storage/frameless-edge-banding-roll_fd907129.webp",
   accessoryTouchUpKit: "/manus-storage/frameless-cabinet-touchup-kit_7424d03a.webp",
@@ -98,6 +101,9 @@ export function professionalAefImageFor(input: CatalogCabinet): AssetName {
   const code = cabinet.masterCode.toUpperCase();
   const category = (cabinet.category ?? "").toUpperCase();
   const graphic = (cabinet.graphicType ?? "").toLowerCase();
+  if (code === "AF3006") return "accessoryApplianceFillerThreePack";
+  if (["OF323", "OF330", "OF335", "OF340", "OF384", "OF389", "OF394"].includes(code)) return "accessoryOverlayFillerThreeInch";
+  if (["OF630", "OF635", "OF640", "OF684", "OF689", "OF694"].includes(code)) return "accessoryOverlayFillerSixInch";
   if (code === "BEP2535" || /^WEP\d+$/.test(code)) return "accessoryPanel";
   if (category === "ACCESSORY" || category === "MOLDING") {
     if (code === "EB10") return "accessoryEdgeBanding";
@@ -190,7 +196,7 @@ async function main() {
        LEFT JOIN distributor_cabinet_overrides o ON o.distributorId = s.distributorId AND o.cabinetId = s.cabinetId
        WHERE s.distributorId = ? AND s.isPublished = 1 AND s.isAvailable = 1 ORDER BY c.masterCode`, [line.id]);
     const cabinets = rows as CatalogCabinet[];
-    if (cabinets.length !== 283 || new Set(cabinets.map(c => c.id)).size !== 283) throw new Error(`Expected 283 consistent published AEF masters; found ${cabinets.length}.`);
+    if (cabinets.length !== 297 || new Set(cabinets.map(c => c.id)).size !== 297) throw new Error(`Expected 297 consistent published AEF masters; found ${cabinets.length}.`);
     if (cabinets.some(c => !c.configJson)) throw new Error("A supplier configuration is missing; do not substitute a shared framed master.");
     const assignments = cabinets.map(cabinet => {
       const effective = effectiveAefCabinetForImage(cabinet);

@@ -1,6 +1,6 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
-import { cabinets, distributorSkus, distributors, doorStyles } from "../drizzle/schema";
+import { cabinets, distributorCabinetOverrides, distributorSkus, distributors, doorStyles } from "../drizzle/schema";
 import { getDb } from "./db";
 import { appRouter } from "./routers";
 
@@ -8,6 +8,23 @@ const FILLER_CODES = [
   "AF3006", "OF323", "OF330", "OF335", "OF340", "OF384", "OF389", "OF394",
   "OF630", "OF635", "OF640", "OF684", "OF689", "OF694",
 ] as const;
+
+const FILLER_IMAGES: Record<(typeof FILLER_CODES)[number], string> = {
+  AF3006: "/manus-storage/aef-appliance-filler-three-pack_50708d9c.webp",
+  OF323: "/manus-storage/aef-overlay-filler-3in_c10f1cc9.webp",
+  OF330: "/manus-storage/aef-overlay-filler-3in_c10f1cc9.webp",
+  OF335: "/manus-storage/aef-overlay-filler-3in_c10f1cc9.webp",
+  OF340: "/manus-storage/aef-overlay-filler-3in_c10f1cc9.webp",
+  OF384: "/manus-storage/aef-overlay-filler-3in_c10f1cc9.webp",
+  OF389: "/manus-storage/aef-overlay-filler-3in_c10f1cc9.webp",
+  OF394: "/manus-storage/aef-overlay-filler-3in_c10f1cc9.webp",
+  OF630: "/manus-storage/aef-overlay-filler-6in_1b42acbe.webp",
+  OF635: "/manus-storage/aef-overlay-filler-6in_1b42acbe.webp",
+  OF640: "/manus-storage/aef-overlay-filler-6in_1b42acbe.webp",
+  OF684: "/manus-storage/aef-overlay-filler-6in_1b42acbe.webp",
+  OF689: "/manus-storage/aef-overlay-filler-6in_1b42acbe.webp",
+  OF694: "/manus-storage/aef-overlay-filler-6in_1b42acbe.webp",
+};
 
 const PRINTED_LISTS: Record<(typeof FILLER_CODES)[number], readonly [number, number, number, number, number, number, number]> = {
   AF3006: [56, 186, 60, 80, 80, 140, 155],
@@ -63,10 +80,13 @@ describe("AEF source-priced filler stock", () => {
         masterCategory: cabinets.category,
         masterSubCategory: cabinets.subCategory,
         placement: cabinets.placementType,
+        skuImageUrl: distributorSkus.imageUrl,
+        overrideImageUrl: distributorCabinetOverrides.imageUrl,
       })
       .from(distributorSkus)
       .innerJoin(cabinets, eq(cabinets.id, distributorSkus.cabinetId))
       .innerJoin(doorStyles, eq(doorStyles.id, distributorSkus.styleId))
+      .leftJoin(distributorCabinetOverrides, and(eq(distributorCabinetOverrides.distributorId, distributorSkus.distributorId), eq(distributorCabinetOverrides.cabinetId, distributorSkus.cabinetId)))
       .where(and(eq(distributorSkus.distributorId, aef!.id), inArray(distributorSkus.distributorSku, [...FILLER_CODES])));
 
     expect(rows).toHaveLength(FILLER_CODES.length * styles.length);
@@ -89,7 +109,11 @@ describe("AEF source-priced filler stock", () => {
           masterCategory: "Accessory",
           masterSubCategory: "Filler",
           placement: "accessory",
+          skuImageUrl: FILLER_IMAGES[code],
+          overrideImageUrl: FILLER_IMAGES[code],
         });
+        expect(row.skuImageUrl).not.toContain("aef-accessory-finish");
+        expect(row.overrideImageUrl).not.toContain("aef-accessory-finish");
       }
     }
     expect(rowsByCode.get("OF335")![0]).toMatchObject({ width: "2.875" });

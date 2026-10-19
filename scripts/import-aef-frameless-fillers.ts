@@ -26,7 +26,12 @@ type StyleRow = { id: number; styleCode: string };
 type MasterRow = { id: number; masterCode: string; nonAefSkuCount: number };
 
 const APPLY = process.argv.includes("--apply");
-const AEF_FILLER_IMAGE = "/manus-storage/aef-accessory-finish_a160d2a7.png";
+/** Product-only studio renders, never documentation, price grids, or source pages. */
+export const AEF_FILLER_PRODUCT_IMAGES = {
+  applianceThreePack: "/manus-storage/aef-appliance-filler-three-pack_50708d9c.webp",
+  overlayThreeInch: "/manus-storage/aef-overlay-filler-3in_c10f1cc9.webp",
+  overlaySixInch: "/manus-storage/aef-overlay-filler-6in_1b42acbe.webp",
+} as const;
 const SOURCE_REFERENCE = "US Cabinet Depot Specification Manual V8.2, Panels & Fillers, pp. 54–55";
 
 /** Maps the seven printed price columns to the published AEF finish records. */
@@ -81,6 +86,13 @@ function listPriceFor(source: FillerSource, styleCode: string): number {
   return sourcePrice(source.prices[column]!);
 }
 
+function fillerProductImage(source: FillerSource): string {
+  if (source.kind === "appliance") return AEF_FILLER_PRODUCT_IMAGES.applianceThreePack;
+  if (source.nominalWidth === 3) return AEF_FILLER_PRODUCT_IMAGES.overlayThreeInch;
+  if (source.nominalWidth === 6) return AEF_FILLER_PRODUCT_IMAGES.overlaySixInch;
+  throw new Error(`No clean product image mapping for ${source.sku}`);
+}
+
 function fillerConfig(source: FillerSource): Record<string, unknown> {
   return {
     description: source.description,
@@ -96,7 +108,7 @@ function fillerConfig(source: FillerSource): Record<string, unknown> {
     nominalFillerWidth: source.nominalWidth,
     fillerKind: source.kind,
     layoutSpec: `${source.description}; ${SOURCE_REFERENCE}, p. ${source.sourcePage}.`,
-    specImageUrl: AEF_FILLER_IMAGE,
+    specImageUrl: fillerProductImage(source),
     specNotes: `Source-documented AEF frameless cuttable filler stock; printed dimensions; ${SOURCE_REFERENCE}, p. ${source.sourcePage}.`,
   };
 }
@@ -151,22 +163,26 @@ async function main() {
     try {
       for (const source of FILLERS) {
         let master = masters.get(source.sku);
+        const productImage = fillerProductImage(source);
         if (!master) {
           const [insert]: any = await conn.query(
             `INSERT INTO cabinets (masterCode,description,descriptionSource,category,subCategory,width,height,depth,physicalWidth,placementType,numberOfDoors,numberOfDrawers,isCornerCabinet,graphicType,isActive,showInCatalog,showInDesigner,showIn2020,isNotCabinet,layoutSpec,specImageUrl,specNotes,productType,configVerified,configVerifiedByName)
              VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-            [source.sku, source.description, "manufacturer_spec", "Accessory", "Filler", source.width.toFixed(3), source.height.toFixed(3), source.depth.toFixed(3), source.width.toFixed(3), "accessory", 0, 0, false, "accessory", true, true, true, true, true, `${source.description}; ${SOURCE_REFERENCE}, p. ${source.sourcePage}.`, AEF_FILLER_IMAGE, `Exact source-only AEF filler stock. Shared cabinet geometry is not used.`, "accessory", true, "AEF V8.2 filler import"],
+            [source.sku, source.description, "manufacturer_spec", "Accessory", "Filler", source.width.toFixed(3), source.height.toFixed(3), source.depth.toFixed(3), source.width.toFixed(3), "accessory", 0, 0, false, "accessory", true, true, true, true, true, `${source.description}; ${SOURCE_REFERENCE}, p. ${source.sourcePage}.`, productImage, `Exact source-only AEF filler stock. Shared cabinet geometry is not used.`, "accessory", true, "AEF V8.2 filler import"],
           );
           master = { id: Number(insert.insertId), masterCode: source.sku, nonAefSkuCount: 0 };
           masters.set(source.sku, master);
         }
+
+        // The collision guard above proves this source filler master is AEF-only.
+        await conn.query("UPDATE cabinets SET specImageUrl = ? WHERE id = ?", [productImage, master.id]);
 
         const configJson = JSON.stringify(fillerConfig(source));
         await conn.query(
           `INSERT INTO distributor_cabinet_overrides (distributorId,cabinetId,width,height,depth,physicalWidth,imageUrl,configJson,note)
            VALUES (?,?,?,?,?,?,?,?,?)
            ON DUPLICATE KEY UPDATE width=VALUES(width),height=VALUES(height),depth=VALUES(depth),physicalWidth=VALUES(physicalWidth),imageUrl=VALUES(imageUrl),configJson=VALUES(configJson),note=VALUES(note)`,
-          [aef.id, master.id, source.width.toFixed(3), source.height.toFixed(3), source.depth.toFixed(3), source.width.toFixed(3), AEF_FILLER_IMAGE, configJson, `AEF source-only cuttable filler stock — V8.2 p. ${source.sourcePage}; no shared-master modification.`],
+          [aef.id, master.id, source.width.toFixed(3), source.height.toFixed(3), source.depth.toFixed(3), source.width.toFixed(3), productImage, configJson, `AEF source-only cuttable filler stock — V8.2 p. ${source.sourcePage}; no shared-master modification.`],
         );
 
         for (const style of styles) {
@@ -176,7 +192,7 @@ async function main() {
             `INSERT INTO distributor_skus (cabinetId,distributorId,styleId,platformSku,distributorSku,listPrice,yourCost,adjustedListPrice,wholesalePrice,contractorPrice,homeownerPrice,isAvailable,isPublished,imageUrl,supplierCabinetName,supplierDescription,status,constructionType,geometryWidth,geometryHeight,geometryDepth,geometrySourcePage,geometryStatus)
              VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
              ON DUPLICATE KEY UPDATE cabinetId=VALUES(cabinetId),platformSku=VALUES(platformSku),distributorSku=VALUES(distributorSku),listPrice=VALUES(listPrice),yourCost=VALUES(yourCost),adjustedListPrice=VALUES(adjustedListPrice),wholesalePrice=VALUES(wholesalePrice),contractorPrice=VALUES(contractorPrice),homeownerPrice=VALUES(homeownerPrice),isAvailable=1,isPublished=1,imageUrl=VALUES(imageUrl),supplierCabinetName=VALUES(supplierCabinetName),supplierDescription=VALUES(supplierDescription),status='approved',constructionType='frameless',geometryWidth=VALUES(geometryWidth),geometryHeight=VALUES(geometryHeight),geometryDepth=VALUES(geometryDepth),geometrySourcePage=VALUES(geometrySourcePage),geometryStatus='verified'`,
-            [master.id, aef.id, style.id, `AEF-${source.sku}-${style.styleCode}`, source.sku, list.toFixed(2), cost.toFixed(2), cost.toFixed(2), round2(cost * 1.25).toFixed(2), round2(cost * 1.29).toFixed(2), round2(cost * 1.58).toFixed(2), true, true, AEF_FILLER_IMAGE, source.sku, source.description, "approved", "frameless", source.width.toFixed(3), source.height.toFixed(3), source.depth.toFixed(3), `${SOURCE_REFERENCE}, p. ${source.sourcePage}`, "verified"],
+            [master.id, aef.id, style.id, `AEF-${source.sku}-${style.styleCode}`, source.sku, list.toFixed(2), cost.toFixed(2), cost.toFixed(2), round2(cost * 1.25).toFixed(2), round2(cost * 1.29).toFixed(2), round2(cost * 1.58).toFixed(2), true, true, productImage, source.sku, source.description, "approved", "frameless", source.width.toFixed(3), source.height.toFixed(3), source.depth.toFixed(3), `${SOURCE_REFERENCE}, p. ${source.sourcePage}`, "verified"],
           );
         }
       }
@@ -190,7 +206,9 @@ async function main() {
   }
 }
 
-main().catch((error) => {
-  console.error(error);
-  process.exitCode = 1;
-});
+if (process.argv[1]?.endsWith("import-aef-frameless-fillers.ts")) {
+  main().catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+  });
+}

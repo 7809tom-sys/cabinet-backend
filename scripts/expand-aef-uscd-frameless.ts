@@ -67,11 +67,12 @@ type MasterRow = {
 const APPLY = process.argv.includes("--apply");
 const ROOT = process.cwd();
 const MANIFEST_PATH = path.join(ROOT, "scripts/data/aef-complete-source-manifest.json");
-
 const IMAGES = {
-  accessoryFinish: "/manus-storage/aef-accessory-finish_a160d2a7.png",
+  // Catalog art must be product imagery, never a source chart or price grid.
+  accessoryFinish: "/manus-storage/aef-accessory-moulding-render_fbee12a3.webp",
   accessoryMoulding: "/manus-storage/aef-accessory-moulding_56f3c613.png",
   accessoryPanel: "/manus-storage/aef-accessory-panel-render_252d1d1a.webp",
+  accessoryEdgeBanding: "/manus-storage/frameless-edge-banding-roll_fd907129.webp",
   base2drawer: "/manus-storage/aef-base-2drawer_a8a40175.png",
   base3drawer: "/manus-storage/aef-base-3drawer_e6f7a40c.png",
   baseBlind: "/manus-storage/aef-base-blind-corner_0213de3e.png",
@@ -150,6 +151,7 @@ function subCategoryFor(row: SourceRow): string | null {
 function imageFor(row: SourceRow): string {
   const code = row.sku;
   if (row.category === "Accessory") {
+    if (code === "EB10") return IMAGES.accessoryEdgeBanding;
     if (code === "TEP3096") return IMAGES.accessoryPanel;
     if (code === "BEP2535" || /^WEP\d+$/i.test(code)) return IMAGES.accessoryPanel;
     return code === "OCM8" || code === "BM8" || code === "SM8" || code === "TKC" || code.includes("PVC") ? IMAGES.accessoryMoulding : IMAGES.accessoryFinish;

@@ -60,6 +60,15 @@ describe("professionalAefImageFor", () => {
     expect(professionalAefImageFor(sourceCabinet("TEP3096", "Accessory"))).toBe("accessoryPanel");
     for (const masterCode of ["OCM8", "BM8", "SM8", "TKC", "TKC-PVC", "CORNER-PVC"]) expect(professionalAefImageFor(sourceCabinet(masterCode, "Accessory"))).toBe("accessoryMoulding");
   });
+  it("keeps every source filler on its clean product render, never an accessory chart", () => {
+    expect(professionalAefImageFor(sourceCabinet("AF3006", "Accessory"))).toBe("accessoryApplianceFillerThreePack");
+    for (const masterCode of ["OF323", "OF330", "OF335", "OF340", "OF384", "OF389", "OF394"]) expect(professionalAefImageFor(sourceCabinet(masterCode, "Accessory"))).toBe("accessoryOverlayFillerThreeInch");
+    for (const masterCode of ["OF630", "OF635", "OF640", "OF684", "OF689", "OF694"]) expect(professionalAefImageFor(sourceCabinet(masterCode, "Accessory"))).toBe("accessoryOverlayFillerSixInch");
+    for (const asset of [AEF_PROFESSIONAL_ASSETS.accessoryApplianceFillerThreePack, AEF_PROFESSIONAL_ASSETS.accessoryOverlayFillerThreeInch, AEF_PROFESSIONAL_ASSETS.accessoryOverlayFillerSixInch]) {
+      expect(asset).toContain("/manus-storage/");
+      expect(asset).not.toContain("aef-accessory-finish");
+    }
+  });
   it("never adds a false drawer band to full-height base or vanity sink fronts", () => {
     for (const category of ["Base", "Vanity"]) {
       const prefix = category === "Base" ? "SB" : "VSB";
@@ -77,6 +86,8 @@ describe("professionalAefImageFor", () => {
     expect(professionalAefImageFor({ ...sourceCabinet("BBC49/52FH", "Base"), numberOfDoors: 2 })).toBe("baseBlindCornerDoubleDoor");
     expect(professionalAefImageFor({ ...sourceCabinet("WBC33/3630", "Wall"), numberOfDoors: 2 })).toBe("wallBlindCornerDoubleDoor");
     expect(professionalAefImageFor(sourceCabinet("EB10", "Accessory"))).toBe("accessoryEdgeBanding");
+    expect(AEF_PROFESSIONAL_ASSETS.accessoryEdgeBanding).toContain("frameless-edge-banding-roll");
+    expect(AEF_PROFESSIONAL_ASSETS.accessoryEdgeBanding).not.toContain("aef-accessory-finish");
     expect(professionalAefImageFor(sourceCabinet("TUK", "Accessory"))).toBe("accessoryTouchUpKit");
   });
   it("preserves the source LSB two-leaf appearance and the range-base false-front recipe", () => {
