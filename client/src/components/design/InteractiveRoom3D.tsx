@@ -4691,9 +4691,10 @@ export function addCabinet(
     if (isCupPull) pull.rotation.z = Math.PI / 2;
     // Doors swing from their outside edge. Pulls therefore sit vertically at
     // the center meeting edge (opposite hinge). Separate upper door banks use
-    // the physical bottom rail: their centerline is 2¾ inches above that rail,
-    // rather than a percentage of the door height. Lower/pantry doors retain
-    // their existing upper-side placement.
+    // the physical bottom rail: the *lower end* of the handle is 2¾ inches
+    // above that rail, rather than positioning the centerline there. That
+    // keeps the whole pull inside the door. Lower/pantry doors retain their
+    // existing upper-side placement.
     const automaticSide = hingeSide === "left" ? 1 : hingeSide === "right" ? -1 : -Math.sign(x || 1);
     // Drawers are fixed at the horizontal center by CabinetDealz construction
     // rules. Saved hardware choices remain effective only for door pulls.
@@ -4707,7 +4708,8 @@ export function addCabinet(
         explicitSide < 0 ? "left" : explicitSide > 0 ? "right" : "center",
         profileFrameWidthIn,
       ) * INCH;
-    const upperDoorBottomRailCenter = Math.min(2.75 * INCH, faceHeight / 2);
+    const upperDoorBottomRailClearance = Math.min(2.75 * INCH, Math.max(0, faceHeight - pullLength));
+    const upperDoorBottomRailCenter = upperDoorBottomRailClearance + pullLength / 2;
     const pullY = drawer
       ? y
       : raisedFloorWallDoorPull
@@ -5462,7 +5464,8 @@ export function addCabinet(
     // Normal wall cabinets use the lower door rail for an ergonomic reach from
     // below. The only exception is wall cabinetry intentionally seated at the
     // floor/toe-kick datum, which follows the existing raised-pull convention.
-    const bottomDoorRailPullY = -faceHeight / 2 + Math.min(2.75 * INCH, faceHeight / 2);
+    const bottomDoorRailClearance = Math.min(2.75 * INCH, Math.max(0, faceHeight - pullLength));
+    const bottomDoorRailPullY = -faceHeight / 2 + bottomDoorRailClearance + pullLength / 2;
     const cornerDoorPullY = placement === "wall" && !raisedFloorWallCornerDoorPull
       ? bottomDoorRailPullY
       : upperOpeningPullY;

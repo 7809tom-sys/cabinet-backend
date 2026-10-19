@@ -3989,7 +3989,7 @@ describe("interactive 3D room scene helpers", () => {
     expect(meshMarkers).toEqual({ ovenCabinetDoor: 2, ovenCabinetDrawer: 1, ovenOpening: 1, ovenApplianceDoor: 2, ovenGlassDoor: 2, ovenDoorHandle: 2 });
   });
 
-  it("places Preston Air Dawn O339624 upper oven-door pulls 2½–3 inches above the bottom rail", () => {
+  it("keeps Preston Air Dawn O339624 upper oven-door pulls inside their doors with their lower ends 2½–3 inches above the bottom rail", () => {
     const root = new THREE.Group();
     addCabinetWithBarPulls(root, {
       distributorSkuId: 339624, cabinetId: 339624, masterCode: "O339624", description: '33" x 96" Oven Cabinet — 2 Doors, 3 Drawers',
@@ -4013,10 +4013,13 @@ describe("interactive 3D room scene helpers", () => {
       const pull = pulls[index]!;
       const doorHeight = (door.geometry as THREE.BoxGeometry).parameters.height;
       const bottomRailY = door.position.y - doorHeight / 2;
-      const pullDistanceAboveBottomRailIn = (pull.position.y - bottomRailY) * 12;
+      const pullHeight = (pull.geometry as THREE.BoxGeometry).parameters.height;
+      const pullBottomDistanceAboveBottomRailIn = (pull.position.y - pullHeight / 2 - bottomRailY) * 12;
+      const topRailY = door.position.y + doorHeight / 2;
       expect(pull.userData).toMatchObject({ pullDoorZone: "upper", pullVerticalRail: "bottom", pullEdge: "opposite-hinge" });
-      expect(pullDistanceAboveBottomRailIn).toBeGreaterThanOrEqual(2.5);
-      expect(pullDistanceAboveBottomRailIn).toBeLessThanOrEqual(3);
+      expect(pullBottomDistanceAboveBottomRailIn).toBeGreaterThanOrEqual(2.5);
+      expect(pullBottomDistanceAboveBottomRailIn).toBeLessThanOrEqual(3);
+      expect(pull.position.y + pullHeight / 2).toBeLessThanOrEqual(topRailY);
     }
   });
 
@@ -4389,7 +4392,7 @@ describe("interactive 3D room scene helpers", () => {
     });
   });
 
-  it("puts normally mounted wall-cabinet pulls on their bottom rails while retaining the floor-seated exception", () => {
+  it("keeps normally mounted wall-cabinet pulls inside their bottom door frames while retaining the floor-seated exception", () => {
     const render = (cabinet: Record<string, unknown>) => {
       const root = new THREE.Group();
       addCabinetWithBarPulls(root, cabinet as never, null, {}, 144, 120, "#d1ba8f", "#ffffff", { doorStyle: "Shaker", doorPanelType: null });
@@ -4414,7 +4417,9 @@ describe("interactive 3D room scene helpers", () => {
       const door = wallDoors[index]!;
       const pull = wallPulls[index]!;
       const bottomRailY = door.position.y - (door.geometry as THREE.BoxGeometry).parameters.height / 2;
-      expect((pull.position.y - bottomRailY) * 12).toBeCloseTo(2.75, 8);
+      const pullHeight = (pull.geometry as THREE.BoxGeometry).parameters.height;
+      expect((pull.position.y - pullHeight / 2 - bottomRailY) * 12).toBeCloseTo(2.75, 8);
+      expect(pull.position.y + pullHeight / 2).toBeLessThanOrEqual(door.position.y + (door.geometry as THREE.BoxGeometry).parameters.height / 2);
       expect(pull.userData).toMatchObject({ pullVerticalRail: "bottom", pullEdge: "opposite-hinge" });
     }
 
@@ -4438,7 +4443,9 @@ describe("interactive 3D room scene helpers", () => {
     expect(werDoor).not.toBeNull();
     expect(werPull).not.toBeNull();
     const werBottomRailY = werDoor!.position.y - (werDoor!.geometry as THREE.BoxGeometry).parameters.height / 2;
-    expect((werPull!.position.y - werBottomRailY) * 12).toBeCloseTo(2.75, 8);
+    const werPullHeight = (werPull!.geometry as THREE.BoxGeometry).parameters.height;
+    expect((werPull!.position.y - werPullHeight / 2 - werBottomRailY) * 12).toBeCloseTo(2.75, 8);
+    expect(werPull!.position.y + werPullHeight / 2).toBeLessThanOrEqual(werDoor!.position.y + (werDoor!.geometry as THREE.BoxGeometry).parameters.height / 2);
     expect(werPull!.userData).toMatchObject({ pullHeight: "bottom-door-rail", pullVerticalRail: "bottom" });
 
     const floorWall = render({
