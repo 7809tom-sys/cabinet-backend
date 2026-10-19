@@ -171,7 +171,6 @@ function roleFilter(role: RecommendedRole) {
     case "countertop":
       return eq(pelicanProducts.category, "Quartz Slabs (Countertops)");
     case "sink":
-    case "faucet":
     case "vanity-sink":
     case "vanity-faucet":
     case "bathroom-sink":
@@ -180,6 +179,14 @@ function roleFilter(role: RecommendedRole) {
       // Imported subcategories contain historical misclassifications. The
       // response below derives the final placement family from product text.
       return eq(pelicanProducts.category, "Sinks & Faucets");
+    case "faucet":
+      // PL-8461 is officially a kitchen wall faucet but sits in the legacy
+      // Shower & Bath import category. Keep the row and its category intact;
+      // admit only its verified finishes for the measured kitchen faucet flow.
+      return or(
+        eq(pelicanProducts.category, "Sinks & Faucets"),
+        inArray(pelicanProducts.pelicanCode, ["PL-8461 BN", "PL-8461 MB"]),
+      );
     case "bathtub":
       // Current supplier tub models were imported across both legacy source
       // categories. The exact SKU whitelist below is the catalog authority.

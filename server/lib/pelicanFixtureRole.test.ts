@@ -18,6 +18,15 @@ describe("pelicanFixtureRole", () => {
     })).toBe("faucet");
   });
 
+  it("keeps PL-8461 as a source-backed kitchen wall-faucet when a legacy local row calls it shower accessory", () => {
+    expect(pelicanFixtureRole({
+      pelicanCode: "PL-8461 BN",
+      name: "PL-8461 BN",
+      description: null,
+      subCategory: "Shower Accessories",
+    })).toBe("faucet");
+  });
+
   it("excludes accessories and prefabricated counters even when their descriptions mention sinks or faucets", () => {
     expect(pelicanFixtureRole({ name: "Stainless Sink Clip", description: "Mounting clip for undermount sink", subCategory: "Sinks" })).toBeNull();
     expect(pelicanFixtureRole({ name: "Special Order PF-4225FM", description: "Prefabricated countertop with faucet cut-out for sinks", subCategory: "Faucets" })).toBeNull();

@@ -42,3 +42,26 @@ The source reconciliation separates actual faucet variants from the broader publ
 - **Collection-wide accessory note:** the earlier 146-variant public all-faucets reconciliation includes five unmatched accessory/drain codes. They are not missing kitchen or bathroom faucet fixtures and remain excluded from the sink-mounted faucet picker.
 
 The regular Designer quick-change picker should therefore show the complete list returned by the strict measured-fixture API, with each card carrying the official image, exact SKU, and calculated price. Catalog coverage does not authorize invented 3D mounting geometry: unmeasured bridge, wall-mounted, tub, shower, and accessory products must remain separate until their supported workflows exist.
+
+## 2026-10-19 official technical-fixture evidence
+
+### PL-8410 and PL-8461 — wall-mounted kitchen faucets
+
+Pelican’s official product pages classify both families as **Wall Mounted Kitchen Faucet - Double Handle**. The product records identify 8-inch centers and the official technical drawings provide enough physical envelope information for a dedicated wall-mounted, two-handle kitchen fixture workflow. Neither product may be represented as a single-hole deck faucet.
+
+- **PL-8410 BN / PL-8410 MB:** 8-inch (203 mm) centers; 12-5/8-inch overall lateral envelope; 10-1/2-inch overall vertical dimension; 7-1/2-inch outlet-height dimension; 9-3/4-inch forward reach. Official source: [product page](https://buildpelican.com/products/pl-8410), [technical drawing](https://buildpelican.com/cdn/shop/files/PL-8410LD.png?v=1776786236), and Pelican’s compatible-sink technical PDF confirming 8-inch-center wall-mount compatibility: [PL-CI8004 specification](https://cdn.accentuate.io/8980582989964/1776100660059/PL-CI8004-Spec.pdf?v=1776100660059).
+- **PL-8461 BN / PL-8461 MB:** 8-inch (203 mm) centers; 14-1/4-inch overall lateral envelope; 4-3/8-inch overall vertical dimension; 3-1/8-inch outlet-height dimension; 8-3/4-inch forward reach. Official source: [product page](https://buildpelican.com/products/pl-8461), [technical drawing](https://buildpelican.com/cdn/shop/files/PL-8461LD.png?v=1776783551), and [PL-CI8004 specification](https://cdn.accentuate.io/8980582989964/1776100660059/PL-CI8004-Spec.pdf?v=1776100660059).
+
+The public sources do **not** document hole diameter, valve connection, rough-in depth, finished-wall tolerance, or required mounting height. A safe workflow must require a selected mounting wall, an explicit project mounting height, and a sink/bowl target; it must not invent construction validation for the undocumented values.
+
+### PL-8538 — floor-mounted freestanding tub filler
+
+The official Pelican page classifies PL-8538 as a **Freestanding Bathtub Faucet With Hand Shower - Single Handle**, explicitly designed to operate outside the tub basin and floor-mounted. Its official line drawing supplies a 5-7/8-inch base width, 8-7/8-inch spout reach, 41-7/8-inch maximum height, 36-1/4-inch spout-top height, and 35-inch outlet height. The active finishes are PL-8538 BG, PL-8538 BN, and PL-8538 MB. Official source: [product page](https://buildpelican.com/products/pl-8538) and [technical drawing](https://buildpelican.com/cdn/shop/files/PL-8538LD.png?v=1774294349).
+
+This supports a bathroom-only, floor-anchored tub-filler workflow adjacent to a freestanding tub, without a countertop association or a made-up floor cutout. Pelican’s public materials do not state a floor-hole/rough-in specification, so that installation item remains explicit installer confirmation.
+
+### PL-8480 — bridge kitchen faucet
+
+Pelican publicly identifies PL-8480 as a **Deck Mounted Bridge Kitchen Faucet - Double Handle** with a `4" Spread` tag. Active finishes are PL-8480 BG, PL-8480 BN, PL-8480 CHR, and PL-8480 MB. Official source: [product page](https://buildpelican.com/products/pl-8480) and [variant record](https://buildpelican.com/products/pl-8480.js).
+
+Pelican does not currently publish a technical drawing or dimensions for PL-8480: no overall height, spout reach, spout height, exact hole count, center-to-center definition, hole diameters, or maximum deck thickness are available in the official public material. It remains catalog-visible but must not enter a measured 3D bridge workflow until Pelican supplies that data.

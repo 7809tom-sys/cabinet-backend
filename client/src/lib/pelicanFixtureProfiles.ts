@@ -42,12 +42,16 @@ export type VerifiedPelicanFaucetProfile = {
   id: string;
   pelicanCode: string;
   name: string;
-  installation: "single-hole";
+  installation: "single-hole" | "wall-mounted-8-inch-center";
   overallHeightIn: number;
   spoutLengthIn: number;
   spoutHeightIn: number;
-  profile: "pull-down" | "standard-arc" | "pull-out" | "articulated-swing";
+  profile: "pull-down" | "standard-arc" | "pull-out" | "articulated-swing" | "wall-mounted-bridge";
   finish: "brushed-nickel" | "matte-black" | "brushed-gold" | "chrome" | "oil-rubbed-bronze";
+  /** Required only by a source-documented 8-inch-center wall-mounted faucet. */
+  centerSpreadIn?: number;
+  /** Pelican publishes fixture dimensions, not the project's finished-countertop mounting elevation. */
+  requiresProjectSpecificMountHeight?: true;
   specificationUrl: string;
 };
 
@@ -536,6 +540,26 @@ const VERIFIED_PELICAN_FAUCETS: Record<string, VerifiedPelicanFaucetProfile> = {
     id: "pelican-pl-8257-fountain-pull-down-matte-black", pelicanCode: "PL-8257 MB", name: "PL-8257 Fountain Series Pull-Down Kitchen Faucet — Matte Black",
     installation: "single-hole", overallHeightIn: 17.75, spoutLengthIn: 8.25, spoutHeightIn: 9.5, profile: "pull-down", finish: "matte-black",
     specificationUrl: "https://cdn.accentuate.io/8105530785932/1744290070437/PL-8257.pdf?v=1744290070437",
+  },
+  "PL-8410 BN": {
+    id: "pelican-pl-8410-fountain-wall-mounted-brushed-nickel", pelicanCode: "PL-8410 BN", name: "PL-8410 Fountain Series Wall-Mounted Kitchen Faucet — Brushed Nickel",
+    installation: "wall-mounted-8-inch-center", overallHeightIn: 10.5, spoutLengthIn: 9.75, spoutHeightIn: 7.5, centerSpreadIn: 8, profile: "wall-mounted-bridge", finish: "brushed-nickel", requiresProjectSpecificMountHeight: true,
+    specificationUrl: "https://buildpelican.com/products/pl-8410",
+  },
+  "PL-8410 MB": {
+    id: "pelican-pl-8410-fountain-wall-mounted-matte-black", pelicanCode: "PL-8410 MB", name: "PL-8410 Fountain Series Wall-Mounted Kitchen Faucet — Matte Black",
+    installation: "wall-mounted-8-inch-center", overallHeightIn: 10.5, spoutLengthIn: 9.75, spoutHeightIn: 7.5, centerSpreadIn: 8, profile: "wall-mounted-bridge", finish: "matte-black", requiresProjectSpecificMountHeight: true,
+    specificationUrl: "https://buildpelican.com/products/pl-8410",
+  },
+  "PL-8461 BN": {
+    id: "pelican-pl-8461-fountain-wall-mounted-brushed-nickel", pelicanCode: "PL-8461 BN", name: "PL-8461 Fountain Series Wall-Mounted Kitchen Faucet — Brushed Nickel",
+    installation: "wall-mounted-8-inch-center", overallHeightIn: 4.375, spoutLengthIn: 8.75, spoutHeightIn: 3.125, centerSpreadIn: 8, profile: "wall-mounted-bridge", finish: "brushed-nickel", requiresProjectSpecificMountHeight: true,
+    specificationUrl: "https://buildpelican.com/products/pl-8461",
+  },
+  "PL-8461 MB": {
+    id: "pelican-pl-8461-fountain-wall-mounted-matte-black", pelicanCode: "PL-8461 MB", name: "PL-8461 Fountain Series Wall-Mounted Kitchen Faucet — Matte Black",
+    installation: "wall-mounted-8-inch-center", overallHeightIn: 4.375, spoutLengthIn: 8.75, spoutHeightIn: 3.125, centerSpreadIn: 8, profile: "wall-mounted-bridge", finish: "matte-black", requiresProjectSpecificMountHeight: true,
+    specificationUrl: "https://buildpelican.com/products/pl-8461",
   },
 };
 

@@ -8082,6 +8082,10 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   // Pending sink product selected in the "sink" step, waiting for faucet selection.
   type SinkDialogProduct = { id: number; pelicanCode?: string | null; slug: string; name: string; description?: string | null; category: string; subCategory: string | null; size: string | null; imageUrl: string | null; sellPrice: number | null };
   const [pendingSinkProduct, setPendingSinkProduct] = useState<SinkDialogProduct | null>(null);
+  // Wall-mounted Pelican faucets have published fixture dimensions but no
+  // universal counter-to-mount elevation. Require the project's documented datum.
+  const [pendingWallMountedFaucet, setPendingWallMountedFaucet] = useState<SinkDialogProduct | null>(null);
+  const [faucetWallMountHeightText, setFaucetWallMountHeightText] = useState("");
   // Pending range top type selected in the "range-type" step, waiting for product selection.
   const [pendingRangeTopType, setPendingRangeTopType] = useState<"gas" | "electric" | "induction" | "smooth-top" | null>(null);
   // Recommended range top products fetched from Stone Creek catalog.
@@ -18867,6 +18871,8 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
             : null;
           const verifiedProfile = verifiedPelicanSinkProfile(sinkProduct?.pelicanCode);
           const verifiedFaucetProfile = verifiedPelicanFaucetProfile(faucetProduct?.pelicanCode);
+          const isWallMountedFaucet = verifiedFaucetProfile?.installation === "wall-mounted-8-inch-center";
+          const faucetWallMountHeightAboveCountertopIn = Number(faucetWallMountHeightText);
           const cabinetWidth = sinkBaseOpeningWidthIn(cab ?? undefined);
           const targetBaseKind = !isBathroomVanity && cab && isFarmSinkBasePaletteItem(cab) ? "farmhouse" : "standard";
           if (!sinkProduct || !verifiedProfile) {
@@ -18875,6 +18881,10 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
           }
           if (faucetProduct && !verifiedFaucetProfile) {
             toast.error(`Choose a source-verified Pelican ${isBathroomVanity ? "vanity faucet" : "faucet"} before adding it to this ${isBathroomVanity ? "bathroom" : "kitchen"} plan.`);
+            return;
+          }
+          if (isWallMountedFaucet && (!Number.isFinite(faucetWallMountHeightAboveCountertopIn) || faucetWallMountHeightAboveCountertopIn <= 0 || faucetWallMountHeightAboveCountertopIn > (room.ceilingHeight ?? 96) - STD.COUNTERTOP_HEIGHT)) {
+            toast.error(`Enter the documented wall-mount datum above the finished countertop (greater than 0 and no more than ${formatEighthInches((room.ceilingHeight ?? 96) - STD.COUNTERTOP_HEIGHT)}).`);
             return;
           }
           if (isBathroomVanity && !isVerifiedPelicanVanitySink(sinkProduct.pelicanCode)) {
@@ -18927,6 +18937,9 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
             faucetSpoutHeight: verifiedFaucetProfile?.spoutHeightIn,
             faucetFinish: verifiedFaucetProfile?.finish,
             faucetForm: verifiedFaucetProfile?.profile,
+            faucetCenterSpread: verifiedFaucetProfile?.centerSpreadIn,
+            faucetWallMountHeightAboveCountertopIn: isWallMountedFaucet ? faucetWallMountHeightAboveCountertopIn : undefined,
+            requiresProjectSpecificMountHeight: verifiedFaucetProfile?.requiresProjectSpecificMountHeight,
           };
           if (previousRangeTopProductId != null) {
             setSelectedSurfaces((prevSurfaces) => prevSurfaces.filter((surface) => surface.id !== previousRangeTopProductId));
@@ -18952,6 +18965,8 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
           setSinkBaseDialog(null);
           setRangeTopStep("choose");
           setPendingSinkProduct(null);
+          setPendingWallMountedFaucet(null);
+          setFaucetWallMountHeightText("");
           toast.success(faucetProduct ? `${isBathroomVanity ? "Vanity sink" : "Sink"} & ${isBathroomVanity ? "vanity faucet" : "faucet"} added` : `${isBathroomVanity ? "Vanity sink" : "Sink"} added`);
         };
         return (
@@ -19037,14 +19052,33 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                     </div>
                   )}
                   <p className="text-sm text-muted-foreground -mt-2">Pick a matching source-verified Pelican {isBathroomVanity ? "vanity faucet" : "faucet"}, or skip to finish.</p>
-                  {filteredFaucets.length === 0 && !faucetProductsLoading ? (
+                  {pendingWallMountedFaucet ? (
+                    <div className="space-y-3 rounded-xl border border-[#a87f33]/40 bg-[#a87f33]/5 p-3">
+                      <div className="flex items-center gap-3">
+                        {pendingWallMountedFaucet.imageUrl && <img src={pendingWallMountedFaucet.imageUrl} alt={pendingWallMountedFaucet.name} className="h-14 w-16 rounded-md object-cover" />}
+                        <div><div className="text-sm font-semibold">{pendingWallMountedFaucet.name}</div><div className="text-xs text-muted-foreground">8-inch-center wall-mounted faucet · source-measured</div></div>
+                      </div>
+                      <label className="block text-xs font-medium text-foreground">Documented wall-mount datum above finished countertop (in.)
+                        <input type="number" min="0.125" step="0.125" value={faucetWallMountHeightText} onChange={(event) => setFaucetWallMountHeightText(event.target.value)} placeholder="Enter project measurement" className="mt-1 h-9 w-full rounded-md border border-input bg-background px-2 text-sm" />
+                      </label>
+                      <p className="text-[11px] leading-snug text-muted-foreground">Pelican publishes this fixture's dimensions and 8-inch centers, not an installed elevation. The measurement is saved with this sink and moves with its base.</p>
+                      <button type="button" className="w-full rounded-md bg-[#1a2744] px-3 py-2 text-sm font-semibold text-white hover:bg-[#243456]" onClick={() => applySink(pendingSinkProduct, pendingWallMountedFaucet)}>Add measured wall-mounted faucet</button>
+                      <button type="button" className="w-full text-xs text-muted-foreground underline" onClick={() => { setPendingWallMountedFaucet(null); setFaucetWallMountHeightText(""); }}>Choose another faucet</button>
+                    </div>
+                  ) : filteredFaucets.length === 0 && !faucetProductsLoading ? (
                     <button className="w-full text-xs text-muted-foreground border border-dashed rounded-lg py-3" onClick={() => applySink(pendingSinkProduct, null)}>Finish without a faucet</button>
                   ) : (
                     <PelicanFaucetPicker
                       faucets={filteredFaucets}
                       isLoading={faucetProductsLoading}
                       kind={isBathroomVanity ? "vanity" : "kitchen"}
-                      onSelect={(faucet) => applySink(pendingSinkProduct, faucet)}
+                      onSelect={(faucet) => {
+                        if (verifiedPelicanFaucetProfile(faucet.pelicanCode)?.installation === "wall-mounted-8-inch-center") {
+                          setPendingWallMountedFaucet(faucet);
+                          return;
+                        }
+                        applySink(pendingSinkProduct, faucet);
+                      }}
                     />
                   )}
                   <button className="text-xs text-muted-foreground underline self-center" onClick={() => applySink(pendingSinkProduct, null)}>Skip faucet selection</button>

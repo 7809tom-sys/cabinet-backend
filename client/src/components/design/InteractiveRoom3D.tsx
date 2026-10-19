@@ -7989,6 +7989,67 @@ export function addSinkFixture(root: THREE.Group, sink: SinkFixture) {
     metalness: sink.faucetFinish === "matte-black" ? 0.7 : 0.88,
     roughness: sink.faucetFinish === "matte-black" ? 0.32 : sink.faucetFinish === "oil-rubbed-bronze" ? 0.27 : sink.faucetFinish === "brushed-gold" ? 0.24 : 0.14,
   });
+  if (sink.faucetForm === "wall-mounted-bridge") {
+    const mountHeightIn = sink.faucetWallMountHeightAboveCountertopIn;
+    const centerSpreadIn = sink.faucetCenterSpread;
+    if (!sink.requiresProjectSpecificMountHeight || !Number.isFinite(mountHeightIn) || mountHeightIn! <= 0 || !Number.isFinite(centerSpreadIn) || centerSpreadIn! <= 0) return;
+    const backLength = Math.hypot(faucet.back.x, faucet.back.z) || 1;
+    const forward = { x: -faucet.back.x / backLength, z: -faucet.back.z / backLength };
+    const group = new THREE.Group();
+    group.position.set(
+      faucet.x + faucet.back.x * 0.42,
+      countertopTop + mountHeightIn! * INCH,
+      faucet.z + faucet.back.z * 0.42,
+    );
+    group.rotation.y = Math.atan2(forward.x, forward.z);
+    group.userData = {
+      wallMountedSinkFaucet: true,
+      pelicanFaucetProfileId: sink.pelicanFaucetProfileId,
+      centerSpreadIn,
+      mountHeightAboveCountertopIn: mountHeightIn,
+      overallHeightIn: sink.faucetOverallHeight,
+      spoutReachIn: sink.faucetSpoutLength,
+      spoutHeightIn: sink.faucetSpoutHeight,
+      sourceMeasuredGeometry: true,
+      installation: "wall-mounted-8-inch-center",
+    };
+    const spread = centerSpreadIn! * INCH;
+    const plateMaterial = faucetMaterial.clone();
+    for (const x of [-spread / 2, spread / 2]) {
+      const plate = new THREE.Mesh(new RoundedBoxGeometry(0.38 * INCH, 0.38 * INCH, 0.045 * INCH, 4, 0.03 * INCH), plateMaterial);
+      plate.position.set(x, 0, -0.025 * INCH);
+      plate.userData = { wallMountedSinkFaucetEscutcheon: true, sourceMeasuredGeometry: true };
+      group.add(plate);
+      const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.07 * INCH, 0.07 * INCH, 0.58 * INCH, 16), faucetMaterial);
+      handle.rotation.z = Math.PI / 2;
+      handle.position.set(x, 0.025 * INCH, 0.11 * INCH);
+      handle.userData = { wallMountedSinkFaucetHandle: true, sourceMeasuredGeometry: true };
+      group.add(handle);
+    }
+    const bridge = new THREE.Mesh(new THREE.CylinderGeometry(0.055 * INCH, 0.055 * INCH, spread, 16), faucetMaterial);
+    bridge.rotation.z = Math.PI / 2;
+    bridge.position.set(0, 0, 0.04 * INCH);
+    bridge.userData = { wallMountedSinkFaucetBridge: true, sourceMeasuredGeometry: true };
+    group.add(bridge);
+    const overallHeight = Math.max(0.25, sink.faucetOverallHeight! * INCH);
+    const reach = Math.max(0.1, sink.faucetSpoutLength! * INCH);
+    const outletHeight = Math.max(0.08, sink.faucetSpoutHeight! * INCH);
+    const spoutPath = new THREE.CurvePath<THREE.Vector3>();
+    const mount = new THREE.Vector3(0, 0, 0.06 * INCH);
+    const crest = new THREE.Vector3(0, overallHeight, 0.06 * INCH);
+    const outlet = new THREE.Vector3(0, outletHeight, reach);
+    spoutPath.add(new THREE.LineCurve3(mount, crest));
+    spoutPath.add(new THREE.LineCurve3(crest, outlet));
+    const spout = new THREE.Mesh(new THREE.TubeGeometry(spoutPath, 32, 0.036 * INCH, 10, false), faucetMaterial);
+    spout.userData = { sinkFaucetSpout: true, wallMountedSinkFaucetSpout: true, sourceMeasuredGeometry: true, pelicanFaucetProfileId: sink.pelicanFaucetProfileId };
+    group.add(spout);
+    const aerator = new THREE.Mesh(new THREE.CylinderGeometry(0.05 * INCH, 0.05 * INCH, 0.15 * INCH, 16), faucetMaterial);
+    aerator.position.set(0, outletHeight - 0.075 * INCH, reach);
+    aerator.userData = { wallMountedSinkFaucetAerator: true, sourceMeasuredGeometry: true };
+    group.add(aerator);
+    addFixtureNode(group);
+    return;
+  }
   const backLength = Math.hypot(faucet.back.x, faucet.back.z) || 1;
   const forward = { x: -faucet.back.x / backLength, z: -faucet.back.z / backLength };
   const side = { x: -forward.z, z: forward.x };

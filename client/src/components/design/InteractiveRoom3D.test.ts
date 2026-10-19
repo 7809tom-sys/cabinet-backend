@@ -6867,6 +6867,27 @@ describe("interactive 3D room scene helpers", () => {
     expect(foundGenericFaucet).toBe(false);
   });
 
+  it("renders PL-8410 as a source-measured 8-inch-center wall faucet above the backsplash, not on the countertop", () => {
+    const root = new THREE.Group();
+    const sink = {
+      uid: "pelican-pl-8410-wall", type: "single", x: 24, y: 48, width: 30, depth: 18, faucet: true, wallSide: "top",
+      pelicanFaucetProfileId: "pelican-pl-8410-fountain-wall-mounted-brushed-nickel",
+      faucetOverallHeight: 10.5, faucetSpoutLength: 9.75, faucetSpoutHeight: 7.5, faucetFinish: "brushed-nickel", faucetForm: "wall-mounted-bridge",
+      faucetCenterSpread: 8, faucetWallMountHeightAboveCountertopIn: 12, requiresProjectSpecificMountHeight: true,
+    } as never;
+    addSinkFixture(root, sink);
+    root.updateMatrixWorld(true);
+    const wallFaucet = root.children.find((node) => node.userData.wallMountedSinkFaucet);
+    expect(wallFaucet?.userData).toMatchObject({
+      pelicanFaucetProfileId: "pelican-pl-8410-fountain-wall-mounted-brushed-nickel",
+      centerSpreadIn: 8,
+      mountHeightAboveCountertopIn: 12,
+      sourceMeasuredGeometry: true,
+    });
+    const bounds = new THREE.Box3().setFromObject(wallFaucet!);
+    expect((bounds.min.y - sinkFixtureTransform(sink).countertopTop) * 12).toBeGreaterThan(11.5);
+  });
+
   it("preserves the verified farmhouse sink exterior width after a left-wall plan rotation", () => {
     const root = new THREE.Group();
     addSinkFixture(root, {

@@ -852,6 +852,27 @@ describe("verifiedPelicanSinkProfile", () => {
     expect(verifiedPelicanPotFillerProfile("PL-8369")).toBeNull();
   });
 
+  it("keeps Pelican's dimensioned PL-8410 and PL-8461 wall-mounted kitchen faucets distinct from sink-mounted profiles", () => {
+    expect(verifiedPelicanFaucetProfile("PL-8410 BN")).toMatchObject({
+      installation: "wall-mounted-8-inch-center",
+      overallHeightIn: 10.5,
+      spoutLengthIn: 9.75,
+      spoutHeightIn: 7.5,
+      centerSpreadIn: 8,
+      profile: "wall-mounted-bridge",
+      requiresProjectSpecificMountHeight: true,
+    });
+    expect(verifiedPelicanFaucetProfile("PL-8461 MB")).toMatchObject({
+      installation: "wall-mounted-8-inch-center",
+      overallHeightIn: 4.375,
+      spoutLengthIn: 8.75,
+      spoutHeightIn: 3.125,
+      centerSpreadIn: 8,
+      profile: "wall-mounted-bridge",
+      requiresProjectSpecificMountHeight: true,
+    });
+  });
+
   it("treats only registered source-verified sink and faucet codes as exact fixture profiles", () => {
     expect(hasVerifiedPelicanFixtureProfile("PL-FC3018SB")).toBe(false);
     expect(hasVerifiedPelicanFixtureProfile("PL-8248 MB")).toBe(true);

@@ -91,6 +91,10 @@ export function pelicanDesignerRole(product: PelicanDesignerReadinessProduct):
   | "faucet"
   | "pot-filler"
   | null {
+  // The current official Pelican catalog identifies PL-8410/PL-8461 as
+  // dimensioned kitchen wall faucets. A legacy PL-8461 local category says
+  // Shower & Bath, so use its exact verified profile—not imported category text.
+  if (verifiedPelicanFaucetProfile(product.pelicanCode)?.installation === "wall-mounted-8-inch-center") return "faucet";
   if (product.category === "Flooring" && product.subCategory === "Planks & Flooring") return "flooring";
   if (product.category === "Tile & Mosaic") return "backsplash";
   if (product.category === "Quartz Slabs (Countertops)") return "countertop";

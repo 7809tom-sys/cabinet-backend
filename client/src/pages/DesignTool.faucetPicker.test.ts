@@ -21,4 +21,11 @@ describe("Designer visual faucet selection", () => {
     expect(source).toContain("pelicanFaucetProfileId: verifiedFaucetProfile?.id");
     expect(source).toContain('"faucet"');
   });
+
+  it("routes a source-measured wall-mounted faucet through its own documented mounting-height confirmation rather than treating it as a countertop single-hole faucet", () => {
+    expect(source).toContain('verifiedFaucetProfile?.installation === "wall-mounted-8-inch-center"');
+    expect(source).toContain("faucetWallMountHeightAboveCountertopIn");
+    expect(source).toContain("requiresProjectSpecificMountHeight");
+    expect(source).toContain("Enter the documented wall-mount datum above the finished countertop");
+  });
 });

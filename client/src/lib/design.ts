@@ -13564,7 +13564,13 @@ export interface SinkFixture {
   faucetSpoutLength?: number;
   faucetSpoutHeight?: number;
   faucetFinish?: "brushed-nickel" | "matte-black" | "brushed-gold" | "chrome" | "oil-rubbed-bronze";
-  faucetForm?: "pull-down" | "standard-arc" | "pull-out" | "articulated-swing";
+  faucetForm?: "pull-down" | "standard-arc" | "pull-out" | "articulated-swing" | "wall-mounted-bridge";
+  /** Published valve-center spread for a source-measured wall faucet; never inferred from an image. */
+  faucetCenterSpread?: number;
+  /** Documented per-project rise from finished countertop to wall-mount datum. */
+  faucetWallMountHeightAboveCountertopIn?: number;
+  /** Wall mounts cannot use a generic default elevation. */
+  requiresProjectSpecificMountHeight?: true;
 }
 
 /**

@@ -109,6 +109,14 @@ describe("surfaces.recommended", () => {
     expect(sinks.some((sink) => Boolean(verifiedPelicanSinkProfile(sink.pelicanCode)))).toBe(true);
   });
 
+  it("returns PL-8461 through kitchen faucets despite its historical local Shower & Bath category", async () => {
+    const db = await getDb();
+    if (!db) return;
+    const caller = appRouter.createCaller(publicCtx());
+    const faucets = (await caller.surfaces.recommended({ role: "faucet", limit: 200 })) as Rec[];
+    expect(faucets.map((product) => product.pelicanCode)).toContain("PL-8461 BN");
+  });
+
   it("returns positively priced PL-8369 variants only through the dedicated range-wall pot-filler workflow", async () => {
     const db = await getDb();
     if (!db) return;

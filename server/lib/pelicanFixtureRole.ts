@@ -12,6 +12,10 @@ const NON_FIXTURE = /\b(countertop|prefab|slab|backsplash|tile|molding|trim)\b/i
 const SINK = /\b(sink|basin|farmhouse|undermount|drop[ -]?in|workstation|apron[ -]?front|lavatory)\b/i;
 const FAUCET = /\b(faucet|pot filler|kitchen tap|bar tap|shower faucet)\b/i;
 const KITCHEN_DESIGNER_EXCLUDED_CODES = /^(?:PL-3099|PL-3608|PL-8112)(?:\s|$)/i;
+// Pelican's current public catalog identifies these four variants as 8-inch
+// center wall-mounted kitchen faucets. Historical local import text/categories
+// call PL-8461 a shower accessory, so exact source identity must take priority.
+const VERIFIED_KITCHEN_WALL_FAUCET_CODES = /^PL-(?:8410|8461)\s+(?:BN|MB)$/i;
 
 /** Exact source-backed bathroom vanity sink records, independent of imported product text. */
 export function isPelicanVanitySinkCode(code: string | null | undefined): boolean {
@@ -36,6 +40,7 @@ export function pelicanFixtureRole(source: PelicanFixtureSource): PelicanFixture
   // look like kitchen products. Keep their catalog records intact, but surface
   // them only through the bathroom vanity workflow.
   if (KITCHEN_DESIGNER_EXCLUDED_CODES.test(source.pelicanCode?.trim() ?? "")) return null;
+  if (VERIFIED_KITCHEN_WALL_FAUCET_CODES.test(source.pelicanCode?.trim() ?? "")) return "faucet";
   const text = `${source.name ?? ""} ${source.description ?? ""}`;
   if (ACCESSORY.test(text) || NON_FIXTURE.test(text)) return null;
   if (SINK.test(text)) return "sink";

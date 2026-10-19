@@ -59,6 +59,13 @@ describe("Pelican Designer readiness policy", () => {
     expect(pelicanDesignerReadinessReason(unmeasuredSink)).toBe("Measured technical fixture profile required");
   });
 
+  it("uses PL-8461's verified source identity rather than its stale local Shower & Bath category", () => {
+    const wallFaucet = { category: "Shower & Bath", subCategory: "Shower Accessories", pelicanCode: "PL-8461 BN" };
+    expect(pelicanDesignerRole(wallFaucet)).toBe("faucet");
+    expect(hasVerifiedPelicanFixtureProfile(wallFaucet)).toBe(true);
+    expect(isPelicanDesignerReady(wallFaucet)).toBe(true);
+  });
+
   it("keeps a verified PL-8369 wall pot filler out of the Designer until a range-wall mounting workflow records its project-specific datum", () => {
     const potFiller = {
       category: "Sinks & Faucets",
