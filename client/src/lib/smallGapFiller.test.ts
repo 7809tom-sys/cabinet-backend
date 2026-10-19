@@ -277,6 +277,50 @@ const cabinet: PlacedCabinet = {
 	    expect(elevationBox(matched, DEFAULT_ROOM)).toEqual({ bottom: 0, height: 70 });
 	  });
 
+	  it("repairs a stale base-owner link when a refrigerator directly owns the filler edge", () => {
+	    const base: PlacedCabinet = { ...cabinet, uid: "base-left-of-fridge", width: 18, x: 0 };
+	    const refrigerator: PlacedCabinet = {
+	      ...cabinet,
+	      uid: "refrigerator-owning-edge",
+	      masterCode: "FRIDGE-36",
+	      description: "36 inch refrigerator",
+	      placement: "appliance",
+	      x: 21,
+	      width: 36,
+	      depth: 30,
+	      height: 70,
+	      mountBottom: 0,
+	    };
+	    const legacyFiller: PlacedCabinet = {
+	      ...cabinet,
+	      uid: "legacy-filler-against-fridge",
+	      masterCode: "F342",
+	      description: "3 inch Base Filler",
+	      category: "Filler",
+	      x: 18,
+	      width: 3,
+	      height: 34.5,
+	      mountBottom: 0,
+	      fillerForCabinetUid: base.uid,
+	      fillerMatchesFullOwnerEnvelope: false,
+	    };
+
+	    const normalized = normalizeInstalledFillersToAdjacentCabinets(
+	      [base, legacyFiller, refrigerator],
+	      DEFAULT_ROOM,
+	    );
+
+	    expect(normalized[1]).toMatchObject({
+	      fillerForCabinetUid: refrigerator.uid,
+	      fillerMatchesFullOwnerEnvelope: true,
+	      placement: "base",
+	      depth: 30,
+	      height: 70,
+	      mountBottom: 0,
+	    });
+	    expect(elevationBox(normalized[1]!, DEFAULT_ROOM)).toEqual({ bottom: 0, height: 70 });
+	  });
+
 	  it("repairs a legacy wall filler from the exact cabinet touching its edge", () => {
 	    const owner: PlacedCabinet = {
 	      ...cabinet,

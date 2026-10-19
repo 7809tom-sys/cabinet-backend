@@ -312,6 +312,31 @@ export function adjacentCabinetForFiller(
 }
 
 /**
+ * A refrigerator-side filler is an architectural strip for that refrigerator.
+ * At restore time only, a direct refrigerator edge supersedes a stale saved
+ * base-owner link. This never affects ordinary explicitly owned fillers.
+ */
+function refrigeratorAdjacentToFiller(
+  filler: PlacedCabinet,
+  placed: readonly PlacedCabinet[],
+  room: RoomData,
+): PlacedCabinet | null {
+  if (!isFillerItem(filler) || fillerLayer(filler.placement) !== "floor") return null;
+  const wall = cabinetWall(filler, room);
+  const fillerStart = wallRunOffset(filler, wall, room);
+  const fillerEnd = fillerStart + wallRunSpan(filler, wall, room);
+  return placed
+    .filter((item) => item.uid !== filler.uid && isRefrigerator(item) && cabinetWall(item, room) === wall)
+    .map((item) => {
+      const start = wallRunOffset(item, wall, room);
+      const end = start + wallRunSpan(item, wall, room);
+      return { item, edgeGap: Math.min(Math.abs(fillerStart - end), Math.abs(fillerEnd - start)) };
+    })
+    .filter(({ edgeGap }) => edgeGap <= FILLER_ADJACENCY_TOLERANCE_IN)
+    .sort((left, right) => left.edgeGap - right.edgeGap)[0]?.item ?? null;
+}
+
+/**
  * A required blind-corner filler is trim, not a second cabinet body. Its
  * installed face is capped at the trade-standard 3 inches and may touch the
  * owning BBC/WBC at the intended return. Unrelated fillers remain collisions.
@@ -390,7 +415,8 @@ export function normalizeInstalledFillersToAdjacentCabinets(
         && candidate.refrigeratorAssemblyRole === "bridge"
         && !isFillerItem(candidate)) ?? null
       : null;
-    const owner = bridgeOwner ?? adjacentCabinetForFiller(item, placements, room);
+    const refrigeratorOwner = refrigeratorAdjacentToFiller(item, placements, room);
+    const owner = refrigeratorOwner ?? bridgeOwner ?? adjacentCabinetForFiller(item, placements, room);
     if (!owner) return item;
     // Front-miter pairs retain their deliberately shallow physical board and
     // measured plan footprint. Their vertical band still belongs exactly to

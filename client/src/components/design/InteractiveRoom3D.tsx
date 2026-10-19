@@ -3722,9 +3722,14 @@ export function addCabinet(
   // the adjoining cabinet, but its visible board starts above that kick. This
   // applies equally to straight, split, and 45-degree miter filler pieces.
   const usesBaseFillerFaceElevation = isBaseFillerPiece && sku.fillerMatchesFullOwnerEnvelope !== true;
+  // Refrigerator-side fillers are full-height architectural strips. They
+  // follow the refrigerator from the finished floor to its top—never the
+  // neighboring base's face elevation or toe-kick construction.
+  const isFullOwnerEnvelopeFiller = isBaseFillerPiece && sku.fillerMatchesFullOwnerEnvelope === true;
   const isFloorStandingCabinet = placement !== "appliance"
     && !isRefrigeratorEndPanel
     && !usesBaseFillerFaceElevation
+    && !isFullOwnerEnvelopeFiller
     && (isBaseCabinet || isTall || isCounterHeightIslandWallCabinet
       || (isWall && requestedMountBottom <= 0.001));
   // The saved 2D base height is 34½ inches inclusive of the 4½-inch recessed
@@ -3767,6 +3772,7 @@ export function addCabinet(
   // A base filler is a finished face above the shared run's toe-kick opening;
   // it must never manufacture a narrow toe-kick block of its own.
   const suppressInstalledFillerToeKick = usesBaseFillerFaceElevation
+    || isFullOwnerEnvelopeFiller
     || Boolean(surfaceTextures?.suppressFittedFillerToeKick);
 	  const installedFillerBoardDepth = Math.min(bodyDepth, 0.75 * INCH);
   const installedFillerFrontOffset = isFrontFlushFillerBoard ? bodyDepth / 2 - installedFillerBoardDepth / 2 : 0;
@@ -3790,6 +3796,7 @@ export function addCabinet(
     cornerGeometryKind: sku.cornerGeometryKind ?? "standard",
     ...(isFloorStandingCabinet ? { floorStandingCabinet: true, toeKickHeightIn: THREE_D_TOE_KICK, islandWallCabinetBaseTreatment: isCounterHeightIslandWallCabinet ? (hasFurnitureBaseMolding ? "base-molding" : "toe-kick") : null } : {}),
     ...(usesBaseFillerFaceElevation ? { baseFillerFace: true, fillerFaceBottomIn: bottom, fillerFaceHeightIn: heightIn } : {}),
+    ...(isFullOwnerEnvelopeFiller ? { fullOwnerEnvelopeFiller: true, fillerFaceBottomIn: bottom, fillerFaceHeightIn: heightIn } : {}),
     ...(placement === "appliance" ? {
       catalogApplianceEnvelope: {
         widthIn,

@@ -629,6 +629,45 @@ describe("3D fallback appliance run seams", () => {
     expect(bounds.max.y * 12).toBeCloseTo(34.5, 6);
   });
 
+  it("renders a refrigerator-owned filler from the floor to the refrigerator top without a toe kick", () => {
+    const root = new THREE.Group();
+    addCabinet(root, {
+      placementUid: "fridge-side-f342",
+      distributorSkuId: 342,
+      cabinetId: 342,
+      masterCode: "F342",
+      description: '3" Refrigerator-side filler',
+      placementType: "base",
+      width: 3,
+      height: 70,
+      depth: 30,
+      mountBottom: 0,
+      fillerMatchesFullOwnerEnvelope: true,
+      fillerPieceGroupId: "fridge-side-filler",
+      fillerPlacementMode: "right",
+      fillerTotalWidth: 3,
+      numberOfDoors: 0,
+      numberOfDrawers: 0,
+    }, null, {}, 120, 96, "#b99a6b", "#f8f8f6", undefined, { x: 0, z: 0, rotation: 0 });
+
+    root.updateMatrixWorld(true);
+    const filler = root.children[0]!;
+    const toeKicks: THREE.Object3D[] = [];
+    let fillerBody: THREE.Mesh | null = null;
+    filler.traverse((node) => {
+      if (node.userData.baseToeKick) toeKicks.push(node);
+      if (node instanceof THREE.Mesh && node.userData.installedFillerFrontAligned) fillerBody = node;
+    });
+
+    expect(filler.userData).toMatchObject({ fullOwnerEnvelopeFiller: true });
+    expect(filler.userData.floorStandingCabinet).toBeUndefined();
+    expect(toeKicks).toHaveLength(0);
+    expect(fillerBody).not.toBeNull();
+    const bounds = new THREE.Box3().setFromObject(fillerBody!);
+    expect(bounds.min.y * 12).toBeCloseTo(0, 5);
+    expect(bounds.max.y * 12).toBeCloseTo(70, 5);
+  });
+
   it("keeps each front-miter filler at its assigned cabinet face on every wall rotation", () => {
     const localFootprint = [
       { x: -1, z: 0 }, { x: 0, z: 0 }, { x: -0.75, z: -0.75 }, { x: -1, z: -0.75 },

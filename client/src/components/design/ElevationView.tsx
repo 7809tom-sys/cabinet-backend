@@ -359,7 +359,9 @@ export function ElevationView({
   const toeKickRuns = mergedElevationTrimRuns(sorted
     .filter((p) => {
       const { bottom } = elevationBox(p, room);
-      return toeKickHeightForElevation(p.placement, bottom, TOE_KICK_HEIGHT_IN) > 0 && p.cabinetId !== 0;
+      return p.fillerMatchesFullOwnerEnvelope !== true
+        && toeKickHeightForElevation(p.placement, bottom, TOE_KICK_HEIGHT_IN) > 0
+        && p.cabinetId !== 0;
     })
     .map((p) => {
       const start = wallRunOffset(p, side, room);
@@ -421,13 +423,16 @@ export function ElevationView({
     }
     const isWall = p.placement === "wall";
     const refrigeratorEndPanel = isRefrigeratorEndPanel(p);
+    const fullOwnerEnvelopeFiller = isFillerItem(p) && p.fillerMatchesFullOwnerEnvelope === true;
     // Toe kick is physical cabinet geometry: raise every floor-level base/tall
     // face above the recessed 4.5-inch zone, independent of the optional trim
     // BOM setting.
     const isBaseOrTall = p.placement === "base" || p.placement === "tall";
     // Refrigerator end panels are exposed architectural skins, not toe-kicked
     // cabinets. They must visibly run from the floor to the refrigerator top.
-    const toeOffset = refrigeratorEndPanel ? 0 : toeKickHeightForElevation(p.placement, rawBottom, TOE_KICK_HEIGHT_IN);
+    const toeOffset = refrigeratorEndPanel || fullOwnerEnvelopeFiller
+      ? 0
+      : toeKickHeightForElevation(p.placement, rawBottom, TOE_KICK_HEIGHT_IN);
     const bottom = rawBottom + toeOffset;
     const height = rawHeight - toeOffset;
     // FRIDGE-* and all other appliances render as plain steel/gray appliance boxes.

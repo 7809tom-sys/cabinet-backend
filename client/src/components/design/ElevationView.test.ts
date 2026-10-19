@@ -43,8 +43,8 @@ import { CustomProfileFace, DoorFront, ElevationView, isBaseEndAngleCabinet, isR
   });
 
 	  it("keeps a 34½-inch base envelope as a 30-inch face above a 4½-inch toe kick", () => {
-    const markup = renderToStaticMarkup(
-      createElement(LanguageProvider, null, createElement(ElevationView, {
+	    const markup = renderToStaticMarkup(
+	      createElement(LanguageProvider, null, createElement(ElevationView, {
         room: { width: 144, depth: 120, ceilingHeight: 96 },
         cabinets: [{ uid: "base-345", cabinetId: 81, masterCode: "B-24", description: '24" Base Cabinet', placement: "base", x: 0, y: 0, width: 24, height: 34.5, depth: 24, rotation: 0, numberOfDoors: 2, numberOfDrawers: 0 }],
         selectedUid: null,
@@ -55,8 +55,25 @@ import { CustomProfileFace, DoorFront, ElevationView, isBaseEndAngleCabinet, isR
 
     // At the stable four-pixel-per-inch server render scale: 30" face = 120px,
     // 4½" toe kick = 18px, and the assembled envelope = 34½" / 138px.
-    expect(markup).toContain("bottom:18px;height:120px");
-	    expect(markup).toContain("height:18px");
+	    expect(markup).toContain("bottom:18px;height:120px");
+		    expect(markup).toContain("height:18px");
+	  });
+
+	  it("keeps a refrigerator-owned filler on the floor through the refrigerator top with no toe-kick strip", () => {
+	    const markup = renderToStaticMarkup(
+	      createElement(LanguageProvider, null, createElement(ElevationView, {
+	        room: { width: 144, depth: 120, ceilingHeight: 96 },
+	        cabinets: [{
+	          uid: "fridge-side-filler", cabinetId: 84, masterCode: "F342", description: '3" Refrigerator-side filler',
+	          category: "Filler", placement: "base", x: 0, y: 0, width: 3, height: 70, depth: 30, rotation: 0,
+	          mountBottom: 0, fillerMatchesFullOwnerEnvelope: true, numberOfDoors: 0, numberOfDrawers: 0,
+	        }],
+	        selectedUid: null, onSelect: () => undefined, wall: "back",
+	      })),
+	    );
+
+	    expect(markup).toContain("bottom:0;height:280px");
+	    expect(markup).not.toContain('data-testid="continuous-toe-kick-run"');
 	  });
 
 	  it("shows installed filler measurement and an explicit over-maximum warning", () => {
