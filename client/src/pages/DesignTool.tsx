@@ -3114,7 +3114,10 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       dishwasher: appliancePalette.find((item) => item.masterCode === "DW-24"),
       refrigerator: appliancePalette.find((item) => item.masterCode === "FRIDGE-36"),
     };
-    if (Object.values(applianceByKind).some((item) => !item)) {
+    const requestedApplianceKinds = result.plan.anchors
+      .filter((anchor) => anchor.kind !== "sink")
+      .map((anchor) => anchor.kind);
+    if (requestedApplianceKinds.some((kind) => !applianceByKind[kind])) {
       return fail("The kitchen appliance palette is still loading. Wait for the source-priced cabinet catalog, then try again.");
     }
     const baseSource = straightBaseCatalog
@@ -3126,7 +3129,8 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     const fridgeParts = refrigeratorSurroundCatalog as
       | { deepAbove?: DesignCabinet[]; endPanels?: DesignCabinet[] }
       | undefined;
-    if (!fridgeParts?.deepAbove?.length || !fridgeParts.endPanels?.length) {
+    const refrigeratorRequested = result.plan.anchors.some((anchor) => anchor.kind === "refrigerator");
+    if (refrigeratorRequested && (!fridgeParts?.deepAbove?.length || !fridgeParts.endPanels?.length)) {
       return fail("The selected line’s source-priced 36-inch refrigerator cabinet and two end panels are still loading or unavailable. The measured build was not changed.");
     }
 
@@ -3202,27 +3206,28 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     }
     const refrigerator = anchorsByKind.get("refrigerator");
     let refrigeratorReservation: { wall: string; start: number; end: number } | null = null;
-    if (!refrigerator) return fail("The required 36-inch refrigerator anchor was not created. The measured build was not changed.");
-    const refrigeratorBay = buildMandatoryFourAnchorRefrigeratorBay({
-      refrigerator,
-      room,
-      caps: fridgeParts.deepAbove,
-      endPanels: fridgeParts.endPanels,
-      styleId: styleIdRef.current ?? null,
-      makeUid,
-      wallCabinetHeightIn: input.wallCabinetHeightIn ?? 30,
-    });
-    if (!refrigeratorBay.ok) return fail(refrigeratorBay.message);
-    const fittedBay = fitExplicitRefrigeratorOptionPlacements(working, refrigeratorBay.additions, refrigerator.uid, room);
-    if (Math.abs(fittedBay.shiftIn) > COLLISION_EPSILON_IN) {
-      return fail("The measured refrigerator bay does not have room for its two panels and matching cabinet above. Adjust the refrigerator center measurement; Four-anchor will not move it.");
+    if (refrigerator) {
+      const refrigeratorBay = buildMandatoryFourAnchorRefrigeratorBay({
+        refrigerator,
+        room,
+        caps: fridgeParts?.deepAbove ?? [],
+        endPanels: fridgeParts?.endPanels ?? [],
+        styleId: styleIdRef.current ?? null,
+        makeUid,
+        wallCabinetHeightIn: input.wallCabinetHeightIn ?? 30,
+      });
+      if (!refrigeratorBay.ok) return fail(refrigeratorBay.message);
+      const fittedBay = fitExplicitRefrigeratorOptionPlacements(working, refrigeratorBay.additions, refrigerator.uid, room);
+      if (Math.abs(fittedBay.shiftIn) > COLLISION_EPSILON_IN) {
+        return fail("The measured refrigerator bay does not have room for its two panels and matching cabinet above. Adjust the refrigerator center measurement; Four-anchor will not move it.");
+      }
+      const committedBay = appendRefrigeratorEnclosurePlacements(fittedBay.existing, fittedBay.additions, refrigerator.uid, room);
+      if (committedBay.rejected.length > 0) {
+        return fail("The measured refrigerator bay overlaps an anchor, opening, or wall end. Adjust the refrigerator center measurement; Four-anchor will not add a filler or move it.");
+      }
+      working = committedBay.placed;
+      refrigeratorReservation = refrigeratorBay.reservation;
     }
-    const committedBay = appendRefrigeratorEnclosurePlacements(fittedBay.existing, fittedBay.additions, refrigerator.uid, room);
-    if (committedBay.rejected.length > 0) {
-      return fail("The measured refrigerator bay overlaps an anchor, opening, or wall end. Adjust the refrigerator center measurement; Four-anchor will not add a filler or move the refrigerator.");
-    }
-    working = committedBay.placed;
-    refrigeratorReservation = refrigeratorBay.reservation;
     const sinkBase = anchorsByKind.get("sink");
     if (sinkBase) {
       const defaultSinkType: SinkType = isFarmSinkBasePaletteItem(sinkBase)
@@ -18561,6 +18566,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	          onOpenChange={setFourAnchorAutoBuildOpen}
 	          onBuild={buildFourAnchorAutoLayout}
 	          catalogLoading={autoFillCabinetsLoading || wallCabPoolLoading}
+	          wallCount={Math.min(6, Math.max(1, room.customWalls?.length ?? 4))}
 	        />
 	      )}
 	      {isAdmin && fourAnchorCornerStage && (

@@ -27,11 +27,20 @@ describe("admin four-anchor Designer wiring", () => {
   it("makes the wall choice and its measurement datum explicit for every appliance row", () => {
     expect(dialogSource).toContain("Place on wall");
     expect(dialogSource).toContain("Center from selected wall start (in.)");
-    expect(dialogSource).toContain("Choose Wall 1–4 for each appliance");
+    expect(dialogSource).toContain("Choose from up to six real room walls for each appliance");
     expect(dialogSource).toContain("Sink base — place on wall");
     expect(dialogSource).toContain("Refrigerator — place on wall");
     expect(dialogSource).not.toContain("RUN / X");
     expect(dialogSource).not.toContain("DEPTH / Y");
+  });
+
+  it("keeps the sink-base workflow required but allows an explicitly omitted range, dishwasher, or refrigerator without forcing a palette or refrigerator bay", () => {
+    expect(dialogSource).toContain("Do not add Range / stove");
+    expect(dialogSource).toContain("Do not add Dishwasher");
+    expect(dialogSource).toContain("Do not add Refrigerator");
+    expect(pageSource).toContain('const refrigeratorRequested = result.plan.anchors.some((anchor) => anchor.kind === "refrigerator")');
+    expect(pageSource).toContain("if (refrigeratorRequested && (!fridgeParts?.deepAbove?.length || !fridgeParts.endPanels?.length))");
+    expect(pageSource).toContain("if (refrigerator) {");
   });
 
   it("offers a left or right sink-adjacent dishwasher choice when no exact center is entered", () => {
@@ -42,7 +51,7 @@ describe("admin four-anchor Designer wiring", () => {
     expect(dialogSource).toContain("Optional exact dishwasher center");
   });
 
-  it("collects a selected sink base and documents the mandatory refrigerator enclosure instead of using generic floor appliances", () => {
+  it("collects a selected sink base and documents the selected refrigerator enclosure instead of using generic floor appliances", () => {
     expect(dialogSource).toContain("Sink base size");
     expect(dialogSource).toContain("SB{width}");
     expect(dialogSource).toContain("36″ refrigerator");

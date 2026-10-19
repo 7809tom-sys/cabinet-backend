@@ -6,7 +6,8 @@ export type FourAnchorKind = "sink" | "stove" | "dishwasher" | "refrigerator";
 export type FourAnchorLayoutType = "galley" | "l-shape" | "u-shape" | "single-wall";
 export type FourAnchorOriginCorner = "left" | "right";
 export type FourAnchorRunDirection = "left" | "right";
-export type WallLabel = "Wall 1" | "Wall 2" | "Wall 3" | "Wall 4";
+export const FOUR_ANCHOR_WALL_LABELS = ["Wall 1", "Wall 2", "Wall 3", "Wall 4", "Wall 5", "Wall 6"] as const;
+export type WallLabel = typeof FOUR_ANCHOR_WALL_LABELS[number];
 export type DishwasherSide = "left" | "right";
 export type RefrigeratorPanelChoice = "none" | "left" | "right" | "both";
 export type RefrigeratorEnclosureChoice = "none" | "cabinet-above";
@@ -46,12 +47,16 @@ export type FourAnchorInputs = {
   sinkBaseWidthIn?: 30 | 33 | 36 | 42;
   /** Regular sink base unless the admin explicitly asks for a farmhouse (apron-front) base. */
   sinkBaseKind?: FourAnchorSinkBaseKind;
-  stove: FourAnchorMeasurement;
+  /** Null means the admin explicitly chose not to add a range/stove. */
+  stove: FourAnchorMeasurement | null;
   /** Optional exact dishwasher center. Null means seat it against the sink. */
   dishwasher?: FourAnchorMeasurement | null;
+  /** True means do not add any dishwasher; false/undefined retains the sink-adjacent default. */
+  skipDishwasher?: boolean;
   /** Used only when no exact dishwasher center is entered. */
   dishwasherSide?: DishwasherSide;
-  refrigerator: FourAnchorMeasurement;
+  /** Null means the admin explicitly chose not to add a refrigerator/bay. */
+  refrigerator: FourAnchorMeasurement | null;
   refrigeratorWidthIn?: 30 | 33 | 36 | 42;
   refrigeratorPanels?: RefrigeratorPanelChoice;
   refrigeratorEnclosure?: RefrigeratorEnclosureChoice;
@@ -94,14 +99,14 @@ function orderedEngineWallIds(
 ): string[] {
   const customIds = room.customWalls?.map((wall) => wall.id) ?? [];
   if (customIds.length > 0) {
-    const ids = customIds.slice(0, 4);
+    const ids = customIds.slice(0, FOUR_ANCHOR_WALL_LABELS.length);
     return runDirection === "left" ? [...ids].reverse() : ids;
   }
   return STANDARD_WALL_ORDER[originCorner][runDirection];
 }
 
 /**
- * Resolves the UI-only Wall 1–4 label to the existing placement engine wall.
+ * Resolves the UI-only Wall 1–6 label to the existing placement engine wall.
  * No placement coordinates are produced here; callers must use the returned
  * frame and wall id with wallPlacementAt().
  */
@@ -112,7 +117,7 @@ export function wallLabelToEngineWallId(
   runDirection: FourAnchorRunDirection,
 ): AutoBuildWallRef | null {
   const index = Number(label.replace("Wall ", "")) - 1;
-  if (index < 0 || index > 3) return null;
+  if (index < 0 || index >= FOUR_ANCHOR_WALL_LABELS.length) return null;
   const engineWallId = orderedEngineWallIds(room, originCorner, runDirection)[index];
   if (!engineWallId) return null;
   const frame = wallRunFrame(engineWallId, room);
@@ -134,6 +139,8 @@ export function buildWallLabelMap(
     "Wall 2": wallLabelToEngineWallId("Wall 2", room, originCorner, runDirection),
     "Wall 3": wallLabelToEngineWallId("Wall 3", room, originCorner, runDirection),
     "Wall 4": wallLabelToEngineWallId("Wall 4", room, originCorner, runDirection),
+    "Wall 5": wallLabelToEngineWallId("Wall 5", room, originCorner, runDirection),
+    "Wall 6": wallLabelToEngineWallId("Wall 6", room, originCorner, runDirection),
   };
 }
 
@@ -273,17 +280,19 @@ export function autoBuildSelectedWallCornerReservations(
 export function planFourAnchorAutoBuild(input: FourAnchorInputs): FourAnchorBuildResult {
   const missing: FourAnchorKind[] = [];
   if (!validMeasurement(input.sink)) missing.push("sink");
-  if (!validMeasurement(input.stove)) missing.push("stove");
-  if (!validMeasurement(input.refrigerator)) missing.push("refrigerator");
+  const stove = validMeasurement(input.stove) ? input.stove : null;
+  if (!stove && input.stove !== null && input.stove !== undefined) missing.push("stove");
+  const refrigerator = validMeasurement(input.refrigerator) ? input.refrigerator : null;
+  if (!refrigerator && input.refrigerator !== null && input.refrigerator !== undefined) missing.push("refrigerator");
 
   const dishwasher = validMeasurement(input.dishwasher) ? input.dishwasher : null;
-  if (!dishwasher && input.dishwasher !== null && input.dishwasher !== undefined) missing.push("dishwasher");
+  if (!input.skipDishwasher && !dishwasher && input.dishwasher !== null && input.dishwasher !== undefined) missing.push("dishwasher");
   if (missing.length) return { ok: false, missing };
 
   const sink = input.sinkWindowCenter && validMeasurement(input.sinkWindowCenter)
     ? { ...input.sinkWindowCenter, kind: "sink" as const, source: "sink-window-centered" as const }
     : { ...input.sink, kind: "sink" as const, source: "measured" as const };
-  const dishwasherPlacement = dishwasher
+  const dishwasherPlacement = input.skipDishwasher ? null : dishwasher
     ? { ...dishwasher, kind: "dishwasher" as const, source: "measured" as const }
     : {
       wallLabel: sink.wallLabel,
@@ -301,9 +310,9 @@ export function planFourAnchorAutoBuild(input: FourAnchorInputs): FourAnchorBuil
       runDirection: input.runDirection,
       anchors: [
         sink,
-        { ...input.stove, kind: "stove", source: "measured" },
-        dishwasherPlacement,
-        { ...input.refrigerator, kind: "refrigerator", source: "measured" },
+        ...(stove ? [{ ...stove, kind: "stove" as const, source: "measured" as const }] : []),
+        ...(dishwasherPlacement ? [dishwasherPlacement] : []),
+        ...(refrigerator ? [{ ...refrigerator, kind: "refrigerator" as const, source: "measured" as const }] : []),
       ],
       surroundingRules: ["fillers", "blind corners", "molding", "substitution"],
     },
@@ -316,7 +325,7 @@ export function canRunFourAnchorAutoBuild(isAdmin: boolean, hasHandPlacedItems: 
 
 function validMeasurement(measurement: FourAnchorMeasurement | null | undefined): measurement is FourAnchorMeasurement {
   if (!measurement) return false;
-  return ["Wall 1", "Wall 2", "Wall 3", "Wall 4"].includes(measurement.wallLabel)
+  return FOUR_ANCHOR_WALL_LABELS.includes(measurement.wallLabel)
     && Number.isFinite(measurement.centerOffsetIn)
     && measurement.centerOffsetIn >= 0;
 }

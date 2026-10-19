@@ -37,6 +37,36 @@ describe("FourAnchorAutoBuildDialog", () => {
     fireEvent.click(screen.getByTestId("four-anchor-build-submit"));
     expect(onBuild).toHaveBeenCalledWith(expect.objectContaining({ sinkBaseKind: "regular" }));
   });
+
+  it("offers Wall 1 through Wall 6 and submits an explicit no-appliance choice without guessing placements", () => {
+    const onBuild = vi.fn((): { ok: true } => ({ ok: true }));
+    render(<FourAnchorAutoBuildDialog open onOpenChange={vi.fn()} onBuild={onBuild} wallCount={6} />);
+
+    fireEvent.click(screen.getByLabelText("Sink base — place on wall"));
+    expect(screen.getByRole("option", { name: "Wall 5" })).toBeTruthy();
+    expect(screen.getByRole("option", { name: "Wall 6" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("option", { name: "Wall 5" }));
+
+    for (const [label, omission] of [
+      ["Range / stove — place on wall", "Do not add Range / stove"],
+      ["Dishwasher — place on wall when using an exact center", "Do not add Dishwasher"],
+      ["Refrigerator — place on wall", "Do not add Refrigerator"],
+    ]) {
+      fireEvent.click(screen.getByLabelText(label));
+      fireEvent.click(screen.getByRole("option", { name: omission }));
+    }
+    expect(screen.queryByTestId("four-anchor-refrigerator-options")).toBeNull();
+    expect((screen.getByLabelText("Dishwasher position") as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(screen.getByTestId("four-anchor-build-submit"));
+
+    expect(onBuild).toHaveBeenCalledWith(expect.objectContaining({
+      sink: expect.objectContaining({ wallLabel: "Wall 5" }),
+      stove: null,
+      dishwasher: null,
+      skipDishwasher: true,
+      refrigerator: null,
+    }));
+  });
   it("keeps a failed submit visible in the dialog with its exact blocker rather than appearing inert", () => {
     const onBuild = vi.fn(() => ({
       ok: false as const,

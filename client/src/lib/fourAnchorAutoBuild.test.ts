@@ -10,7 +10,9 @@ describe("four-anchor wall-label mapping", () => {
     ["right", "right", ["top", "right", "bottom", "left"]],
   ] as const)("maps %s origin and %s traversal to the perimeter", (origin, direction, expected) => {
     const map = buildWallLabelMap(DEFAULT_ROOM, origin, direction);
-    expect(Object.values(map).map((ref) => ref?.engineWallId)).toEqual(expected);
+    expect(Object.values(map).slice(0, 4).map((ref) => ref?.engineWallId)).toEqual(expected);
+    expect(map["Wall 5"]).toBeNull();
+    expect(map["Wall 6"]).toBeNull();
   });
 
   it("maps a Wall 2 sink to the engine right wall and converts its center to an edge offset", () => {
@@ -25,6 +27,28 @@ describe("four-anchor wall-label mapping", () => {
     expect(wall?.engineWallId).toBe("left");
     expect(wall?.startCorner).toBe("end");
     expect(anchorAlongStartIn({ wallLabel: "Wall 2", centerOffsetIn: 48 }, 36, wall!)).toBe(DEFAULT_ROOM.depth - 48 - 18);
+  });
+
+  it("maps Wall 5 and Wall 6 only when a custom room actually contains those fifth and sixth wall segments", () => {
+    const sixWallRoom = {
+      width: 180,
+      depth: 180,
+      ceilingHeight: 96,
+      vertices: [
+        { id: "a", x: 0, y: 0 }, { id: "b", x: 120, y: 0 }, { id: "c", x: 180, y: 60 },
+        { id: "d", x: 180, y: 180 }, { id: "e", x: 60, y: 180 }, { id: "f", x: 0, y: 120 },
+      ],
+      customWalls: [
+        ["w1", "a", "b"], ["w2", "b", "c"], ["w3", "c", "d"],
+        ["w4", "d", "e"], ["w5", "e", "f"], ["w6", "f", "a"],
+      ].map(([id, startVertexId, endVertexId]) => ({ id, startVertexId, endVertexId })),
+    } as typeof DEFAULT_ROOM;
+
+    const map = buildWallLabelMap(sixWallRoom, "left", "right");
+    expect(map["Wall 5"]?.engineWallId).toBe("w5");
+    expect(map["Wall 6"]?.engineWallId).toBe("w6");
+    expect(wallLabelToEngineWallId("Wall 5", DEFAULT_ROOM, "left", "right")).toBeNull();
+    expect(wallLabelToEngineWallId("Wall 6", DEFAULT_ROOM, "left", "right")).toBeNull();
   });
 
   it("computes a flush left or right dishwasher center from the selected sink base width", () => {
@@ -120,6 +144,24 @@ describe("four-anchor auto-build", () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.plan.anchors[2]).toMatchObject({ wallLabel: "Wall 1", source: "adjacent-to-sink", dishwasherSide: "left" });
+  });
+
+  it("does not add appliances explicitly marked as omitted, while retaining the required sink base", () => {
+    const result = planFourAnchorAutoBuild({
+      layoutType: "single-wall",
+      originCorner: "left",
+      runDirection: "right",
+      sink: { wallLabel: "Wall 5", centerOffsetIn: 60 },
+      stove: null,
+      dishwasher: null,
+      skipDishwasher: true,
+      refrigerator: null,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.plan.anchors).toEqual([
+      expect.objectContaining({ kind: "sink", wallLabel: "Wall 5", centerOffsetIn: 60 }),
+    ]);
   });
 
   it("asks for missing required measurements instead of guessing", () => {

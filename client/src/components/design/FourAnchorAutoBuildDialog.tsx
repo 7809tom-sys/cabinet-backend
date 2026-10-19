@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { FOUR_ANCHOR_WALL_LABELS } from "@/lib/fourAnchorAutoBuild";
 import type {
   DishwasherSide,
   FourAnchorInputs,
@@ -21,6 +22,8 @@ type Props = {
   onBuild: (input: FourAnchorInputs) => FourAnchorSubmitResult;
   /** The selected line's source-priced base catalog is still arriving. */
   catalogLoading?: boolean;
+  /** Actual room-wall count, capped by the shared six-wall input contract. */
+  wallCount?: number;
 };
 type PointField = "sink" | "stove" | "dishwasher" | "refrigerator";
 type SinkBaseWidth = 30 | 33 | 36 | 42;
@@ -39,10 +42,15 @@ const wallSelectionLabels: Record<PointField, string> = {
   dishwasher: "Dishwasher — place on wall when using an exact center",
   refrigerator: "Refrigerator — place on wall",
 };
-const wallLabels: WallLabel[] = ["Wall 1", "Wall 2", "Wall 3", "Wall 4"];
+const applianceFields = ["stove", "dishwasher", "refrigerator"] as const;
+const omissionLabels: Record<(typeof applianceFields)[number], string> = {
+  stove: "Do not add Range / stove",
+  dishwasher: "Do not add Dishwasher",
+  refrigerator: "Do not add Refrigerator",
+};
 type FieldValue = { wallLabel: WallLabel; centerOffsetIn: string };
 
-export function FourAnchorAutoBuildDialog({ open, onOpenChange, onBuild, catalogLoading = false }: Props) {
+export function FourAnchorAutoBuildDialog({ open, onOpenChange, onBuild, catalogLoading = false, wallCount = 4 }: Props) {
   const [layoutType, setLayoutType] = useState<FourAnchorLayoutType>("single-wall");
   const [originCorner, setOriginCorner] = useState<FourAnchorOriginCorner>("left");
   const [runDirection, setRunDirection] = useState<FourAnchorRunDirection>("right");
@@ -51,6 +59,11 @@ export function FourAnchorAutoBuildDialog({ open, onOpenChange, onBuild, catalog
     stove: { wallLabel: "Wall 1", centerOffsetIn: "120" },
     dishwasher: { wallLabel: "Wall 1", centerOffsetIn: "" },
     refrigerator: { wallLabel: "Wall 1", centerOffsetIn: "84" },
+  });
+  const [omitted, setOmitted] = useState<Record<(typeof applianceFields)[number], boolean>>({
+    stove: false,
+    dishwasher: false,
+    refrigerator: false,
   });
   const [sinkBaseWidth, setSinkBaseWidth] = useState<SinkBaseWidth>(36);
   const [sinkBaseKind, setSinkBaseKind] = useState<FourAnchorSinkBaseKind>("regular");
@@ -64,6 +77,15 @@ export function FourAnchorAutoBuildDialog({ open, onOpenChange, onBuild, catalog
     ...current,
     [field]: { ...current[field], ...patch },
   }));
+  const availableWallLabels = FOUR_ANCHOR_WALL_LABELS.slice(0, Math.max(1, Math.min(FOUR_ANCHOR_WALL_LABELS.length, wallCount)));
+  const selectWallOrOmit = (field: PointField, value: string) => {
+    if (field !== "sink" && value === `omit-${field}`) {
+      setOmitted((current) => ({ ...current, [field]: true }));
+      return;
+    }
+    setValue(field, { wallLabel: value as WallLabel });
+    if (field !== "sink") setOmitted((current) => ({ ...current, [field]: false }));
+  };
   const measurement = (field: PointField) => ({
     wallLabel: values[field].wallLabel,
     centerOffsetIn: Number(values[field].centerOffsetIn),
@@ -80,10 +102,11 @@ export function FourAnchorAutoBuildDialog({ open, onOpenChange, onBuild, catalog
       sink: measurement("sink"),
       sinkBaseWidthIn: sinkBaseWidth,
       sinkBaseKind,
-      stove: measurement("stove"),
-      dishwasher: optionalMeasurement("dishwasher"),
+      stove: omitted.stove ? null : measurement("stove"),
+      dishwasher: omitted.dishwasher ? null : optionalMeasurement("dishwasher"),
+      skipDishwasher: omitted.dishwasher,
       dishwasherSide,
-      refrigerator: measurement("refrigerator"),
+      refrigerator: omitted.refrigerator ? null : measurement("refrigerator"),
       refrigeratorWidthIn: refrigeratorWidth,
       refrigeratorPanels: "both",
       refrigeratorEnclosure: "cabinet-above",
@@ -100,7 +123,7 @@ export function FourAnchorAutoBuildDialog({ open, onOpenChange, onBuild, catalog
         <DialogHeader>
           <DialogTitle>Admin · Four-anchor auto-build</DialogTitle>
           <DialogDescription>
-            Choose the layout and datum first. Every measured anchor uses its own Wall 1–4 selector and a center measurement from that wall’s starting corner.
+            Choose the layout and datum first. Every measured anchor uses its own selector from up to six actual room walls and a center measurement from that wall’s starting corner.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4">
@@ -134,7 +157,7 @@ export function FourAnchorAutoBuildDialog({ open, onOpenChange, onBuild, catalog
           </div>
 
           <div className="rounded-lg border bg-muted/20 p-3 text-xs text-muted-foreground">
-            Choose Wall 1–4 for each appliance. The measurement is that item’s center from the selected wall’s labeled starting corner; raw X/Y floor coordinates are never used.
+            Choose from up to six real room walls for each appliance. The measurement is that item’s center from the selected wall’s labeled starting corner; raw X/Y floor coordinates are never used. The sink base remains required; choose Do not add for a range, dishwasher, or refrigerator you do not want in this build.
           </div>
           <div className="rounded-lg border bg-muted/20 p-3 text-sm" data-testid="four-anchor-build-order">
             <p className="font-semibold">Build order</p>
@@ -163,9 +186,12 @@ export function FourAnchorAutoBuildDialog({ open, onOpenChange, onBuild, catalog
             {(Object.keys(labels) as PointField[]).map((field) => (
               <div key={field} className="grid min-w-0 grid-cols-1 sm:grid-cols-[minmax(0,1fr)_8rem_minmax(0,11rem)] items-center gap-2">
                 <Label htmlFor={`four-anchor-${field}-center`}>{labels[field]}</Label>
-                <Select value={values[field].wallLabel} onValueChange={(value) => setValue(field, { wallLabel: value as WallLabel })}>
+                <Select value={field !== "sink" && omitted[field] ? `omit-${field}` : values[field].wallLabel} onValueChange={(value) => selectWallOrOmit(field, value)}>
                   <SelectTrigger className="w-full min-w-0" aria-label={wallSelectionLabels[field]}><SelectValue /></SelectTrigger>
-                  <SelectContent>{wallLabels.map((wall) => <SelectItem key={wall} value={wall}>{wall}</SelectItem>)}</SelectContent>
+                  <SelectContent>
+                    {field !== "sink" && <SelectItem value={`omit-${field}`}>{omissionLabels[field]}</SelectItem>}
+                    {availableWallLabels.map((wall) => <SelectItem key={wall} value={wall}>{wall}</SelectItem>)}
+                  </SelectContent>
                 </Select>
                 <Input
                   className="min-w-0 w-full"
@@ -176,6 +202,7 @@ export function FourAnchorAutoBuildDialog({ open, onOpenChange, onBuild, catalog
                   placeholder={field === "dishwasher" ? "Leave blank for sink side" : undefined}
                   value={values[field].centerOffsetIn}
                   onChange={(event) => setValue(field, { centerOffsetIn: event.target.value })}
+                  disabled={field !== "sink" && omitted[field]}
                   aria-label={`${labels[field]} center from selected wall start in inches`}
                 />
               </div>
@@ -204,21 +231,23 @@ export function FourAnchorAutoBuildDialog({ open, onOpenChange, onBuild, catalog
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="four-anchor-dishwasher-side">Dishwasher position</Label>
-              <Select value={dishwasherSide} onValueChange={(value) => setDishwasherSide(value as DishwasherSide)}>
+              <Select value={dishwasherSide} onValueChange={(value) => setDishwasherSide(value as DishwasherSide)} disabled={omitted.dishwasher}>
                 <SelectTrigger id="four-anchor-dishwasher-side" aria-label="Dishwasher position"><SelectValue /></SelectTrigger>
                 <SelectContent><SelectItem value="left">Left of sink</SelectItem><SelectItem value="right">Right of sink</SelectItem></SelectContent>
               </Select>
-              <p className="text-xs text-muted-foreground">Used when the optional exact dishwasher center is blank. An exact center takes precedence.</p>
+              <p className="text-xs text-muted-foreground">{omitted.dishwasher ? "No dishwasher will be added." : "Used when the optional exact dishwasher center is blank. An exact center takes precedence."}</p>
             </div>
           </div>
 
-          <div className="rounded-lg border p-3" data-testid="four-anchor-refrigerator-options">
-            <div className="space-y-1.5">
-              <Label>Refrigerator bay</Label>
-              <p className="text-sm font-medium">36″ refrigerator · Two source-priced side panels · Matching source-priced 36″ cabinet above</p>
-              <p className="text-xs text-muted-foreground">Four-anchor creates this complete refrigerator bay before filling surrounding runs. A refrigerator bay never uses a filler.</p>
+          {!omitted.refrigerator && (
+            <div className="rounded-lg border p-3" data-testid="four-anchor-refrigerator-options">
+              <div className="space-y-1.5">
+                <Label>Refrigerator bay</Label>
+                <p className="text-sm font-medium">36″ refrigerator · Two source-priced side panels · Matching source-priced 36″ cabinet above</p>
+                <p className="text-xs text-muted-foreground">Four-anchor creates this complete refrigerator bay before filling surrounding runs. A refrigerator bay never uses a filler.</p>
+              </div>
             </div>
-          </div>
+          )}
 
           <div className="space-y-1.5">
             <Label htmlFor="four-anchor-window-center">Window above the sink: center from the sink wall’s starting corner (in.)</Label>

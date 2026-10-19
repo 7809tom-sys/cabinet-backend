@@ -1,4 +1,4 @@
-import { wallLabelToEngineWallId, type AutoBuildCatalogCandidate, type FourAnchorLayoutType, type FourAnchorOriginCorner, type FourAnchorRunDirection, type WallLabel } from "./fourAnchorAutoBuild";
+import { FOUR_ANCHOR_WALL_LABELS, wallLabelToEngineWallId, type AutoBuildCatalogCandidate, type FourAnchorLayoutType, type FourAnchorOriginCorner, type FourAnchorRunDirection, type WallLabel } from "./fourAnchorAutoBuild";
 import { isBaseEndCornerCabinet, isBlindCorner, isCornerCabinet, type RoomData } from "./design";
 
 /** A real room vertex that the admin may explicitly populate after all anchors are seated. */
@@ -47,8 +47,7 @@ export function fourAnchorCornerSlots(layoutType: FourAnchorLayoutType, measured
   if (layoutType === "l-shape" || layoutType === "u-shape") add("Wall 1", "Wall 2");
   if (layoutType === "u-shape") add("Wall 2", "Wall 3");
   if (!measured) return slots;
-  const labels: WallLabel[] = ["Wall 1", "Wall 2", "Wall 3", "Wall 4"];
-  const occupied = labels.filter((label) => {
+  const occupied = FOUR_ANCHOR_WALL_LABELS.filter((label) => {
     const ref = wallLabelToEngineWallId(label, measured.room, measured.originCorner, measured.runDirection);
     return ref != null && measured.wallIds.includes(ref.engineWallId);
   });
