@@ -7801,13 +7801,35 @@ export function fridgeCornerUpperDepth(): number {
   return FRIDGE_CORNER_UPPER_DEPTH_IN;
 }
 
+// A built-in OVEN CABINET (O338424, UOC3390, TOS2DB3084, TOD3094 ...) is a
+// 24"-deep tall cabinet with the oven inside a 24" opening: the oven door and
+// handle stay inside the box and can never reach a neighbor. It is a cabinet,
+// not a free-standing range, so the corner handle-clearance filler never
+// applies on either side of it (user rule, 2026-10-19). A "Range Base"
+// (RB2DB30 ...) is likewise just a base cabinet under a cooktop.
+export function isBuiltInOvenCabinet(p: {
+  masterCode?: string | null;
+  description?: string | null;
+  placement?: string | null;
+}): boolean {
+  if (p.placement === "appliance") return false;
+  const code = (p.masterCode || "").toUpperCase();
+  const desc = (p.description || "").toLowerCase();
+  if (/^(?:UOC|TOS|TOD|O3\d)/.test(code)) return true;
+  return /\boven\b/.test(desc) && (p.placement === "tall" || p.placement === "wall" || p.placement === "base");
+}
 export function rangeOvenClearanceViolations(
   placed: PlacedCabinet[],
   room: RoomData,
   fillerIn = RANGE_CLEARANCE_FILLER_IN
 ): Set<string> {
   const bad = new Set<string>();
-  const ranges = placed.filter((p) => isRangeOrOven(p.masterCode, p.description));
+  // Only a FREE-STANDING range/oven appliance has a protruding front handle that
+  // can strike a neighbor's handle. Cabinets that merely contain or sit under
+  // one (oven cabinets, range bases) are ordinary cabinets and never qualify.
+  const ranges = placed.filter(
+    (p) => p.placement === "appliance" && isRangeOrOven(p.masterCode, p.description) && !isBuiltInOvenCabinet(p)
+  );
   for (const range of ranges) {
     const side = cabinetWall(range, room);
     const horizontal = side === "top" || side === "bottom";
@@ -7825,6 +7847,9 @@ export function rangeOvenClearanceViolations(
       if (o.uid === range.uid) continue;
       if (o.placement !== "base" && o.placement !== "tall") continue;
       if (isRangeOrOven(o.masterCode, o.description)) continue;
+      // An oven cabinet beside a range never needs a filler (its oven door and
+      // handle stay inside the 24" opening).
+      if (isBuiltInOvenCabinet(o)) continue;
       // Skip a filler/scribe that is already doing its job.
       if (/\bfiller\b|\bscribe\b/i.test(`${o.masterCode} ${o.description}`)) continue;
       if (cabinetWall(o, room) !== side) continue;

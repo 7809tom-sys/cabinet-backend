@@ -303,3 +303,11 @@
 - [x] Tests: fourAnchorSinkBasePick.test.ts (11), fourAnchorKitchenRules.test.ts (20), dialog + DesignTool source pins updated deliberately; 141/141 Four-anchor tests pass; tsc clean.
 - [x] Verified in the REAL Designer (dev preview, not published) with identical inputs before/after: SB36 replaces FSB36; W1230 added left of DCW2430 on the top wall (W1230 on the right wall already present). Proof: /home/ubuntu/anchor-rules-proof/FOUR_ANCHOR_SINK_AND_FLANK_before_after.png
 - [ ] Not published. Authenticated customer flow not exercised (QA used a client-side admin shim with writes blocked).
+
+## Oven cabinet never needs a clearance filler — done (checkpointed, not published)
+- [x] Reproduced the red "A range/oven in the corner needs a 3" filler" conflict on a real oven cabinet (0339624, 24" deep, oven inside) in the real Designer.
+- [x] Cause: `isRangeOrOven` in `client/src/lib/design.ts` classified oven cabinets (and range-base rows) as free-standing ranges, so the corner handle-clearance rule fired for them.
+- [x] Fix: the corner range-handle rule now applies only to free-standing ranges/appliances; oven cabinets are an explicit never-needs-filler neighbor. Free-standing range keeps the rule.
+- [x] Regression tests: `client/src/lib/ovenCabinetClearance.test.ts` (19 tests, real catalog rows in `__fixtures__/ovenCabinetRows.json`).
+- [x] Real-Designer proof: before = conflict shown, after = no conflict, free-standing range still flagged (`/home/ubuntu/oven-cabinet-proof/OVEN_CABINET_no_filler_proof.png`).
+- [x] 460 test files compared against clean HEAD: 57 identical pre-existing failures, 0 new. TypeScript and production build pass.
