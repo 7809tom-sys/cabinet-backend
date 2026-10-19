@@ -121,4 +121,13 @@ describe("catalogFillerForGap", () => {
 	  expect(catalogFillerSuggestion([aefOverlay], 0.5, "base")).toMatchObject({ candidate: { masterCode: "OF335" }, installedWidth: 0.5, trimAmount: 2.375 });
 	  expect(catalogFillerForGap([unrelatedTrim], 0.5, "base")).toBeNull();
 	});
+
+	it("lets the nominal 3-inch AltaEuro overlay satisfy an exact 3-inch blind-corner seam, but not arbitrary 2-7/8-inch trim or a wider seam", () => {
+	  const aefOverlay = { id: 903, masterCode: "OF323", description: '3" Filler Overlay — 2-7/8" W × 22-1/2" H × 3/4" D', category: "Accessory", subCategory: "Filler", width: 2.875, depth: 0.75, height: 22.5, catalogImageUrl: null } as const;
+	  const unrelatedTrim = { ...aefOverlay, id: 904, masterCode: "TRIM2875", description: '2-7/8" trim strip' } as const;
+	  expect(catalogFillerForGap([aefOverlay], 3, "base")?.masterCode).toBe("OF323");
+	  expect(catalogFillerForGap([unrelatedTrim], 3, "base")).toBeNull();
+	  // A real 4-inch seam still needs genuinely wider stock, never the nominal 3-inch board.
+	  expect(catalogFillerForGap([aefOverlay], 4, "base")).toBeNull();
+	});
 });

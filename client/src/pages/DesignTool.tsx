@@ -182,6 +182,7 @@ import { adjacentDishwasherCenterIn, anchorAlongStartIn, autoBuildStraightBaseCa
 import { autoBuildCornerCatalog, fourAnchorCornerSlotPoint, fourAnchorCornerSlots, isFourAnchorBlindCornerOption, type AutoBuildCornerCandidate, type FourAnchorCornerChoice, type FourAnchorCornerSlot } from "@/lib/fourAnchorCornerStage";
 import { buildMandatoryFourAnchorRefrigeratorBay } from "@/lib/fourAnchorRefrigeratorBay";
 import { buildFourAnchorWallCabinets, type FourAnchorUpperCorner } from "@/lib/fourAnchorWallCabinets";
+import { seatFourAnchorCorner, type FourAnchorApplianceMove } from "@/lib/fourAnchorCornerSeating";
 import { validatePlacedCornerRefrigerator } from "@/lib/cornerRefrigeratorPlacement";
 import { validatePlacedCornerRange, CORNER_RANGE_HANDLE_FILLER_IN } from "@/lib/cornerRangePlacement";
 import { buildGlassCornerCatalogChoices } from "@/lib/glassCornerCatalog";
@@ -3225,6 +3226,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     const selectedWalls = [...stage.selectedWalls];
     let selectedCornerCount = 0;
     const upperCorners: FourAnchorUpperCorner[] = [];
+    const applianceMoves: FourAnchorApplianceMove[] = [];
 
     for (const slot of stage.slots) {
       const choice = choices[slot.id] ?? { cabinetId: null };
@@ -3243,41 +3245,23 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       if (!sourceCatalog) return fail(`${source.masterCode} is no longer present in the selected source-priced catalog.`);
       const target = fourAnchorCornerSlotPoint(slot, room, stage.input.originCorner, stage.input.runDirection);
       if (!target) return fail(`${slot.label} does not resolve to a real shared wall vertex. No remaining cabinets were added.`);
-      const width = dim(sourceCatalog.width, 0);
-      const depth = footprintDepth(sourceCatalog);
-      if (width <= 0 || depth <= 0) return fail(`${sourceCatalog.masterCode} has no valid installed corner footprint in Cabinet Config.`);
-      const preview: PlacedCabinet = {
-        uid: makeUid(), cabinetId: sourceCatalog.id, masterCode: sourceCatalog.masterCode, description: sourceCatalog.description,
-        category: sourceCatalog.category, subCategory: sourceCatalog.subCategory, placement: "base",
-        x: target.x, y: target.y, width, depth, height: dim(sourceCatalog.height, standardHeight("base")), rotation: 0,
-        numberOfDoors: sourceCatalog.numberOfDoors, numberOfDrawers: sourceCatalog.numberOfDrawers,
-        cornerType: sourceCatalog.cornerType ?? null, fillerRequired: sourceCatalog.fillerRequired ?? false,
-        catalogImageUrl: sourceCatalog.catalogImageUrl ?? null, styleId: styleIdRef.current ?? null,
-      };
-      const spot = nextAvailableRoomCornerPlacement(preview, target.firstWallId as WallSide, room, working, { x: target.x, y: target.y });
-      if (!spot) return fail(`${source.masterCode} cannot fit at ${slot.label}; that real corner is occupied or lacks its required footprint.`);
-      let corner = { ...preview, ...spot };
-      if (isFourAnchorBlindCornerOption(source)) {
-        const pulled = blindCornerPullPlacement(corner, room, choice.blindPullIn ?? source.pullMax ?? 6);
-        if (!pulled) return fail(`${source.masterCode} must use its Cabinet Config pull range at ${slot.label}.`);
-        corner = { ...corner, ...pulled };
-      }
-      const cornerCommit = appendCollisionFreePlacements(working, [corner], room);
-      if (!cornerCommit.placed.some((cabinet) => cabinet.uid === corner.uid)) return fail(`${source.masterCode} overlaps an appliance, opening, or adjoining wall clearance at ${slot.label}.`);
-      working = cornerCommit.placed;
+      // The corner is seated at its exact vertex. If a measured range or refrigerator
+      // sits in the way it slides away from the corner (never more than 3 inches);
+      // sink and dishwasher keep their measured positions.
+      const seated = seatFourAnchorCorner({
+        source: sourceCatalog, slotLabel: slot.label, target,
+        cornerWallIds: [firstWall.engineWallId, secondWall.engineWallId],
+        working, room, openings,
+        blindPullIn: choice.blindPullIn ?? source.pullMax ?? 6,
+        isBlindOption: isFourAnchorBlindCornerOption(source),
+        catalogFillers, makeUid, styleId: styleIdRef.current ?? null,
+      });
+      if (!seated.ok) return fail(seated.message);
+      const corner = seated.corner;
+      working = seated.placed;
+      applianceMoves.push(...seated.moves);
       selectedCornerCount++;
       upperCorners.push({ base: corner, point: target });
-
-      if (requiresConfiguredBlindCornerFiller(corner)) {
-        const required = buildRequiredBlindCornerFiller(corner, room, catalogFillers, makeUid, corner.styleId ?? null);
-        if (!required.ok) return fail(required.reason === "missing-catalog-filler"
-          ? `${source.masterCode} requires its configured ${formatInches(BLIND_CORNER_FILLER_WIDTH_IN)} filler, which is unavailable in this cabinet line.`
-          : `${source.masterCode} cannot create its configured blind-corner filler at ${slot.label}.`);
-        if (hasCollision(required.filler, working)) return fail(`${source.masterCode} cannot be placed because its required filler would overlap the adjoining cabinet run.`);
-        const fillerCommit = appendCollisionFreePlacements(working, [required.filler], room);
-        if (!fillerCommit.placed.some((cabinet) => cabinet.uid === required.filler.uid)) return fail(`${source.masterCode} cannot be placed because its required filler cannot be added without overlap.`);
-        working = fillerCommit.placed;
-      }
     }
 
     const surrounding: PlacedCabinet[] = [];
@@ -3317,7 +3301,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     const upperResult = buildFourAnchorWallCabinets({
       placed: working, room, openings, catalog: stage.wallPool,
       wallCabinetHeightIn: stage.input.wallCabinetHeightIn ?? 30,
-      styleId: styleIdRef.current ?? null, makeUid, corners: upperCorners,
+      styleId: styleIdRef.current ?? null, makeUid, corners: upperCorners, catalogFillers,
     });
     working = upperResult.placed;
     placedRef.current = working;
@@ -3325,6 +3309,13 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     setFourAnchorCornerStage(null);
     setViewMode("threeD");
     toast.success(`Placed ${selectedCornerCount} selected corners, ${surrounding.length} regular base-run pieces, and ${upperResult.additions.length} aligned wall cabinets.`);
+    for (const move of applianceMoves) {
+      toast.info(`Moved the ${move.label} ${formatInches(move.shiftIn)} away from the corner to fit the required corner cabinet. Its measured center is now ${formatInches(move.centerAlongIn)} along the wall.`, { duration: 12000 });
+    }
+    const requestedUpperIn = stage.input.wallCabinetHeightIn ?? 30;
+    if (upperResult.heightUsedIn != null && Math.abs(upperResult.heightUsedIn - requestedUpperIn) > 0.005) {
+      toast.info(`This cabinet line sells its ${requestedUpperIn}″ class as ${formatInches(upperResult.heightUsedIn)} wall cabinets, so those exact source SKUs were used.`);
+    }
     if (upperResult.skipped.length) toast.info(`Upper review: ${upperResult.skipped.join(" ")}`, { duration: 15000 });
     return { ok: true as const };
   }, [catalogFillers, fourAnchorCornerStage, openings, room, setPlaced]);

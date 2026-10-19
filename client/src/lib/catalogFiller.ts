@@ -92,7 +92,10 @@ export function catalogFillerForGap(
 
   return candidates
     .filter(isCatalogFiller)
-    .filter((candidate) => numberValue(candidate.width) + 0.001 >= gapWidth)
+    // AltaEuro's documented 2-7/8-inch "3-inch" overlay is nominal 3-inch stock, so it
+    // also satisfies an exact 3-inch seam such as a blind-corner filler.
+    .filter((candidate) => numberValue(candidate.width) + 0.001 >= gapWidth
+      || (requiresThreeInchStock && isNominalThreeInchFillerStock(candidate)))
     // A 5/8-inch, 1-1/2-inch, or 3-inch installed seam is cut from and billed
     // as one real 3-inch stock filler. Do not silently substitute a smaller
     // accessory code or a wider filler when the line has no orderable 3-inch SKU.
