@@ -281,3 +281,10 @@
 - [x] Found by measurement that one more toolbar button made the page 16px wider at 1440-1500px (sr-only labels escaped the scrolling rail); fixed with position: relative on the desktop rail. Verified no page overflow at 1280/1440/1500/1600/1920.
 - [x] Tests: DesignTool.pelicanToolbar.test.ts (6) + 43 neighbouring toolbar tests pass; wider DesignTool/Pelican run has 19 failing tests on both the working copy and clean HEAD, 0 new. tsc clean, build exit 0.
 - [ ] Not published. Designer code must be published before www.cabinetdealz.com shows the toolbar button. Authenticated sign-in flow not exercised (client-side QA only, writes blocked).
+
+## Surfaces & Fixtures (Pelican) dialog could not scroll — fixed
+- [x] Reproduced in the real Designer at 1560x715: the card ScrollArea had no `min-h-0`, so it grew to its content (4,078 px quartz / 7,821 px sinks) inside an overflow-hidden dialog; scrollHeight == clientHeight, nothing scrolled.
+- [x] Added `min-h-0` and moved the tall tip panels (backsplash, countertop coverage/availability, bathroom preview) inside the scroll area; tabs + search + Done stay pinned.
+- [x] Real-Designer wheel test: 9/9 positions scroll on Tile, Quartz, Sinks & Faucets, Flooring at 1560x715; Quartz and Sinks also 9/9 at 1280x600; last card reachable.
+- [x] Tests: SurfacesPickerDialog.scroll.test.ts (2 new). Related suites pass; the one photorealMaterials failure also fails on clean HEAD. tsc + build pass.
+- [ ] Not published. Checkpoint only.
