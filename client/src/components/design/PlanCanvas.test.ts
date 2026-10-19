@@ -189,6 +189,45 @@ describe("Floor Plan view zoom", () => {
   });
 });
 
+describe("Four-anchor wall guide", () => {
+  it("renders only the active Four-Anchor wall numbers in their source colors, with the matching measurement-start markers", () => {
+    const markup = renderToStaticMarkup(
+      createElement(LanguageProvider, null, createElement(PlanCanvas, {
+        room: { width: 144, depth: 120, ceilingHeight: 96 },
+        cabinets: [], selectedUid: null, onSelect: () => undefined, onMove: () => undefined,
+        showWallLayer: true,
+        fourAnchorWallGuides: [
+          { label: "Wall 1", engineWallId: "top", color: "#2563eb", startCorner: "start" },
+          { label: "Wall 2", engineWallId: "right", color: "#c2410c", startCorner: "start" },
+        ],
+      })),
+    );
+
+    expect(markup).toContain('data-testid="four-anchor-wall-guide"');
+    expect(markup).toContain('data-four-anchor-guide-active="true"');
+    expect(markup).toContain('data-testid="four-anchor-wall-guide-label"');
+    expect(markup).toContain('data-wall-label="Wall 1"');
+    expect(markup).toContain('data-wall-label="Wall 2"');
+    expect(markup).toContain('data-wall-color="#2563eb"');
+    expect(markup).toContain('data-wall-color="#c2410c"');
+    expect(markup).toContain('data-testid="four-anchor-wall-guide-start"');
+    expect(markup).toContain('Wall 1 measurement start');
+    expect(markup).not.toContain('data-wall-label="Wall 3"');
+  });
+
+  it("does not show Four-Anchor wall labels during normal Floor Plan work", () => {
+    const markup = renderToStaticMarkup(
+      createElement(LanguageProvider, null, createElement(PlanCanvas, {
+        room: { width: 144, depth: 120, ceilingHeight: 96 },
+        cabinets: [], selectedUid: null, onSelect: () => undefined, onMove: () => undefined,
+        showWallLayer: true,
+      })),
+    );
+
+    expect(markup).not.toContain('data-testid="four-anchor-wall-guide"');
+  });
+});
+
 describe("user measured open wall paths", () => {
   it("renders the custom wall shell and suppresses the four implicit rectangle walls", () => {
     const room = {

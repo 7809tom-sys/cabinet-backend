@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,6 +24,8 @@ type Props = {
   catalogLoading?: boolean;
   /** Actual room-wall count, capped by the shared six-wall input contract. */
   wallCount?: number;
+  /** Visual-only Floor Plan guide; receives the same datum choices as anchor measurements. */
+  onWallGuideChange?: (selection: { originCorner: FourAnchorOriginCorner; runDirection: FourAnchorRunDirection }) => void;
 };
 type PointField = "sink" | "stove" | "dishwasher" | "refrigerator";
 type SinkBaseWidth = 30 | 33 | 36 | 42;
@@ -50,7 +52,7 @@ const omissionLabels: Record<(typeof applianceFields)[number], string> = {
 };
 type FieldValue = { wallLabel: WallLabel; centerOffsetIn: string };
 
-export function FourAnchorAutoBuildDialog({ open, onOpenChange, onBuild, catalogLoading = false, wallCount = 4 }: Props) {
+export function FourAnchorAutoBuildDialog({ open, onOpenChange, onBuild, catalogLoading = false, wallCount = 4, onWallGuideChange }: Props) {
   const [layoutType, setLayoutType] = useState<FourAnchorLayoutType>("single-wall");
   const [originCorner, setOriginCorner] = useState<FourAnchorOriginCorner>("left");
   const [runDirection, setRunDirection] = useState<FourAnchorRunDirection>("right");
@@ -72,6 +74,10 @@ export function FourAnchorAutoBuildDialog({ open, onOpenChange, onBuild, catalog
   const refrigeratorWidth: RefrigeratorWidth = 36;
   const [windowCenter, setWindowCenter] = useState("");
   const [submitError, setSubmitError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (open) onWallGuideChange?.({ originCorner, runDirection });
+  }, [open, onWallGuideChange, originCorner, runDirection]);
 
   const setValue = (field: PointField, patch: Partial<FieldValue>) => setValues((current) => ({
     ...current,
@@ -119,19 +125,19 @@ export function FourAnchorAutoBuildDialog({ open, onOpenChange, onBuild, catalog
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] w-[calc(100vw-2rem)] sm:max-w-2xl overflow-y-auto overflow-x-hidden" data-testid="four-anchor-auto-build-dialog">
+      <DialogContent className="max-h-[90vh] w-[calc(100vw-2rem)] sm:max-w-2xl 2xl:!left-auto 2xl:!right-4 2xl:!w-[28rem] 2xl:!translate-x-0 overflow-y-auto overflow-x-hidden" data-testid="four-anchor-auto-build-dialog">
         <DialogHeader>
           <DialogTitle>Admin · Four-anchor auto-build</DialogTitle>
           <DialogDescription>
             Choose the layout and datum first. Every measured anchor uses its own selector from up to six actual room walls and a center measurement from that wall’s starting corner.
           </DialogDescription>
         </DialogHeader>
-        <div className="grid gap-4">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <div className="space-y-1.5">
-              <Label>Layout type</Label>
-              <Select value={layoutType} onValueChange={(value) => setLayoutType(value as FourAnchorLayoutType)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+	        <div className="grid gap-4">
+	          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+	            <div className="space-y-1.5">
+	              <Label>Layout type</Label>
+	              <Select value={layoutType} onValueChange={(value) => setLayoutType(value as FourAnchorLayoutType)}>
+	                <SelectTrigger aria-label="Layout type"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="single-wall">Single wall</SelectItem>
                   <SelectItem value="galley">Galley</SelectItem>
@@ -140,23 +146,28 @@ export function FourAnchorAutoBuildDialog({ open, onOpenChange, onBuild, catalog
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1.5">
-              <Label>Starting corner</Label>
-              <Select value={originCorner} onValueChange={(value) => setOriginCorner(value as FourAnchorOriginCorner)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+	            <div className="space-y-1.5">
+	              <Label>Starting corner</Label>
+	              <Select value={originCorner} onValueChange={(value) => setOriginCorner(value as FourAnchorOriginCorner)}>
+	                <SelectTrigger aria-label="Starting corner"><SelectValue /></SelectTrigger>
                 <SelectContent><SelectItem value="left">Left corner</SelectItem><SelectItem value="right">Right corner</SelectItem></SelectContent>
               </Select>
             </div>
-            <div className="space-y-1.5">
-              <Label>Run direction</Label>
-              <Select value={runDirection} onValueChange={(value) => setRunDirection(value as FourAnchorRunDirection)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+	            <div className="space-y-1.5">
+	              <Label>Run direction</Label>
+	              <Select value={runDirection} onValueChange={(value) => setRunDirection(value as FourAnchorRunDirection)}>
+	                <SelectTrigger aria-label="Run direction"><SelectValue /></SelectTrigger>
                 <SelectContent><SelectItem value="right">To the right</SelectItem><SelectItem value="left">To the left</SelectItem></SelectContent>
               </Select>
             </div>
-          </div>
+	          </div>
 
-          <div className="rounded-lg border bg-muted/20 p-3 text-xs text-muted-foreground">
+              <div data-testid="four-anchor-floor-plan-wall-key" className="rounded-lg border border-sky-200 bg-sky-50/70 p-3 text-xs text-slate-700">
+                <p className="font-semibold text-slate-900">Colored Wall 1–6 markers are shown on the Floor Plan</p>
+                <p className="mt-1 leading-relaxed">Each number follows this starting corner and direction. The matching small dot marks the corner where that wall’s center measurements begin.</p>
+              </div>
+
+	          <div className="rounded-lg border bg-muted/20 p-3 text-xs text-muted-foreground">
             Choose from up to six real room walls for each appliance. The measurement is that item’s center from the selected wall’s labeled starting corner; raw X/Y floor coordinates are never used. The sink base remains required; choose Do not add for a range, dishwasher, or refrigerator you do not want in this build.
           </div>
           <div className="rounded-lg border bg-muted/20 p-3 text-sm" data-testid="four-anchor-build-order">

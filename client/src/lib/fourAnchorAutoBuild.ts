@@ -36,6 +36,16 @@ export type AutoBuildWallRef = {
   startCorner: "start" | "end";
 };
 
+/**
+ * High-contrast, color-blind-considered markers used only while the Four-Anchor
+ * dialog is open. These are a reading aid for the Floor Plan; no color or label
+ * is saved into room geometry or passed to the placement engine.
+ */
+export const FOUR_ANCHOR_WALL_GUIDE_COLORS = ["#2563eb", "#c2410c", "#047857", "#7c3aed", "#b45309", "#be123c"] as const;
+export type FourAnchorWallGuide = Pick<AutoBuildWallRef, "label" | "engineWallId" | "startCorner"> & {
+  color: (typeof FOUR_ANCHOR_WALL_GUIDE_COLORS)[number];
+};
+
 export type FourAnchorInputs = {
   layoutType: FourAnchorLayoutType;
   originCorner: FourAnchorOriginCorner;
@@ -142,6 +152,28 @@ export function buildWallLabelMap(
     "Wall 5": wallLabelToEngineWallId("Wall 5", room, originCorner, runDirection),
     "Wall 6": wallLabelToEngineWallId("Wall 6", room, originCorner, runDirection),
   };
+}
+
+/**
+ * A visual-only projection of the exact label-to-engine-wall map. Keeping this
+ * beside the map makes the visible Floor Plan markers follow the same selected
+ * starting corner and traversal direction as every anchor measurement.
+ */
+export function buildFourAnchorWallGuides(
+  room: RoomData,
+  originCorner: FourAnchorOriginCorner,
+  runDirection: FourAnchorRunDirection,
+): FourAnchorWallGuide[] {
+  return FOUR_ANCHOR_WALL_LABELS.flatMap((label, index) => {
+    const wall = wallLabelToEngineWallId(label, room, originCorner, runDirection);
+    if (!wall) return [];
+    return [{
+      label: wall.label,
+      engineWallId: wall.engineWallId,
+      startCorner: wall.startCorner,
+      color: FOUR_ANCHOR_WALL_GUIDE_COLORS[index],
+    }];
+  });
 }
 
 /** Convert a center measurement to the placement engine's along-wall start. */

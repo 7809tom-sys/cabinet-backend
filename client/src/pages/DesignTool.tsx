@@ -178,7 +178,7 @@ import { CabinetHandlesControl, DEFAULT_DESIGNER_HARDWARE_STYLE_ID } from "@/com
 import { HardwareCatalogPicker } from "@/components/design/HardwareCatalogPicker";
 import { isPanelPaletteItem } from "./designToolPanels";
 import { normalizePaletteSearch, matchesPaletteSearch } from "@/lib/paletteSearch";
-import { adjacentDishwasherCenterIn, anchorAlongStartIn, autoBuildStraightBaseCatalog, canRunFourAnchorAutoBuild, isAutoBuildStraightSinkBaseCandidate, pickFourAnchorSinkBase, planFourAnchorAutoBuild, subtractAnchorRunReservations, wallLabelToEngineWallId, type FourAnchorInputs } from "@/lib/fourAnchorAutoBuild";
+import { adjacentDishwasherCenterIn, anchorAlongStartIn, autoBuildStraightBaseCatalog, buildFourAnchorWallGuides, canRunFourAnchorAutoBuild, isAutoBuildStraightSinkBaseCandidate, pickFourAnchorSinkBase, planFourAnchorAutoBuild, subtractAnchorRunReservations, wallLabelToEngineWallId, type FourAnchorInputs, type FourAnchorOriginCorner, type FourAnchorRunDirection } from "@/lib/fourAnchorAutoBuild";
 import { fourAnchorSinkWindow, windowOverlapsReservation } from "@/lib/fourAnchorSinkWindow";
 import { fourAnchorRangeHood, fourAnchorRangeNeedsVentilation } from "@/lib/fourAnchorRangeHood";
 import { autoBuildCornerCatalog, fourAnchorCornerSlotPoint, fourAnchorCornerSlots, isFourAnchorBlindCornerOption, type AutoBuildCornerCandidate, type FourAnchorCornerChoice, type FourAnchorCornerSlot } from "@/lib/fourAnchorCornerStage";
@@ -950,6 +950,20 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	  }, [islandFace, islandPlacementMode]);
   const [islandAttributesOpen, setIslandAttributesOpen] = useState(false);
   const [fourAnchorAutoBuildOpen, setFourAnchorAutoBuildOpen] = useState(false);
+  const [fourAnchorWallGuideSelection, setFourAnchorWallGuideSelection] = useState<{ originCorner: FourAnchorOriginCorner; runDirection: FourAnchorRunDirection } | null>(null);
+	const fourAnchorWallGuides = useMemo(() => {
+	  if (!fourAnchorAutoBuildOpen || !fourAnchorWallGuideSelection) return [];
+	  return buildFourAnchorWallGuides(room, fourAnchorWallGuideSelection.originCorner, fourAnchorWallGuideSelection.runDirection);
+	}, [fourAnchorAutoBuildOpen, fourAnchorWallGuideSelection, room]);
+	const openFourAnchorAutoBuild = useCallback(() => {
+	  // The colored numbered wall guide is meaningful only in the 2D Floor Plan.
+	  // This does not modify the plan; it simply opens the guided admin workflow.
+	  setViewMode("plan");
+	  setFourAnchorAutoBuildOpen(true);
+	}, []);
+	useEffect(() => {
+	  if (!fourAnchorAutoBuildOpen) setFourAnchorWallGuideSelection(null);
+	}, [fourAnchorAutoBuildOpen]);
   const [fourAnchorCornerStage, setFourAnchorCornerStage] = useState<{
     input: FourAnchorInputs;
     anchors: Record<string, PlacedCabinet>;
@@ -13110,7 +13124,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
             variant="outline"
             size="sm"
             className="hidden lg:inline-flex shrink-0 border-[#d4a75a] text-[#765416] hover:bg-[#fff8e8]"
-            onClick={() => setFourAnchorAutoBuildOpen(true)}
+	            onClick={openFourAnchorAutoBuild}
             disabled={placed.length > 0 || layoutLocked}
             data-testid="admin-four-anchor-auto-build"
             title={placed.length > 0 ? "Start this admin build from an empty Designer" : "Build a measured kitchen from four fixed fixture anchors"}
@@ -13658,7 +13672,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                     <button
                       data-testid="more-sheet-four-anchors"
                       disabled={placed.length > 0 || layoutLocked}
-                      onClick={() => { setMoreSheetOpen(false); setTimeout(() => setFourAnchorAutoBuildOpen(true), 120); }}
+	                      onClick={() => { setMoreSheetOpen(false); setTimeout(openFourAnchorAutoBuild, 120); }}
                       title={placed.length > 0 ? "Start this admin build from an empty Designer" : "Build a measured kitchen from four fixed fixture anchors"}
                       className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted disabled:opacity-50 transition-colors"
                     >
@@ -16333,6 +16347,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	          {viewMode === "plan" && (
 	            <PlanCanvas onPreviewGap={previewSmartGap}
 	              room={room}
+	              fourAnchorWallGuides={fourAnchorWallGuides}
 	              catalogDragCabinet={catalogDragPreview}
 	              fillerGapPreview={smallGapFillerPlanPreview}
 	              automaticSnapping={automaticSnapping}
@@ -16622,6 +16637,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	              <div className="flex-1 min-h-0 border-b border-border">
 	                <PlanCanvas onPreviewGap={previewSmartGap}
 	                  room={room}
+	                  fourAnchorWallGuides={fourAnchorWallGuides}
 	                  catalogDragCabinet={catalogDragPreview}
 	                  fillerGapPreview={smallGapFillerPlanPreview}
 	                  automaticSnapping={automaticSnapping}
@@ -18564,6 +18580,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	        <FourAnchorAutoBuildDialog
 	          open={fourAnchorAutoBuildOpen}
 	          onOpenChange={setFourAnchorAutoBuildOpen}
+	          onWallGuideChange={setFourAnchorWallGuideSelection}
 	          onBuild={buildFourAnchorAutoLayout}
 	          catalogLoading={autoFillCabinetsLoading || wallCabPoolLoading}
 	          wallCount={Math.min(6, Math.max(1, room.customWalls?.length ?? 4))}

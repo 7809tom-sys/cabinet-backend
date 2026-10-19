@@ -30,6 +30,7 @@ import { miteredWallOutlinesFromInteriorFaces, ROOM_WALL_THICKNESS_IN } from "@/
 import { crownTopRuns, formatCrownTop } from "@/lib/crownTopRuns";
 import { verifiedPelicanBathroomFixtureProfile } from "@/lib/pelicanBathroomFixtureProfiles";
 import type { BathroomZoneOverlapWarning } from "@/lib/bathroomPlanning";
+import type { FourAnchorWallGuide } from "@/lib/fourAnchorAutoBuild";
 
 export type PlanCabinetRenderFrame = {
   lockedAngledRun: boolean;
@@ -287,6 +288,8 @@ export function planLazySusanTwoFrontPath(cabinet: PlacedCabinet): string | unde
 
 interface Props {
   room: RoomData;
+  /** Visual-only numbered wall aid, present only during Four-Anchor setup. */
+  fourAnchorWallGuides?: readonly FourAnchorWallGuide[];
   /** Catalog item currently being dragged over the 2D plan. */
   catalogDragCabinet?: DesignCabinet | null;
   cabinets: PlacedCabinet[];
@@ -460,7 +463,7 @@ function readableLabel(fillHex: string): { color: string; shadow: string; isDark
 }
 
 export function PlanCanvas({
-  room, catalogDragCabinet = null, cabinets, countertopGeometry, selectedUid, attributesTargetUid = null, onSelect, onMove, onDelete, onRotate, onUnlockCorner, onOpenAttributes, onDropNew, onDropToFloor,
+  room, fourAnchorWallGuides = [], catalogDragCabinet = null, cabinets, countertopGeometry, selectedUid, attributesTargetUid = null, onSelect, onMove, onDelete, onRotate, onUnlockCorner, onOpenAttributes, onDropNew, onDropToFloor,
   showWallLayer, showCrownTopBadges = false, onToggleWallLayer, measureMode = false, autoDimensions = false, onDimensionAdjustmentChange, showPeninsulaCornerSnapFeedback = true, island = null, onIslandChange, onIslandMove,
   islandDepthTransition = null,
   activeIslandFace = "front", onSelectIslandFace, onOpenIslandAttributes,
@@ -835,11 +838,28 @@ export function PlanCanvas({
   const roomPxW = room.width * ppi;
   const roomPxH = room.depth * ppi;
   const hasCustomWallShell = Boolean(room.vertices?.length && room.customWalls?.length);
+  // Four-Anchor labels are projected from the same physical wall frames used by
+  // anchor placement. They sit just inside the room, are not clickable, and are
+  // discarded as soon as setup closes; they never affect a room or wall record.
+  const positionedFourAnchorWallGuides = useMemo(() => fourAnchorWallGuides.flatMap((guide) => {
+    const frame = wallRunFrame(guide.engineWallId, room);
+    if (!frame || frame.kind === "peninsula") return [];
+    const middleAlong = (frame.runStart + frame.runEnd) / 2;
+    const start = guide.startCorner === "start" ? frame.start : frame.end;
+    const pointAt = (point: { x: number; y: number }, insetIn: number) => ({
+      left: (point.x + frame.inward.x * insetIn) * ppi,
+      top: (point.y + frame.inward.y * insetIn) * ppi,
+    });
+    return [{ guide, labelPosition: pointAt({
+      x: frame.start.x + frame.tangent.x * middleAlong,
+      y: frame.start.y + frame.tangent.y * middleAlong,
+    }, 8), startPosition: pointAt(start, 3) }];
+  }), [fourAnchorWallGuides, ppi, room]);
   // The measured segment is the finished room-facing wall surface shared by
   // cabinet placement, openings, dimensions and 3D. Build the wall thickness
   // outward from that face, so the plan cannot depict a cabinet buried halfway
   // inside a diagonal Wall Builder wall.
-  const customWallShellOutlines = hasCustomWallShell
+	  const customWallShellOutlines = hasCustomWallShell
     ? miteredWallOutlinesFromInteriorFaces(
         room.customWalls!.flatMap((wall) => {
           const start = room.vertices!.find((vertex) => vertex.id === wall.startVertexId);
@@ -854,7 +874,14 @@ export function PlanCanvas({
         ROOM_WALL_THICKNESS_IN,
         !room.openWallPath,
       )
-    : [];
+	    : [];
+	  // The Four-Anchor form docks at the right on wide screens. Move only this
+	  // rendered room viewport left while its numbered guide is active so its
+	  // right-side Wall 4–6 labels remain readable. Saved coordinates, panning,
+	  // cabinet transforms and all placement math remain inch-based and unchanged.
+	  const fourAnchorGuideDockOffsetPx = positionedFourAnchorWallGuides.length > 0
+	    ? Math.min(120, Math.max(48, roomPxW * 0.15))
+	    : 0;
   // The position editor stores every distance against a wall endpoint. Resolve
   // that endpoint here rather than using the graph rectangle: a Continuous Wall
   // Builder room may be diagonal or open, and its real start/end must be visible.
@@ -1384,13 +1411,14 @@ export function PlanCanvas({
         </div>
       )}
       <div
-        data-room
-        className="absolute shadow-inner"
+	        data-room
+	        data-four-anchor-guide-active={positionedFourAnchorWallGuides.length > 0 ? "true" : undefined}
+	        className="absolute shadow-inner"
         onPointerDownCapture={onRoomMeasurePointerDown}
         style={{
           width: roomPxW,
           height: roomPxH,
-          left: `calc(50% + ${floorPlanPan.x}px)`,
+	          left: `calc(50% + ${floorPlanPan.x - fourAnchorGuideDockOffsetPx}px)`,
           top: `calc(50% + ${floorPlanPan.y}px)`,
           transform: "translate(-50%, -50%)",
           border: "none",
@@ -1494,7 +1522,32 @@ export function PlanCanvas({
           })(),
         }}
       >
-        {openingReferencePoint && (
+	        {positionedFourAnchorWallGuides.length > 0 && (
+	          <div data-testid="four-anchor-wall-guide" className="pointer-events-none absolute inset-0 z-[28]" aria-label="Four-anchor wall guide">
+	            {positionedFourAnchorWallGuides.map(({ guide, labelPosition, startPosition }) => (
+	              <Fragment key={guide.label}>
+	                <span
+	                  data-testid="four-anchor-wall-guide-label"
+	                  data-wall-label={guide.label}
+	                  data-wall-color={guide.color}
+	                  aria-label={`${guide.label} marked in ${guide.color}`}
+	                  className="absolute grid h-7 w-7 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border-2 border-white text-xs font-black text-white shadow-[0_1px_4px_rgba(15,23,42,0.45)]"
+	                  style={{ ...labelPosition, backgroundColor: guide.color }}
+	                >
+	                  {guide.label.replace("Wall ", "")}
+	                </span>
+	                <span
+	                  data-testid="four-anchor-wall-guide-start"
+	                  data-wall-label={guide.label}
+	                  aria-label={`${guide.label} measurement start`}
+	                  className="absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white shadow-[0_1px_3px_rgba(15,23,42,0.55)]"
+	                  style={{ ...startPosition, backgroundColor: guide.color }}
+	                />
+	              </Fragment>
+	            ))}
+	          </div>
+	        )}
+	        {openingReferencePoint && (
           <div
             data-testid="window-measurement-reference-marker"
             aria-label={`${openingReferencePoint.label} measurement reference`}

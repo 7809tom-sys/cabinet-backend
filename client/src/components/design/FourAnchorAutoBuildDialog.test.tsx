@@ -67,6 +67,30 @@ describe("FourAnchorAutoBuildDialog", () => {
       refrigerator: null,
     }));
   });
+
+  it("keeps the colored Floor Plan wall key synchronized with the selected starting corner and run direction", () => {
+    const onWallGuideChange = vi.fn();
+    render(<FourAnchorAutoBuildDialog open onOpenChange={vi.fn()} onBuild={() => ({ ok: true })} wallCount={6} onWallGuideChange={onWallGuideChange} />);
+
+    expect(screen.getByTestId("four-anchor-floor-plan-wall-key").textContent).toContain("Colored Wall 1–6 markers");
+    expect(onWallGuideChange).toHaveBeenLastCalledWith({ originCorner: "left", runDirection: "right" });
+
+    fireEvent.click(screen.getByLabelText("Run direction"));
+    fireEvent.click(screen.getByRole("option", { name: "To the left" }));
+    expect(onWallGuideChange).toHaveBeenLastCalledWith({ originCorner: "left", runDirection: "left" });
+
+    fireEvent.click(screen.getByLabelText("Starting corner"));
+    fireEvent.click(screen.getByRole("option", { name: "Right corner" }));
+    expect(onWallGuideChange).toHaveBeenLastCalledWith({ originCorner: "right", runDirection: "left" });
+  });
+
+  it("docks on the wide desktop edge so the colored Floor Plan guide stays visible during Four-Anchor entry", () => {
+    render(<FourAnchorAutoBuildDialog open onOpenChange={vi.fn()} onBuild={() => ({ ok: true })} />);
+    const dialog = screen.getByTestId("four-anchor-auto-build-dialog");
+    expect(dialog.className).toContain("2xl:!right-4");
+    expect(dialog.className).toContain("2xl:!left-auto");
+  });
+
   it("keeps a failed submit visible in the dialog with its exact blocker rather than appearing inert", () => {
     const onBuild = vi.fn(() => ({
       ok: false as const,

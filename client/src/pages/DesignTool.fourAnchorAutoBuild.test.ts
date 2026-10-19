@@ -34,6 +34,13 @@ describe("admin four-anchor Designer wiring", () => {
     expect(dialogSource).not.toContain("DEPTH / Y");
   });
 
+  it("shows the same colored Wall 1–6 map on the Floor Plan only while Four-Anchor setup is open", () => {
+    expect(pageSource).toContain("buildFourAnchorWallGuides");
+    expect(pageSource).toContain("fourAnchorWallGuides");
+    expect(pageSource).toContain("onWallGuideChange");
+    expect(pageSource).toContain("setViewMode(\"plan\")");
+  });
+
   it("keeps the sink-base workflow required but allows an explicitly omitted range, dishwasher, or refrigerator without forcing a palette or refrigerator bay", () => {
     expect(dialogSource).toContain("Do not add Range / stove");
     expect(dialogSource).toContain("Do not add Dishwasher");
