@@ -1,0 +1,57 @@
+[
+  {
+    "at": "2026-10-19T23:04:02.617Z",
+    "kind": "navigation",
+    "url": "https://3000-iiiccrm83w0u12z611siq-33db4eec.us1.manus.computer/design"
+  },
+  {
+    "at": "2026-10-19T23:04:02.748Z",
+    "kind": "console",
+    "type": "debug",
+    "text": "[vite] connecting..."
+  },
+  {
+    "at": "2026-10-19T23:04:02.750Z",
+    "kind": "console",
+    "type": "debug",
+    "text": "[Manus] Debug collector initialized (no rrweb, UI events only)"
+  },
+  {
+    "at": "2026-10-19T23:04:02.791Z",
+    "kind": "console",
+    "type": "debug",
+    "text": "[vite] connected."
+  },
+  {
+    "at": "2026-10-19T23:04:03.249Z",
+    "kind": "console",
+    "type": "info",
+    "text": "%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold"
+  },
+  {
+    "at": "2026-10-19T23:04:33.775Z",
+    "kind": "console",
+    "type": "warning",
+    "text": "THREE.WebGLShadowMap: PCFSoftShadowMap has been deprecated. Using PCFShadowMap instead."
+  },
+  {
+    "at": "2026-10-19T23:04:40.372Z",
+    "kind": "console",
+    "type": "warning",
+    "text": "THREE.WebGLShadowMap: PCFSoftShadowMap has been deprecated. Using PCFShadowMap instead."
+  },
+  {
+    "at": "2026-10-19T23:04:48.917Z",
+    "kind": "console",
+    "type": "warning",
+    "text": "THREE.WebGLShadowMap: PCFSoftShadowMap has been deprecated. Using PCFShadowMap instead."
+  },
+  {
+    "at": "2026-10-19T23:04:55.337Z",
+    "kind": "result",
+    "url": "https://3000-iiiccrm83w0u12z611siq-33db4eec.us1.manus.computer/design",
+    "specsButtonCount": 3,
+    "detailsText": "B24 24\" 2 Door Single Drawer Base Cabinet with Adjustable Shelf Base · Standard Base Nominal size 24″ W × 34½″ H × 24″ D Placement Base Doors 2 Drawers 1 Open manufacturer specification sheet",
+    "pageClosed": false
+  }
+]

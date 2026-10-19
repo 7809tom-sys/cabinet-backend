@@ -9,7 +9,7 @@ describe("Designer sidebar reference information and conflict notices", () => {
     expect(source).toContain('data-testid="catalog-style-specifications-trigger"');
     expect(source).toContain('aria-label="Open catalog specifications"');
     expect(source).toContain('setCatalogSpecificationsOpen(true)');
-    expect(source).toContain('<Dialog open={catalogSpecificationsOpen} onOpenChange={setCatalogSpecificationsOpen}>');
+    expect(source).toContain('<Dialog open={catalogSpecificationsOpen} onOpenChange={(open) => { if (!open) setCatalogSpecificationsItem(null); setCatalogSpecificationsOpen(open); }}>');
     expect(source).toContain('data-testid="catalog-style-specifications-dialog"');
     expect(source).toContain('Auto-filled from manufacturer sheets');
     expect(source).toContain('Cabinet width, height, and depth remain SKU-specific and are shown on each catalog card.');
@@ -34,5 +34,12 @@ describe("Designer sidebar reference information and conflict notices", () => {
   it("continues to keep conflict prevention at cart handoff rather than treating the surface notice as a dismissal", () => {
     expect(source).toContain('if (hasConflicts && !window.confirm(t("dt_confirm_export_conflicts", { n: conflictUids.size, s: conflictUids.size > 1 ? "s" : "" }))) return;');
     expect(source).toContain('conflictUids={conflictUids}');
+  });
+
+  it("puts a compact non-placement Specs action beside each regular catalog card", () => {
+    expect(source).toContain('data-testid={`catalog-card-specs-${c.masterCode}`}');
+    expect(source).toContain('aria-label={`View specifications for ${c.displayMasterCode ?? c.masterCode}`}');
+    expect(source).toContain('onClick={(event) => { event.stopPropagation(); openCatalogSpecificationsFor(c); }}');
+    expect(source).toContain('title="View this catalog item’s specifications"');
   });
 });

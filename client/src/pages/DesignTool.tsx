@@ -811,6 +811,11 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	  // Manufacturer construction details remain available on demand instead of
 	  // consuming the cart sidebar's limited working space.
 	  const [catalogSpecificationsOpen, setCatalogSpecificationsOpen] = useState(false);
+	  const [catalogSpecificationsItem, setCatalogSpecificationsItem] = useState<DesignCabinet | null>(null);
+	  const openCatalogSpecificationsFor = useCallback((cabinet: DesignCabinet) => {
+	    setCatalogSpecificationsItem(cabinet);
+	    setCatalogSpecificationsOpen(true);
+	  }, []);
 
   // Last line of defense for legacy designs and any future placement path that
   // bypasses an explicit add/move helper. Saved order remains authoritative, so
@@ -16044,25 +16049,29 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	                      ? "Layout model — appliance price is not included in the design total."
 	                      : null;
 	                    return (
-		                    <button
+		                    <div
 		                      key={`${c.masterCode}:${c.catalogImageUrl ?? c.id}`}
                       draggable
                       onDragStart={(event) => { dragDataRef.current = c; setCatalogDragPreview(c); const item = interactive3dCatalogItems.find((candidate) => Number(candidate.id) === Number(c.id) && candidate.category === "Cabinet"); if (item) { event.dataTransfer.effectAllowed = "copy"; event.dataTransfer.setData("text/plain", threeDLeftCatalogDragPayload(item.category, item.id)); } }}
                       onDragEnd={() => { dragDataRef.current = null; setCatalogDragPreview(null); }}
-                      onClick={() => addCabinet(c)}
-	                      className="w-full text-left p-2 rounded-lg border border-border hover:border-primary/50 hover:bg-muted/50 transition-colors group flex items-center gap-2"
+	                      className="group flex w-full items-center gap-1.5 rounded-lg border border-border p-2 transition-colors hover:border-primary/50 hover:bg-muted/50"
 	                      title={placementDetailText}
 	                      data-testid={placementDetail ? `cabinet-placement-detail-${c.masterCode}` : undefined}
-	                      aria-label={placementDetailText ?? undefined}
                     >
-                      <div className="h-9 w-9 flex items-center justify-center shrink-0">
-                        <CabinetImage cabinet={c} className="h-full w-auto max-w-full" />
-                      </div>
-	                      <div className="min-w-0 flex-1">
-	                        <div className="font-mono text-xs font-semibold text-foreground truncate">{c.displayMasterCode ?? c.masterCode}</div>
-	                        <div className="text-[10px] text-muted-foreground truncate">{isSquareDoubleDoorBaseEnd(c) ? BEC24_DISPLAY_NAME : c.description}</div>
-                        <GlassPolicyBadge masterCode={c.masterCode} glassIncluded={c.glassIncluded} className="mt-0.5" />
-                        {(() => {
+                      <button
+                        type="button"
+                        onClick={() => addCabinet(c)}
+                        className="flex min-w-0 flex-1 items-center gap-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                        aria-label={placementDetailText ?? `Place ${c.displayMasterCode ?? c.masterCode}`}
+                      >
+                        <div className="h-9 w-9 shrink-0 flex items-center justify-center">
+                          <CabinetImage cabinet={c} className="h-full w-auto max-w-full" />
+                        </div>
+	                        <div className="min-w-0 flex-1">
+	                          <div className="font-mono text-xs font-semibold text-foreground truncate">{c.displayMasterCode ?? c.masterCode}</div>
+	                          <div className="text-[10px] text-muted-foreground truncate">{isSquareDoubleDoorBaseEnd(c) ? BEC24_DISPLAY_NAME : c.description}</div>
+                          <GlassPolicyBadge masterCode={c.masterCode} glassIncluded={c.glassIncluded} className="mt-0.5" />
+                          {(() => {
                           // A base-family box (Base/Vanity tab, or a corner BASE
                           // cabinet inside the unified Corner tab) is always the
                           // standard 34.5" tall; wall/tall/corner-wall boxes use
@@ -16078,32 +16087,45 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	                          return (
 	                            <div className="text-[10px] text-muted-foreground">{widthVal}"W × {hVal}{showH ? "\"H" : ""}</div>
 	                          );
-	                        })()}
-	                        {placementDetail && (
-	                          <div className="mt-0.5 text-[9px] font-medium leading-snug text-emerald-700">
-	                            Hover for dimensions &amp; flush-seam clearance
-	                          </div>
-	                        )}
-	                        {appliancePriceNotice && (
-	                          <div
-	                            data-testid={`appliance-price-pending-${c.masterCode}`}
-	                            className="mt-0.5 text-[9px] font-medium leading-snug text-amber-700"
-	                          >
-	                            {appliancePriceNotice}
-	                          </div>
-	                        )}
-	                      </div>
-                      {paletteFinishSwatch && (
-                        <img
-                          src={paletteFinishSwatch}
-                          alt={activeStyleName ? `${activeStyleName} finish` : "selected finish"}
-                          title={activeStyleName ?? undefined}
-                          loading="lazy"
-                          className="h-7 w-7 rounded-sm object-cover border border-[#a07d4a]/40 shrink-0"
-                        />
-                      )}
-                      <Plus className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary shrink-0" />
-                    </button>
+	                          })()}
+	                          {placementDetail && (
+	                            <div className="mt-0.5 text-[9px] font-medium leading-snug text-emerald-700">
+	                              Hover for dimensions &amp; flush-seam clearance
+	                            </div>
+	                          )}
+	                          {appliancePriceNotice && (
+	                            <div
+	                              data-testid={`appliance-price-pending-${c.masterCode}`}
+	                              className="mt-0.5 text-[9px] font-medium leading-snug text-amber-700"
+	                            >
+	                              {appliancePriceNotice}
+	                            </div>
+	                          )}
+	                        </div>
+                        {paletteFinishSwatch && (
+                          <img
+                            src={paletteFinishSwatch}
+                            alt={activeStyleName ? `${activeStyleName} finish` : "selected finish"}
+                            title={activeStyleName ?? undefined}
+                            loading="lazy"
+                            className="h-7 w-7 rounded-sm object-cover border border-[#a07d4a]/40 shrink-0"
+                          />
+                        )}
+                        <Plus className="h-3.5 w-3.5 shrink-0 text-muted-foreground group-hover:text-primary" />
+                      </button>
+                      <Tooltip><TooltipTrigger asChild>
+                        <button
+                          type="button"
+                          data-testid={`catalog-card-specs-${c.masterCode}`}
+                          aria-label={`View specifications for ${c.displayMasterCode ?? c.masterCode}`}
+                          title="View this catalog item’s specifications"
+                          onClick={(event) => { event.stopPropagation(); openCatalogSpecificationsFor(c); }}
+                          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded border border-[#b98d3e]/60 bg-white text-[#634b20] transition hover:bg-[#fff4d8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a2744] active:scale-95"
+                        >
+                          <FileText className="h-3.5 w-3.5" aria-hidden />
+                        </button>
+                      </TooltipTrigger><TooltipContent>View specifications</TooltipContent></Tooltip>
+                    </div>
                     );
                   })}</div>}
                 </div>
@@ -17494,7 +17516,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	                type="button"
 	                data-testid="catalog-style-specifications-trigger"
 	                aria-label="Open catalog specifications"
-	                onClick={() => setCatalogSpecificationsOpen(true)}
+	                onClick={() => { setCatalogSpecificationsItem(null); setCatalogSpecificationsOpen(true); }}
 	                className="inline-flex shrink-0 items-center gap-1 rounded border border-[#b98d3e]/60 bg-white px-2 py-1 text-[10px] font-semibold text-[#634b20] transition hover:bg-[#fff4d8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a2744] active:scale-95"
 	              >
 	                <FileText className="h-3.5 w-3.5" /> Specs
@@ -20518,6 +20540,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	        onAddPricedItemsToCart={() => void addAllToCart()}
 	        missingPriceUids={missingPriceUids}
 	        missingPriceCount={missingPriceSummary.count}
+	        conflictUids={conflictUids}
 	        pricedCartItemCount={cartableLines.reduce((count, line) => count + line.qty, 0)}
 	        onRemovePlacedItems={(uids) => {
 	          const sources = new Set(uids);
@@ -20527,12 +20550,35 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	        }}
 	      />
 
-	      <Dialog open={catalogSpecificationsOpen} onOpenChange={setCatalogSpecificationsOpen}>
+	      <Dialog open={catalogSpecificationsOpen} onOpenChange={(open) => { if (!open) setCatalogSpecificationsItem(null); setCatalogSpecificationsOpen(open); }}>
 	        <DialogContent data-testid="catalog-style-specifications-dialog" className="max-w-lg">
 	          <DialogHeader>
-	            <DialogTitle>Catalog specifications{activeStyleName ? ` · ${activeStyleName}` : ""}</DialogTitle>
+	            <DialogTitle>Catalog specifications{catalogSpecificationsItem ? ` · ${catalogSpecificationsItem.displayMasterCode ?? catalogSpecificationsItem.masterCode}` : activeStyleName ? ` · ${activeStyleName}` : ""}</DialogTitle>
 	            <DialogDescription>Auto-filled from manufacturer sheets</DialogDescription>
 	          </DialogHeader>
+	          {catalogSpecificationsItem && (() => {
+	            const dimensions = resolvedDesignCabinetDimensions(catalogSpecificationsItem);
+	            const cabinetCode = catalogSpecificationsItem.displayMasterCode ?? catalogSpecificationsItem.masterCode;
+	            return <div data-testid="catalog-card-specifications" className="rounded-lg border border-[#d8c7a1] bg-[#fffaf0] p-4 text-sm leading-relaxed text-[#49381a]">
+	              <div className="flex items-start gap-3">
+	                <CabinetImage cabinet={catalogSpecificationsItem} className="h-16 w-16 shrink-0 rounded border border-[#d8c7a1] object-contain bg-white" />
+	                <div className="min-w-0">
+	                  <p className="font-mono text-base font-bold">{cabinetCode}</p>
+	                  <p className="text-sm">{isSquareDoubleDoorBaseEnd(catalogSpecificationsItem) ? BEC24_DISPLAY_NAME : catalogSpecificationsItem.description}</p>
+	                  <p className="mt-1 text-xs text-[#806a42]">{catalogSpecificationsItem.category ?? "Catalog item"}{catalogSpecificationsItem.subCategory ? ` · ${catalogSpecificationsItem.subCategory}` : ""}</p>
+	                </div>
+	              </div>
+	              <dl className="mt-4 grid grid-cols-2 gap-x-5 gap-y-2 border-t border-[#d8c7a1] pt-3 text-xs">
+	                <div><dt className="font-semibold">Nominal size</dt><dd>{formatCatalogInchValue(dimensions.width)}″ W × {formatCatalogInchValue(dimensions.height)}″ H × {formatCatalogInchValue(dimensions.depth)}″ D</dd></div>
+	                <div><dt className="font-semibold">Placement</dt><dd className="capitalize">{catalogSpecificationsItem.placement}</dd></div>
+	                {catalogSpecificationsItem.numberOfDoors != null && <div><dt className="font-semibold">Doors</dt><dd>{catalogSpecificationsItem.numberOfDoors}</dd></div>}
+	                {catalogSpecificationsItem.numberOfDrawers != null && <div><dt className="font-semibold">Drawers</dt><dd>{catalogSpecificationsItem.numberOfDrawers}</dd></div>}
+	                {catalogSpecificationsItem.constructionMethod && <div><dt className="font-semibold">Construction</dt><dd>{catalogSpecificationsItem.constructionMethod}</dd></div>}
+	                {catalogSpecificationsItem.layoutSpec && <div><dt className="font-semibold">Configuration</dt><dd>{catalogSpecificationsItem.layoutSpec}</dd></div>}
+	              </dl>
+	              {catalogSpecificationsItem.specImageUrl && <a className="mt-4 inline-flex font-semibold text-[#634b20] underline underline-offset-2" href={catalogSpecificationsItem.specImageUrl} target="_blank" rel="noreferrer">Open manufacturer specification sheet</a>}
+	            </div>;
+	          })()}
 	          {activeStyle && (
 	            <div className="rounded-lg border border-[#d8c7a1] bg-[#fffaf0] p-4 text-sm leading-relaxed text-[#49381a]">
 	              <div className="grid gap-x-5 gap-y-3 sm:grid-cols-2">
