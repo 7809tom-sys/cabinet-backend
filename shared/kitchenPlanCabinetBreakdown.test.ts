@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { classifyKitchenCabinet, countKitchenCabinets, countKitchenCabinetWork } from "./kitchenPlanCabinetBreakdown";
 
 const catalog = new Map([
-  [1, { category: "Base", numberOfDoors: 1, numberOfDrawers: 2 }], [2, { category: "Wall", numberOfDoors: 2, numberOfDrawers: 0 }], [3, { category: "Tall", numberOfDoors: 2, numberOfDrawers: 2 }],
+  [1, { category: "Base", numberOfDoors: 1, numberOfDrawers: 2, height: 34.75 }], [2, { category: "Wall", numberOfDoors: 2, numberOfDrawers: 0, height: 30 }], [3, { category: "Tall", numberOfDoors: 2, numberOfDrawers: 2, height: 84 }],
   [4, { category: "Accessory", placementType: "base", subCategory: "Drawer Organizer" }],
   [5, { category: "ADA", placementType: "base" }],
 ]);
@@ -35,6 +35,6 @@ describe("saved Kitchen plan cabinet breakdown", () => {
 
   it("derives known installation quantities from the actual saved cabinet faces", () => {
     expect(countKitchenCabinetWork([{ cabinetId: 1 }, { cabinetId: 2, qty: 2 }, { cabinetId: 3 }], catalog))
-      .toMatchObject({ base: 1, wall: 2, tall: 1, total: 4, cabinetAssembly: 4, cabinetInstallation: 4, cabinetHanging: 2, handles: 11 });
+      .toMatchObject({ base: 1, wall: 2, tall: 1, total: 4, cabinetAssembly: 4, cabinetInstallation: 4, cabinetHanging: 2, pantryCabinet: 1, handles: 11 });
   });
 });

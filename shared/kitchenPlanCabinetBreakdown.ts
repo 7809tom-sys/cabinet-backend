@@ -3,6 +3,7 @@ export type KitchenCabinetWorkQuantities = KitchenCabinetBreakdown & {
   cabinetAssembly: number;
   cabinetInstallation: number;
   cabinetHanging: number;
+  pantryCabinet: number;
   handles: number;
 };
 export type KitchenCabinetClassificationRow = {
@@ -13,6 +14,7 @@ export type KitchenCabinetClassificationRow = {
   isNotCabinet?: boolean | null;
   numberOfDoors?: number | null;
   numberOfDrawers?: number | null;
+  height?: number | string | null;
 };
 export type KitchenPlanPlacement = { uid?: string | null; cabinetId?: number | null; qty?: number | null };
 
@@ -62,7 +64,7 @@ export function countKitchenCabinets(placements: unknown, cabinetById: Map<numbe
 /** Quantities directly knowable from saved catalog placements; prices stay editable. */
 export function countKitchenCabinetWork(placements: unknown, cabinetById: Map<number, KitchenCabinetClassificationRow>): KitchenCabinetWorkQuantities {
   const counts = countKitchenCabinets(placements, cabinetById);
-  const work: KitchenCabinetWorkQuantities = { ...counts, cabinetAssembly: counts.total, cabinetInstallation: counts.total, cabinetHanging: counts.wall, handles: 0 };
+  const work: KitchenCabinetWorkQuantities = { ...counts, cabinetAssembly: counts.total, cabinetInstallation: counts.total, cabinetHanging: counts.wall, pantryCabinet: 0, handles: 0 };
   const seen = new Set<string>();
   if (!Array.isArray(placements)) return work;
   for (const item of placements) {
@@ -76,6 +78,7 @@ export function countKitchenCabinetWork(placements: unknown, cabinetById: Map<nu
     const uid = typeof placement.uid === "string" ? placement.uid.trim() : "";
     if (uid && seen.has(uid)) continue;
     if (uid) seen.add(uid);
+    if (Number(row?.height ?? 0) >= 84) work.pantryCabinet += quantity;
     work.handles += quantity * Math.max(0, Number(row?.numberOfDoors ?? 0) + Number(row?.numberOfDrawers ?? 0));
   }
   return work;

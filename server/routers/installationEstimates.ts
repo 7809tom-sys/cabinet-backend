@@ -75,7 +75,7 @@ export const installationEstimatesRouter = router({
         .orderBy(desc(kitchenDesigns.updatedAt));
       const ids = Array.from(new Set(designs.flatMap((design) => (Array.isArray(design.placedCabinets) ? design.placedCabinets : []).map((item) => Number((item as { cabinetId?: number } | null)?.cabinetId)).filter((id) => Number.isInteger(id) && id > 0))));
       const catalogRows = ids.length
-        ? await db.select({ id: cabinets.id, category: cabinets.category, subCategory: cabinets.subCategory, productType: cabinets.productType, placementType: cabinets.placementType, isNotCabinet: cabinets.isNotCabinet, numberOfDoors: cabinets.numberOfDoors, numberOfDrawers: cabinets.numberOfDrawers }).from(cabinets).where(inArray(cabinets.id, ids))
+        ? await db.select({ id: cabinets.id, category: cabinets.category, subCategory: cabinets.subCategory, productType: cabinets.productType, placementType: cabinets.placementType, isNotCabinet: cabinets.isNotCabinet, numberOfDoors: cabinets.numberOfDoors, numberOfDrawers: cabinets.numberOfDrawers, height: cabinets.height }).from(cabinets).where(inArray(cabinets.id, ids))
         : [];
       const cabinetById = new Map(catalogRows.map((row) => [row.id, row]));
       return designs.map((design) => ({
@@ -155,7 +155,7 @@ export const installationEstimatesRouter = router({
           const placed = (Array.isArray(design.placedCabinets) ? design.placedCabinets : []) as Array<{ cabinetId?: number | null; qty?: number | null }>;
           const ids = Array.from(new Set(placed.filter(Boolean).map((item) => Number(item.cabinetId)).filter((id) => Number.isInteger(id) && id > 0)));
           const catalogRows = ids.length
-            ? await tx.select({ id: cabinets.id, category: cabinets.category, subCategory: cabinets.subCategory, productType: cabinets.productType, placementType: cabinets.placementType, isNotCabinet: cabinets.isNotCabinet, numberOfDoors: cabinets.numberOfDoors, numberOfDrawers: cabinets.numberOfDrawers }).from(cabinets).where(inArray(cabinets.id, ids))
+            ? await tx.select({ id: cabinets.id, category: cabinets.category, subCategory: cabinets.subCategory, productType: cabinets.productType, placementType: cabinets.placementType, isNotCabinet: cabinets.isNotCabinet, numberOfDoors: cabinets.numberOfDoors, numberOfDrawers: cabinets.numberOfDrawers, height: cabinets.height }).from(cabinets).where(inArray(cabinets.id, ids))
             : [];
           cabinetBreakdown = countKitchenCabinets(placed, new Map(catalogRows.map((row) => [row.id, row])));
         }
