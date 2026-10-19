@@ -4349,6 +4349,118 @@ describe("interactive 3D room scene helpers", () => {
     }
   });
 
+  it("renders WER2442's selected handle package on its operable wall easy-reach door", () => {
+    const wer2442 = {
+      uid: "wer2442-hardware",
+      cabinetId: 9360134,
+      masterCode: "WER2442",
+      description: '24" X 42" Wall Easy Reach Corner Cabinet',
+      placement: "wall",
+      placementType: "wall",
+      graphicType: "wall_easy_reach",
+      x: 0,
+      y: 0,
+      width: 24,
+      depth: 12,
+      height: 42,
+      rotation: 0,
+      numberOfDoors: 2,
+      numberOfDrawers: 0,
+      swing: "right",
+    } as never;
+
+    const withoutHardware = new THREE.Group();
+    addCabinet(withoutHardware, existingCabinetSku(wer2442), null, {}, 144, 120, "#d1ba8f", "#ffffff", { doorStyle: "Shaker", doorPanelType: null }, existingCabinetTransform(wer2442), undefined, undefined, { hardwareStyleId: "none" });
+    const noHandles: THREE.Object3D[] = [];
+    withoutHardware.traverse((node) => { if (node.userData.cabinetHardware) noHandles.push(node); });
+    expect(noHandles).toHaveLength(0);
+
+    const withBarPull = new THREE.Group();
+    addCabinet(withBarPull, existingCabinetSku(wer2442), null, {}, 144, 120, "#d1ba8f", "#ffffff", { doorStyle: "Shaker", doorPanelType: null }, existingCabinetTransform(wer2442), undefined, undefined, { hardwareStyleId: "bar-pull" });
+    const pulls: THREE.Object3D[] = [];
+    withBarPull.traverse((node) => { if (node.userData.lCornerHingeOppositePull) pulls.push(node); });
+    expect(pulls).toHaveLength(1);
+    expect(pulls[0]?.userData).toMatchObject({
+      cabinetHardware: true,
+      cabinetPull: "door",
+      hingeSide: "right",
+      handleSide: "left",
+      pullEdge: "opposite-hinge",
+    });
+  });
+
+  it("puts normally mounted wall-cabinet pulls on their bottom rails while retaining the floor-seated exception", () => {
+    const render = (cabinet: Record<string, unknown>) => {
+      const root = new THREE.Group();
+      addCabinetWithBarPulls(root, cabinet as never, null, {}, 144, 120, "#d1ba8f", "#ffffff", { doorStyle: "Shaker", doorPanelType: null });
+      return root;
+    };
+    const pairedWall = render({
+      distributorSkuId: 2442, cabinetId: 2442, masterCode: "W2442", description: '24" x 42" Wall Cabinet',
+      placementType: "wall", width: 24, height: 42, depth: 12, mountBottom: 54, numberOfDoors: 2, numberOfDrawers: 0,
+    });
+    const wallDoors: THREE.Mesh[] = [];
+    const wallPulls: THREE.Mesh[] = [];
+    pairedWall.traverse((node) => {
+      if (!(node instanceof THREE.Mesh)) return;
+      if (node.userData.cabinetFront && !node.userData.cabinetDrawerFront) wallDoors.push(node);
+      if (node.userData.cabinetHardware && node.userData.cabinetPull === "door") wallPulls.push(node);
+    });
+    wallDoors.sort((left, right) => left.position.x - right.position.x);
+    wallPulls.sort((left, right) => left.position.x - right.position.x);
+    expect(wallDoors).toHaveLength(2);
+    expect(wallPulls).toHaveLength(2);
+    for (let index = 0; index < wallDoors.length; index += 1) {
+      const door = wallDoors[index]!;
+      const pull = wallPulls[index]!;
+      const bottomRailY = door.position.y - (door.geometry as THREE.BoxGeometry).parameters.height / 2;
+      expect((pull.position.y - bottomRailY) * 12).toBeCloseTo(2.75, 8);
+      expect(pull.userData).toMatchObject({ pullVerticalRail: "bottom", pullEdge: "opposite-hinge" });
+    }
+
+    const werRoot = new THREE.Group();
+    const wer2442 = {
+      uid: "wer2442-bottom-rail", cabinetId: 9360134, masterCode: "WER2442", description: '24" X 42" Wall Easy Reach Corner Cabinet',
+      placement: "wall", x: 0, y: 0, width: 24, height: 42, depth: 12, mountBottom: 54, rotation: 0,
+      numberOfDoors: 2, numberOfDrawers: 0, swing: "right", graphicType: "wall_easy_reach",
+    } as never;
+    addCabinetWithBarPulls(werRoot, existingCabinetSku(wer2442), null, {}, 144, 120, "#d1ba8f", "#ffffff", { doorStyle: "Shaker", doorPanelType: null }, existingCabinetTransform(wer2442));
+    const werDoor = (() => {
+      let result: THREE.Mesh | null = null;
+      werRoot.traverse((node) => { if (node instanceof THREE.Mesh && node.userData.lCornerDoor === "side-leg") result = node; });
+      return result;
+    })();
+    const werPull = (() => {
+      let result: THREE.Mesh | null = null;
+      werRoot.traverse((node) => { if (node instanceof THREE.Mesh && node.userData.lCornerHingeOppositePull) result = node; });
+      return result;
+    })();
+    expect(werDoor).not.toBeNull();
+    expect(werPull).not.toBeNull();
+    const werBottomRailY = werDoor!.position.y - (werDoor!.geometry as THREE.BoxGeometry).parameters.height / 2;
+    expect((werPull!.position.y - werBottomRailY) * 12).toBeCloseTo(2.75, 8);
+    expect(werPull!.userData).toMatchObject({ pullHeight: "bottom-door-rail", pullVerticalRail: "bottom" });
+
+    const floorWall = render({
+      distributorSkuId: 1800, cabinetId: 1800, masterCode: "W1830", description: '18" x 30" Floor-seated Wall Cabinet',
+      placementType: "wall", width: 18, height: 30, depth: 12, mountBottom: 4.5, numberOfDoors: 1, numberOfDrawers: 0,
+    });
+    const floorDoor = (() => {
+      let result: THREE.Mesh | null = null;
+      floorWall.traverse((node) => { if (node instanceof THREE.Mesh && node.userData.cabinetFront && !node.userData.cabinetDrawerFront) result = node; });
+      return result;
+    })();
+    const floorPull = (() => {
+      let result: THREE.Mesh | null = null;
+      floorWall.traverse((node) => { if (node instanceof THREE.Mesh && node.userData.cabinetHardware && node.userData.cabinetPull === "door") result = node; });
+      return result;
+    })();
+    expect(floorDoor).not.toBeNull();
+    expect(floorPull).not.toBeNull();
+    expect(floorPull!.position.y).toBeGreaterThan(floorDoor!.position.y);
+    expect(floorPull!.userData.pullEdge).toBe("raised-door-rail");
+  });
+
   it("renders each saved cabinet hardware position independently, including paired-door pulls", () => {
     const renderPulls = (hardwarePosition: "left" | "center" | "right" | "paired", doors = 1) => {
       const isPairedDoorBase = doors > 1;
