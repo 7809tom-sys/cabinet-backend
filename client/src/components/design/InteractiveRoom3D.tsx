@@ -17,6 +17,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { APPLIANCES, BLIND_CORNER_FILLER_WIDTH_IN, COUNTERTOP_DEPTH_IN, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, isBaseHeightAppliance, blindCornerRearCountertopExtensionIn, cabinetWall, cabinetWallDragPreview, cornerRotationForPlaced, countertopRunFaceNormal, countertopSurfacePlanPolygon, countertopSurfaces, crownBlockingCabinets, crownEligibleCabinets, customWallCabinetSide, drywallPonyWallAppearance, elevationBox, formatEighthInches, formatInches, glassDoorShelfCount, isAgainstWall, isBaseEndCornerCabinet, isCustomRoomWall, isFillerItem, fillerWidthRange, isGlassDoorCabinet, isMicrowaveOverRangePair, isRangeHoodPlacement, isRangeOrOven, isRefrigerator, isStacker, isWallRunDraggable, isWd18CountertopDrawerCabinet, kitchenCrestGenericOpenEndShelfCount, peninsulaCountertopPonyWallBackExtensionIn, peninsulaCountertopPonyWallBarOverhang, peninsulaCountertopSeatingOverhang, peninsulaCountertopWaterfallEnd, peninsulaLowerWorktopOppositeSideExtensionIn, peninsulaRunEndpoints, placedCornerGeometryKind, placedFootprint, ponyWallMiteredFootprint, ponyWallPlanFrame, potFillerMountedRange, rangeVisualAppearance, refrigeratorBayVerificationMetrics, resolveCabinetHardwarePosition, resolveSwing, roomWallAppearance, seatedWallRunFrame, wallRunFrame, selectedLowerCabinetWallPlacement, sinkPlanDimensions, usesRaisedFloorWallDoorPull, wallCabinetFitMeasure, wallGapFitPreview, wallGapFreehandPreview, wallGaps, wallPlacementAt, wallRunOffset, wallRunSpan, wallSpanMeasure, wd18CountertopFaceLayout, type CabinetWallDragPreview, type CountertopSurface, type IslandZone, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type PotFillerFixture, rotatedSize, type RoomData, type SinkFixture, type WallCabinetFitMeasure, type WallGapFitPreview, type WallOpening, type WallSide, type WallSpanMeasure, wallTopLimit, } from "@/lib/design";
 import { islandCountertopRects, islandCountertopVisibleRects, islandRaisedBarRects, islandFaceFitMeasure } from "@/lib/islandScene";
 import { furniturePlanFrame, resolvedFurnitureDimensions } from "@/lib/design";
+import { farmhouseSinkBaseFaceLayout } from "@/lib/farmhouseSinkBaseFace";
 import { angledWallTransitionFootprint } from "@/lib/angledWallFiller";
 import { miteredWallOutlinesFromInteriorFaces, ROOM_WALL_THICKNESS_IN, wallAngle as polygonWallAngle } from "@/lib/polygonRoom";
 import { cabinetDrawingType, isEqualHeightTwoDrawerBase as isEqualHeightTwoDrawerBaseFamily, isSquareDoubleDoorBaseEnd, isWallBlindCornerCabinet, resolveDoorDrawerCounts, resolvedVanityComboFaceLayout, standardDoorCountForFaceWidth, threeDrawerBaseRowHeights } from "@/lib/cabinetGraphics";
@@ -5631,19 +5632,30 @@ export function addCabinet(
 	  } else if (specialty.kind === "farmhouse-sink") {
     // FSB farmhouse bases carry their apron on the positive-Z local face. The
     // cabinet's resolved wall transform keeps that feature facing the room.
-    const apronWidth = Math.max(0.3, bodyWidth * 0.68);
-    const apronHeight = Math.max(0.22, bodyHeight * 0.56);
-    const apronY = -bodyHeight * 0.1;
+    //
+    // A real FSB has NO top rail and NO false drawer front: the sink's apron
+    // slab fills an open cutout at the TOP of the face and TWO DOORS fill the
+    // lower face beneath it (see client/src/lib/farmhouseSinkBaseFace.ts). The
+    // earlier front drew the apron mid-face, a false drawer front above it and
+    // doors BESIDE it, which is why this base always looked wrong.
+    const farmhouseFace = farmhouseSinkBaseFaceLayout(widthIn, bodyHeight / INCH, doorCount);
+    const apronWidth = Math.max(0.3, farmhouseFace.apronWidthIn * INCH);
+    const apronHeight = Math.max(0.22, farmhouseFace.apronZoneIn * INCH);
+    const carcassTopY = bodyHeight / 2;
+    const apronBottomY = carcassTopY - apronHeight;
     // An empty FSB needs a neutral built-in placeholder. Once a cabinet-owned,
     // source-verified Pelican sink is selected, its measured countertop basin,
     // visible apron, and selected faucet are rendered separately below. Keeping
     // both creates the 3D/2D mismatch by drawing two sinks on one base.
     if (!surfaceTextures?.suppressFarmhouseSinkPlaceholder) {
+      const apronDepth = 0.066;
       const apron = new THREE.Mesh(
-        new THREE.BoxGeometry(apronWidth, apronHeight, 0.066),
+        new THREE.BoxGeometry(apronWidth, apronHeight, apronDepth),
         new THREE.MeshStandardMaterial({ color: "#ece9e1", roughness: 0.34, metalness: 0.04 }),
       );
-      apron.position.set(0, apronY, 0.038);
+      // The apron hangs from the top of the face and stands a hair proud of the
+      // door slabs (about 3/8"), never recessed behind them.
+      apron.position.set(0, carcassTopY - apronHeight / 2, 0.052 - apronDepth / 2);
       apron.userData = { specialtyProfile: "farmhouse-sink", farmhouseApronFront: true, cabinetFront: true };
       frontGroup.add(apron);
       const basinMaterial = new THREE.MeshStandardMaterial({ color: "#d5d8d9", roughness: 0.22, metalness: 0.62 });
@@ -5662,19 +5674,34 @@ export function addCabinet(
       faucetSpout.userData = { specialtyProfile: "farmhouse-sink", farmhouseSinkFaucetSpout: true, dimensionalApplianceDetail: true };
       cabinet.add(faucetSpout);
     }
-    const falseFrontHeight = Math.max(0.1, bodyHeight * 0.18);
-    const falseFront = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth - 0.08, falseFrontHeight, 0.048), faceMaterial);
-    falseFront.position.set(0, bodyHeight / 2 - falseFrontHeight / 2 - 0.04, 0.028);
-    falseFront.userData = { specialtyProfile: "farmhouse-sink", farmhouseFalseFront: true, cabinetFront: true };
-    frontGroup.add(falseFront);
-    addShakerFrame(bodyWidth - 0.08, falseFrontHeight, falseFront.position.x, falseFront.position.y, 0.062);
-    const sideDoorWidth = Math.max(0.1, (bodyWidth - apronWidth - 0.12) / 2);
-    for (const side of [-1, 1] as const) {
-      const sideDoor = new THREE.Mesh(new THREE.BoxGeometry(sideDoorWidth, apronHeight, 0.052), faceMaterial);
-      sideDoor.position.set(side * (apronWidth + sideDoorWidth) / 2, apronY, 0.032);
-      sideDoor.userData = { specialtyProfile: "farmhouse-sink", farmhouseSideDoor: side === -1 ? "left" : "right", cabinetFront: true };
-      frontGroup.add(sideDoor);
-      addShakerFrame(sideDoorWidth, apronHeight, sideDoor.position.x, sideDoor.position.y, 0.066);
+    // Two doors (one on a very narrow base) below the apron, down to the toe
+    // kick, separated from the apron by the standard 1/8" reveal.
+    const farmhouseDoorTopY = apronBottomY - THREE_D_CABINET_FRONT_CENTER_GAP_IN * INCH;
+    const farmhouseDoorBottomY = -bodyHeight / 2 + 0.04;
+    const farmhouseDoorHeight = Math.max(0.2, farmhouseDoorTopY - farmhouseDoorBottomY);
+    const farmhouseDoorCenterY = farmhouseDoorBottomY + farmhouseDoorHeight / 2;
+    const farmhouseDoorColumns = threeDCabinetFrontColumnLayout(bodyWidth, farmhouseFace.doorCount);
+    for (let index = 0; index < farmhouseFace.doorCount; index++) {
+      const door = new THREE.Mesh(
+        new THREE.BoxGeometry(farmhouseDoorColumns.columnWidth, farmhouseDoorHeight, 0.045),
+        faceMaterial,
+      );
+      door.position.set(farmhouseDoorColumns.centerX(index), farmhouseDoorCenterY, 0);
+      door.userData = {
+        specialtyProfile: "farmhouse-sink",
+        farmhouseBaseDoor: index + 1,
+        cabinetFront: true,
+        flushPhysicalFace: true,
+      };
+      frontGroup.add(door);
+      addFaceShadow(farmhouseDoorColumns.columnWidth, farmhouseDoorHeight, door.position.x, door.position.y);
+      if (profileKind === "shaker" || profileKind === "raised" || doorProfile?.panelConstruction === "raised") {
+        addShakerFrame(farmhouseDoorColumns.columnWidth, farmhouseDoorHeight, door.position.x, door.position.y);
+      }
+      addPull(
+        farmhouseDoorColumns.columnWidth, farmhouseDoorHeight, door.position.x, door.position.y,
+        false, 0.086, "lower", farmhouseFace.doorCount === 1 ? singleDoorHinge : null,
+      );
     }
   } else if (specialty.kind === "face-pattern") {
     const recess = new THREE.Mesh(

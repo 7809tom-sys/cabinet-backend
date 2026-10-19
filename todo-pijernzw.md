@@ -226,3 +226,20 @@
 - [x] Prefill decorative doors, roll-outs, Lazy Susan inserts, trash pull-outs, refrigerator panels, and dishwasher panels.
 - [x] Reuse existing invoice cost-sheet rows without duplicate categories.
 - [x] Validate with focused tests, TypeScript, and production build.
+
+## Measured builder: corner seating, appliance slide, wall cabinets (2026-10-18 "BBC36 cannot fit" screenshot)
+- [x] Seat the chosen corner cabinet at the exact shared vertex; slide a measured range/refrigerator (with its bay) away from the corner in 1/8" steps, max 3", and disclose every slide in a toast (`fourAnchorCornerSeating.ts`)
+- [x] Failure message names the real blocker and the true distance needed (corner box plus required 3" filler)
+- [x] Frameless required 3" blind-corner filler resolves: nominal 3" AltaEuro OF overlay (2-7/8") satisfies an exact 3" seam (`catalogFiller.ts`)
+- [x] Wall stage uses the line's real wall height class (frameless 30.25/35.25/40.25 vs framed 30/36/42) and adds wall blind corners with their integrated filler
+- [x] Focused tests: 156 pass across 9 suites (12 new real-catalog corner-seating tests); tsc clean; production build OK; checkpoint 6d8e2bce
+- [ ] Verify in the actual Designer UI with the user's real kitchen (needs the user's design or a live click-through)
+- Note: 4 failures in DesignTool.requiredBlindCornerFiller.test.ts also fail on unchanged HEAD (source-text contract tests), not caused by this change
+
+## Farmhouse (apron-front) sink base face — corrected
+- [x] Research: real FSB = apron slab at TOP, TWO DOORS below, no top rail / false drawer front / side doors (`/home/ubuntu/corner-wall-check/APRON_SINK_RESEARCH.md`).
+- [x] Root cause: 3D `farmhouse-sink` branch (introduced 7d2a393803, Aug 2026) drew apron mid-face + false front + side doors; elevation drew generic 20% false front over 2 doors; tests only checked pieces existed.
+- [x] Shared layout `client/src/lib/farmhouseSinkBaseFace.ts` (8.5" apron zone, 2 doors) used by 3D, wall elevation, island elevation.
+- [x] New real-mesh regression `InteractiveRoom3D.farmhouseSinkBase.test.ts` (10) + `ElevationView.farmhouseFace.test.ts` (4) + island pull test; old 3-part expectation updated.
+- [x] Real-Designer before/after proof: `/home/ubuntu/apron-sink-proof/FSB_before_after_proof.png`.
+- [ ] Not published: Designer code must be published before www.cabinetdealz.com shows the corrected FSB.

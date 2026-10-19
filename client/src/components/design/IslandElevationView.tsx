@@ -26,6 +26,7 @@ import {
 	  type IslandZone, type IslandFace,
 } from "@/lib/design";
 import { inferredIslandFace, islandCountertopRect, islandFaceLength, islandOffsetForPlaced } from "@/lib/islandScene";
+import { farmhouseSinkBaseFaceLayout } from "@/lib/farmhouseSinkBaseFace";
 import {
   type HardwareStyleId,
   hardwareStyle as resolveHardwareStyle,
@@ -73,7 +74,7 @@ function RecessedPanel({
 }
 
 function DoorFront({
-  kind, edge, face, doors, drawers, isWall, doorSampleUrl, drawerSampleUrl, cabinetType, blindOnLeft, cabinetHeightIn, facePattern, frameInsetPx,
+  kind, edge, face, doors, drawers, isWall, doorSampleUrl, drawerSampleUrl, cabinetType, blindOnLeft, cabinetHeightIn, facePattern, frameInsetPx, farmhouseSinkBase = false, cabinetWidthIn,
 }: {
   kind: DoorPanelKind; edge: string; face: string;
   doors: number; drawers: number; isWall: boolean;
@@ -84,8 +85,36 @@ function DoorFront({
   cabinetHeightIn: number;
   facePattern?: "slats" | "criss-cross" | "lattice" | "open" | null;
   frameInsetPx?: number | null;
+  farmhouseSinkBase?: boolean;
+  cabinetWidthIn?: number;
 }) {
   void drawerSampleUrl; // reserved for future drawer-front photo rendering in island view
+  // A real farmhouse (apron-front) sink base has no top rail and no false drawer
+  // front: the apron fills the top of the face (drawn as an overlay) and two
+  // doors fill the lower face beneath it.
+  if (farmhouseSinkBase && !isWall) {
+    const fsbFace = farmhouseSinkBaseFaceLayout(cabinetWidthIn ?? 36, cabinetHeightIn, doors);
+    const colPct = 100 / fsbFace.doorCount;
+    return (
+      <div data-farmhouse-base-face="true" className="absolute inset-0">
+        <div data-farmhouse-apron-zone="true" className="absolute left-0 right-0 top-0" style={{ height: `${fsbFace.apronZonePct}%` }} />
+        {Array.from({ length: fsbFace.doorCount }).map((_, i) => (
+          <div
+            key={`island-fsb-door-${i}`}
+            data-farmhouse-base-door={i + 1}
+            className="absolute"
+            style={{ left: `${colPct * i}%`, width: `${colPct}%`, top: `${fsbFace.apronZonePct}%`, bottom: 0 }}
+          >
+            <DoorFront
+              kind={kind} edge={edge} face={face} doors={1} drawers={0} isWall={false}
+              doorSampleUrl={doorSampleUrl} drawerSampleUrl={drawerSampleUrl} cabinetType={null}
+              blindOnLeft={blindOnLeft} cabinetHeightIn={fsbFace.doorZoneIn} frameInsetPx={frameInsetPx}
+            />
+          </div>
+        ))}
+      </div>
+    );
+  }
   // Face-pattern override: render specialty open-front pattern instead of door panels
   const activeFacePattern = facePattern || (cabinetType === "face-pattern" ? "slats" : null);
   if (activeFacePattern) {
@@ -207,7 +236,7 @@ function DoorFront({
 }
 
 export function IslandHardwareOverlay({
-  doors, drawers, doorPiece, drawerPiece, accent, hardwarePosition, swing, faceWidthIn, frameStileIn, raisedDoorPullOnRail = false,
+  doors, drawers, doorPiece, drawerPiece, accent, hardwarePosition, swing, faceWidthIn, frameStileIn, raisedDoorPullOnRail = false, doorBandStartPct,
 }: {
   doors: number; drawers: number;
   doorPiece: "knob" | "pull" | "none";
@@ -218,6 +247,8 @@ export function IslandHardwareOverlay({
   faceWidthIn: number;
   frameStileIn?: number | null;
   raisedDoorPullOnRail?: boolean;
+  /** Doors start this many percent below the top of the face (farmhouse sink apron zone). */
+  doorBandStartPct?: number;
 }) {
   const metal = `linear-gradient(135deg, color-mix(in srgb, ${accent} 55%, #ffffff) 0%, ${accent} 38%, color-mix(in srgb, ${accent} 70%, #000000) 72%, color-mix(in srgb, ${accent} 88%, #ffffff) 100%)`;
   const metalShadow = "0 1px 1.5px rgba(0,0,0,0.35), inset 0 0.5px 0 rgba(255,255,255,0.55)";
@@ -280,7 +311,8 @@ export function IslandHardwareOverlay({
   };
   const items: React.ReactNode[] = [];
   if (doors > 0 && doorPiece !== "none") {
-    const topPct = raisedDoorPullOnRail || normalizedDoorPosition === "top-center" ? 13 : 50;
+    const bandStart = doorBandStartPct != null && doorBandStartPct > 0 && doorBandStartPct < 100 ? doorBandStartPct : 0;
+    const topPct = raisedDoorPullOnRail || normalizedDoorPosition === "top-center" ? bandStart + (100 - bandStart) * 0.13 : bandStart + (100 - bandStart) * 0.5;
     const visibleDoorPieces = normalizedDoorPosition === "paired" || (normalizedDoorPosition === "auto" && doors > 1)
       ? Math.min(doors, 2)
       : 1;
@@ -437,13 +469,20 @@ export function IslandElevationView({
     const resolvedCounts = !isAppliance ? resolveDoorDrawerCounts(p) : { doors: 0, drawers: 0 };
     const cabType: CabinetDrawingType | null = !isAppliance ? cabinetDrawingType(p) : null;
     const hasConfiguredOpening = p.openingType != null || cabType === "microwave-base";
-    const displayCounts = resolveConfiguredFaceCounts({
+    const configuredDisplayCounts = resolveConfiguredFaceCounts({
       numberOfDoors: p.numberOfDoors,
       numberOfDrawers: p.numberOfDrawers,
       hasConfiguredOpening,
       inferredDoors: resolvedCounts.drawers > 0 && resolvedCounts.doors === 0 ? 0 : (resolvedCounts.doors || doorCountForCabinet(p)),
       inferredDrawers: isWall ? 0 : (resolvedCounts.drawers || displayDrawerCount(p)),
     });
+    // A farmhouse sink base has two doors and NO drawer faces under its apron.
+    const farmhouseFace = !isAppliance && !isWall && isFarmerSinkBase(p)
+      ? farmhouseSinkBaseFaceLayout(cabSizeAlong, height, configuredDisplayCounts.doors)
+      : null;
+    const displayCounts = farmhouseFace
+      ? { doors: farmhouseFace.doorCount, drawers: 0 }
+      : configuredDisplayCounts;
     const isBlind = isBlindCorner(p.masterCode, p.description);
     const blindLeft = isBlind ? (isWallBlindCornerCabinet(p) || cabPosAlong <= 2) : true;
 
@@ -486,8 +525,10 @@ export function IslandElevationView({
               cabinetType={cabType}
               blindOnLeft={blindLeft}
               cabinetHeightIn={height}
+              cabinetWidthIn={cabSizeAlong}
               facePattern={p.facePattern ?? null}
               frameInsetPx={cabPanelKind === "slim-shaker" ? cabFrameInset ?? 4 : undefined}
+              farmhouseSinkBase={Boolean(farmhouseFace)}
             />
           )}
           {!isAppliance && hw.id !== "none" && (
@@ -502,6 +543,7 @@ export function IslandElevationView({
               swing={resolveSwing(p)}
               faceWidthIn={cabSizeAlong}
               frameStileIn={cabFrameStileIn}
+              doorBandStartPct={farmhouseFace ? farmhouseFace.apronZonePct : undefined}
             />
           )}
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ zIndex: 5 }}>

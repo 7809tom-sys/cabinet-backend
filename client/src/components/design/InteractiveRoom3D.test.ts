@@ -6924,10 +6924,14 @@ describe("interactive 3D room scene helpers", () => {
     const cabinetFaceParts: THREE.Object3D[] = [];
     root.traverse((node) => {
       if (node.userData.farmhouseApronFront || node.userData.farmhouseSinkBasin || node.userData.farmhouseSinkFaucetPost) genericPlaceholderParts.push(node);
-      if (node.userData.farmhouseFalseFront || node.userData.farmhouseSideDoor) cabinetFaceParts.push(node);
+      if (node.userData.farmhouseBaseDoor) cabinetFaceParts.push(node);
+      // The old August 2026 front (false drawer front + doors beside the apron)
+      // must never return: a real FSB has two doors BELOW the apron.
+      expect(node.userData.farmhouseFalseFront).toBeUndefined();
+      expect(node.userData.farmhouseSideDoor).toBeUndefined();
     });
     expect(genericPlaceholderParts).toHaveLength(0);
-    expect(cabinetFaceParts).toHaveLength(3);
+    expect(cabinetFaceParts).toHaveLength(2);
 
     addSinkFixture(root, {
       uid: "exact-fsb36", cabinetUid: "fsb36", type: "farmhouse", x: 37.6875, y: 6, width: 32.625, depth: 18,

@@ -27,6 +27,7 @@ import { drawerPanelInsetPx, elevationFrameInsetPx, isShakerElevationStyle, shak
 import { isCustomCabinetProfile } from "@/lib/customCabinetProfiles";
 import { resolveCustomCabinetRender } from "@/lib/customCabinetRender";
 import { pantryDrawerFrontLayout } from "@/lib/pantryDrawerLayout";
+import { farmhouseSinkBaseFaceLayout } from "@/lib/farmhouseSinkBaseFace";
 import { createContext, useContext, useRef, useEffect, useState, useCallback } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { masterTracFinishColor, masterTracProduct } from "@/lib/closet";
@@ -518,7 +519,14 @@ export function ElevationView({
     // those historic placements to the same contract as a fresh Cabinet Config
     // placement instead of drawing a generic single-door wall cabinet.
     const isLegacyWdcDiagonal = /^WDC[-_]?\d/i.test(p.masterCode ?? "") && cabType === "diagonal-corner";
-	    const displayCounts = isWd18CountertopDrawerCabinet(p)
+	    // A farmhouse sink base has two doors and NO drawer faces under its apron.
+	    const isFarmhouseSinkBaseFace = !isAppliance && !isWall && isFarmerSinkBase(p);
+	    const farmhouseFace = isFarmhouseSinkBaseFace
+	      ? farmhouseSinkBaseFaceLayout(sizeAlong, height, configuredDisplayCounts.doors)
+	      : null;
+	    const displayCounts = farmhouseFace
+      ? { doors: farmhouseFace.doorCount, drawers: 0 }
+      : isWd18CountertopDrawerCabinet(p)
       ? { doors: 1, drawers: 2 }
       : isLegacyWdcDiagonal
 	        ? { doors: Math.max(2, configuredDisplayCounts.doors), drawers: 0 }
@@ -646,6 +654,7 @@ export function ElevationView({
 	              glassDoor={isGlassDoor}
               frameInsetPx={cabFrameInset ?? undefined}
               frameMetrics={cabFrameMetrics ?? undefined}
+              farmhouseSinkBase={Boolean(farmhouseFace)}
             />
           )}
           {showProfileFallback && (
@@ -687,6 +696,7 @@ export function ElevationView({
               frameStileIn={cabFrameMetrics?.stileInches}
               frameRailIn={cabFrameMetrics?.railInches}
               cabinetHeightIn={height}
+              doorBandStartPct={farmhouseFace ? farmhouseFace.apronZonePct : undefined}
               pantryLayout={pantryDrawerFrontLayout({ ...p, placementType: p.placement, graphicType: customProfile, numberOfDoors: displayCounts.doors, numberOfDrawers: displayCounts.drawers }, height)}
             />
           )}
@@ -2076,7 +2086,7 @@ export function ElevationView({
 // Pieces are tiny CSS shapes positioned by percentage so they scale with zoom.
 //   knob → small filled circle   pull → short horizontal bar   cup → half-moon
 export function HardwareOverlay({
-  doors, drawers, doorPiece, drawerPiece, accent, hardwarePosition, swing, isWall = false, faceWidthIn, frameStileIn, frameRailIn, cabinetHeightIn, raisedDoorPullOnRail = false, pantryLayout,
+  doors, drawers, doorPiece, drawerPiece, accent, hardwarePosition, swing, isWall = false, faceWidthIn, frameStileIn, frameRailIn, cabinetHeightIn, raisedDoorPullOnRail = false, pantryLayout, doorBandStartPct,
 }: {
   doors: number;
   drawers: number;
@@ -2092,6 +2102,8 @@ export function HardwareOverlay({
   cabinetHeightIn?: number | null;
   raisedDoorPullOnRail?: boolean;
   pantryLayout?: ReturnType<typeof pantryDrawerFrontLayout>;
+  /** Doors start this many percent below the top of the face (farmhouse sink apron zone). */
+  doorBandStartPct?: number;
 }) {
   // Brushed-metal sheen: diagonal light streak over accent color with crisp
   // top highlight and soft drop shadow so pieces read as real metal hardware.
@@ -2220,8 +2232,9 @@ export function HardwareOverlay({
     // the handle side (opposite of the hinge).
     // Bar pulls: position near the bottom 20% of the door (like real kitchens).
     // Knobs: position near the top 15% of the door (near the handle side corner).
-    const doorHeightPct = pantryDoorPct ?? 100 - drawerBand;
-    const doorBandTop = pantryDoorPct == null ? drawerBand : 0;
+    const fixedDoorBandStart = doorBandStartPct != null && doorBandStartPct > 0 && doorBandStartPct < 100 ? doorBandStartPct : null;
+    const doorHeightPct = pantryDoorPct ?? (fixedDoorBandStart != null ? 100 - fixedDoorBandStart : 100 - drawerBand);
+    const doorBandTop = pantryDoorPct == null ? (fixedDoorBandStart ?? drawerBand) : 0;
     const resolvedCabinetHeight = Number(cabinetHeightIn);
     const resolvedRail = Number(frameRailIn ?? frameStileIn);
     const topRailCenterPct = Number.isFinite(resolvedCabinetHeight) && resolvedCabinetHeight > 0
@@ -2445,7 +2458,7 @@ export function CustomProfileFace({
   );
 }
 
-export function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, drawerSampleUrl, cabinetType, blindOnLeft, cabinetHeightIn, cabinetWidthIn, faceFillOverride, ovenType, openingType, doorHeight, drawerHeight, doorOrientation, layoutSpec, drawerLayout, masterCode, graphicType, category, placementType, description, numberOfDoors, numberOfDrawers, facePattern, shelfCount, glassDoor, frameInsetPx, frameMetrics }: { kind: DoorPanelKind; edge: string; face: string; doors?: number; drawers?: number; isWall?: boolean; doorSampleUrl?: string | null; drawerSampleUrl?: string | null; cabinetType?: CabinetDrawingType | null; blindOnLeft?: boolean; cabinetHeightIn?: number; cabinetWidthIn?: number; faceFillOverride?: string; ovenType?: "single" | "double" | null; openingType?: "top" | "middle" | "bottom" | null; doorHeight?: number | null; drawerHeight?: number | null; doorOrientation?: "side-by-side" | "stacked" | null; layoutSpec?: string | null; drawerLayout?: string | null; masterCode?: string | null; graphicType?: string | null; category?: string | null; placementType?: string | null; description?: string | null; numberOfDoors?: number | null; numberOfDrawers?: number | null; facePattern?: "slats" | "criss-cross" | "lattice" | "open" | null; shelfCount?: number | null; glassDoor?: boolean; frameInsetPx?: number; frameMetrics?: { stileInches?: number | null; railInches?: number | null } }) {
+export function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, drawerSampleUrl, cabinetType, blindOnLeft, cabinetHeightIn, cabinetWidthIn, faceFillOverride, ovenType, openingType, doorHeight, drawerHeight, doorOrientation, layoutSpec, drawerLayout, masterCode, graphicType, category, placementType, description, numberOfDoors, numberOfDrawers, facePattern, shelfCount, glassDoor, frameInsetPx, frameMetrics, farmhouseSinkBase = false }: { kind: DoorPanelKind; edge: string; face: string; doors?: number; drawers?: number; isWall?: boolean; doorSampleUrl?: string | null; drawerSampleUrl?: string | null; cabinetType?: CabinetDrawingType | null; blindOnLeft?: boolean; cabinetHeightIn?: number; cabinetWidthIn?: number; faceFillOverride?: string; ovenType?: "single" | "double" | null; openingType?: "top" | "middle" | "bottom" | null; doorHeight?: number | null; drawerHeight?: number | null; doorOrientation?: "side-by-side" | "stacked" | null; layoutSpec?: string | null; drawerLayout?: string | null; masterCode?: string | null; graphicType?: string | null; category?: string | null; placementType?: string | null; description?: string | null; numberOfDoors?: number | null; numberOfDrawers?: number | null; facePattern?: "slats" | "criss-cross" | "lattice" | "open" | null; shelfCount?: number | null; glassDoor?: boolean; frameInsetPx?: number; frameMetrics?: { stileInches?: number | null; railInches?: number | null }; farmhouseSinkBase?: boolean }) {
   const drawerCount = drawers ?? 0;
   const doorCount = doors ?? 0;
   const stroke = `${edge}99`;
@@ -2483,6 +2496,36 @@ export function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSample
     </div>
   );
 
+  // ─── SPECIALTY TYPE: FARMHOUSE (APRON-FRONT) SINK BASE ────────────────
+  // A real FSB has no top rail and no false drawer front. The sink's apron fills
+  // the open cutout at the TOP of the face (drawn as an overlay by the wall and
+  // island elevations) and two doors fill the lower face beneath it.
+  if (farmhouseSinkBase && !isWall) {
+    const fsbFace = farmhouseSinkBaseFaceLayout(faceWidth, faceHeight, doorCount);
+    const fsbColW = 100 / fsbFace.doorCount;
+    return withFace(
+      <div data-farmhouse-base-face="true" className="absolute inset-0">
+        <div
+          data-farmhouse-apron-zone="true"
+          className="absolute left-0 right-0 top-0"
+          style={{ height: `${fsbFace.apronZonePct}%` }}
+        />
+        {Array.from({ length: fsbFace.doorCount }).map((_, i) => (
+          <div
+            key={`fsb-door-${i}`}
+            data-farmhouse-base-door={i + 1}
+            className="absolute"
+            style={{ left: `${fsbColW * i}%`, width: `${fsbColW}%`, top: `${fsbFace.apronZonePct}%`, bottom: 0 }}
+          >
+            {i > 0 && (
+              <div className="absolute top-0 bottom-0 left-0" style={{ width: 2, background: stroke }} />
+            )}
+            <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} doorSampleUrl={doorSampleUrl} isWall={isWall} frameInsetPx={frameInsetPx} faceWidthIn={faceWidth / fsbFace.doorCount} faceHeightIn={fsbFace.doorZoneIn} />
+          </div>
+        ))}
+      </div>,
+    );
+  }
   // ─── SPECIALTY TYPE: RANGE HOOD FRONT (RHF30/RHF36) ───────────────────
   // The supplier's catalog image is a shallow wood cabinet front: a lower
   // fascia beneath two doors that slope back toward the wall. It is NOT a
@@ -2927,7 +2970,7 @@ export function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSample
     return withFace(
       <>
         {/* false front (tilt-out tray) */}
-        <div className="absolute left-0 right-0 top-0" style={{ height: `${falseFrontPct}%` }}>
+        <div data-sink-base-false-front="true" className="absolute left-0 right-0 top-0" style={{ height: `${falseFrontPct}%` }}>
           <StylePanel kind={kind} edge={edge} face={face} drawer doorSampleUrl={doorSampleUrl} drawerSampleUrl={drawerSampleUrl} frameInsetPx={frameInsetPx} faceWidthIn={cabinetWidthIn ?? 24} faceHeightIn={(cabinetHeightIn ?? 34.5) * (falseFrontPct / 100)} />
         </div>
         {/* rail between false front and doors */}
