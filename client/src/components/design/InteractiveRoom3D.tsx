@@ -4657,16 +4657,17 @@ export function addCabinet(
     // This is an opening rule, not a distributor or finish rule: every tall
     // cabinet's separate top door bank pulls from its bottom/meeting rail. A
     // full-height, single-door tall cabinet remains on the existing raised rail.
-    const tallUpperDoorUsesMeetingRail = !drawer
+    const tallDoorZoneOverridesTopCenter = !drawer
       && sku.placementType === "tall"
       && (doorZone === "upper" || isStackedTallPantryDoor);
-    const raisedFloorWallDoorPull = !tallUpperDoorUsesMeetingRail && !drawer && usesRaisedFloorWallDoorPull({
+    const tallUpperDoorUsesMeetingRail = tallDoorZoneOverridesTopCenter && doorZone === "upper";
+    const raisedFloorWallDoorPull = !tallDoorZoneOverridesTopCenter && !drawer && usesRaisedFloorWallDoorPull({
       placement: sku.placementType,
       mountBottom: sku.mountBottom,
       islandFace: sku.islandFace,
       islandCounterHeightWallCabinet: sku.islandCounterHeightWallCabinet,
     });
-    const effectiveHardwarePosition = (raisedFloorWallDoorPull || tallUpperDoorUsesMeetingRail) && hardwarePosition === "top-center" ? "auto" : hardwarePosition;
+    const effectiveHardwarePosition = (raisedFloorWallDoorPull || tallDoorZoneOverridesTopCenter) && hardwarePosition === "top-center" ? "auto" : hardwarePosition;
     const requestedTopCenteredDoorPull = !drawer && effectiveHardwarePosition === "top-center";
     const horizontalTopRailPull = requestedTopCenteredDoorPull && !raisedFloorWallDoorPull && piece === "pull";
     // Top-center is a construction position, not the center of the panel. For
@@ -4686,8 +4687,10 @@ export function addCabinet(
     );
     if (isCupPull) pull.rotation.z = Math.PI / 2;
     // Doors swing from their outside edge. Pulls therefore sit vertically at
-    // the center meeting edge (opposite hinge). Upper doors pull from the
-    // lower part; lower/pantry doors pull from the upper part.
+    // the center meeting edge (opposite hinge). Separate upper door banks use
+    // the physical bottom rail: their centerline is 2¾ inches above that rail,
+    // rather than a percentage of the door height. Lower/pantry doors retain
+    // their existing upper-side placement.
     const automaticSide = hingeSide === "left" ? 1 : hingeSide === "right" ? -1 : -Math.sign(x || 1);
     // Drawers are fixed at the horizontal center by CabinetDealz construction
     // rules. Saved hardware choices remain effective only for door pulls.
@@ -4701,13 +4704,16 @@ export function addCabinet(
         explicitSide < 0 ? "left" : explicitSide > 0 ? "right" : "center",
         profileFrameWidthIn,
       ) * INCH;
+    const upperDoorBottomRailCenter = Math.min(2.75 * INCH, faceHeight / 2);
     const pullY = drawer
       ? y
       : raisedFloorWallDoorPull
         ? y + faceHeight * 0.34
         : requestedTopCenteredDoorPull
           ? y + faceHeight / 2 - topRailWidth / 2
-          : y + (doorZone === "upper" ? -1 : 1) * faceHeight * 0.3;
+          : tallUpperDoorUsesMeetingRail
+            ? y - faceHeight / 2 + upperDoorBottomRailCenter
+            : y + faceHeight * 0.3;
     pull.position.set(pullX, pullY, isKnob ? z + 0.012 : z);
     pull.userData = {
       cabinetHardware: true,
@@ -4715,6 +4721,7 @@ export function addCabinet(
       hardwareStyleId: selectedHardware.id,
       verticalPull: !isKnob && !drawer && !horizontalTopRailPull,
       pullDoorZone: drawer ? null : doorZone,
+      pullVerticalRail: drawer ? null : tallUpperDoorUsesMeetingRail ? "bottom" : doorZone === "lower" ? "upper-side" : null,
       pullEdge: raisedFloorWallDoorPull ? "raised-door-rail" : horizontalTopRailPull ? "top-center" : resolvedHardwarePosition === "auto" || resolvedHardwarePosition === "paired" ? (drawer ? "center" : "opposite-hinge") : resolvedHardwarePosition,
       ...(hingeSide ? { hingeSide, handleSide: horizontalTopRailPull ? "top-center" : resolvedHardwarePosition === "auto" || resolvedHardwarePosition === "paired" ? hingeSide === "left" ? "right" : "left" : resolvedHardwarePosition } : { handleSide: horizontalTopRailPull ? "top-center" : resolvedHardwarePosition === "auto" || resolvedHardwarePosition === "paired" ? (automaticSide < 0 ? "left" : "right") : resolvedHardwarePosition }),
       hardwarePosition: resolvedHardwarePosition,

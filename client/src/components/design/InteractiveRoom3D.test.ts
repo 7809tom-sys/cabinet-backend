@@ -3989,6 +3989,37 @@ describe("interactive 3D room scene helpers", () => {
     expect(meshMarkers).toEqual({ ovenCabinetDoor: 2, ovenCabinetDrawer: 1, ovenOpening: 1, ovenApplianceDoor: 2, ovenGlassDoor: 2, ovenDoorHandle: 2 });
   });
 
+  it("places Preston Air Dawn O339624 upper oven-door pulls 2½–3 inches above the bottom rail", () => {
+    const root = new THREE.Group();
+    addCabinetWithBarPulls(root, {
+      distributorSkuId: 339624, cabinetId: 339624, masterCode: "O339624", description: '33" x 96" Oven Cabinet — 2 Doors, 3 Drawers',
+      placementType: "tall", width: 33, height: 96, depth: 24, numberOfDoors: 2, numberOfDrawers: 3,
+      openingType: "middle", ovenType: "double",
+    } as never, null, {}, 144, 120, "#d5d0bf", "#f8f8f6", { doorStyle: "Air Dawn", doorPanelType: null });
+
+    const doors: THREE.Mesh[] = [];
+    const pulls: THREE.Mesh[] = [];
+    root.traverse((node) => {
+      if (!(node instanceof THREE.Mesh)) return;
+      if (node.userData.ovenCabinetDoor) doors.push(node);
+      if (node.userData.cabinetHardware && node.userData.cabinetPull === "door" && node.userData.pullDoorZone === "upper") pulls.push(node);
+    });
+    doors.sort((left, right) => left.position.x - right.position.x);
+    pulls.sort((left, right) => left.position.x - right.position.x);
+    expect(doors).toHaveLength(2);
+    expect(pulls).toHaveLength(2);
+    for (let index = 0; index < 2; index++) {
+      const door = doors[index]!;
+      const pull = pulls[index]!;
+      const doorHeight = (door.geometry as THREE.BoxGeometry).parameters.height;
+      const bottomRailY = door.position.y - doorHeight / 2;
+      const pullDistanceAboveBottomRailIn = (pull.position.y - bottomRailY) * 12;
+      expect(pull.userData).toMatchObject({ pullDoorZone: "upper", pullVerticalRail: "bottom", pullEdge: "opposite-hinge" });
+      expect(pullDistanceAboveBottomRailIn).toBeGreaterThanOrEqual(2.5);
+      expect(pullDistanceAboveBottomRailIn).toBeLessThanOrEqual(3);
+    }
+  });
+
   it("renders AEF refrigerator-wall and source oven faces with one selected pull per cabinet front", () => {
     const count = (root: THREE.Group, predicate: (node: THREE.Object3D) => boolean) => {
       const nodes: THREE.Object3D[] = [];
