@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { and, asc, desc, eq, gt, like, not, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, isNull, like, lte, not, or, sql } from "drizzle-orm";
 import { router, publicProcedure, adminProcedure } from "../_core/trpc";
 import { getDb } from "../db";
 import { pelicanProducts, pelicanShippingProfiles } from "../../drizzle/pelicanSchema";
@@ -95,6 +95,26 @@ function hasPriceData() {
   );
 }
 
+/** SQL-safe inverse of hasPriceData(), including legacy NULL values. */
+function lacksPriceData() {
+  return and(
+    or(isNull(pelicanProducts.yourCost), lte(pelicanProducts.yourCost, "0")),
+    or(isNull(pelicanProducts.listPrice), lte(pelicanProducts.listPrice, "0")),
+  );
+}
+
+/**
+ * A public source MSRP is not an authorized sell-price basis and must never be
+ * marked up. It does, however, let a current supplier SKU remain findable as a
+ * clear quote-only catalog item instead of disappearing from the catalog.
+ */
+function hasCatalogPriceOrQuoteReference() {
+  return or(
+    hasPriceData() as any,
+    gt(pelicanProducts.msrp, "0"),
+  );
+}
+
 export const pelicanRouter = router({
   categories: publicProcedure
     .input(z.object({ scope: z.enum(["designer", "catalog", "all"]).default("catalog") }).optional())
@@ -102,7 +122,10 @@ export const pelicanRouter = router({
       const db = await getDb();
       if (!db) return [] as { category: string; count: number }[];
       const scope = input?.scope ?? "catalog";
-      const conds = [eq(pelicanProducts.isActive, true), hasPriceData() as any];
+      const conds = [
+        eq(pelicanProducts.isActive, true),
+        (scope === "catalog" ? hasCatalogPriceOrQuoteReference() : hasPriceData()) as any,
+      ];
       if (scope === "designer") conds.push(eq(pelicanProducts.showInDesigner, true));
       if (scope === "catalog") conds.push(eq(pelicanProducts.showInCatalog, true));
       if (scope === "designer") {
@@ -145,7 +168,11 @@ export const pelicanRouter = router({
       const affiliateBps = (category: string) => affiliatePricing
         ? resolveMarkupBps(affiliatePricing.markup, { categoryKey: category })
         : undefined;
-      const conds = [eq(pelicanProducts.category, input.category), eq(pelicanProducts.isActive, true), hasPriceData() as any];
+      const conds = [
+        eq(pelicanProducts.category, input.category),
+        eq(pelicanProducts.isActive, true),
+        (input.scope === "catalog" ? hasCatalogPriceOrQuoteReference() : hasPriceData()) as any,
+      ];
       if (input.scope === "designer") conds.push(eq(pelicanProducts.showInDesigner, true));
       if (input.scope === "catalog") conds.push(eq(pelicanProducts.showInCatalog, true));
       if (input.subCategory) conds.push(eq(pelicanProducts.subCategory, input.subCategory));
@@ -231,7 +258,7 @@ export const pelicanRouter = router({
           eq(pelicanProducts.slug, input.slug),
           eq(pelicanProducts.isActive, true),
           eq(pelicanProducts.showInCatalog, true),
-          hasPriceData() as any,
+          hasCatalogPriceOrQuoteReference() as any,
         ))
         .limit(1);
       if (!row) return null;
@@ -240,8 +267,6 @@ export const pelicanRouter = router({
       const priced = withPricing(row, markupMap, affiliatePricing
         ? resolveMarkupBps(affiliatePricing.markup, { categoryKey: row.category })
         : undefined);
-      // Hide product detail if it has no valid sell price
-      if (!priced.sellPrice || priced.sellPrice <= 0) return null;
       return priced;
     }),
   // Returns related products for "Complete this look" pairing (sink ↔ faucet).
@@ -301,7 +326,7 @@ export const pelicanRouter = router({
       const markupMap = await loadMarkupMap(db);
       const conds = [] as any[];
       if (input.category) conds.push(eq(pelicanProducts.category, input.category));
-      if (input.unpricedOnly) conds.push(not(hasPriceData()!) as any);
+      if (input.unpricedOnly) conds.push(lacksPriceData() as any);
       if (input.search) {
         const search = input.search.trim();
         const q = `%${search}%`;
@@ -557,16 +582,17 @@ export const pelicanRouter = router({
       if (input.isActive !== undefined) patch.isActive = input.isActive;
       if (Object.keys(patch).length) {
         const [existing] = await db
-          .select({ listPrice: pelicanProducts.listPrice, yourCost: pelicanProducts.yourCost })
+          .select({ listPrice: pelicanProducts.listPrice, yourCost: pelicanProducts.yourCost, msrp: pelicanProducts.msrp })
           .from(pelicanProducts)
           .where(eq(pelicanProducts.id, input.id))
           .limit(1);
         if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "Surface product not found." });
         const requestsPublicAvailability = patch.isActive === true || patch.showInCatalog === true || patch.showInDesigner === true;
-        if (requestsPublicAvailability && positiveAuthorizedSurfaceBase(existing) == null) {
+        const permitsCatalogQuoteOnly = Number(existing.msrp) > 0 && patch.showInDesigner !== true;
+        if (requestsPublicAvailability && positiveAuthorizedSurfaceBase(existing) == null && !permitsCatalogQuoteOnly) {
           throw new TRPCError({
             code: "BAD_REQUEST",
-            message: "An item without a positive authorized cost or list price cannot be activated or published.",
+            message: "An item without a positive authorized cost or list price can only remain catalog-visible as a quote-only SKU; it cannot enter the Designer.",
           });
         }
         await db.update(pelicanProducts).set(patch).where(eq(pelicanProducts.id, input.id));

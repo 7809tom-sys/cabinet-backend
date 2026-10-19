@@ -9,6 +9,7 @@ import { generateImage } from "../_core/imageGeneration";
 import { storageGetSignedUrl } from "../storage";
 import { isPelicanDesignerSelectable, pelicanDesignerRole } from "../lib/pelicanDesignerReadiness";
 import { isPelicanVanityFaucetCode, isPelicanVanitySinkCode } from "../lib/pelicanFixtureRole";
+import { matchingFlooringAccessories } from "../lib/flooringAccessoryMatch";
 import {
   isSourceVerifiedPelicanBathtub,
   isSourceVerifiedPelicanToiletOrBidet,
@@ -329,6 +330,71 @@ export const surfacesRouter = router({
         .map((row) => ({ ...row, sellPrice: sellPriceOf(row, map) }))
         .filter((row) => row.sellPrice != null && row.sellPrice > 0)
         .filter(isPelicanDesignerSelectable);
+    }),
+
+  /**
+   * Refreshes saved Designer selections with their current source-backed price.
+   * Flooring trim is a deliberately selected quoted accessory rather than a 3D
+   * floor material, so it stays outside designerByIds' geometry/readiness gate.
+   */
+  designSelectionByIds: publicProcedure
+    .input(z.object({ ids: z.array(z.number().int().positive()).max(40) }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db || input.ids.length === 0) return [];
+      const map = await loadMarkupMap(db);
+      const rows = await db
+        .select()
+        .from(pelicanProducts)
+        .where(and(
+          inArray(pelicanProducts.id, input.ids),
+          eq(pelicanProducts.isActive, true),
+          eq(pelicanProducts.showInCatalog, true),
+        ));
+      return rows
+        .map((row) => ({ ...row, sellPrice: sellPriceOf(row, map) }))
+        .filter((row) => row.sellPrice != null && row.sellPrice > 0)
+        .filter((row) => isPelicanDesignerSelectable(row) || (
+          row.category === "Flooring" && row.subCategory === "Moldings & Trim"
+        ));
+    }),
+
+  /**
+   * Offers only exact source-family flooring accessories after a floor was
+   * deliberately chosen. The query is read-only and never adds a trim item.
+   */
+  matchingFlooringAccessories: publicProcedure
+    .input(z.object({ flooringProductId: z.number().int().positive(), limit: z.number().int().min(1).max(40).default(12) }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return [];
+      const map = await loadMarkupMap(db);
+      const rows = await db
+        .select()
+        .from(pelicanProducts)
+        .where(and(
+          eq(pelicanProducts.category, "Flooring"),
+          eq(pelicanProducts.isActive, true),
+          eq(pelicanProducts.showInCatalog, true),
+        ));
+      const selected = rows.find((row) => row.id === input.flooringProductId);
+      if (!selected || selected.subCategory !== "Planks & Flooring") return [];
+      return matchingFlooringAccessories(selected, rows)
+        .map((row) => ({
+          id: row.id,
+          pelicanCode: row.pelicanCode,
+          slug: row.slug,
+          name: row.name,
+          category: row.category,
+          subCategory: row.subCategory,
+          size: row.size,
+          imageUrl: row.imageUrl,
+          materialImageUrl: row.materialImageUrl,
+          coverageSqFt: row.coverageSqFt ? parseFloat(String(row.coverageSqFt)) : null,
+          sellPrice: sellPriceOf(row, map),
+        }))
+        .filter((row) => row.sellPrice != null && row.sellPrice > 0)
+        .slice(0, input.limit);
     }),
 
   // Save the customer's Surfaces & Fixtures profile so they can explicitly load it

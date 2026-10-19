@@ -21,6 +21,13 @@ describe("Pelican catalog administration price base", () => {
     expect(source).toContain("No unpriced surface items remain in this audit scope.");
   });
 
+  it("shows a clear admin-only note when a catalog-visible SKU still needs an authorized price", () => {
+    expect(source).toContain("data-testid={`pelican-price-required-${it.id}`}");
+    expect(source).toContain("Needs authorized price");
+    expect(source).toContain("Public reference only — enter a verified cost or supplier list.");
+    expect(source).toContain("This item remains quote-only and outside the Designer.");
+  });
+
   it("edits only verified source cost or supplier list inputs and reports automatic unpublication", () => {
     expect(source).toContain("trpc.pelican.setPricing.useMutation");
     expect(source).toContain("Verified Source Price");

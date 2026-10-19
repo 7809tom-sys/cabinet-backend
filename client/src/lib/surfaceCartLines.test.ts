@@ -149,6 +149,22 @@ describe("buildSurfaceCartLines — box quantity with overage", () => {
     expect(line.qtyNote).toContain("9 boxes");
   });
 
+  it("keeps an explicitly selected flooring trim as one priced product instead of applying room-area box math", () => {
+    const trim: SurfacePick = {
+      id: 406,
+      name: "Aveline 20mil Stair Nose",
+      category: "Flooring",
+      subCategory: "Moldings & Trim",
+      size: '94"',
+      sellPrice: 19.5,
+      coverageSqFt: 16,
+    };
+
+    const [line] = buildSurfaceCartLines([floorTile, trim], "contractor", areas).filter((item) => item.pelicanProductId === trim.id);
+    expect(line).toMatchObject({ masterCode: "PEL-406", unitPrice: 19.5, qty: 1, priceLocked: true });
+    expect(line.qtyNote).toBeUndefined();
+  });
+
   it("prices countertop products as whole slabs using authoritative stored slab dimensions", () => {
     const [line] = buildSurfaceCartLines([quartzSlab], "homeowner", areas);
     expect(line.qty).toBe(2);

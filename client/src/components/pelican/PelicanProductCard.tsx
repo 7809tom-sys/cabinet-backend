@@ -35,9 +35,12 @@ export function PelicanProductCard({ product, affiliateSlug }: { product: Pelica
   // Pricing breakdown
   const msrp = product.msrp ? Number(product.msrp) : null;
   const listPrice = product.listPrice ? Number(product.listPrice) : null;
-  const compareAt = msrp && msrp > (product.sellPrice ?? 0)
+  const hasSellPrice = product.sellPrice != null && product.sellPrice > 0;
+  // An official public reference can keep a current SKU discoverable as a
+  // quote-only product, but it is not a customer sale/compare-at price.
+  const compareAt = hasSellPrice && msrp && msrp > (product.sellPrice ?? 0)
     ? msrp
-    : listPrice && listPrice > (product.sellPrice ?? 0)
+    : hasSellPrice && listPrice && listPrice > (product.sellPrice ?? 0)
       ? listPrice
       : null;
   const savePct = compareAt && product.sellPrice && compareAt > product.sellPrice

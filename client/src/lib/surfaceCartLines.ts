@@ -1,5 +1,6 @@
 import type { PricingTier } from "@shared/pricingTier";
 import { normalizeFinalMaterialSelections } from "@/lib/surfaceSelection";
+import { surfaceRole } from "@/lib/pelican";
 
 /** Minimal shape of a picked surface/fixture (subset of SelectedSurface). */
 export type SurfacePick = {
@@ -128,7 +129,10 @@ export function buildSurfaceCartLines(
     }
     const cat = s.category.toLowerCase();
     const isBacksplash = cat.includes("backsplash") || cat.includes("mosaic") || cat.includes("tile");
-    const isFlooring = cat.includes("floor");
+    // Pelican flooring trim is a separately selected quoted item, not an
+    // installed floor material. Only source-classified Planks & Flooring use
+    // room area and overage to calculate carton quantity.
+    const isFlooring = surfaceRole(s) === "flooring";
     const isCountertop = cat.includes("countertop") || cat.includes("quartz slab");
 
     if (!fixtureQuantities?.has(s.id) && areas && isCountertop) {

@@ -260,6 +260,7 @@ export default function PelicanCatalogAdmin() {
                 {items.map((it: any) => {
                   const readiness = readinessById.get(it.id);
                   const sourceBasis = authorizedSurfacePriceBasis(it);
+                  const hasQuoteReference = Number(it.msrp) > 0;
                   return (
                   <TableRow key={it.id}>
                     <TableCell>
@@ -270,6 +271,19 @@ export default function PelicanCatalogAdmin() {
                       {it.category}
                     </TableCell>
                     <TableCell className="text-right text-muted-foreground">
+                      {!sourceBasis && (
+                        <div
+                          data-testid={`pelican-price-required-${it.id}`}
+                          className="mb-2 rounded-md border border-amber-300 bg-amber-50 px-2 py-1.5 text-left text-[10px] leading-snug text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200"
+                        >
+                          <div className="flex items-center gap-1 font-semibold"><AlertTriangle className="h-3 w-3 shrink-0" />Needs authorized price</div>
+                          <div className="mt-0.5">
+                            {hasQuoteReference
+                              ? "Public reference only — enter a verified cost or supplier list. This item remains quote-only and outside the Designer."
+                              : "Enter a verified cost or supplier list before this item can be sold or placed in the Designer."}
+                          </div>
+                        </div>
+                      )}
                       <div>{money(sourceBasis?.amount)}</div>
                       {sourceBasis && (
                         <div className="mt-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">

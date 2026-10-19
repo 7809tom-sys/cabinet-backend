@@ -235,6 +235,7 @@ import { DoorAttributesDialog } from "@/components/design/DoorAttributesDialog";
 import { DesignHelp } from "@/components/design/DesignHelp";
 import { CountertopQuoteDialog } from "@/components/design/CountertopQuoteDialog";
 import { SurfacesPickerDialog, type SelectedSurface } from "@/components/design/SurfacesPickerDialog";
+import { FlooringAccessorySuggestionsDialog } from "@/components/design/FlooringAccessorySuggestionsDialog";
 import { RecommendedSurfaces, type RecommendedRole } from "@/components/design/RecommendedSurfaces";
 import {
   takeSurfaceHandoff,
@@ -1079,6 +1080,9 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   const [quoteOpen, setQuoteOpen] = useState(false);
   const [proDesignerOpen, setProDesignerOpen] = useState(false);
   const [surfacesOpen, setSurfacesOpen] = useState(false);
+  // Optional exact-source flooring trim suggestions are ephemeral: only an
+  // explicit Add action persists a selected trim line in the saved design.
+  const [flooringAccessoryPromptFloor, setFlooringAccessoryPromptFloor] = useState<SelectedSurface | null>(null);
   const [bathroomCatalogMode, setBathroomCatalogMode] = useState<"surfaces" | "fixtures">("fixtures");
   const [bathroomBrowseRole, setBathroomBrowseRole] = useState<RecommendedRole>("toilet-bidet");
   const [sinkOptionsOpen, setSinkOptionsOpen] = useState(false);
@@ -1092,7 +1096,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     () => Array.from(new Set(selectedSurfaces.map((surface) => surface.id).filter(Number.isInteger))),
     [selectedSurfaces],
   );
-  const { data: verifiedSelectedSurfaceRecords, isSuccess: verifiedSelectedSurfacesLoaded } = trpc.surfaces.designerByIds.useQuery(
+  const { data: verifiedSelectedSurfaceRecords, isSuccess: verifiedSelectedSurfacesLoaded } = trpc.surfaces.designSelectionByIds.useQuery(
     { ids: selectedSurfaceIdsForMaterialRefresh },
     { enabled: selectedSurfaceIdsForMaterialRefresh.length > 0 },
   );
@@ -1140,6 +1144,33 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   // in cart or Materials & Parts after the rendered material changes.
   const normalizeInstalledMaterialSelections = (surfaces: SelectedSurface[]) =>
     normalizeFinalMaterialSelections(surfaces);
+  const addFlooringAccessory = useCallback((item: SelectedSurface) => {
+    setSelectedSurfaces((prev) => prev.some((surface) => surface.id === item.id) ? prev : [...prev, item]);
+    toast.success(`${item.name} added as an optional flooring accessory`);
+  }, []);
+  const selectedFlooringAccessoryIds = useMemo(
+    () => new Set(selectedSurfaces
+      .filter((surface) => surface.category === "Flooring" && surface.subCategory === "Moldings & Trim")
+      .map((surface) => surface.id)),
+    [selectedSurfaces],
+  );
+  const { data: matchingFlooringAccessoryRecords, isLoading: matchingFlooringAccessoriesLoading } = trpc.surfaces.matchingFlooringAccessories.useQuery(
+    { flooringProductId: flooringAccessoryPromptFloor?.id ?? 0, limit: 24 },
+    { enabled: flooringAccessoryPromptFloor != null },
+  );
+  const matchingFlooringAccessories = useMemo<SelectedSurface[]>(() => (matchingFlooringAccessoryRecords ?? []).map((item) => ({
+    id: item.id,
+    pelicanCode: item.pelicanCode,
+    slug: item.slug,
+    name: item.name,
+    category: item.category,
+    subCategory: item.subCategory,
+    size: item.size,
+    imageUrl: item.imageUrl,
+    materialImageUrl: item.materialImageUrl,
+    coverageSqFt: item.coverageSqFt ?? null,
+    sellPrice: item.sellPrice,
+  })), [matchingFlooringAccessoryRecords]);
   const toggleSurface = (item: SelectedSurface) =>
     setSelectedSurfaces((prev) => {
       if (surfaceRole(item) === "flooring") {
@@ -1209,6 +1240,10 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     if (role === "flooring") {
       const id = guessFlooringMaterialId(pick);
       if (id) setFlooringMaterialId(id);
+      // Close the full picker before the separate accessory chooser opens so
+      // the customer sees one clear, explicit decision at a time.
+      setSurfacesOpen(false);
+      setFlooringAccessoryPromptFloor(item);
     } else if (role === "backsplash") {
       const id = guessBacksplashMaterialId(pick);
       if (id) setBacksplashMaterialId(id);
@@ -18396,7 +18431,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	          onConfirm={completeFourAnchorAutoLayout}
 	        />
 	      )}
-	      <SurfacesPickerDialog
+      <SurfacesPickerDialog
 	        open={surfacesOpen}
 	        onOpenChange={setSurfacesOpen}
 	        selected={selectedSurfaces}
@@ -18430,7 +18465,15 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         countertopBacksplashHeightIn={countertopBacksplashHeightIn}
         onCountertopBacksplashHeightChange={setCountertopBacksplashHeightIn}
       />
-	      <ProDesignerDialog
+      <FlooringAccessorySuggestionsDialog
+        floor={flooringAccessoryPromptFloor}
+        accessories={matchingFlooringAccessories}
+        isLoading={matchingFlooringAccessoriesLoading}
+        selectedAccessoryIds={selectedFlooringAccessoryIds}
+        onAddAccessory={addFlooringAccessory}
+        onOpenChange={(open) => { if (!open) setFlooringAccessoryPromptFloor(null); }}
+      />
+      <ProDesignerDialog
 	        open={proDesignerOpen}
 	        onOpenChange={setProDesignerOpen}
 	        defaultName={verifiedName}

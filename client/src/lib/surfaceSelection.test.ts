@@ -129,6 +129,15 @@ describe("final installed material selection", () => {
 
     expect(final).toEqual([expect.objectContaining({ id: 52, threeDActive: true })]);
   });
+
+  it("keeps an explicitly added flooring trim beside the final floor without treating trim as the room material", () => {
+    const final = normalizeFinalMaterialSelections([
+      { id: 61, name: "Aveline 20mil Vinyl Flooring", category: "Flooring", subCategory: "Planks & Flooring" },
+      { id: 62, name: "Aveline 20mil Stair Nose", category: "Flooring", subCategory: "Moldings & Trim" },
+    ]);
+
+    expect(final.map((surface) => surface.id)).toEqual([61, 62]);
+  });
 });
 
 describe("verified saved surface refresh", () => {
@@ -246,6 +255,29 @@ describe("verified saved surface refresh", () => {
       sellPrice: 74.25,
     }]);
     expect(refreshed[0]).toBe(current);
+  });
+
+  it("refreshes an explicitly selected trim price without giving it a flooring material swatch", () => {
+    const [refreshed] = refreshVerifiedSurfaceSelections([{
+      id: 63,
+      name: "Old Aveline Stair Nose",
+      category: "Flooring",
+      subCategory: "Moldings & Trim",
+      sellPrice: 1,
+      materialImageUrl: "/stale.webp",
+    }], [{
+      id: 63,
+      pelicanCode: "Aveline 20mil Stair Nose",
+      name: "Aveline 20mil Stair Nose",
+      category: "Flooring",
+      subCategory: "Moldings & Trim",
+      size: '94"',
+      materialImageUrl: null,
+      coverageSqFt: null,
+      sellPrice: 19.5,
+    }]);
+
+    expect(refreshed).toMatchObject({ sellPrice: 19.5, materialImageUrl: null, subCategory: "Moldings & Trim" });
   });
 });
 

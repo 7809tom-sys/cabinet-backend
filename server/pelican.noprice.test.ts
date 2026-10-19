@@ -1,9 +1,9 @@
 import { describe, it, expect } from "vitest";
 
 /**
- * Validates that products with zero/null cost are excluded from public queries.
- * The `hasPriceData()` SQL filter in pelican.ts ensures only products with
- * yourCost > 0 OR listPrice > 0 appear in public-facing endpoints.
+ * Validates that products without an authorized sell-price base never enter the
+ * Designer or cart. A current official SKU with an MSRP reference may appear in
+ * the public catalog as quote-only so it is not silently hidden.
  *
  * These tests call the live tRPC endpoints to verify the filter works end-to-end.
  */
@@ -21,7 +21,7 @@ async function trpcGet(path: string, input: Record<string, unknown>) {
 }
 
 describe("pelican price filtering", () => {
-  it("byCategory excludes products with zero listPrice and null yourCost", async () => {
+  it("byCategory returns priceable products and may retain quote-only official source records", async () => {
     const data = await trpcGet("pelican.byCategory", {
       category: "Sinks & Faucets",
       scope: "catalog",
@@ -29,11 +29,10 @@ describe("pelican price filtering", () => {
     });
     const items = data?.items ?? [];
     expect(items.length).toBeGreaterThan(0);
-    // No item should have a null or zero sellPrice
-    const unpriced = items.filter(
-      (i: any) => i.sellPrice === null || i.sellPrice === 0
-    );
-    expect(unpriced).toHaveLength(0);
+    for (const item of items) {
+      if (item.sellPrice == null) expect(Number(item.msrp)).toBeGreaterThan(0);
+      else expect(item.sellPrice).toBeGreaterThan(0);
+    }
   });
 
   it("byCategory total count excludes unpriced items (Toilets & Bidets had 58, now 28)", async () => {
@@ -58,7 +57,7 @@ describe("pelican price filtering", () => {
     expect(sinks.count).toBeGreaterThan(500);
   });
 
-  it("bySlug returns null for a zero-price product", async () => {
+  it("bySlug returns null for an unpriced product with no quote reference", async () => {
     // "25mm-replacement-ceramic-cartridge" has listPrice=0.00, yourCost=null
     const data = await trpcGet("pelican.bySlug", {
       slug: "25mm-replacement-ceramic-cartridge",
