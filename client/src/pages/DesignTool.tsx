@@ -808,6 +808,9 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	    candidates: GlassStackerBulkPlacementCandidate[];
 	  } | null>(null);
 	  const [materialsListOpen, setMaterialsListOpen] = useState(false);
+	  // Manufacturer construction details remain available on demand instead of
+	  // consuming the cart sidebar's limited working space.
+	  const [catalogSpecificationsOpen, setCatalogSpecificationsOpen] = useState(false);
 
   // Last line of defense for legacy designs and any future placement path that
   // bypasses an explicit add/move helper. Saved order remains authoritative, so
@@ -5665,6 +5668,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     toast.success(`Attached ${turn}° ${direction} return created. Select it to place cabinets or edit its length.`);
   }, [layoutLocked, room]);
   const hasConflicts = conflictUids.size > 0;
+  const firstConflictUid = useMemo(() => Array.from(conflictUids)[0] ?? null, [conflictUids]);
   const preSavePlanReview = useMemo(
     () => buildPreSavePlanReview({ room, placed, openings, island, catalogFillers, conflictUids }),
     [catalogFillers, conflictUids, island, openings, placed, room],
@@ -13894,13 +13898,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                         {missingPriceBannerText(missingPriceSummary.count)} These cabinets stay in the Cart and need a current price before an order can be submitted.
                       </div>
                     )}
-                    {hasConflicts && (
-                      <div className="mb-1.5 flex items-start gap-1.5 rounded border border-red-300 bg-red-50 px-2 py-1.5 text-[10px] text-red-700">
-                        <span className="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-red-600" />
-                        {t("dt_sh_order_conflicts", { n: conflictUids.size, s: conflictUids.size > 1 ? "s" : "" })}
-                      </div>
-                    )}
-                    <div className="max-h-40 overflow-y-auto rounded-lg border border-border">
+	                    <div className="max-h-40 overflow-y-auto rounded-lg border border-border">
                       <ul className="divide-y divide-border">
                         {cartableLines.map((line, index) => (
                           <li key={`${line.masterCode}-${line.styleId}-${line.qtyNote ?? "line"}-${index}`} className="flex items-center justify-between gap-2 px-3 py-1.5 text-[11px]">
@@ -16152,6 +16150,28 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	              />
 	            </div>
 	          )}
+	          {hasConflicts && firstConflictUid && (
+	            <div
+	              data-testid="design-conflict-canvas-notice"
+	              role="status"
+	              aria-live="polite"
+	              className="absolute bottom-20 left-1/2 z-40 flex w-[min(34rem,calc(100%-1.5rem))] -translate-x-1/2 items-center gap-2 rounded-xl border border-red-300 bg-red-50/95 px-3 py-2 text-xs text-red-950 shadow-lg backdrop-blur lg:bottom-3"
+	            >
+	              <TriangleAlert aria-hidden="true" className="h-4 w-4 shrink-0 text-red-700" />
+	              <p className="min-w-0 flex-1 leading-snug">
+	                <strong>{conflictUids.size} placement{conflictUids.size === 1 ? " needs" : "s need"} attention.</strong>{" "}
+	                It remains in your Cart, but must be corrected before secure ordering.
+	              </p>
+	              <button
+	                type="button"
+	                aria-label="Review conflict on Floor Plan"
+	                onClick={() => { setViewMode("plan"); selectCabinet(firstConflictUid); }}
+	                className="shrink-0 rounded-md border border-red-300 bg-white px-2 py-1 text-[11px] font-bold text-red-800 transition hover:bg-red-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-700 active:scale-95"
+	              >
+	                Review
+	              </button>
+	            </div>
+	          )}
 	          {placementWarning && (
 	            <div role="alert" className="absolute left-3 right-3 top-3 z-40 max-h-[70%] overflow-y-auto rounded-lg border border-amber-400 bg-amber-50 px-3 py-2 text-sm text-amber-950 shadow-md sm:right-auto sm:max-w-lg">
 	              {/\bCorner protected:\s*ERB36\b/i.test(placementWarning) && (
@@ -17436,23 +17456,20 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
             </Popover>
           </div>
 
-          {activeStyle && (activeStyle.boxConstruction || activeStyle.doorPanelType || activeStyle.drawerConstruction || activeStyle.hardware || activeStyle.profileNotes) && (
-            <div className="mx-3 mt-2 rounded-md border border-[#d8c7a1] bg-[#fffaf0] px-2.5 py-2 text-[10px] leading-snug text-[#49381a]" data-testid="catalog-style-specifications">
-              <div className="mb-1 flex items-center justify-between gap-2">
-                <span className="font-semibold uppercase tracking-wide">Catalog specifications</span>
-                <span className="text-[9px] text-[#806a42]">Auto-filled from manufacturer sheets</span>
-              </div>
-              <div className="grid grid-cols-1 gap-x-3 gap-y-0.5 sm:grid-cols-2">
-                {activeStyle.boxConstruction && <span><b>Box:</b> {activeStyle.boxConstruction}</span>}
-                {activeStyle.doorPanelType && <span><b>Front:</b> {activeStyle.doorPanelType}</span>}
-                {activeStyle.drawerConstruction && <span><b>Drawers:</b> {activeStyle.drawerConstruction}</span>}
-                {activeStyle.hardware && <span><b>Hardware:</b> {activeStyle.hardware}</span>}
-                {activeStyle.finishSheen && <span><b>Sheen:</b> {activeStyle.finishSheen}</span>}
-              </div>
-              {activeStyle.profileNotes && <p className="mt-1 text-[#806a42]">{activeStyle.profileNotes}</p>}
-              <p className="mt-1 font-medium text-[#49381a]">Cabinet width, height, and depth remain SKU-specific and are shown on each catalog card.</p>
-            </div>
-          )}
+	          {activeStyle && (activeStyle.boxConstruction || activeStyle.doorPanelType || activeStyle.drawerConstruction || activeStyle.hardware || activeStyle.profileNotes) && (
+	            <div className="mx-3 mt-2 flex items-center justify-between gap-2 rounded-md border border-[#d8c7a1] bg-[#fffaf0] px-2.5 py-1.5 text-[10px] text-[#49381a]" data-testid="catalog-style-specifications">
+	              <span className="min-w-0 truncate font-medium">Manufacturer construction details are available for {activeStyleName ?? "this cabinet style"}.</span>
+	              <button
+	                type="button"
+	                data-testid="catalog-style-specifications-trigger"
+	                aria-label="Open catalog specifications"
+	                onClick={() => setCatalogSpecificationsOpen(true)}
+	                className="inline-flex shrink-0 items-center gap-1 rounded border border-[#b98d3e]/60 bg-white px-2 py-1 text-[10px] font-semibold text-[#634b20] transition hover:bg-[#fff4d8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a2744] active:scale-95"
+	              >
+	                <FileText className="h-3.5 w-3.5" /> Specs
+	              </button>
+	            </div>
+	          )}
           {/* Door style & pricing picker: collapses into an accordion once a door
               style is chosen so it stops dominating the panel (esp. on mobile).
               The header summarizes the active style + tier when collapsed. The
@@ -17995,46 +18012,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                 </span>
               </div>
             )}
-            {hasConflicts && (
-              <div className="mb-2 flex items-start gap-2 rounded-md border border-red-300 bg-red-50 p-2 text-[11px] text-red-700">
-                <span className="mt-0.5 inline-block h-2 w-2 shrink-0 rounded-full bg-red-600" />
-                <span>
-                  <strong>{conflictUids.size} item{conflictUids.size > 1 ? "s" : ""} in conflict.</strong>{" "}
-
-                  {rangeClearanceUids.size > 0
-                    ? `A range/oven in the corner needs a ${RANGE_CLEARANCE_FILLER_IN}" filler beside it so the range handle clears the cabinet handle — add one with the Filler tool. `
-                    : ""}
-                  {wallOpeningUids.size > 0
-                    ? `A wall cabinet is within ${WALL_OPENING_CLEARANCE_IN}" of a door or window — wall cabinets must stay at least ${WALL_OPENING_CLEARANCE_IN}" away from openings. `
-                    : ""}
-                  {/* Missing spec is no longer a blocking conflict — defaults are applied */}
-                  {blindOutOfRangeCount > 0
-                    ? `${blindOutOfRangeCount} blind corner cabinet${blindOutOfRangeCount > 1 ? "s" : ""} ${blindOutOfRangeCount > 1 ? "are" : "is"} pulled outside the manufacturer's min/max range. `
-                    : ""}
-                  {ceilingViolationUids.size > 0
-                    ? (() => {
-                      const fmt = (inches: number) => { const c = inchesToFeetInches(inches); return c.inches === 0 ? `${c.feet}'` : `${c.feet}'${c.inches}"`; };
-                      const count = ceilingViolationUids.size;
-                      // A short drawn wall (half / pony wall) caps its cabinets below the room ceiling.
-                      const shortWallTop = Array.from(ceilingViolationUids)
-                        .map((uid) => placed.find((cabinet) => cabinet.uid === uid))
-                        .map((cabinet) => (cabinet ? wallTopLimit(room, cabinetWall(cabinet, room)) : roomCeiling(room)))
-                        .find((top) => top < roomCeiling(room) - 0.001);
-                      return shortWallTop != null
-                        ? `${count} cabinet${count > 1 ? "s stand" : " stands"} above the top of its ${fmt(shortWallTop)} half wall — lower it, pick a shorter box, or raise that wall (up to the ${fmt(roomCeiling(room))} ceiling). `
-                        : `${count} cabinet${count > 1 ? "s are" : " is"} taller than the ${fmt(roomCeiling(room))} ceiling — pick a shorter box or raise the ceiling height. `;
-                    })()
-                    : ""}
-                  {cornerBaseViolationUids.size > 0
-                    ? `${cornerBaseViolationUids.size} standard base cabinet${cornerBaseViolationUids.size > 1 ? "s are" : " is"} placed at a doorway corner — select an ER36 or BER36 Easy Reach corner cabinet for that opening. `
-                    : ""}
-                  {applianceConflictUids.size > 0
-                    ? "An appliance running into a cabinet must be fixed before ordering."
-                    : "A cabinet or filler spacing conflict must be corrected before ordering. Small BBC fillers up to 3\" are permitted at the required return."}
-                </span>
-              </div>
-            )}
-		            {paletteType !== "closetparts" && <section data-testid="design-finish-selection-summary" aria-label="Current cabinet colors and countertop materials" className="mb-3 border-y border-[#d9c196]/70 py-3">
+	            {paletteType !== "closetparts" && <section data-testid="design-finish-selection-summary" aria-label="Current cabinet colors and countertop materials" className="mb-3 border-y border-[#d9c196]/70 py-3">
 	              <div className="mb-2 flex items-center justify-between gap-2">
 	                <h3 className="text-xs font-semibold uppercase tracking-[0.12em] text-[#1a2744]">Current selections</h3>
 	                <span className="text-[10px] text-muted-foreground">Wall runs and island</span>
@@ -20516,6 +20494,31 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	          toast.success("Design item removed from Materials & Parts.");
 	        }}
 	      />
+
+	      <Dialog open={catalogSpecificationsOpen} onOpenChange={setCatalogSpecificationsOpen}>
+	        <DialogContent data-testid="catalog-style-specifications-dialog" className="max-w-lg">
+	          <DialogHeader>
+	            <DialogTitle>Catalog specifications{activeStyleName ? ` · ${activeStyleName}` : ""}</DialogTitle>
+	            <DialogDescription>Auto-filled from manufacturer sheets</DialogDescription>
+	          </DialogHeader>
+	          {activeStyle && (
+	            <div className="rounded-lg border border-[#d8c7a1] bg-[#fffaf0] p-4 text-sm leading-relaxed text-[#49381a]">
+	              <div className="grid gap-x-5 gap-y-3 sm:grid-cols-2">
+	                {activeStyle.boxConstruction && <p><b>Box:</b> {activeStyle.boxConstruction}</p>}
+	                {activeStyle.doorPanelType && <p><b>Front:</b> {activeStyle.doorPanelType}</p>}
+	                {activeStyle.drawerConstruction && <p><b>Drawers:</b> {activeStyle.drawerConstruction}</p>}
+	                {activeStyle.hardware && <p><b>Hardware:</b> {activeStyle.hardware}</p>}
+	                {activeStyle.finishSheen && <p><b>Sheen:</b> {activeStyle.finishSheen}</p>}
+	              </div>
+	              {activeStyle.profileNotes && <p className="mt-4 border-t border-[#d8c7a1] pt-3 text-[#806a42]">{activeStyle.profileNotes}</p>}
+	              <p className="mt-4 border-t border-[#d8c7a1] pt-3 font-medium text-[#49381a]">Cabinet width, height, and depth remain SKU-specific and are shown on each catalog card.</p>
+	            </div>
+	          )}
+	          <DialogFooter>
+	            <Button type="button" variant="outline" onClick={() => setCatalogSpecificationsOpen(false)}>Close</Button>
+	          </DialogFooter>
+	        </DialogContent>
+	      </Dialog>
 
 	      {/* Rename design dialog (opened from mobile save success toast) */}
       <Dialog open={renameDialogOpen} onOpenChange={setRenameDialogOpen}>
