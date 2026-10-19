@@ -30,6 +30,8 @@ describe("design photo render safeguards", () => {
         { role: "faucet", productId: 71, name: "Pull-down Faucet", materialImageUrl: null },
         { role: "sink", productId: 72, name: "Single Bowl Sink", materialImageUrl: null },
       ],
+      materialManifest: [{ id: "cabinet:12", role: "cabinet door/finish", label: "Rustic Hickory", itemIds: ["cabinet:12"], referenceUrl: "https://www.cabinetdealz.com/materials/hickory.webp", provenance: "cabinet door/finish: Rustic Hickory" }],
+      missingMaterialInputs: [],
       sourceImageHash: "a".repeat(64),
       generationMethod: "manual-final-review-image-service",
     });
@@ -64,6 +66,8 @@ describe("design photo render safeguards", () => {
         { role: "faucet", productId: 71, name: "Pull-down Faucet", materialImageUrl: null },
         { role: "sink", productId: 72, name: "Single Bowl Sink", materialImageUrl: null },
       ],
+      materialManifest: [{ id: "cabinet:12", role: "cabinet door/finish", label: "Rustic Hickory", itemIds: ["cabinet:12"], referenceUrl: "/manus-storage/rustic_hickory_vertical_grain_32d9e28a.webp", provenance: "cabinet door/finish: Rustic Hickory" }],
+      missingMaterialInputs: [],
       sourceImageHash: "b".repeat(64),
       generationMethod: "manual-final-review-image-service",
     });
@@ -107,7 +111,7 @@ describe("design photo render safeguards", () => {
     expect(source).not.toContain("generateImage(");
   });
 
-  it("keeps the separately approved Google image test administrator-only, snapshot-or-saved-plan locked, and outside the customer CRM flow", () => {
+  it("keeps Google image tests locked to administrators or the matching affiliate's saved storefront plan, outside the customer CRM flow", () => {
     const source = readFileSync(new URL("./designPhotoRenders.ts", import.meta.url), "utf8");
     expect(source).toContain("startGeminiImageTest: protectedProcedure");
     expect(source).toContain("pollGeminiImageTest: protectedProcedure");
@@ -115,7 +119,10 @@ describe("design photo render safeguards", () => {
     expect(source).toContain("designId: z.number().int().nonnegative()");
     expect(source).toContain("const administratorSnapshot = input.designId === 0");
     expect(source).toContain("imageUrl: job.imageUrl");
-    expect(source).toContain('if (ctx.user.role !== "admin")');
+    expect(source).toContain("async function requireGeminiImageTestAccess(");
+    expect(source).toContain("access.affiliateId !== design.affiliateId");
+    expect(source).toContain("access?.accessDesigner");
+    expect(source).toContain("Google image generation is available only for saved plans in your affiliate storefront.");
     expect(source).toContain("const administratorSnapshot = input.provenance.designId === 0");
     expect(source).toContain("validatePhotoProvenanceAgainstSavedDesign(input.provenance, design!)");
     expect(source).toContain("generateGeminiExactPlanTest({");
@@ -131,6 +138,13 @@ describe("design photo render safeguards", () => {
     expect(source).toContain("isRetryableGeminiImageTestFailure");
     expect(source).toContain("Retrying automatically in");
     expect(source).toContain("nextRetryAt: job.nextRetryAt");
+    expect(source).toContain("affiliateGeneratedImages");
+    expect(source).toContain('sourceType: "gemini"');
+    expect(source).toContain("sourceId: job.id");
+    expect(source).toContain("onDuplicateKeyUpdate({ set: { originalUrl: stored.url");
+    expect(source).toContain("affiliateStyleBranding");
+    expect(source).toContain("roomSceneUrl: stored.url");
+    expect(source).toContain("featured: true");
   });
 
   it("recovers queued retries and pending Google interactions without a browser or restart-sensitive timer", () => {
@@ -196,6 +210,8 @@ describe("design photo render safeguards", () => {
         { role: "faucet", productId: 71, name: "Pull-down Faucet", materialImageUrl: null },
         { role: "sink", productId: 72, name: "Single Bowl Sink", materialImageUrl: null },
       ],
+      materialManifest: [{ id: "cabinet:12", role: "cabinet door/finish", label: "Rustic Hickory", itemIds: ["cabinet:12"], referenceUrl: null, referenceSource: "locked-designer-jpeg", provenance: "cabinet door/finish: Rustic Hickory" }],
+      missingMaterialInputs: [],
       sourceImageHash: "f".repeat(64),
       generationMethod: "manual-final-review-deterministic-webgl-v1",
     });

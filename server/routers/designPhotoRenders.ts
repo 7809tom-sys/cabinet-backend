@@ -2,7 +2,7 @@ import { createHash, randomUUID } from "crypto";
 import sharp from "sharp";
 import { and, desc, eq, inArray, isNull, lte, or } from "drizzle-orm";
 import { z } from "zod";
-import { crmActivities, crmDealDesigns, crmDeals, designGeminiImageTestJobs, designImageRequests, designPhotoRenders, doorStyles, kitchenDesigns, notificationSettings } from "../../drizzle/schema";
+import { affiliateGeneratedImages, affiliateStyleBranding, crmActivities, crmDealDesigns, crmDeals, designGeminiImageTestJobs, designImageRequests, designPhotoRenders, doorStyles, kitchenDesigns, notificationSettings } from "../../drizzle/schema";
 import { pelicanProducts } from "../../drizzle/pelicanSchema";
 import { getDb } from "../db";
 import { emitCrmEvent } from "../_core/crmWebhook";
@@ -12,6 +12,7 @@ import { storageGetSignedUrl, storagePut } from "../storage";
 import { checkTwilioVerification, hashPhoneE164, isTwilioVerifyConfigured, normalizePhoneE164, sendTwilioVerification } from "../lib/twilioVerify";
 import { generateGeminiExactPlanTest, isGeminiImageConfigured, pollGeminiExactPlanTest, startGeminiExactPlanTest, verifyGeminiImageAccess } from "../lib/geminiImageProvider";
 import { sendEmail } from "../email";
+import { resolveAffiliateAccess } from "../lib/affiliateAccess";
 
 const DATA_IMAGE_PREFIX = /^data:image\/(png|jpeg|webp);base64,/;
 const CABINETDEALZ_MATERIAL_ORIGIN = "https://www.cabinetdealz.com";
@@ -200,7 +201,7 @@ type PhotoRenderProvenanceInput = z.infer<typeof photoRenderProvenanceSchema>;
 type PhotoQualityLeadInput = z.infer<typeof photoQualityLeadSchema>;
 type SavedDesignForPhotoRequest = Pick<
   typeof kitchenDesigns.$inferSelect,
-  "id" | "userId" | "name" | "roomData" | "placedCabinets" | "selectedSurfaces" | "threeDPresentation" | "selectedStyleId" | "selectedDistributorId" | "updatedAt"
+  "id" | "userId" | "affiliateId" | "name" | "roomData" | "placedCabinets" | "selectedSurfaces" | "threeDPresentation" | "selectedStyleId" | "selectedDistributorId" | "updatedAt"
 >;
 
 type ManualAiReference = {
@@ -503,6 +504,7 @@ async function loadOwnedSavedDesign(db: NonNullable<Awaited<ReturnType<typeof ge
   const [design] = await db.select({
     id: kitchenDesigns.id,
     userId: kitchenDesigns.userId,
+    affiliateId: kitchenDesigns.affiliateId,
     name: kitchenDesigns.name,
     roomData: kitchenDesigns.roomData,
     placedCabinets: kitchenDesigns.placedCabinets,
@@ -516,6 +518,25 @@ async function loadOwnedSavedDesign(db: NonNullable<Awaited<ReturnType<typeof ge
     throw new Error("Save this kitchen plan to your account before requesting an image.");
   }
   return design;
+}
+
+/** Administrators may retain their isolated snapshots. An affiliate is allowed
+ * only on a current saved plan that belongs to the same storefront and only
+ * when that owner/team member has Designer access. */
+async function requireGeminiImageTestAccess(
+  db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
+  user: { id: number; email: string | null; role: string },
+  design: SavedDesignForPhotoRequest | null,
+) {
+  if (user.role === "admin") return { affiliateId: null };
+  if (!design?.affiliateId) {
+    throw new TRPCError({ code: "FORBIDDEN", message: "Google image generation is available only from your affiliate storefront's saved plan." });
+  }
+  const access = await resolveAffiliateAccess(db, user);
+  if (!access?.accessDesigner || access.affiliateId !== design.affiliateId) {
+    throw new TRPCError({ code: "FORBIDDEN", message: "Google image generation is available only for saved plans in your affiliate storefront." });
+  }
+  return { affiliateId: access.affiliateId };
 }
 
 /**
@@ -820,6 +841,38 @@ async function persistGeminiImageTestResult(
     generationMethod: "manual-final-review-gemini-nano-banana-v1",
     confirmedAt,
   }).onDuplicateKeyUpdate({ set: { kitchenDesignId: design?.id ?? null, imageUrl: stored.url, provenance: job.provenance, sourceImageHash: (job.provenance as PhotoRenderProvenanceInput).sourceImageHash, promptFingerprint: job.promptFingerprint, generationMethod: "manual-final-review-gemini-nano-banana-v1", confirmedAt, updatedAt: confirmedAt } });
+  // Register the source result before completion. The unique source key makes
+  // provider retries idempotent and never overwrites an affiliate watermark.
+  if (design?.affiliateId) {
+    await db.insert(affiliateGeneratedImages).values({
+      affiliateId: design.affiliateId,
+      sourceType: "gemini",
+      sourceId: job.id,
+      originalUrl: stored.url,
+      createdByUserId: job.userId,
+    }).onDuplicateKeyUpdate({ set: { originalUrl: stored.url, createdByUserId: job.userId, updatedAt: confirmedAt } });
+
+    // The newest saved Gemini image is the storefront's primary room scene for
+    // this plan's selected door style, replacing an earlier random placeholder.
+    if (design.selectedStyleId) {
+      const [existingBranding] = await db.select({ id: affiliateStyleBranding.id })
+        .from(affiliateStyleBranding)
+        .where(and(eq(affiliateStyleBranding.affiliateId, design.affiliateId), eq(affiliateStyleBranding.styleId, design.selectedStyleId)))
+        .limit(1);
+      if (existingBranding) {
+        await db.update(affiliateStyleBranding)
+          .set({ roomSceneUrl: stored.url, featured: true, updatedAt: confirmedAt })
+          .where(eq(affiliateStyleBranding.id, existingBranding.id));
+      } else {
+        await db.insert(affiliateStyleBranding).values({
+          affiliateId: design.affiliateId,
+          styleId: design.selectedStyleId,
+          roomSceneUrl: stored.url,
+          featured: true,
+        });
+      }
+    }
+  }
   await db.update(designGeminiImageTestJobs).set({ status: "completed", imageUrl: stored.url, errorMessage: null, completedAt: confirmedAt, nextRetryAt: null })
     .where(eq(designGeminiImageTestJobs.id, job.id));
   return { status: "completed", imageUrl: stored.url };
@@ -1334,10 +1387,10 @@ export const designPhotoRendersRouter = router({
   getSavedGeminiImageTest: protectedProcedure
     .input(z.object({ designId: z.number().int().positive() }))
     .query(async ({ ctx, input }) => {
-      if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN", message: "Admin only" });
       const db = await getDb();
       if (!db) return null;
       const design = await loadOwnedSavedDesign(db, ctx.user.id, input.designId);
+      await requireGeminiImageTestAccess(db, ctx.user, design);
       const [saved] = await db.select().from(designPhotoRenders).where(and(
         eq(designPhotoRenders.userId, ctx.user.id),
         eq(designPhotoRenders.kitchenDesignId, design.id),
@@ -1363,13 +1416,16 @@ export const designPhotoRendersRouter = router({
       restartPending: z.boolean().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
-      if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN", message: "Admin only" });
       if (!isGeminiImageConfigured()) throw new Error("Google image testing is not configured.");
 
       const db = await getDb();
       if (!db) throw new Error("Google image testing is temporarily unavailable.");
       const administratorSnapshot = input.provenance.designId === 0;
       const design = administratorSnapshot ? null : await loadOwnedSavedDesign(db, ctx.user.id, input.provenance.designId);
+      if (administratorSnapshot && ctx.user.role !== "admin") {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Save this plan in your affiliate storefront before generating a Google image." });
+      }
+      await requireGeminiImageTestAccess(db, ctx.user, design);
       let revision: string;
       let fingerprint: string;
       if (administratorSnapshot) {
@@ -1444,11 +1500,12 @@ export const designPhotoRendersRouter = router({
     // after an admin refreshes the Final preview dialog.
     .input(z.object({ designId: z.number().int().nonnegative() }))
     .query(async ({ ctx, input }) => {
-      if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN", message: "Admin only" });
       const db = await getDb();
       if (!db) return null;
       const administratorSnapshot = input.designId === 0;
       const design = administratorSnapshot ? null : await loadOwnedSavedDesign(db, ctx.user.id, input.designId);
+      if (administratorSnapshot && ctx.user.role !== "admin") return null;
+      await requireGeminiImageTestAccess(db, ctx.user, design);
       const [job] = await db.select().from(designGeminiImageTestJobs).where(and(
         eq(designGeminiImageTestJobs.userId, ctx.user.id),
         eq(designGeminiImageTestJobs.kitchenDesignId, design?.id ?? 0),
@@ -1461,7 +1518,6 @@ export const designPhotoRendersRouter = router({
   pollGeminiImageTest: protectedProcedure
     .input(z.object({ jobId: z.number().int().positive() }))
     .mutation(async ({ ctx, input }) => {
-      if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN", message: "Admin only" });
       const db = await getDb();
       if (!db) throw new Error("Google image testing is temporarily unavailable.");
       const [job] = await db.select().from(designGeminiImageTestJobs).where(and(
@@ -1469,6 +1525,11 @@ export const designPhotoRendersRouter = router({
         eq(designGeminiImageTestJobs.userId, ctx.user.id),
       )).limit(1);
       if (!job) throw new Error("This Google image test is not available for your account.");
+      const design = job.kitchenDesignId > 0 ? await loadOwnedSavedDesign(db, ctx.user.id, job.kitchenDesignId) : null;
+      if (job.kitchenDesignId === 0 && ctx.user.role !== "admin") {
+        throw new TRPCError({ code: "FORBIDDEN", message: "This Google image test is not available for your account." });
+      }
+      await requireGeminiImageTestAccess(db, ctx.user, design);
       if (job.status === "completed" && job.imageUrl) return { status: "completed" as const, imageUrl: job.imageUrl };
       if (job.status === "failed") return { status: "failed" as const, message: job.errorMessage ?? "Google image test could not be completed. Please try again." };
       if (job.status === "queued") {

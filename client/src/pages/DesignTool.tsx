@@ -436,6 +436,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     retry: false,
   });
   const canAffiliatePriceShop = !!affiliateSlug && affiliatePriceAccess.data?.isOwner === true;
+  const canAffiliateGeminiImageTest = !!affiliateSlug && affiliatePriceAccess.data?.accessDesigner === true;
   const canPublishKitchenPackage = isAdmin || canAffiliatePriceShop;
   const affiliatePrimary = affiliateBrand?.primaryColor || "#1a2b4a";
   const affiliateAccent = affiliateBrand?.accentColor || "#c9a227";
@@ -12726,6 +12727,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	      catalogHardwareName={catalogHardwareSelection ? `${catalogHardwareSelection.collection} ${catalogHardwareSelection.productType} · ${catalogHardwareSelection.finish} · ${catalogHardwareSelection.sku}` : null}
 	      savedDesignId={currentSavedDesignId ?? null}
 	      savedDesignRevision={savedDesign?.updatedAt ? new Date(savedDesign.updatedAt).toISOString() : null}
+	      canAffiliateGeminiImageTest={canAffiliateGeminiImageTest}
 	      isCurrentPlanSaved={isCurrentPlanSaved}
 	      savedPlanFingerprintPayload={isCurrentPlanSaved ? currentSavedPlanPayload : null}
 	      backsplashHeightMode={backsplashHeightMode}
@@ -20210,6 +20212,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	      catalogHardwareName={catalogHardwareSelection ? `${catalogHardwareSelection.collection} ${catalogHardwareSelection.productType} · ${catalogHardwareSelection.finish} · ${catalogHardwareSelection.sku}` : null}
 	                savedDesignId={currentSavedDesignId ?? null}
 	                savedDesignRevision={savedDesign?.updatedAt ? new Date(savedDesign.updatedAt).toISOString() : null}
+	                canAffiliateGeminiImageTest={canAffiliateGeminiImageTest}
 	                isCurrentPlanSaved={isCurrentPlanSaved}
 	                savedPlanFingerprintPayload={isCurrentPlanSaved ? currentSavedPlanPayload : null}
 	                backsplashHeightMode={backsplashHeightMode}

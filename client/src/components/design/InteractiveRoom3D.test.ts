@@ -45,7 +45,7 @@ describe("customer manual AI render handoff", () => {
     expect(source).toContain("Send plan to render team");
     expect(source).toContain("if (!isPhotoQualityTest)");
     expect(source).toContain("photoRenderMutation.mutateAsync");
-    expect(source).toContain("Google/Gemini image test — administrator only");
+    expect(source).toContain("Google/Gemini image test — locked plan");
   });
 });
 
@@ -8859,7 +8859,7 @@ describe("final high-resolution preview controls", () => {
 	    expect(source).toContain('data-testid="path-trace-production-result"');
     expect(source).toContain('data-testid="gemini-image-test"');
 	    expect(source).toContain('data-testid="gemini-image-test-blocking-reason"');
-	    expect(source).toContain("if (!photoRenderDoorReference.ready && !isPhotoQualityTest)");
+	    expect(source).toContain("if (!photoRenderDoorReference.ready)");
 	    expect(source).toContain("Open Final preview to prepare the locked saved-plan image for Google.");
 	    expect(source).not.toContain("Save this kitchen plan, then reopen Final preview before running the Google test.");
 	    expect(source).toContain("The earlier Google image test expired before it completed. You can start a new test.");
@@ -8896,7 +8896,7 @@ describe("final high-resolution preview controls", () => {
 	    expect(source).toContain('data-testid="open-completed-gemini-image-test"');
 	    expect(source).toContain("const openCompletedGeminiImageTest = () =>");
 	    expect(source).toContain("getGeminiImageTestJob.useQuery(");
-	    expect(source).toContain("{ enabled: isPhotoQualityTest }");
+    expect(source).toContain("{ enabled: canUseGeminiImageTest }");
 	    expect(source).toContain('job?.status === "completed" && job.imageUrl');
 	    expect(source).toContain("const startGeminiImageTest = async () =>");
     expect(source).toContain("const openSavedGeminiImageTest = () =>");
@@ -8908,7 +8908,7 @@ describe("final high-resolution preview controls", () => {
     expect(source).toContain("getSavedGeminiImageTest.invalidate");
 	    expect(source).toContain("getGeminiImageTestJob.invalidate");
 		    expect(source).toContain("Reopen the illustrative result saved for this exact plan revision");
-		    expect(source).toContain("Google/Gemini image test — administrator only");
+		    expect(source).toContain("Google/Gemini image test — locked plan");
 		    expect(source).not.toContain("photoRenderDraft.provenance.designId <= 0");
 		    expect(source).toContain("WebGLPathTracer");
 	    expect(source).toContain("THREE_D_PATH_TRACE_PREVIEW");

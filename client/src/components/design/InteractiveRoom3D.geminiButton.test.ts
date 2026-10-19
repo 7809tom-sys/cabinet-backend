@@ -60,4 +60,16 @@ describe("Gemini image button workflow", () => {
     expect(source).toContain("export const IN_HOUSE_PATH_TRACE_ENABLED = false;");
     expect(source).toContain("if (!isPhotoQualityTest || !IN_HOUSE_PATH_TRACE_ENABLED) return;");
   });
+  it("offers Gemini for a current saved affiliate plan while preserving the administrator snapshot path", () => {
+    expect(source).toContain("canAffiliateGeminiImageTest?: boolean;");
+    expect(source).toContain("const isAffiliateGeminiImageTest = !isPhotoQualityTest && canAffiliateGeminiImageTest && Boolean(savedDesignId) && isCurrentPlanSaved;");
+    expect(source).toContain("const canUseGeminiImageTest = isPhotoQualityTest || isAffiliateGeminiImageTest;");
+    expect(source).toContain("{canUseGeminiImageTest && <section data-testid=\"gemini-image-test\"");
+    expect(source).toContain("Affiliate results are saved automatically in this storefront’s Image Cabinet");
+    expect(source).toContain("newest primary room scene");
+    expect(source).toContain('isAffiliateGeminiImageTest ? <div data-testid="photo-quality-affiliate-test"');
+    expect(source).toContain("No customer lead, phone verification, pricing change, or CRM record is created.");
+    expect(source).toContain("{!isPhotoQualityTest && !isAffiliateGeminiImageTest && <section data-testid=\"photo-quality-phone-verification\"");
+    expect(source).toContain("{(isPhotoQualityTest || isAffiliateGeminiImageTest) ? <div className=\"flex justify-end\"");
+  });
 });
