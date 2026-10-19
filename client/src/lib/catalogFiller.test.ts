@@ -113,4 +113,12 @@ describe("catalogFillerForGap", () => {
 	it("rebases a prior smaller-stock 5/8-inch filler to the 3-inch cart SKU", () => {
 	  expect(catalogFillerPricingId({ id: 4, cabinetId: 4, masterCode: "BF-1.5", description: '1.5" Base Filler — cut to 0.625"', category: "Filler", subCategory: "Filler", width: 0.625, placement: "base" }, fillers)).toBe(1);
 	});
+
+	it("accepts only the source-documented 2-7/8-inch AltaEuro nominal 3-inch overlay stock for a sub-three-inch seam", () => {
+	  const aefOverlay = { id: 901, masterCode: "OF335", description: '3" Filler Overlay — 2-7/8" W × 35-1/8" H × 3/4" D', category: "Accessory", subCategory: "Filler", width: 2.875, depth: 0.75, height: 35.125, catalogImageUrl: null } as const;
+	  const unrelatedTrim = { ...aefOverlay, id: 902, masterCode: "TRIM2875", description: '2-7/8" trim strip' } as const;
+	  expect(catalogFillerForGap([aefOverlay], 0.5, "base")?.masterCode).toBe("OF335");
+	  expect(catalogFillerSuggestion([aefOverlay], 0.5, "base")).toMatchObject({ candidate: { masterCode: "OF335" }, installedWidth: 0.5, trimAmount: 2.375 });
+	  expect(catalogFillerForGap([unrelatedTrim], 0.5, "base")).toBeNull();
+	});
 });

@@ -7,7 +7,7 @@ describe("Design Tool small-gap filler workflow", () => {
   it("queues a catalog-backed opportunity after successful normal placement", () => {
 	    expect(source).toContain("queueSmallGapFillerOpportunity(committedRun, finalCab.uid)");
 	    expect(source).toContain('finalCab.placement !== "appliance" || isRangeOrOven(finalCab.masterCode)');
-	    expect(source).toContain("!isBlindCorner(finalCab.masterCode, finalCab.description)");
+	    expect(source).toContain("!isBaseBlindCorner(finalCab)");
     expect(source).toContain("findPreferredSmallGapFillerOpportunity(room, nextPlaced, openings, cabinetUid)");
     const queueStart = source.indexOf("const queueSmallGapFillerOpportunity");
     const queueEnd = source.indexOf("}, [openings, room]);", queueStart) + "}, [openings, room]);".length;

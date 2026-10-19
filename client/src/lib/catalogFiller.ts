@@ -22,6 +22,21 @@ function numberValue(value: unknown, fallback = 0): number {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+/**
+ * A few source catalogs label a filler by its nominal installed family but print
+ * a slightly smaller finished stock width. AltaEuro's OF overlay filler is a
+ * documented 3-inch family with a 2-7/8-inch physical board. It is valid stock
+ * for a sub-3-inch seam; arbitrary 2-7/8-inch trim is not.
+ */
+function isNominalThreeInchFillerStock(candidate: CatalogFillerCandidate): boolean {
+  const width = numberValue(candidate.width);
+  if (Math.abs(width - 3) <= 0.001) return true;
+  const text = `${candidate.masterCode} ${candidate.description ?? ""}`.toLowerCase();
+  return Math.abs(width - 2.875) <= 0.001
+    && /^of\d+$/i.test(String(candidate.masterCode ?? ""))
+    && /3[\s"-]*(?:inch\s*)?filler\s*overlay/.test(text);
+}
+
 /** Panels are finish/cover components—not cuttable cabinet-run fillers. */
 export function isCatalogPanel(candidate: Pick<CatalogFillerCandidate, "masterCode" | "description" | "category" | "subCategory">): boolean {
   const code = String(candidate.masterCode ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "");
@@ -81,7 +96,7 @@ export function catalogFillerForGap(
     // A 5/8-inch, 1-1/2-inch, or 3-inch installed seam is cut from and billed
     // as one real 3-inch stock filler. Do not silently substitute a smaller
     // accessory code or a wider filler when the line has no orderable 3-inch SKU.
-    .filter((candidate) => !requiresThreeInchStock || Math.abs(numberValue(candidate.width) - 3) <= 0.001)
+    .filter((candidate) => !requiresThreeInchStock || isNominalThreeInchFillerStock(candidate))
     .sort((left, right) => {
       const widthDelta = numberValue(left.width) - numberValue(right.width);
       if (Math.abs(widthDelta) > 0.001) return widthDelta;
