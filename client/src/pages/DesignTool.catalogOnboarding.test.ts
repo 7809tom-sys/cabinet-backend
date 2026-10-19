@@ -30,4 +30,16 @@ describe("fresh room catalog onboarding", () => {
     expect(source).toContain('setPaletteType("base");');
     expect(source).toContain('toast.success("Catalog ready. Choose a cabinet to begin your design.")');
   });
+
+  it("shows a readable door thumbnail beside every available door style/color", () => {
+    const selectorStart = source.indexOf('data-testid="fresh-room-door-style-step"');
+    const selectorEnd = source.indexOf("</Select>", selectorStart);
+    const selector = source.slice(selectorStart, selectorEnd);
+
+    expect(selectorStart).toBeGreaterThan(-1);
+    expect(selectorEnd).toBeGreaterThan(selectorStart);
+    expect(selector).toContain('data-testid="fresh-room-door-style-option"');
+    expect(selector).toContain('<DoorStyleSwatch style={style} className="h-12 w-9 shrink-0 rounded border border-border object-cover" />');
+    expect(selector).toContain('aria-label={`${affiliateStyleName(style)} door thumbnail`}');
+  });
 });

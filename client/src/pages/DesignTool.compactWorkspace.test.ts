@@ -135,6 +135,18 @@ describe("Designer Compact Workspace", () => {
     expect(source).toContain("Saved automatically {new Date(automaticSaveAt).toLocaleTimeString");
   });
 
+  it("shows readable door thumbnails in each selected-cabinet Match design choice", () => {
+    const contextualStart = source.indexOf("{/* Contextual row:");
+    const contextualEnd = source.indexOf("{isBaseBlindCorner(selectedCab)", contextualStart);
+    const contextualRow = source.slice(contextualStart, contextualEnd);
+
+    expect(contextualStart).toBeGreaterThan(-1);
+    expect(contextualEnd).toBeGreaterThan(contextualStart);
+    expect(contextualRow).toContain('data-testid="selected-cabinet-finish-option"');
+    expect(contextualRow).toContain('<DoorStyleSwatch style={s} className="h-12 w-9 shrink-0 rounded border border-border object-cover" />');
+    expect(contextualRow).toContain('aria-label={`${affiliateStyleName(s)} door thumbnail`}');
+  });
+
   it("uses a broad tablet overlay and two-column cabinet browsing instead of a narrow catalog panel", () => {
     expect(source).toContain('w-[min(840px,96vw)]');
     expect(source).toContain('className={isCompactWorkspace ? "grid grid-cols-2 gap-2" : undefined}');

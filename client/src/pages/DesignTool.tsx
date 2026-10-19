@@ -14550,16 +14550,16 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                         <SelectValue placeholder={t("dt_cx_match_design")} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="__match__">
-                          <span className="flex items-center gap-2">
-                            {activeStyle && <DoorStyleSwatch style={activeStyle} className="h-7 w-6 shrink-0 rounded border border-border" />}
+                        <SelectItem value="__match__" data-testid="selected-cabinet-finish-match-option">
+                          <span className="flex items-center gap-2.5">
+                            {activeStyle && <DoorStyleSwatch style={activeStyle} className="h-12 w-9 shrink-0 rounded border border-border object-cover" />}
                             <span>{t("dt_cx_match_design")}{activeStyleName ? ` (${activeStyleName})` : ""}</span>
                           </span>
                         </SelectItem>
                         {uniqueDoorStyles.map((s) => (
-                          <SelectItem key={s.id} value={String(s.id)}>
-                            <span className="flex items-center gap-2">
-                              <DoorStyleSwatch style={s} className="h-7 w-6 shrink-0 rounded border border-border" />
+                          <SelectItem key={s.id} value={String(s.id)} data-testid="selected-cabinet-finish-option">
+                            <span className="flex items-center gap-2.5" aria-label={`${affiliateStyleName(s)} door thumbnail`}>
+                              <DoorStyleSwatch style={s} className="h-12 w-9 shrink-0 rounded border border-border object-cover" />
                               <span className="truncate">{affiliateStyleName(s)}</span>
                             </span>
                           </SelectItem>
@@ -15029,16 +15029,16 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                         <SelectValue placeholder={t("dt_cx_match_design")} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="__match__">
-                          <span className="flex items-center gap-2">
-                            {activeStyle && <DoorStyleSwatch style={activeStyle} className="h-7 w-6 shrink-0 rounded border border-border" />}
+                        <SelectItem value="__match__" data-testid="selected-cabinet-mobile-finish-match-option">
+                          <span className="flex items-center gap-2.5">
+                            {activeStyle && <DoorStyleSwatch style={activeStyle} className="h-12 w-9 shrink-0 rounded border border-border object-cover" />}
                             <span>{t("dt_cx_match_design")}{activeStyleName ? ` (${activeStyleName})` : ""}</span>
                           </span>
                         </SelectItem>
                         {uniqueDoorStyles.map((s) => (
-                          <SelectItem key={s.id} value={String(s.id)}>
-                            <span className="flex items-center gap-2">
-                              <DoorStyleSwatch style={s} className="h-7 w-6 shrink-0 rounded border border-border" />
+                          <SelectItem key={s.id} value={String(s.id)} data-testid="selected-cabinet-mobile-finish-option">
+                            <span className="flex items-center gap-2.5" aria-label={`${affiliateStyleName(s)} door thumbnail`}>
+                              <DoorStyleSwatch style={s} className="h-12 w-9 shrink-0 rounded border border-border object-cover" />
                               <span className="truncate">{affiliateStyleName(s)}</span>
                             </span>
                           </SelectItem>
@@ -19950,7 +19950,12 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                 </SelectTrigger>
                 <SelectContent className="max-h-[min(65vh,26rem)]">
                   {displayUniqueDoorStyles.map((style) => (
-                    <SelectItem key={style.id} value={String(style.id)}>{affiliateStyleName(style)}</SelectItem>
+                    <SelectItem key={style.id} value={String(style.id)} data-testid="fresh-room-door-style-option">
+                      <span className="flex items-center gap-2.5" aria-label={`${affiliateStyleName(style)} door thumbnail`}>
+                        <DoorStyleSwatch style={style} className="h-12 w-9 shrink-0 rounded border border-border object-cover" />
+                        <span className="min-w-0 truncate">{affiliateStyleName(style)}</span>
+                      </span>
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
