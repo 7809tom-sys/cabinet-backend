@@ -1,11 +1,48 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useEffect, useMemo, useState } from "react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart3, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { trpc } from "@/lib/trpc";
+import { normalizeGa4MeasurementId } from "@shared/googleAnalytics";
+import { toast } from "sonner";
 
 const ANALYTICS_WEBSITE_ID = import.meta.env.VITE_ANALYTICS_WEBSITE_ID || "";
 const ANALYTICS_ENDPOINT = import.meta.env.VITE_ANALYTICS_ENDPOINT || "";
 
 export function AnalyticsAdmin() {
+  const utils = trpc.useUtils();
+  const { data: siteSettings, isLoading: isSettingsLoading } = trpc.siteSettings.getPublicSettings.useQuery();
+  const [measurementIdInput, setMeasurementIdInput] = useState("");
+
+  useEffect(() => {
+    setMeasurementIdInput(siteSettings?.googleAnalyticsMeasurementId ?? "");
+  }, [siteSettings?.googleAnalyticsMeasurementId]);
+
+  const normalizedMeasurementId = useMemo(
+    () => normalizeGa4MeasurementId(measurementIdInput),
+    [measurementIdInput],
+  );
+  const isClearRequest = measurementIdInput.trim() === "";
+  const isValidInput = isClearRequest || Boolean(normalizedMeasurementId);
+  const isDirty = (normalizedMeasurementId ?? "") !== (siteSettings?.googleAnalyticsMeasurementId ?? "");
+  const updateGoogleAnalytics = trpc.siteSettings.updateGoogleAnalytics.useMutation({
+    onSuccess: async () => {
+      await utils.siteSettings.getPublicSettings.invalidate();
+      toast.success("Google Analytics setting saved");
+    },
+    onError: (error) => toast.error(error.message),
+  });
+
+  const saveGoogleAnalytics = () => {
+    if (!isValidInput) {
+      toast.error("Enter a GA4 Measurement ID in the format G-XXXXXXXXXX.");
+      return;
+    }
+    updateGoogleAnalytics.mutate({ googleAnalyticsMeasurementId: normalizedMeasurementId ?? "" });
+  };
+
   // Umami share URL pattern: {endpoint}/share/{websiteId}/{name}
   // If no share URL is configured, show the embedded iframe with the dashboard
   const dashboardUrl = ANALYTICS_ENDPOINT
@@ -29,6 +66,61 @@ export function AnalyticsAdmin() {
           </Button>
         )}
       </div>
+
+      <Card data-testid="google-analytics-settings">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <BarChart3 className="h-5 w-5" /> Google Analytics 4
+          </CardTitle>
+          <CardDescription>
+            Save one shared GA4 Measurement ID to track Cabinet Dealz and every live affiliate storefront.
+            The tag is not loaded on local development or temporary Manus preview hosts.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="max-w-md space-y-2">
+            <Label htmlFor="google-analytics-measurement-id">GA4 Measurement ID</Label>
+            <Input
+              id="google-analytics-measurement-id"
+              value={measurementIdInput}
+              onChange={(event) => setMeasurementIdInput(event.target.value.toUpperCase())}
+              placeholder="G-XXXXXXXXXX"
+              autoComplete="off"
+              aria-describedby="google-analytics-measurement-id-help"
+              disabled={isSettingsLoading || updateGoogleAnalytics.isPending}
+            />
+            <p id="google-analytics-measurement-id-help" className="text-xs text-muted-foreground">
+              Find this in Google Analytics: Admin → Data streams → your Web stream. Leave it empty and save to disable GA4.
+            </p>
+            {!isValidInput && (
+              <p className="text-xs text-destructive" role="alert">
+                Use the GA4 format G-XXXXXXXXXX.
+              </p>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              onClick={saveGoogleAnalytics}
+              disabled={!isDirty || !isValidInput || isSettingsLoading || updateGoogleAnalytics.isPending}
+            >
+              {updateGoogleAnalytics.isPending ? "Saving…" : "Save Google Analytics"}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setMeasurementIdInput("")}
+              disabled={!siteSettings?.googleAnalyticsMeasurementId || updateGoogleAnalytics.isPending}
+            >
+              Clear Measurement ID
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {siteSettings?.googleAnalyticsMeasurementId
+              ? `Active shared web stream: ${siteSettings.googleAnalyticsMeasurementId}`
+              : "No GA4 Measurement ID is saved; Google Analytics is off."}
+          </p>
+        </CardContent>
+      </Card>
 
       {ANALYTICS_ENDPOINT && ANALYTICS_WEBSITE_ID ? (
         <Card className="overflow-hidden">

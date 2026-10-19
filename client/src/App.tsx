@@ -7,6 +7,7 @@ import { AdminEditModeBar } from "@/components/admin/AdminEditModeBar";
 import ChatWidget from "@/components/ChatWidget";
 import { useWhiteLabelHead } from "@/hooks/useWhiteLabelHead";
 import { StorefrontEmbed } from "@/components/storefront/StorefrontEmbed";
+import { GoogleAnalyticsTracker } from "@/components/GoogleAnalyticsTracker";
 import Home from "@/pages/Home";
 import NotFound from "@/pages/NotFound";
 import { lazy, Suspense, useEffect } from "react";
@@ -297,6 +298,7 @@ export default function App() {
 
   return (
     <AffiliateOwnerScopeGuard>
+      <GoogleAnalyticsTracker />
       <PreferredProductsProvider>
       <ThemeProvider defaultTheme="light">
       <Switch>

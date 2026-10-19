@@ -2335,6 +2335,9 @@ export const siteSettings = mysqlTable("site_settings", {
   ])
     .default("public")
     .notNull(),
+  // GA4 Measurement IDs are public web-stream identifiers, not secrets. A
+  // nullable value lets the owner disable analytics without deleting settings.
+  googleAnalyticsMeasurementId: varchar("googleAnalyticsMeasurementId", { length: 32 }),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
 export type SiteSettings = typeof siteSettings.$inferSelect;
