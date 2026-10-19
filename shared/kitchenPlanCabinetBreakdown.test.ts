@@ -34,7 +34,7 @@ describe("saved Kitchen plan cabinet breakdown", () => {
   });
 
   it("derives known installation quantities from the actual saved cabinet faces", () => {
-    expect(countKitchenCabinetWork([{ cabinetId: 1 }, { cabinetId: 2, qty: 2 }, { cabinetId: 3 }], catalog))
-      .toMatchObject({ base: 1, wall: 2, tall: 1, total: 4, cabinetAssembly: 4, cabinetInstallation: 4, cabinetHanging: 2, pantryCabinet: 1, handles: 11 });
+    expect(countKitchenCabinetWork([{ cabinetId: 1, width: 24, depth: 24 }, { cabinetId: 2, qty: 2, width: 30 }, { cabinetId: 3 }], catalog))
+      .toMatchObject({ base: 1, wall: 2, tall: 1, total: 4, cabinetAssembly: 4, cabinetInstallation: 4, cabinetHanging: 2, pantryCabinet: 1, countertopSquareFeet: 4.3, toeKickLinearFeet: 2, crownMoldingLinearFeet: 5.5, handles: 11 });
   });
 });
