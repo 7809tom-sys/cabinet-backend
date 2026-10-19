@@ -4653,13 +4653,20 @@ export function addCabinet(
     const aefOvenDoorUsesUpperRule = !drawer
       && isOvenCabinet
       && sku.constructionMethod === AEF_PRINTED_GEOMETRY_MARKER;
-    const raisedFloorWallDoorPull = !aefOvenDoorUsesUpperRule && !drawer && usesRaisedFloorWallDoorPull({
+    // A stacked tall pantry has two independent door openings. Its pulls meet
+    // at the opening: the upper doors use their lower rails, while lower doors
+    // use their upper rails. Do not let the generic tall-cabinet raised-rail
+    // convention override those authored pantry door zones.
+    const isStackedTallPantryDoor = !drawer
+      && sku.placementType === "tall"
+      && /pantry/i.test(`${sku.masterCode ?? ""} ${sku.description ?? ""}`);
+    const raisedFloorWallDoorPull = !aefOvenDoorUsesUpperRule && !isStackedTallPantryDoor && !drawer && usesRaisedFloorWallDoorPull({
       placement: sku.placementType,
       mountBottom: sku.mountBottom,
       islandFace: sku.islandFace,
       islandCounterHeightWallCabinet: sku.islandCounterHeightWallCabinet,
     });
-    const effectiveHardwarePosition = raisedFloorWallDoorPull && hardwarePosition === "top-center" ? "auto" : hardwarePosition;
+    const effectiveHardwarePosition = (raisedFloorWallDoorPull || isStackedTallPantryDoor) && hardwarePosition === "top-center" ? "auto" : hardwarePosition;
     const requestedTopCenteredDoorPull = !drawer && effectiveHardwarePosition === "top-center";
     const horizontalTopRailPull = requestedTopCenteredDoorPull && !raisedFloorWallDoorPull && piece === "pull";
     // Top-center is a construction position, not the center of the panel. For

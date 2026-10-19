@@ -3659,7 +3659,7 @@ describe("interactive 3D room scene helpers", () => {
     const root = new THREE.Group();
     addCabinetWithBarPulls(root, {
       distributorSkuId: 1, cabinetId: 1, masterCode: "P-24-90", description: "24 inch Pantry Cabinet",
-      placementType: "tall", width: 24, height: 90, depth: 24, mountBottom: 0, numberOfDoors: 4, numberOfDrawers: 0,
+      placementType: "tall", width: 24, height: 90, depth: 24, mountBottom: 0, numberOfDoors: 4, numberOfDrawers: 0, hardwarePosition: "top-center",
     }, null, {}, 144, 120, "#7e8d72", "#f8f8f6", { doorStyle: "Shaker", doorPanelType: "shaker" });
     const pulls: THREE.Object3D[] = [];
     root.traverse((node) => { if (node.userData.cabinetPull === "door") pulls.push(node); });
@@ -3667,6 +3667,22 @@ describe("interactive 3D room scene helpers", () => {
     expect(pulls.filter((node) => node.userData.pullDoorZone === "upper")).toHaveLength(2);
     expect(pulls.filter((node) => node.userData.pullDoorZone === "lower")).toHaveLength(2);
     expect(pulls.every((node) => node.userData.verticalPull && node.userData.pullEdge === "opposite-hinge")).toBe(true);
+
+    const pantryDoors: THREE.Mesh[] = [];
+    root.traverse((node) => {
+      if (node instanceof THREE.Mesh && (node.userData.pantryDoorSet === "upper" || node.userData.pantryDoorSet === "lower")) pantryDoors.push(node);
+    });
+    for (const zone of ["upper", "lower"] as const) {
+      const zoneDoors = pantryDoors.filter((door) => door.userData.pantryDoorSet === zone).sort((left, right) => left.position.x - right.position.x);
+      const zonePulls = pulls.filter((pull) => pull.userData.pullDoorZone === zone).sort((left, right) => left.position.x - right.position.x);
+      expect(zonePulls).toHaveLength(zoneDoors.length);
+      zonePulls.forEach((pull, index) => {
+        // Pantry handles meet at the opening: upper-door pulls are on their
+        // lower rail and lower-door pulls are on their upper rail.
+        expect(zone === "upper" ? pull.position.y : -pull.position.y)
+          .toBeLessThan(zone === "upper" ? zoneDoors[index]!.position.y : -zoneDoors[index]!.position.y);
+      });
+    }
   });
 
   it("keeps the cabinet shell and selected Toe Kick in the finish while using recessed drawer gaps instead of ghost-prone outlines", () => {
