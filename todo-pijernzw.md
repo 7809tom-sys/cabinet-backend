@@ -274,3 +274,10 @@
 - [x] Real Designer verified (dev preview): Sinks & Faucets 98 -> 53 cards, quartz 35 -> 27, finish switch + swap keeps "1 added", Style filter "Farmhouse / apron front" -> 11 sinks. Proof: /home/ubuntu/pelican-picker-proof/PELICAN_PICKER_before_after.png
 - [x] tsc clean, build OK, 476 related test files: 0 new failures vs clean HEAD (59 pre-existing failures identical on HEAD).
 - [ ] Not published. Authenticated real-customer flow and bathroom (vanity) pickers on a live session remain unverified.
+
+## Pelican discoverability: toolbar button beside the hardware picker
+- [x] User could not find the Pelican cards from inside a design (hardware has a toolbar button; Pelican lived only in the left-rail Surfaces tab and a small lower-right icon).
+- [x] Added a labelled "Pelican" toolbar button (data-testid designer-pelican-trigger) right after the real-hardware picker; opens the Surfaces & Fixtures dialog with the model-card + finish-dropdown pattern; shows a count badge; hidden for closets.
+- [x] Found by measurement that one more toolbar button made the page 16px wider at 1440-1500px (sr-only labels escaped the scrolling rail); fixed with position: relative on the desktop rail. Verified no page overflow at 1280/1440/1500/1600/1920.
+- [x] Tests: DesignTool.pelicanToolbar.test.ts (6) + 43 neighbouring toolbar tests pass; wider DesignTool/Pelican run has 19 failing tests on both the working copy and clean HEAD, 0 new. tsc clean, build exit 0.
+- [ ] Not published. Designer code must be published before www.cabinetdealz.com shows the toolbar button. Authenticated sign-in flow not exercised (client-side QA only, writes blocked).

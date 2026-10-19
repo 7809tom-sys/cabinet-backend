@@ -1206,6 +1206,13 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     setBacksplashEnabled(true);
     toast.success(`${item.name} is now the final backsplash material`);
   }, []);
+  // Toolbar "Pelican" entry: the same full Surfaces & Fixtures catalog as the
+  // lower-right rail button, placed beside the hardware picker so Pelican
+  // products are as easy to find as cabinet hardware.
+  const openPelicanCatalog = () => {
+    setBathroomCatalogMode(roomType === "bathroom" && paletteType === "surfaces" ? "surfaces" : "fixtures");
+    setSurfacesOpen(true);
+  };
   // Recommended-surface picker (Surfaces palette tab): toggle the exact Pelican
   // product in selectedSurfaces (so it hits the cart + satisfies the 3D View
   // gate), and for flooring/backsplash/countertop ALSO drive the built-in 2D
@@ -12990,6 +12997,26 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
           affiliateSlug={affiliateSlug}
           compact={isTabletWorkspace}
         />
+        {roomType !== "closet" && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            data-testid="designer-pelican-trigger"
+            aria-label="Select Pelican surfaces and fixtures"
+            title={selectedSurfaces.length > 0
+              ? `Pelican surfaces & fixtures (${selectedSurfaces.length} in this design)`
+              : "Choose Pelican quartz, flooring, tile, sinks, faucets and bath fixtures: one card per model with a finish dropdown, like the hardware picker"}
+            onClick={openPelicanCatalog}
+            className="min-h-8 shrink-0 gap-1.5 border-[#a87f33] text-[#7a5c24] hover:bg-[#a87f33]/10"
+          >
+            <Waves className="h-3.5 w-3.5 shrink-0" />
+            <span className="designer-toolbar-pelican-label">Pelican</span>
+            {selectedSurfaces.length > 0 && (
+              <span className="rounded-full bg-[#a87f33] px-1.5 text-[10px] font-bold leading-4 text-white" aria-hidden="true">{selectedSurfaces.length}</span>
+            )}
+          </Button>
+        )}
         <label className="designer-toolbar-window-controls hidden items-center gap-1.5 rounded-md border border-border bg-background px-2 text-xs font-medium text-foreground lg:flex" title="Choose the visual scene shown through windows">
           <span className="text-muted-foreground">Window</span>
           <select
