@@ -34,10 +34,6 @@ const CLEAN_SWATCHES = {
 
 type StyleCode = keyof typeof CLEAN_SWATCHES;
 const STYLE_CODES = Object.keys(CLEAN_SWATCHES) as StyleCode[];
-// SCA alone has a stale source room scene which the public card prioritizes over
-// the corrected door sample. It is not an approved kitchen scene, so remove only
-// that override and let the clean SCA door image become the public fallback.
-const STALE_ROOM_SCENE_STYLE_CODES = ["SCA"] as const;
 
 function imageState(row: Record<string, unknown>) {
   return {
@@ -86,15 +82,6 @@ async function main() {
           [item.imageUrl, item.imageUrl, item.imageUrl, item.styleId, aef.id, item.styleCode, item.finish],
         );
       }
-      for (const styleCode of STALE_ROOM_SCENE_STYLE_CODES) {
-        const item = plan.find((candidate) => candidate.styleCode === styleCode);
-        if (!item) throw new Error(`Missing stale-room-scene cleanup target ${styleCode}.`);
-        await db.query(
-          `UPDATE door_styles SET roomSceneImageUrl = NULL
-           WHERE id = ? AND distributorId = ? AND styleCode = ? AND isActive = 1`,
-          [item.styleId, aef.id, styleCode],
-        );
-      }
       const [after]: any = await db.query(
         `SELECT id, styleCode, finish, isActive, doorSampleImageUrl, drawerSampleImageUrl, thumbnailImageUrl, cornerSwatchImageUrl, roomSceneImageUrl
          FROM door_styles WHERE distributorId = ? AND styleCode IN (${STYLE_CODES.map(() => "?").join(",")}) ORDER BY styleCode`,
@@ -105,9 +92,6 @@ async function main() {
         const expected = CLEAN_SWATCHES[row.styleCode as StyleCode];
         if (!expected || row.finish !== expected.finish || row.doorSampleImageUrl !== expected.imageUrl || row.drawerSampleImageUrl !== expected.imageUrl || row.thumbnailImageUrl !== expected.imageUrl) {
           throw new Error(`Clean swatch verification failed for ${row.styleCode}.`);
-        }
-        if (row.styleCode === "SCA" && row.roomSceneImageUrl != null) {
-          throw new Error("Stale SCA room-scene override was not cleared.");
         }
       }
       await db.commit();

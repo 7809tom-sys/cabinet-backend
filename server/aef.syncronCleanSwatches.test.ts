@@ -17,7 +17,7 @@ describe("AEF Syncron clean door swatches", () => {
     if (!db) return;
     const [aef] = await db.select({ id: distributors.id }).from(distributors).where(eq(distributors.code, "AEF")).limit(1);
     expect(aef).toBeDefined();
-    const rows = await db.select({ styleCode: doorStyles.styleCode, finish: doorStyles.finish, active: doorStyles.isActive, verified: doorStyles.doorSampleVerified, door: doorStyles.doorSampleImageUrl, drawer: doorStyles.drawerSampleImageUrl, thumbnail: doorStyles.thumbnailImageUrl, roomScene: doorStyles.roomSceneImageUrl }).from(doorStyles).where(and(eq(doorStyles.distributorId, aef!.id), inArray(doorStyles.styleCode, CODES)));
+    const rows = await db.select({ styleCode: doorStyles.styleCode, finish: doorStyles.finish, active: doorStyles.isActive, verified: doorStyles.doorSampleVerified, door: doorStyles.doorSampleImageUrl, drawer: doorStyles.drawerSampleImageUrl, thumbnail: doorStyles.thumbnailImageUrl }).from(doorStyles).where(and(eq(doorStyles.distributorId, aef!.id), inArray(doorStyles.styleCode, CODES)));
     expect(rows).toHaveLength(CODES.length);
     expect(rows.filter((row) => row.finish === "Syncron Select")).toHaveLength(17);
     expect(rows.filter((row) => row.finish === "Syncron Slim Cava")).toHaveLength(7);
@@ -25,6 +25,5 @@ describe("AEF Syncron clean door swatches", () => {
       const expected = CLEAN_SWATCHES[row.styleCode as keyof typeof CLEAN_SWATCHES];
       expect(row).toMatchObject({ finish: expected.finish, active: true, verified: true, door: expected.imageUrl, drawer: expected.imageUrl, thumbnail: expected.imageUrl });
     }
-    expect(rows.find((row) => row.styleCode === "SCA")?.roomScene).toBeNull();
   });
 });
