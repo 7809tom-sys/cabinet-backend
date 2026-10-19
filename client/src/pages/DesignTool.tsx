@@ -266,7 +266,7 @@ import { RollOutTrayPicker } from "@/components/design/RollOutTrayPicker";
 import { DoorDrawerDiagram } from "@/components/design/DoorDrawerDiagram";
 // PhotorealPreview removed — replaced by deterministic preview modes
 import type { PhotorealSceneInput } from "@/components/design/PhotorealPreview";
-import { FarmhouseSinkSelectionGuide, PelicanCountertopPicker, PelicanSinkPicker, type RecItem } from "@/components/design/PelicanProductPickers";
+import { FarmhouseSinkSelectionGuide, PelicanCountertopPicker, PelicanFaucetPicker, PelicanSinkPicker, type RecItem } from "@/components/design/PelicanProductPickers";
 
 
 import { buildSurfaceCartLines } from "@/lib/surfaceCartLines";
@@ -8102,9 +8102,11 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     { role: bathroomSinkDialog ? "vanity-sink" : "sink", limit: 24 },
     { enabled: !!sinkBaseDialog || selectedFarmSinkBaseForGuide }
   );
-  // Recommended faucet products fetched from Stone Creek catalog.
-  const { data: faucetBaseProducts } = trpc.surfaces.recommended.useQuery(
-    { role: bathroomSinkDialog ? "vanity-faucet" : "faucet", limit: 6 },
+  // Fetch every source-priced, source-measured faucet supported by this
+  // sink-mounted Designer workflow. The compact picker initially shows six,
+  // then explicitly exposes the remaining verified choices.
+  const { data: faucetBaseProducts, isLoading: faucetProductsLoading } = trpc.surfaces.recommended.useQuery(
+    { role: bathroomSinkDialog ? "vanity-faucet" : "faucet", limit: 200 },
     { enabled: !!sinkBaseDialog }
   );
   const { data: potFillerProducts } = trpc.surfaces.recommended.useQuery(
@@ -19035,22 +19037,15 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                     </div>
                   )}
                   <p className="text-sm text-muted-foreground -mt-2">Pick a matching source-verified Pelican {isBathroomVanity ? "vanity faucet" : "faucet"}, or skip to finish.</p>
-                  {filteredFaucets.length === 0 ? (
+                  {filteredFaucets.length === 0 && !faucetProductsLoading ? (
                     <button className="w-full text-xs text-muted-foreground border border-dashed rounded-lg py-3" onClick={() => applySink(pendingSinkProduct, null)}>Finish without a faucet</button>
                   ) : (
-                    <div className="grid grid-cols-2 gap-2">
-                      {filteredFaucets.slice(0, 6).map(p => (
-                        <button key={p.id} className="overflow-hidden rounded-lg border border-border hover:border-[#a87f33] text-left transition-colors" onClick={() => applySink(pendingSinkProduct, p)}>
-                          <div className="aspect-[4/3] w-full bg-muted">
-                            {p.imageUrl ? <img src={p.imageUrl} alt={p.name} className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center"><Droplets className="h-5 w-5 text-muted-foreground/40" /></div>}
-                          </div>
-                          <div className="p-1.5">
-                            <div className="line-clamp-2 text-[11px] font-semibold leading-snug">{p.name}</div>
-                            {p.sellPrice != null && <div className="text-[11px] font-bold text-[#1a2744] dark:text-foreground">${p.sellPrice.toFixed(2)}</div>}
-                          </div>
-                        </button>
-                      ))}
-                    </div>
+                    <PelicanFaucetPicker
+                      faucets={filteredFaucets}
+                      isLoading={faucetProductsLoading}
+                      kind={isBathroomVanity ? "vanity" : "kitchen"}
+                      onSelect={(faucet) => applySink(pendingSinkProduct, faucet)}
+                    />
                   )}
                   <button className="text-xs text-muted-foreground underline self-center" onClick={() => applySink(pendingSinkProduct, null)}>Skip faucet selection</button>
                 </>

@@ -305,3 +305,90 @@ export function PelicanSinkPicker({
     </div>
   );
 }
+
+
+/**
+ * Sink-mounted faucets are selectable fixtures rather than material surfaces.
+ * This chooser carries the exact catalog record through to the Design Tool so
+ * the chosen code, image, price, and source-measured fixture profile persist.
+ * It deliberately accepts only records that the server already determined are
+ * active, priced, and valid for this kitchen or vanity workflow.
+ */
+export function PelicanFaucetPicker({
+  faucets,
+  isLoading,
+  kind,
+  onSelect,
+}: {
+  faucets: RecItem[];
+  isLoading: boolean;
+  kind: "kitchen" | "vanity";
+  onSelect: (item: RecItem) => void;
+}) {
+  const [showAll, setShowAll] = useState(false);
+  const selectableFaucets = useMemo(
+    () => faucets.filter((item) => Boolean(item.imageUrl) && (item.sellPrice ?? 0) > 0),
+    [faucets],
+  );
+  const quickChoices = selectableFaucets.slice(0, 6);
+  const visibleFaucets = showAll ? selectableFaucets : quickChoices;
+  const label = kind === "vanity" ? "vanity faucets" : "kitchen faucets";
+
+  return (
+    <section data-testid="pelican-faucet-picker" className="space-y-2">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+          Verified Pelican {kind === "vanity" ? "Vanity" : "Kitchen"} Faucets
+        </span>
+        {!isLoading && selectableFaucets.length > 6 && (
+          <button
+            type="button"
+            onClick={() => setShowAll((current) => !current)}
+            aria-expanded={showAll}
+            className="text-[10px] font-semibold text-[#8a6828] underline underline-offset-2 transition-colors hover:text-[#5e451a]"
+          >
+            {showAll ? "Show fewer faucets" : `Show all ${selectableFaucets.length} faucets`}
+          </button>
+        )}
+      </div>
+      {isLoading ? (
+        <div className="grid grid-cols-2 gap-2">
+          {Array.from({ length: 4 }).map((_, index) => <Skeleton key={index} className="h-28 w-full rounded-lg" />)}
+        </div>
+      ) : selectableFaucets.length === 0 ? (
+        <div className="rounded-lg border border-dashed border-border px-3 py-3 text-center text-[11px] text-muted-foreground">
+          No source-priced, measured Pelican {label} are available for this fixture workflow.
+        </div>
+      ) : (
+        <>
+          <p className="text-[10px] leading-snug text-muted-foreground">
+            Tap a product to attach its exact Pelican finish, image, price, and measured fixture profile.
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            {visibleFaucets.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => onSelect(item)}
+                className="group overflow-hidden rounded-lg border border-border text-left transition-colors hover:border-[#a87f33]/70 hover:bg-[#fffaf1]"
+              >
+                <div className="relative aspect-[4/3] w-full bg-muted">
+                  {item.imageUrl ? (
+                    <img src={item.imageUrl} alt={item.name} loading="lazy" className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center text-[10px] text-muted-foreground">Official image unavailable</div>
+                  )}
+                </div>
+                <div className="space-y-0.5 p-1.5">
+                  <div className="line-clamp-2 min-h-[1.9rem] text-[11px] font-semibold leading-snug text-foreground">{item.name}</div>
+                  {item.pelicanCode && <div className="truncate text-[9px] font-medium uppercase tracking-wide text-muted-foreground">{item.pelicanCode}</div>}
+                  <div className="text-[11px] font-bold text-[#1a2744] dark:text-foreground">{formatPrice(item.sellPrice)}</div>
+                </div>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </section>
+  );
+}
