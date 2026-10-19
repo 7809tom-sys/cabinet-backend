@@ -1,10 +1,18 @@
 export type KitchenCabinetBreakdown = { base: number; wall: number; tall: number; total: number };
+export type KitchenCabinetWorkQuantities = KitchenCabinetBreakdown & {
+  cabinetAssembly: number;
+  cabinetInstallation: number;
+  cabinetHanging: number;
+  handles: number;
+};
 export type KitchenCabinetClassificationRow = {
   category?: string | null;
   subCategory?: string | null;
   productType?: string | null;
   placementType?: string | null;
   isNotCabinet?: boolean | null;
+  numberOfDoors?: number | null;
+  numberOfDrawers?: number | null;
 };
 export type KitchenPlanPlacement = { uid?: string | null; cabinetId?: number | null; qty?: number | null };
 
@@ -49,4 +57,26 @@ export function countKitchenCabinets(placements: unknown, cabinetById: Map<numbe
     counts.total += quantity;
   }
   return counts;
+}
+
+/** Quantities directly knowable from saved catalog placements; prices stay editable. */
+export function countKitchenCabinetWork(placements: unknown, cabinetById: Map<number, KitchenCabinetClassificationRow>): KitchenCabinetWorkQuantities {
+  const counts = countKitchenCabinets(placements, cabinetById);
+  const work: KitchenCabinetWorkQuantities = { ...counts, cabinetAssembly: counts.total, cabinetInstallation: counts.total, cabinetHanging: counts.wall, handles: 0 };
+  const seen = new Set<string>();
+  if (!Array.isArray(placements)) return work;
+  for (const item of placements) {
+    if (!item || typeof item !== "object") continue;
+    const placement = item as KitchenPlanPlacement;
+    const id = Number(placement.cabinetId);
+    const row = cabinetById.get(id);
+    if (!classifyKitchenCabinet(row ?? {})) continue;
+    const quantity = placement.qty == null ? 1 : Number(placement.qty);
+    if (!Number.isInteger(quantity) || quantity <= 0 || quantity > 10_000) continue;
+    const uid = typeof placement.uid === "string" ? placement.uid.trim() : "";
+    if (uid && seen.has(uid)) continue;
+    if (uid) seen.add(uid);
+    work.handles += quantity * Math.max(0, Number(row?.numberOfDoors ?? 0) + Number(row?.numberOfDrawers ?? 0));
+  }
+  return work;
 }

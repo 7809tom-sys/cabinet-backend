@@ -6,7 +6,7 @@ import { getDb } from "../db";
 import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
 import { calculateInstallationEstimate, INSTALLATION_ROOM_TYPES, INSTALLATION_COST_TYPES } from "../../shared/installationEstimate";
 import { createBlankKitchenCostDefaults, KITCHEN_COST_SHEET_DESCRIPTIONS } from "../../shared/kitchenCostSheet";
-import { countKitchenCabinets, emptyKitchenCabinetBreakdown, type KitchenCabinetBreakdown } from "../../shared/kitchenPlanCabinetBreakdown";
+import { countKitchenCabinets, countKitchenCabinetWork, emptyKitchenCabinetBreakdown, type KitchenCabinetBreakdown } from "../../shared/kitchenPlanCabinetBreakdown";
 import { resolveInstallationEstimateAffiliateId } from "../../shared/installationEstimateAccess";
 
 const estimateLineSchema = z.object({
@@ -35,6 +35,7 @@ const kitchenCostDefaultSchema = z.object({
   materialUnitCost: z.number().min(0).max(1_000_000),
   laborUnitCost: z.number().min(0).max(1_000_000),
 });
+const kitchenCostDefaultsInputSchema = z.array(kitchenCostDefaultSchema).min(KITCHEN_COST_SHEET_DESCRIPTIONS.length - 1).max(KITCHEN_COST_SHEET_DESCRIPTIONS.length);
 
 type AuthUser = { id: number; email: string | null; role: string };
 
@@ -74,7 +75,7 @@ export const installationEstimatesRouter = router({
         .orderBy(desc(kitchenDesigns.updatedAt));
       const ids = Array.from(new Set(designs.flatMap((design) => (Array.isArray(design.placedCabinets) ? design.placedCabinets : []).map((item) => Number((item as { cabinetId?: number } | null)?.cabinetId)).filter((id) => Number.isInteger(id) && id > 0))));
       const catalogRows = ids.length
-        ? await db.select({ id: cabinets.id, category: cabinets.category, subCategory: cabinets.subCategory, productType: cabinets.productType, placementType: cabinets.placementType, isNotCabinet: cabinets.isNotCabinet }).from(cabinets).where(inArray(cabinets.id, ids))
+        ? await db.select({ id: cabinets.id, category: cabinets.category, subCategory: cabinets.subCategory, productType: cabinets.productType, placementType: cabinets.placementType, isNotCabinet: cabinets.isNotCabinet, numberOfDoors: cabinets.numberOfDoors, numberOfDrawers: cabinets.numberOfDrawers }).from(cabinets).where(inArray(cabinets.id, ids))
         : [];
       const cabinetById = new Map(catalogRows.map((row) => [row.id, row]));
       return designs.map((design) => ({
@@ -84,6 +85,7 @@ export const installationEstimatesRouter = router({
         roomLabel: design.roomLabel,
         updatedAt: design.updatedAt,
         cabinetBreakdown: countKitchenCabinets((Array.isArray(design.placedCabinets) ? design.placedCabinets : []) as Array<{ cabinetId?: number | null; qty?: number | null }>, cabinetById),
+        workQuantities: countKitchenCabinetWork((Array.isArray(design.placedCabinets) ? design.placedCabinets : []) as Array<{ cabinetId?: number | null; qty?: number | null }>, cabinetById),
       }));
     }),
 
@@ -107,7 +109,7 @@ export const installationEstimatesRouter = router({
     }),
 
   saveKitchenCostDefaults: protectedProcedure
-    .input(z.object({ affiliateId: z.number().int().positive().optional(), defaults: z.array(kitchenCostDefaultSchema).length(KITCHEN_COST_SHEET_DESCRIPTIONS.length) }))
+    .input(z.object({ affiliateId: z.number().int().positive().optional(), defaults: kitchenCostDefaultsInputSchema }))
     .mutation(async ({ ctx, input }) => {
       const affiliateId = await resolveAffiliateId(ctx.user, input.affiliateId);
       const db = await getDb();
@@ -153,7 +155,7 @@ export const installationEstimatesRouter = router({
           const placed = (Array.isArray(design.placedCabinets) ? design.placedCabinets : []) as Array<{ cabinetId?: number | null; qty?: number | null }>;
           const ids = Array.from(new Set(placed.filter(Boolean).map((item) => Number(item.cabinetId)).filter((id) => Number.isInteger(id) && id > 0)));
           const catalogRows = ids.length
-            ? await tx.select({ id: cabinets.id, category: cabinets.category, subCategory: cabinets.subCategory, productType: cabinets.productType, placementType: cabinets.placementType, isNotCabinet: cabinets.isNotCabinet }).from(cabinets).where(inArray(cabinets.id, ids))
+            ? await tx.select({ id: cabinets.id, category: cabinets.category, subCategory: cabinets.subCategory, productType: cabinets.productType, placementType: cabinets.placementType, isNotCabinet: cabinets.isNotCabinet, numberOfDoors: cabinets.numberOfDoors, numberOfDrawers: cabinets.numberOfDrawers }).from(cabinets).where(inArray(cabinets.id, ids))
             : [];
           cabinetBreakdown = countKitchenCabinets(placed, new Map(catalogRows.map((row) => [row.id, row])));
         }

@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { classifyKitchenCabinet, countKitchenCabinets } from "./kitchenPlanCabinetBreakdown";
+import { classifyKitchenCabinet, countKitchenCabinets, countKitchenCabinetWork } from "./kitchenPlanCabinetBreakdown";
 
 const catalog = new Map([
-  [1, { category: "Base" }], [2, { category: "Wall" }], [3, { category: "Tall" }],
+  [1, { category: "Base", numberOfDoors: 1, numberOfDrawers: 2 }], [2, { category: "Wall", numberOfDoors: 2, numberOfDrawers: 0 }], [3, { category: "Tall", numberOfDoors: 2, numberOfDrawers: 2 }],
   [4, { category: "Accessory", placementType: "base", subCategory: "Drawer Organizer" }],
   [5, { category: "ADA", placementType: "base" }],
 ]);
@@ -31,5 +31,10 @@ describe("saved Kitchen plan cabinet breakdown", () => {
     expect(countKitchenCabinets([null, {}, { cabinetId: 1, qty: 0 }, { cabinetId: 1, qty: -1 }, { cabinetId: 1, qty: NaN }, { cabinetId: 1, qty: 2.5 }, { cabinetId: 99 }], catalog))
       .toEqual({ base: 0, wall: 0, tall: 0, total: 0 });
     expect(countKitchenCabinets(null, catalog).total).toBe(0);
+  });
+
+  it("derives known installation quantities from the actual saved cabinet faces", () => {
+    expect(countKitchenCabinetWork([{ cabinetId: 1 }, { cabinetId: 2, qty: 2 }, { cabinetId: 3 }], catalog))
+      .toMatchObject({ base: 1, wall: 2, tall: 1, total: 4, cabinetAssembly: 4, cabinetInstallation: 4, cabinetHanging: 2, handles: 11 });
   });
 });
