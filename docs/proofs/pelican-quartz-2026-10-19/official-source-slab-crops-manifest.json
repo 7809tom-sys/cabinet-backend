@@ -1,0 +1,761 @@
+{
+  "createdFrom": "official Pelican quartz product gallery photos",
+  "records": [
+    {
+      "handle": "nocturne-3cm-super-jumbo",
+      "title": "Nocturne 3cm Super Jumbo",
+      "codes": [
+        "Nocturne 3cm Super Jumbo"
+      ],
+      "size": "Nocturne 3cm Super Jumbo",
+      "sourceUrl": "https://cdn.shopify.com/s/files/1/0624/4476/5324/files/NocturneSlabResized.jpg?v=1781018437",
+      "sourceFile": "NocturneSlabResized.jpg",
+      "sourceImageSize": [
+        2000,
+        1500
+      ],
+      "crop": [
+        200,
+        525,
+        1022,
+        585
+      ],
+      "targetRatio": 1.7468354430379747,
+      "cropPath": "tmp/pelican-quartz-crop-preview/nocturne-3cm-super-jumbo.webp",
+      "cropSize": [
+        1022,
+        585
+      ]
+    },
+    {
+      "handle": "nivara-3cm-super-jumbo",
+      "title": "Nivara 3cm Super Jumbo",
+      "codes": [
+        "Nivara 3cm Super Jumbo"
+      ],
+      "size": "Nivara 3cm Super Jumbo",
+      "sourceUrl": "https://cdn.shopify.com/s/files/1/0624/4476/5324/files/NivaraSlab-Resized.jpg?v=1781017993",
+      "sourceFile": "NivaraSlab-Resized.jpg",
+      "sourceImageSize": [
+        2000,
+        1500
+      ],
+      "crop": [
+        200,
+        525,
+        1022,
+        585
+      ],
+      "targetRatio": 1.7468354430379747,
+      "cropPath": "tmp/pelican-quartz-crop-preview/nivara-3cm-super-jumbo.webp",
+      "cropSize": [
+        1022,
+        585
+      ]
+    },
+    {
+      "handle": "pallum-3cm-super-jumbo",
+      "title": "Pallum 3cm Super Jumbo",
+      "codes": [
+        "Pallum 3cm Super Jumbo"
+      ],
+      "size": "Pallum 3cm Super Jumbo",
+      "sourceUrl": "https://cdn.shopify.com/s/files/1/0624/4476/5324/files/PallumSlabResized.jpg?v=1781018486",
+      "sourceFile": "PallumSlabResized.jpg",
+      "sourceImageSize": [
+        2000,
+        1500
+      ],
+      "crop": [
+        200,
+        525,
+        1022,
+        585
+      ],
+      "targetRatio": 1.7468354430379747,
+      "cropPath": "tmp/pelican-quartz-crop-preview/pallum-3cm-super-jumbo.webp",
+      "cropSize": [
+        1022,
+        585
+      ]
+    },
+    {
+      "handle": "venezia-3cm-super-jumbo",
+      "title": "Venezia 3cm Super Jumbo",
+      "codes": [
+        "Venezia 3cm Super Jumbo"
+      ],
+      "size": "Venezia 3cm Super Jumbo",
+      "sourceUrl": "https://cdn.shopify.com/s/files/1/0624/4476/5324/files/VeneziaSlab_2.jpg?v=1773776659",
+      "sourceFile": "VeneziaSlab_2.jpg",
+      "sourceImageSize": [
+        2000,
+        1500
+      ],
+      "crop": [
+        200,
+        525,
+        1022,
+        585
+      ],
+      "targetRatio": 1.7468354430379747,
+      "cropPath": "tmp/pelican-quartz-crop-preview/venezia-3cm-super-jumbo.webp",
+      "cropSize": [
+        1022,
+        585
+      ]
+    },
+    {
+      "handle": "full-moon-3cm-jumbo-1",
+      "title": "Calacatta Oro 3cm Super Jumbo",
+      "codes": [
+        "Calacatta Oro 3cm Super Jumbo"
+      ],
+      "size": "Calacatta Oro 3cm Super Jumbo",
+      "sourceUrl": "https://cdn.shopify.com/s/files/1/0624/4476/5324/files/CalacattaOroSlab.jpg?v=1782405928",
+      "sourceFile": "CalacattaOroSlab.jpg",
+      "sourceImageSize": [
+        2000,
+        1500
+      ],
+      "crop": [
+        200,
+        525,
+        1022,
+        585
+      ],
+      "targetRatio": 1.7468354430379747,
+      "cropPath": "tmp/pelican-quartz-crop-preview/full-moon-3cm-jumbo-1.webp",
+      "cropSize": [
+        1022,
+        585
+      ]
+    },
+    {
+      "handle": "riverstone-3cm",
+      "title": "Riverstone 3cm",
+      "codes": [
+        "Riverstone 3cm"
+      ],
+      "size": "Riverstone 3cm",
+      "sourceUrl": "https://cdn.shopify.com/s/files/1/0624/4476/5324/files/Riverstone_Slab2.jpg?v=1752236208",
+      "sourceFile": "Riverstone_Slab2.jpg",
+      "sourceImageSize": [
+        2000,
+        1500
+      ],
+      "crop": [
+        200,
+        525,
+        1170,
+        585
+      ],
+      "targetRatio": 2.0,
+      "cropPath": "tmp/pelican-quartz-crop-preview/riverstone-3cm.webp",
+      "cropSize": [
+        1170,
+        585
+      ]
+    },
+    {
+      "handle": "sedona-3cm",
+      "title": "Sedona 3cm",
+      "codes": [
+        "Sedona 3cm"
+      ],
+      "size": "Sedona 3cm",
+      "sourceUrl": "https://cdn.shopify.com/s/files/1/0624/4476/5324/files/SedonaSlab2.jpg?v=1751466180",
+      "sourceFile": "SedonaSlab2.jpg",
+      "sourceImageSize": [
+        2000,
+        1500
+      ],
+      "crop": [
+        200,
+        525,
+        1170,
+        585
+      ],
+      "targetRatio": 2.0,
+      "cropPath": "tmp/pelican-quartz-crop-preview/sedona-3cm.webp",
+      "cropSize": [
+        1170,
+        585
+      ]
+    },
+    {
+      "handle": "strassa-3cm",
+      "title": "Strassa 3cm",
+      "codes": [
+        "Strassa 3cm"
+      ],
+      "size": "Strassa 3cm",
+      "sourceUrl": "https://cdn.shopify.com/s/files/1/0624/4476/5324/files/Strassa_Slab2.jpg?v=1752236403",
+      "sourceFile": "Strassa_Slab2.jpg",
+      "sourceImageSize": [
+        2000,
+        1500
+      ],
+      "crop": [
+        200,
+        525,
+        1170,
+        585
+      ],
+      "targetRatio": 2.0,
+      "cropPath": "tmp/pelican-quartz-crop-preview/strassa-3cm.webp",
+      "cropSize": [
+        1170,
+        585
+      ]
+    },
+    {
+      "handle": "virelle-3cm",
+      "title": "Virelle 3cm",
+      "codes": [
+        "Virelle 3cm"
+      ],
+      "size": "Virelle 3cm",
+      "sourceUrl": "https://cdn.shopify.com/s/files/1/0624/4476/5324/files/Virelle_Slab2.jpg?v=1752237452",
+      "sourceFile": "Virelle_Slab2.jpg",
+      "sourceImageSize": [
+        2000,
+        1500
+      ],
+      "crop": [
+        200,
+        525,
+        1170,
+        585
+      ],
+      "targetRatio": 2.0,
+      "cropPath": "tmp/pelican-quartz-crop-preview/virelle-3cm.webp",
+      "cropSize": [
+        1170,
+        585
+      ]
+    },
+    {
+      "handle": "full-moon-3cm-jumbo",
+      "title": "Full Moon 3cm Super Jumbo",
+      "codes": [
+        "Full Moon 3cm Super Jumbo"
+      ],
+      "size": "Full Moon 3cm Super Jumbo",
+      "sourceUrl": "https://cdn.shopify.com/s/files/1/0624/4476/5324/files/FullMoonSlab.jpg?v=1741026939",
+      "sourceFile": "FullMoonSlab.jpg",
+      "sourceImageSize": [
+        2000,
+        1500
+      ],
+      "crop": [
+        200,
+        525,
+        1022,
+        585
+      ],
+      "targetRatio": 1.7468354430379747,
+      "cropPath": "tmp/pelican-quartz-crop-preview/full-moon-3cm-jumbo.webp",
+      "cropSize": [
+        1022,
+        585
+      ]
+    },
+    {
+      "handle": "pure-white-3cm-jumbo",
+      "title": "Pure White 3cm Super Jumbo",
+      "codes": [
+        "Pure White 3cm Super Jumbo"
+      ],
+      "size": "Pure White 3cm Super Jumbo",
+      "sourceUrl": "https://cdn.shopify.com/s/files/1/0624/4476/5324/files/PureWhiteslab.jpg?v=1741026321",
+      "sourceFile": "PureWhiteslab.jpg",
+      "sourceImageSize": [
+        2000,
+        1500
+      ],
+      "crop": [
+        200,
+        525,
+        1022,
+        585
+      ],
+      "targetRatio": 1.7468354430379747,
+      "cropPath": "tmp/pelican-quartz-crop-preview/pure-white-3cm-jumbo.webp",
+      "cropSize": [
+        1022,
+        585
+      ]
+    },
+    {
+      "handle": "venezia-3cm",
+      "title": "Venezia 3cm",
+      "codes": [
+        "Venezia 3cm"
+      ],
+      "size": "Venezia 3cm",
+      "sourceUrl": "https://cdn.shopify.com/s/files/1/0624/4476/5324/files/VeneziaSlab.jpg?v=1741027671",
+      "sourceFile": "VeneziaSlab.jpg",
+      "sourceImageSize": [
+        2000,
+        1500
+      ],
+      "crop": [
+        200,
+        525,
+        1170,
+        585
+      ],
+      "targetRatio": 2.0,
+      "cropPath": "tmp/pelican-quartz-crop-preview/venezia-3cm.webp",
+      "cropSize": [
+        1170,
+        585
+      ]
+    },
+    {
+      "handle": "calista-3cm",
+      "title": "Calista 3cm",
+      "codes": [
+        "Calista 3cm"
+      ],
+      "size": "Calista 3cm",
+      "sourceUrl": "https://cdn.shopify.com/s/files/1/0624/4476/5324/files/CalistaSlab.jpg?v=1741027823",
+      "sourceFile": "CalistaSlab.jpg",
+      "sourceImageSize": [
+        2000,
+        1500
+      ],
+      "crop": [
+        200,
+        525,
+        1170,
+        585
+      ],
+      "targetRatio": 2.0,
+      "cropPath": "tmp/pelican-quartz-crop-preview/calista-3cm.webp",
+      "cropSize": [
+        1170,
+        585
+      ]
+    },
+    {
+      "handle": "riviera-3cm",
+      "title": "Riviera 3cm",
+      "codes": [
+        "Riviera 3cm Left",
+        "Riviera 3cm Right"
+      ],
+      "size": "Riviera 3cm Left Riviera 3cm Right",
+      "sourceUrl": "https://cdn.shopify.com/s/files/1/0624/4476/5324/files/RivieraSlab.jpg?v=1741027897",
+      "sourceFile": "RivieraSlab.jpg",
+      "sourceImageSize": [
+        2000,
+        1500
+      ],
+      "crop": [
+        200,
+        525,
+        1170,
+        585
+      ],
+      "targetRatio": 2.0,
+      "cropPath": "tmp/pelican-quartz-crop-preview/riviera-3cm.webp",
+      "cropSize": [
+        1170,
+        585
+      ]
+    },
+    {
+      "handle": "raiden-3cm",
+      "title": "Raiden 3cm",
+      "codes": [
+        "Raiden 3cm"
+      ],
+      "size": "Raiden 3cm",
+      "sourceUrl": "https://cdn.shopify.com/s/files/1/0624/4476/5324/files/RaidenSlab.jpg?v=1741028111",
+      "sourceFile": "RaidenSlab.jpg",
+      "sourceImageSize": [
+        2000,
+        1500
+      ],
+      "crop": [
+        200,
+        525,
+        1170,
+        585
+      ],
+      "targetRatio": 2.0,
+      "cropPath": "tmp/pelican-quartz-crop-preview/raiden-3cm.webp",
+      "cropSize": [
+        1170,
+        585
+      ]
+    },
+    {
+      "handle": "giotto-3cm",
+      "title": "Giotto 3cm",
+      "codes": [
+        "Giotto 3cm"
+      ],
+      "size": "Giotto 3cm",
+      "sourceUrl": "https://cdn.shopify.com/s/files/1/0624/4476/5324/files/Giotto-Slab.jpg?v=1741028396",
+      "sourceFile": "Giotto-Slab.jpg",
+      "sourceImageSize": [
+        2000,
+        1500
+      ],
+      "crop": [
+        200,
+        525,
+        1170,
+        585
+      ],
+      "targetRatio": 2.0,
+      "cropPath": "tmp/pelican-quartz-crop-preview/giotto-3cm.webp",
+      "cropSize": [
+        1170,
+        585
+      ]
+    },
+    {
+      "handle": "calacatta-super-3cm",
+      "title": "Calacatta Super 3cm",
+      "codes": [
+        "Calacatta Super 3cm"
+      ],
+      "size": "Calacatta Super 3cm",
+      "sourceUrl": "https://cdn.shopify.com/s/files/1/0624/4476/5324/files/CalacattaSuperSlab.jpg?v=1741028965",
+      "sourceFile": "CalacattaSuperSlab.jpg",
+      "sourceImageSize": [
+        2000,
+        1500
+      ],
+      "crop": [
+        200,
+        525,
+        1170,
+        585
+      ],
+      "targetRatio": 2.0,
+      "cropPath": "tmp/pelican-quartz-crop-preview/calacatta-super-3cm.webp",
+      "cropSize": [
+        1170,
+        585
+      ]
+    },
+    {
+      "handle": "calacatta-oro-3cm",
+      "title": "Calacatta Oro 3cm",
+      "codes": [
+        "Calacatta Oro 3cm"
+      ],
+      "size": "Calacatta Oro 3cm",
+      "sourceUrl": "https://cdn.shopify.com/s/files/1/0624/4476/5324/files/CALACATTAORO3CM_A.jpg?v=1724677139",
+      "sourceFile": "CALACATTAORO3CM_A.jpg",
+      "sourceImageSize": [
+        2000,
+        1500
+      ],
+      "crop": [
+        200,
+        525,
+        1170,
+        585
+      ],
+      "targetRatio": 2.0,
+      "cropPath": "tmp/pelican-quartz-crop-preview/calacatta-oro-3cm.webp",
+      "cropSize": [
+        1170,
+        585
+      ]
+    },
+    {
+      "handle": "aurora-3cm",
+      "title": "Aurora 3cm",
+      "codes": [
+        "Aurora 3cm"
+      ],
+      "size": "Aurora 3cm",
+      "sourceUrl": "https://cdn.shopify.com/s/files/1/0624/4476/5324/files/Auroraslab.png?v=1741029210",
+      "sourceFile": "Auroraslab.png",
+      "sourceImageSize": [
+        2400,
+        1600
+      ],
+      "crop": [
+        240,
+        560,
+        1248,
+        624
+      ],
+      "targetRatio": 2.0,
+      "cropPath": "tmp/pelican-quartz-crop-preview/aurora-3cm.webp",
+      "cropSize": [
+        1248,
+        624
+      ]
+    },
+    {
+      "handle": "pure-white-3cm",
+      "title": "Pure White 3cm",
+      "codes": [
+        "Pure White 3cm"
+      ],
+      "size": "Pure White 3cm",
+      "sourceUrl": "https://cdn.shopify.com/s/files/1/0624/4476/5324/files/PUREWHITE3CM_A.jpg?v=1724684368",
+      "sourceFile": "PUREWHITE3CM_A.jpg",
+      "sourceImageSize": [
+        2000,
+        1500
+      ],
+      "crop": [
+        200,
+        525,
+        1170,
+        585
+      ],
+      "targetRatio": 2.0,
+      "cropPath": "tmp/pelican-quartz-crop-preview/pure-white-3cm.webp",
+      "cropSize": [
+        1170,
+        585
+      ]
+    },
+    {
+      "handle": "icelandic-3cm-jumbo",
+      "title": "Icelandic 3cm Super Jumbo",
+      "codes": [
+        "Icelandic 3cm Super Jumbo"
+      ],
+      "size": "Icelandic 3cm Super Jumbo",
+      "sourceUrl": "https://cdn.shopify.com/s/files/1/0624/4476/5324/files/IcelandicSlab.jpg?v=1741026575",
+      "sourceFile": "IcelandicSlab.jpg",
+      "sourceImageSize": [
+        2000,
+        1500
+      ],
+      "crop": [
+        200,
+        525,
+        1022,
+        585
+      ],
+      "targetRatio": 1.7468354430379747,
+      "cropPath": "tmp/pelican-quartz-crop-preview/icelandic-3cm-jumbo.webp",
+      "cropSize": [
+        1022,
+        585
+      ]
+    },
+    {
+      "handle": "fossil-3cm-jumbo",
+      "title": "Fossil 3cm Super Jumbo",
+      "codes": [
+        "Fossil 3cm Super Jumbo"
+      ],
+      "size": "Fossil 3cm Super Jumbo",
+      "sourceUrl": "https://cdn.shopify.com/s/files/1/0624/4476/5324/files/Fossil_Slab_Img.jpg?v=1743602642",
+      "sourceFile": "Fossil_Slab_Img.jpg",
+      "sourceImageSize": [
+        2000,
+        1500
+      ],
+      "crop": [
+        200,
+        525,
+        1022,
+        585
+      ],
+      "targetRatio": 1.7468354430379747,
+      "cropPath": "tmp/pelican-quartz-crop-preview/fossil-3cm-jumbo.webp",
+      "cropSize": [
+        1022,
+        585
+      ]
+    },
+    {
+      "handle": "full-moon-3cm-1",
+      "title": "Full Moon 3cm",
+      "codes": [
+        "Full Moon 3cm"
+      ],
+      "size": "Full Moon 3cm",
+      "sourceUrl": "https://cdn.shopify.com/s/files/1/0624/4476/5324/files/media_2bf039ff-54f7-4826-99ab-8dcd0153098f.jpg?v=1744996397",
+      "sourceFile": "media_2bf039ff-54f7-4826-99ab-8dcd0153098f.jpg",
+      "sourceImageSize": [
+        2400,
+        1600
+      ],
+      "crop": [
+        240,
+        560,
+        1248,
+        624
+      ],
+      "targetRatio": 2.0,
+      "cropPath": "tmp/pelican-quartz-crop-preview/full-moon-3cm-1.webp",
+      "cropSize": [
+        1248,
+        624
+      ]
+    },
+    {
+      "handle": "super-white-3cm",
+      "title": "Super White 3cm",
+      "codes": [
+        "Super White 3cm"
+      ],
+      "size": "Super White 3cm",
+      "sourceUrl": "https://cdn.shopify.com/s/files/1/0624/4476/5324/files/Super_White_Slab.jpg?v=1743603641",
+      "sourceFile": "Super_White_Slab.jpg",
+      "sourceImageSize": [
+        2000,
+        1500
+      ],
+      "crop": [
+        200,
+        525,
+        1170,
+        585
+      ],
+      "targetRatio": 2.0,
+      "cropPath": "tmp/pelican-quartz-crop-preview/super-white-3cm.webp",
+      "cropSize": [
+        1170,
+        585
+      ]
+    },
+    {
+      "handle": "grey-mist-3cm",
+      "title": "Grey Mist 3cm",
+      "codes": [
+        "Grey Mist 3cm"
+      ],
+      "size": "Grey Mist 3cm",
+      "sourceUrl": "https://cdn.shopify.com/s/files/1/0624/4476/5324/files/GreyMistSlab.jpg?v=1741028338",
+      "sourceFile": "GreyMistSlab.jpg",
+      "sourceImageSize": [
+        2000,
+        1500
+      ],
+      "crop": [
+        200,
+        525,
+        1170,
+        585
+      ],
+      "targetRatio": 2.0,
+      "cropPath": "tmp/pelican-quartz-crop-preview/grey-mist-3cm.webp",
+      "cropSize": [
+        1170,
+        585
+      ]
+    },
+    {
+      "handle": "siesta-key-3cm",
+      "title": "Siesta Key 3cm",
+      "codes": [
+        "Siesta Key 3cm"
+      ],
+      "size": "Siesta Key 3cm",
+      "sourceUrl": "https://cdn.shopify.com/s/files/1/0624/4476/5324/files/SiestaKeySlab.jpg?v=1741028024",
+      "sourceFile": "SiestaKeySlab.jpg",
+      "sourceImageSize": [
+        2000,
+        1500
+      ],
+      "crop": [
+        200,
+        525,
+        1170,
+        585
+      ],
+      "targetRatio": 2.0,
+      "cropPath": "tmp/pelican-quartz-crop-preview/siesta-key-3cm.webp",
+      "cropSize": [
+        1170,
+        585
+      ]
+    },
+    {
+      "handle": "icelandic-3cm",
+      "title": "Icelandic 3cm",
+      "codes": [
+        "Icelandic 3cm"
+      ],
+      "size": "Icelandic 3cm",
+      "sourceUrl": "https://cdn.shopify.com/s/files/1/0624/4476/5324/files/IcelandicSlab_e5985140-222a-43f1-a9a5-17d1c3b17b5b.jpg?v=1741028256",
+      "sourceFile": "IcelandicSlab_e5985140-222a-43f1-a9a5-17d1c3b17b5b.jpg",
+      "sourceImageSize": [
+        2000,
+        1500
+      ],
+      "crop": [
+        200,
+        525,
+        1170,
+        585
+      ],
+      "targetRatio": 2.0,
+      "cropPath": "tmp/pelican-quartz-crop-preview/icelandic-3cm.webp",
+      "cropSize": [
+        1170,
+        585
+      ]
+    },
+    {
+      "handle": "fossil-3cm",
+      "title": "Fossil 3cm",
+      "codes": [
+        "Fossil 3cm"
+      ],
+      "size": "Fossil 3cm",
+      "sourceUrl": "https://cdn.shopify.com/s/files/1/0624/4476/5324/files/Fossil_Slab_Img.jpg?v=1743602642",
+      "sourceFile": "Fossil_Slab_Img.jpg",
+      "sourceImageSize": [
+        2000,
+        1500
+      ],
+      "crop": [
+        200,
+        525,
+        1170,
+        585
+      ],
+      "targetRatio": 2.0,
+      "cropPath": "tmp/pelican-quartz-crop-preview/fossil-3cm.webp",
+      "cropSize": [
+        1170,
+        585
+      ]
+    },
+    {
+      "handle": "bedrock-3cm",
+      "title": "Bedrock 3cm",
+      "codes": [
+        "Bedrock 3cm"
+      ],
+      "size": "Bedrock 3cm",
+      "sourceUrl": "https://cdn.shopify.com/s/files/1/0624/4476/5324/files/BedrockSlab.jpg?v=1741029114",
+      "sourceFile": "BedrockSlab.jpg",
+      "sourceImageSize": [
+        2000,
+        1500
+      ],
+      "crop": [
+        200,
+        525,
+        1170,
+        585
+      ],
+      "targetRatio": 2.0,
+      "cropPath": "tmp/pelican-quartz-crop-preview/bedrock-3cm.webp",
+      "cropSize": [
+        1170,
+        585
+      ]
+    }
+  ],
+  "contactSheet": "tmp/pelican-quartz-crop-preview/contact-sheet.jpg"
+}

@@ -1388,8 +1388,8 @@ describe("interactive 3D room scene helpers", () => {
 		    });
 			const slab = threeDProductMaterialSource("countertop", "Calacatta Oro 3cm Super Jumbo", "/manus-storage/pelican/8_acb59792.png");
 			expect(slab).toMatchObject({
-				url: "/manus-storage/calacatta_oro_138x79_clean_slab_903624a9.webp",
-				key: "calacatta-oro-138x79",
+				url: "/manus-storage/pelican/quartz/full-moon-3cm-jumbo-1_source_slab_4dd73868.webp",
+				key: "pelican-quartz:full-moon-3cm-jumbo-1",
 				curated: true,
 				physicalWidthIn: 138,
 				physicalDepthIn: 79,
@@ -1431,8 +1431,8 @@ describe("interactive 3D room scene helpers", () => {
 						plankWidthIn: 7,
 						plankLengthIn: 48,
 					});
-					expect(threeDProductMaterialSource("countertop", "Bedrock 3cm", null)).toMatchObject({
-				url: "/manus-storage/bedrock_3cm_126x63_clean_slab_a9743085.webp", key: "bedrock-3cm-126x63",
+				expect(threeDProductMaterialSource("countertop", "Bedrock 3cm", null)).toMatchObject({
+			url: "/manus-storage/pelican/quartz/bedrock-3cm_source_slab_e61a47e8.webp", key: "pelican-quartz:bedrock-3cm",
 				curated: true, proceduralFallback: false, physicalWidthIn: 126, physicalDepthIn: 63,
 			});
 				expect(threeDProductMaterialSource("backsplash", "Desert Clay", null)).toMatchObject({
@@ -1505,6 +1505,19 @@ describe("interactive 3D room scene helpers", () => {
 		    expect(second.offsetX).toBeCloseTo(first.offsetX + first.repeatX);
 		    expect(first.repeatY).toBeCloseTo(25.5 / 79);
 		    expect(first.rotation).toBe(0);
+		  });
+
+		  it("assigns every source-qualified Pelican quartz slab to a physical world-slab coordinate system rather than a generic countertop crop", () => {
+		    const aurora = threeDProductMaterialSource("countertop", "Aurora 3cm", "/manus-storage/pelican-quartz/aurora.webp");
+		    expect(aurora).toMatchObject({
+		      curated: true,
+		      proceduralFallback: false,
+		      physicalWidthIn: 126,
+		      physicalDepthIn: 63,
+		      key: "pelican-quartz:aurora-3cm",
+		    });
+		    const transform = threeDProductSurfaceTextureTransform("countertop", aurora!, 63, 31.5);
+		    expect(transform).toEqual({ wrap: "repeat", repeatX: 0.5, repeatY: 0.5, offsetX: 0, offsetY: 0, rotation: 0 });
 		  });
 
 		  it("classifies flooring by authoritative product identity and applies stagger rules only to plank products", () => {

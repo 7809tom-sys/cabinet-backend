@@ -60,7 +60,7 @@ describe("design photo render safeguards", () => {
       camera: { position: [1, 2, 3], target: [4, 5, 6], zoom: 1.25 },
       materials: [
         { role: "cabinet", productId: 12, name: "Rustic Hickory", materialImageUrl: "/manus-storage/rustic_hickory_vertical_grain_32d9e28a.webp" },
-        { role: "countertop", productId: 21, name: "Bedrock 3cm", materialImageUrl: "/manus-storage/bedrock_3cm_126x63_clean_slab_a9743085.webp" },
+        { role: "countertop", productId: 21, name: "Bedrock 3cm", materialImageUrl: "/manus-storage/pelican/quartz/bedrock-3cm_source_slab_e61a47e8.webp" },
         { role: "flooring", productId: 54, name: "Astoria 22mil Vinyl Flooring", materialImageUrl: "/manus-storage/astoria_22mil_9x60_staggered_floor_cd0a1cf7.webp" },
         { role: "backsplash", productId: 183, name: "Desert Clay", materialImageUrl: "/manus-storage/desert_clay_11_81_interlocking_mosaic_0aa381c4.webp" },
         { role: "faucet", productId: 71, name: "Pull-down Faucet", materialImageUrl: null },

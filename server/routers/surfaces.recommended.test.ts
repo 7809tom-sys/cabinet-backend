@@ -4,6 +4,7 @@ import type { TrpcContext } from "../_core/context";
 import { getDb } from "../db";
 import { verifiedPelicanFaucetProfile, verifiedPelicanPotFillerProfile, verifiedPelicanSinkProfile } from "../../client/src/lib/pelicanFixtureProfiles";
 import { isSourceVerifiedPelicanBathtub, isSourceVerifiedPelicanToiletOrBidet } from "../lib/pelicanBathroomCatalog";
+import { pelicanQuartzMaterialMap } from "../../client/src/lib/pelicanQuartzMaterialMaps";
 
 // Public procedure — a minimal unauthenticated context is enough.
 function publicCtx(): TrpcContext {
@@ -64,7 +65,7 @@ describe("surfaces.recommended", () => {
     }
   });
 
-  it("returns source-priced Quartz slabs for countertop even when an exact 3D swatch is pending", async () => {
+  it("returns source-priced Quartz slabs for countertop with approved source-qualified 3D material maps", async () => {
     const db = await getDb();
     if (!db) return;
     const caller = appRouter.createCaller(publicCtx());
@@ -75,7 +76,9 @@ describe("surfaces.recommended", () => {
       expect(Object.prototype.hasOwnProperty.call(r, "unsupportedOverhangLimitIn")).toBe(true);
       expect(r.unsupportedOverhangLimitIn == null || Number.isFinite(r.unsupportedOverhangLimitIn)).toBe(true);
     }
-    expect(rows.some((r) => !r.materialImageUrl?.trim())).toBe(true);
+    const currentOfficialRows = rows.filter((row) => pelicanQuartzMaterialMap(row.pelicanCode));
+    expect(currentOfficialRows.length).toBeGreaterThan(0);
+    expect(currentOfficialRows.every((row) => row.materialImageUrl === pelicanQuartzMaterialMap(row.pelicanCode)?.materialImageUrl)).toBe(true);
   });
 
   it("returns only source-measured Designer fixtures and excludes accessories", async () => {

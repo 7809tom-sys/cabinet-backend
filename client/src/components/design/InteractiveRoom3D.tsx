@@ -37,6 +37,7 @@ import { masterTracProduct, masterTracFinishColor } from "@/lib/closet";
 import { geminiHardwareReference, type GeminiMaterialManifestEntry } from "@/lib/geminiHardwareReference";
 import { geminiMaterialReference, geminiInferredMaterialLabels } from "@/lib/geminiMaterialReference";
 import { GEMINI_MATERIAL_MANIFEST_WIRE_VERSION, geminiMaterialManifestWireValidationIssues, serializeGeminiImageTestProvenanceForWire, serializeGeminiMaterialManifestForWire } from "@shared/geminiMaterialManifest";
+import { pelicanQuartzMaterialMap } from "@/lib/pelicanQuartzMaterialMaps";
 
 /**
  * The in-house browser path tracer is switched off: it opens a second WebGL
@@ -1003,8 +1004,6 @@ export function threeDFlooringPatternProfile(input: {
 }
 
 const THREE_D_AVELINE_20MIL_FLOOR_URL = "/manus-storage/aveline_20mil_7x48_staggered_floor_2675d409.webp";
-const THREE_D_CALACATTA_ORO_SUPER_JUMBO_URL = "/manus-storage/calacatta_oro_138x79_clean_slab_903624a9.webp";
-const THREE_D_BEDROCK_3CM_SLAB_URL = "/manus-storage/bedrock_3cm_126x63_clean_slab_a9743085.webp";
 const THREE_D_BAHIA_12MIL_FLOOR_URL = "/manus-storage/bahia_12mil_7x48_staggered_floor_551c6d5b.webp";
 const THREE_D_ACORN_20MIL_FLOOR_URL = "/manus-storage/acorn_20mil_7_5x48_staggered_floor_3dbd212f.webp";
 const THREE_D_ASTORIA_22MIL_FLOOR_URL = "/manus-storage/astoria_22mil_9x60_staggered_floor_cd0a1cf7.webp";
@@ -1078,14 +1077,15 @@ export function threeDProductMaterialSource(
 	    staggerOffsetsIn: THREE_D_PLANK_STAGGER_FRACTIONS.map((fraction) => Math.round(60 * fraction * 8) / 8),
 	  };
 	}
-	if (role === "countertop" && normalizedName === "bedrock 3cm") {
+  const quartzMap = role === "countertop" ? pelicanQuartzMaterialMap(productName) : null;
+  if (quartzMap) {
     return {
-      url: THREE_D_BEDROCK_3CM_SLAB_URL,
-      key: "bedrock-3cm-126x63",
+      url: quartzMap.materialImageUrl,
+      key: `pelican-quartz:${quartzMap.handle}`,
       curated: true,
       proceduralFallback: false,
-      physicalWidthIn: 126,
-      physicalDepthIn: 63,
+      physicalWidthIn: quartzMap.physicalWidthIn,
+      physicalDepthIn: quartzMap.physicalDepthIn,
       sourceProductName: productName ?? null,
       flooringPatternKind: null,
       plankWidthIn: null,
@@ -1162,21 +1162,6 @@ export function threeDProductMaterialSource(
       staggerOffsetsIn: THREE_D_PLANK_STAGGER_FRACTIONS.map((fraction) => Math.round(48 * fraction * 8) / 8),
     };
   }
-	if (role === "countertop" && normalizedName === "calacatta oro 3cm super jumbo") {
-    return {
-	      url: THREE_D_CALACATTA_ORO_SUPER_JUMBO_URL,
-	      key: "calacatta-oro-138x79",
-	      curated: true,
-	      proceduralFallback: false,
-	      physicalWidthIn: 138,
-      physicalDepthIn: 79,
-      sourceProductName: productName ?? null,
-      flooringPatternKind: null,
-      plankWidthIn: null,
-      plankLengthIn: null,
-      staggerOffsetsIn: null,
-	  };
-	}
 	if (role === "backsplash" && (normalizedName === "carrara subway" || productId === 144)) {
 		return {
 			url: THREE_D_CARRARA_SUBWAY_MOSAIC_URL,
@@ -1538,7 +1523,7 @@ function threeDTextureForCountertopMesh(
   source: THREE.Texture | null,
   input: Parameters<typeof threeDCountertopSlabTextureTransform>[0],
 ) {
-  if (!source || source.userData?.curatedSurfaceKey !== "calacatta-oro-138x79") return source;
+  if (!source || !String(source.userData?.curatedSurfaceKey ?? "").startsWith("pelican-quartz:")) return source;
   const texture = source.clone();
   const transform = threeDCountertopSlabTextureTransform(input);
   texture.wrapS = THREE.RepeatWrapping;
