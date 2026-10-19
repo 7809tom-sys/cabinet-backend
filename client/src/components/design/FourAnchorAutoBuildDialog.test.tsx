@@ -30,6 +30,13 @@ describe("FourAnchorAutoBuildDialog", () => {
     }));
   });
 
+  it("builds a regular sink base unless the admin explicitly chooses farmhouse", () => {
+    const onBuild = vi.fn((): { ok: true } => ({ ok: true }));
+    render(<FourAnchorAutoBuildDialog open onOpenChange={vi.fn()} onBuild={onBuild} />);
+    expect(screen.getByText("Sink base style")).toBeTruthy();
+    fireEvent.click(screen.getByTestId("four-anchor-build-submit"));
+    expect(onBuild).toHaveBeenCalledWith(expect.objectContaining({ sinkBaseKind: "regular" }));
+  });
   it("keeps a failed submit visible in the dialog with its exact blocker rather than appearing inert", () => {
     const onBuild = vi.fn(() => ({
       ok: false as const,

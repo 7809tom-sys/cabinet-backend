@@ -1,6 +1,7 @@
-import { STD, isCornerCabinet, isSinkBaseCabinet, wallRunFrame, type RoomData, type WallRunFrame } from "./design";
+import { STD, dim, isCornerCabinet, isFarmerSinkBase, isSinkBaseCabinet, wallRunFrame, type RoomData, type WallRunFrame } from "./design";
 import { baseSubGroup, cabinetDrawingType, type CabinetLike } from "./cabinetGraphics";
 
+export type FourAnchorSinkBaseKind = "regular" | "farmhouse";
 export type FourAnchorKind = "sink" | "stove" | "dishwasher" | "refrigerator";
 export type FourAnchorLayoutType = "galley" | "l-shape" | "u-shape" | "single-wall";
 export type FourAnchorOriginCorner = "left" | "right";
@@ -43,6 +44,8 @@ export type FourAnchorInputs = {
   sink: FourAnchorMeasurement;
   /** Exact source-sized sink base requested by the admin (SB30/SB33/SB36/SB42). */
   sinkBaseWidthIn?: 30 | 33 | 36 | 42;
+  /** Regular sink base unless the admin explicitly asks for a farmhouse (apron-front) base. */
+  sinkBaseKind?: FourAnchorSinkBaseKind;
   stove: FourAnchorMeasurement;
   /** Optional exact dishwasher center. Null means seat it against the sink. */
   dishwasher?: FourAnchorMeasurement | null;
@@ -166,6 +169,30 @@ export function isAutoBuildStraightSinkBaseCandidate(candidate: AutoBuildCatalog
     && candidate.isCornerCabinet !== true
     && !isCornerCabinet(candidate.masterCode, candidate.description ?? undefined)
     && isSinkBaseCabinet(candidate);
+}
+
+/**
+ * The sink base a Four-anchor build seats. A kitchen defaults to the REGULAR
+ * sink base: a plain SB of the requested width (two doors, top drawer front)
+ * wins over a full-height SBxxFH, and the farmhouse apron-front base, vanity
+ * sink bases and corner sink bases are never substituted for it. The farmhouse
+ * base is built only when the admin explicitly asks for it. The result does not
+ * depend on the order the catalog lists its rows; null means the line sells no
+ * such base at that width, so the caller reports it instead of substituting.
+ */
+export function pickFourAnchorSinkBase<T extends AutoBuildCatalogCandidate & { width?: string | number | null }>(
+  catalog: readonly T[],
+  widthIn: number,
+  kind: FourAnchorSinkBaseKind = "regular",
+): T | null {
+  const text = (row: T) => `${row.masterCode} ${row.description ?? ""} ${row.subCategory ?? ""}`;
+  const fits = catalog.filter((row) => isAutoBuildStraightSinkBaseCandidate(row)
+    && Math.abs(dim(row.width as never, 0) - widthIn) < 0.1
+    && !/vanity/i.test(text(row)) && !/^V/i.test(row.masterCode));
+  if (kind === "farmhouse") return fits.find((row) => isFarmerSinkBase(row)) ?? null;
+  const regular = fits.filter((row) => !isFarmerSinkBase(row));
+  const rank = (row: T) => (/^(?:ADA-)?SB[-_ ]?\d+$/i.test(row.masterCode) ? 0 : 1);
+  return [...regular].sort((a, b) => rank(a) - rank(b))[0] ?? null;
 }
 
 /**

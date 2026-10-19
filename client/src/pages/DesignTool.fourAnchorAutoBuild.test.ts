@@ -64,7 +64,10 @@ describe("admin four-anchor Designer wiring", () => {
 
   it("resolves the selected SB width only to a straight sink base and never fills a wall gap with a corner SKU", () => {
     expect(pageSource).toContain("const straightBaseCatalog = autoBuildStraightBaseCatalog(pool);");
-    expect(pageSource).toContain("isAutoBuildStraightSinkBaseCandidate(item)");
+    // The sink base is chosen by the shared picker: REGULAR by default (never the farmhouse apron-front base,
+    // a vanity or a corner sink box) and farmhouse only on an explicit request.
+    expect(pageSource).toContain("pickFourAnchorSinkBase(pool, sinkBaseWidth, sinkBaseKind)");
+    expect(pageSource).toContain('input.sinkBaseKind ?? "regular"');
     // The largest-first fill now runs through the range-aware planner (which calls autoFillSpan with the same strategy and
     // the same straight-base catalog) so a range always gets a 15-inch-or-wider cabinet on each side.
     expect(pageSource).toContain("planFourAnchorBaseSegment({");

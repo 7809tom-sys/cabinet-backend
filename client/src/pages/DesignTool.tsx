@@ -178,7 +178,7 @@ import { CabinetHandlesControl, DEFAULT_DESIGNER_HARDWARE_STYLE_ID } from "@/com
 import { HardwareCatalogPicker } from "@/components/design/HardwareCatalogPicker";
 import { isPanelPaletteItem } from "./designToolPanels";
 import { normalizePaletteSearch, matchesPaletteSearch } from "@/lib/paletteSearch";
-import { adjacentDishwasherCenterIn, anchorAlongStartIn, autoBuildStraightBaseCatalog, canRunFourAnchorAutoBuild, isAutoBuildStraightSinkBaseCandidate, planFourAnchorAutoBuild, subtractAnchorRunReservations, wallLabelToEngineWallId, type FourAnchorInputs } from "@/lib/fourAnchorAutoBuild";
+import { adjacentDishwasherCenterIn, anchorAlongStartIn, autoBuildStraightBaseCatalog, canRunFourAnchorAutoBuild, isAutoBuildStraightSinkBaseCandidate, pickFourAnchorSinkBase, planFourAnchorAutoBuild, subtractAnchorRunReservations, wallLabelToEngineWallId, type FourAnchorInputs } from "@/lib/fourAnchorAutoBuild";
 import { fourAnchorSinkWindow, windowOverlapsReservation } from "@/lib/fourAnchorSinkWindow";
 import { fourAnchorRangeHood, fourAnchorRangeNeedsVentilation } from "@/lib/fourAnchorRangeHood";
 import { autoBuildCornerCatalog, fourAnchorCornerSlotPoint, fourAnchorCornerSlots, isFourAnchorBlindCornerOption, type AutoBuildCornerCandidate, type FourAnchorCornerChoice, type FourAnchorCornerSlot } from "@/lib/fourAnchorCornerStage";
@@ -3101,10 +3101,13 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     // The SB size selector is a straight sink base on the chosen wall—not a
     // CSB/DCSB corner sink box sharing the same nominal width.
     const straightBaseCatalog = autoBuildStraightBaseCatalog(pool);
-    const sinkBaseSource = pool.find((item) => isAutoBuildStraightSinkBaseCandidate(item)
-      && Math.abs(dim(item.width, 0) - sinkBaseWidth) < 0.1);
+    // A kitchen defaults to the REGULAR sink base; the farmhouse (apron-front) base is built only on request.
+    const sinkBaseKind = input.sinkBaseKind ?? "regular";
+    const sinkBaseSource = pickFourAnchorSinkBase(pool, sinkBaseWidth, sinkBaseKind);
     if (!sinkBaseSource) {
-      return fail(`No source-priced SB${sinkBaseWidth} sink base is available for the selected line. Choose a door style with a priced sink base, then try again.`);
+      return fail(sinkBaseKind === "farmhouse"
+        ? `No source-priced ${sinkBaseWidth}″ farmhouse sink base is available for the selected line. Choose the regular sink base or another door style, then try again.`
+        : `No source-priced SB${sinkBaseWidth} sink base is available for the selected line. Choose a door style with a priced sink base, then try again.`);
     }
     const applianceByKind: Record<string, DesignCabinet | undefined> = {
       stove: appliancePalette.find((item) => item.masterCode === "RANGE-30"),

@@ -10,8 +10,8 @@ import {
   COLLISION_EPSILON_IN, WALL_OPENING_CLEARANCE_IN, appendCollisionFreePlacements,
   cabinetPlacementCollisionDetail, cabinetWall, dim, footprintDepth, formatInches, freeSegmentsOnWall,
   isBaseBlindCorner, isCornerCabinet, isPanelItem, isRangeOrOven, isRefrigerator, isSinkBaseCabinet, normalizeBlindCornerDoorSides,
-  ordinaryWallMountBottom, wallCeilingMin, wallPlacementAt, wallRunCornerPlacement, wallRunFrame, wallRunOffset,
-  wallRunSpan, type DesignCabinet, type PlacedCabinet, type RoomData, type WallOpening,
+  ordinaryWallMountBottom, wallCeilingMin, wallPlacementAt, wallRunCornerPlacement, wallRunFrame, wallRunJoinAt, wallRunOffset,
+  wallRunSpan, type DesignCabinet, type PlacedCabinet, type RoomData, type WallOpening, type WallRunFrame,
 } from "./design";
 
 export type FourAnchorUpperCorner = {
@@ -245,7 +245,55 @@ export function buildFourAnchorWallCabinets(input: {
         for (const source of corners.filter((row) => dim(row.width, 0) <= base.width + COLLISION_EPSILON_IN)) {
           const candidate = makeCandidate(source);
           const spot = wallRunCornerPlacement(candidate, frame, at, room);
-          if (spot && commit({ ...candidate, ...spot })) { placed = true; break; }
+          if (spot && commit({ ...candidate, ...spot })) {
+            placed = true;
+            // Rule: a 12-inch wall cabinet goes on each side of a diagonal (or L) corner upper,
+            // filling the rest of the corner base's span on both of its walls.
+            const seatedCorner = additions[additions.length - 1]!;
+            const join = wallRunJoinAt(frame, at, room);
+            const vertex = at === "start" ? frame.start : frame.end;
+            const legs: Array<{ frame: WallRunFrame; atStart: boolean }> = [{ frame, atStart: at === "start" }];
+            if (join && join.turnDeg === 90) {
+              legs.push({ frame: join.frame, atStart: Math.hypot(join.frame.start.x - vertex.x, join.frame.start.y - vertex.y) <= 0.01 });
+            }
+            for (const leg of legs) {
+              const cornerEnd = seatedCorner.width;
+              const from = leg.atStart ? cornerEnd : leg.frame.length - base.width;
+              const to = leg.atStart ? base.width : leg.frame.length - cornerEnd;
+              const room12 = to - from;
+              if (room12 < MIN_UPPER_WIDTH_IN - COLLISION_EPSILON_IN) continue;
+              const wallId = leg.frame.id;
+              const twelve = standard.find((row) => Math.abs(dim(row.width, 0) - FOUR_ANCHOR_CORNER_UPPER_WIDTH_IN) <= COLLISION_EPSILON_IN);
+              const pieces: DesignCabinet[] = [];
+              let remaining = room12;
+              if (twelve && remaining >= FOUR_ANCHOR_CORNER_UPPER_WIDTH_IN - COLLISION_EPSILON_IN) {
+                pieces.push(twelve);
+                remaining -= FOUR_ANCHOR_CORNER_UPPER_WIDTH_IN;
+              }
+              if (remaining >= MIN_UPPER_WIDTH_IN - COLLISION_EPSILON_IN) {
+                const tiled = autoFillSpan(remaining, "kitchen", standard.map((row) => ({ ...row, placement: "base" as const })), { strategy: "largest-first" });
+                const more = (Array.isArray(tiled) ? tiled : tiled.items.filter((item) => !item.isFiller)
+                  .map((item) => standard.find((row) => row.id === item.cabinet.id)!))
+                  .filter((row): row is DesignCabinet => row != null);
+                const covered = more.reduce((sum, row) => sum + dim(row.width, 0), 0);
+                if (covered <= remaining + COLLISION_EPSILON_IN) pieces.push(...more);
+              }
+              // Next to the corner first, so the run reads corner, 12", rest.
+              const ordered = leg.atStart ? pieces : [...pieces].reverse();
+              const total = ordered.reduce((sum, row) => sum + dim(row.width, 0), 0);
+              let along = leg.atStart ? from : to - total;
+              for (const row of ordered) {
+                const piece = makeCandidate(row);
+                const pieceSpot = wallPlacementAt(along, piece.width, piece.depth, wallId as never, room);
+                if (!commit({ ...piece, ...pieceSpot })) {
+                  skipped.push(`${base.masterCode} corner: the ${piece.width}″ upper beside the corner cabinet could not be seated on ${wallId}.`);
+                  break;
+                }
+                along += piece.width;
+              }
+            }
+            break;
+          }
         }
       }
     }

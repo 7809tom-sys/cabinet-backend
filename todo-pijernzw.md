@@ -296,3 +296,10 @@
 - [x] TypeScript clean, 6 focused suites (43 tests) pass, production build passes, whitespace check clean.
 - [ ] Not published. Designer code must be published before the live site shows the new row.
 - Note: on the phone the measured build freezes the page for a few seconds while it runs; automation needed dispatched clicks. Not changed.
+
+## Four anchors round 3 — regular sink base default + 12-inch wall cabinets beside a diagonal corner
+- [x] Four-anchor builder now defaults to a REGULAR sink base (plain SB, then SBxxFH); farmhouse (FSB) only when "Sink base style: Farmhouse" is chosen in the dialog. Never a vanity or corner sink base. (`pickFourAnchorSinkBase`, `sinkBaseKind`)
+- [x] Wall stage seats a 12-inch wall cabinet on each side of a diagonal/L corner upper, on both walls, filling to the corner base's span (`fourAnchorWallCabinets.ts`).
+- [x] Tests: fourAnchorSinkBasePick.test.ts (11), fourAnchorKitchenRules.test.ts (20), dialog + DesignTool source pins updated deliberately; 141/141 Four-anchor tests pass; tsc clean.
+- [x] Verified in the REAL Designer (dev preview, not published) with identical inputs before/after: SB36 replaces FSB36; W1230 added left of DCW2430 on the top wall (W1230 on the right wall already present). Proof: /home/ubuntu/anchor-rules-proof/FOUR_ANCHOR_SINK_AND_FLANK_before_after.png
+- [ ] Not published. Authenticated customer flow not exercised (QA used a client-side admin shim with writes blocked).

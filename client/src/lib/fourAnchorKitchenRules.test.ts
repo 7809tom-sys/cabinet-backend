@@ -139,3 +139,49 @@ describe.each(STYLES)("Four-anchor rule: a 12-inch wall cabinet in the corner ($
     expect(result.additions.length).toBeGreaterThan(0);
   });
 });
+
+const TOP_LEFT = { x: 0, y: 0, firstWallId: "top" };
+describe.each(STYLES)("Four-anchor rule: a 12-inch wall cabinet on each side of the wall corner cabinet ($name line)", ({ id }) => {
+  const seatLazySusan = () => {
+    const source = rows(id, "base").find((row) => /^LSB36$/.test(row.masterCode))!;
+    const seated = seatFourAnchorCorner({
+      source, slotLabel: "Corner between Wall 1 and Wall 4", target: TOP_LEFT, cornerWallIds: ["top", "left"],
+      working: [], room: DEFAULT_ROOM, openings: [], isBlindOption: false, catalogFillers: fillers(id), makeUid: uids(), styleId: Number(id),
+    });
+    expect(seated.ok, seated.ok ? "" : seated.message).toBe(true);
+    if (!seated.ok) throw new Error("corner did not seat");
+    return seated;
+  };
+  const cornerUpper = (result: ReturnType<typeof wallStage>) => result.additions.find((item) => item.width === 24 && /^(DCW|WDC|WER)/.test(item.masterCode));
+  it("seats the corner upper at the vertex and puts a 12-inch upper beside it on BOTH walls", () => {
+    const seated = seatLazySusan();
+    const result = wallStage(id, seated.placed, [], [{ base: seated.corner, point: TOP_LEFT }]);
+    const corner = cornerUpper(result);
+    expect(corner, `skipped: ${result.skipped.join(" | ")}`).toBeDefined();
+    const flanks = result.additions.filter((item) => item.width === 12 && /^W12/.test(item.masterCode));
+    const along = (wall: string) => flanks.map(span).filter((s) => s.wall === wall).sort((a, b) => a.start - b.start);
+    // The 24-inch corner upper covers 0-24 on each wall; the 36-inch corner base leaves exactly 12 inches on each wall.
+    expect(along("top").map((s) => [Math.round(s.start * 100) / 100, Math.round(s.end * 100) / 100])).toContainEqual([24, 36]);
+    expect(along("left").map((s) => [Math.round(s.start * 100) / 100, Math.round(s.end * 100) / 100])).toContainEqual([24, 36]);
+  });
+  it("keeps the rest of the run intact, gap-free and collision-free next to the 12-inch uppers", () => {
+    const seated = seatLazySusan();
+    const next = lower("B36", 36, 36);
+    const result = wallStage(id, [...seated.placed, next], [], [{ base: seated.corner, point: TOP_LEFT }]);
+    const top = result.additions.filter((item) => span(item).wall === "top").sort((a, b) => span(a).start - span(b).start);
+    expect(span(top[0]!).start).toBeCloseTo(0, 3);
+    for (let index = 1; index < top.length; index++) expect(span(top[index]!).start).toBeCloseTo(span(top[index - 1]!).end, 3);
+    expect(span(top[top.length - 1]!).end).toBeGreaterThanOrEqual(72 - 0.01);
+    for (const item of result.additions) {
+      expect(cabinetPlacementCollisionDetail(item, result.placed.filter((other) => other.uid !== item.uid), DEFAULT_ROOM)).toBeNull();
+    }
+  });
+  it("does not add a 12-inch box that would overhang the corner base's span (a 9-inch gap stays a seam)", () => {
+    const seated = seatLazySusan();
+    const narrow = { ...seated.corner, width: 33 };
+    const placed = seated.placed.map((item) => (item.uid === seated.corner.uid ? narrow : item));
+    const result = wallStage(id, placed, [], [{ base: narrow, point: TOP_LEFT }]);
+    const flanksBeyond = result.additions.filter((item) => item.width === 12 && span(item).start >= 24 - 0.01 && span(item).end > 33 + 0.01);
+    expect(flanksBeyond).toEqual([]);
+  });
+});

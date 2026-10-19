@@ -10,6 +10,7 @@ import type {
   FourAnchorLayoutType,
   FourAnchorOriginCorner,
   FourAnchorRunDirection,
+  FourAnchorSinkBaseKind,
   WallLabel,
 } from "@/lib/fourAnchorAutoBuild";
 
@@ -52,6 +53,7 @@ export function FourAnchorAutoBuildDialog({ open, onOpenChange, onBuild, catalog
     refrigerator: { wallLabel: "Wall 1", centerOffsetIn: "84" },
   });
   const [sinkBaseWidth, setSinkBaseWidth] = useState<SinkBaseWidth>(36);
+  const [sinkBaseKind, setSinkBaseKind] = useState<FourAnchorSinkBaseKind>("regular");
   const [wallCabinetHeight, setWallCabinetHeight] = useState<WallCabinetHeight>(30);
   const [dishwasherSide, setDishwasherSide] = useState<DishwasherSide>("right");
   const refrigeratorWidth: RefrigeratorWidth = 36;
@@ -77,6 +79,7 @@ export function FourAnchorAutoBuildDialog({ open, onOpenChange, onBuild, catalog
       wallCabinetHeightIn: wallCabinetHeight,
       sink: measurement("sink"),
       sinkBaseWidthIn: sinkBaseWidth,
+      sinkBaseKind,
       stove: measurement("stove"),
       dishwasher: optionalMeasurement("dishwasher"),
       dishwasherSide,
@@ -187,6 +190,17 @@ export function FourAnchorAutoBuildDialog({ open, onOpenChange, onBuild, catalog
                 <SelectContent>{([30, 33, 36, 42] as const).map((width) => <SelectItem key={width} value={String(width)}>SB{width} · {width}″</SelectItem>)}</SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">Builds the selected, source-priced sink base—not a generic sink appliance.</p>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="four-anchor-sink-base-kind">Sink base style</Label>
+              <Select value={sinkBaseKind} onValueChange={(value) => setSinkBaseKind(value as FourAnchorSinkBaseKind)}>
+                <SelectTrigger id="four-anchor-sink-base-kind" aria-label="Sink base style"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="regular">Regular sink base (default)</SelectItem>
+                  <SelectItem value="farmhouse">Farmhouse (apron-front) sink base</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">A regular sink base is used unless you choose farmhouse here.</p>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="four-anchor-dishwasher-side">Dishwasher position</Label>
