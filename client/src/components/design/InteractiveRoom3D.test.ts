@@ -3685,6 +3685,47 @@ describe("interactive 3D room scene helpers", () => {
     }
   });
 
+  it("puts every tall cabinet's separate upper-door pulls on the bottom meeting rail regardless of distributor construction", () => {
+    const renderTallUpperDoorPulls = (constructionMethod?: string) => {
+      const root = new THREE.Group();
+      const tallDrawerPantry = existingCabinetSku({
+        uid: `t3db-upper-${constructionMethod ?? "standard"}`,
+        cabinetId: 1,
+        masterCode: "T3DB3084",
+        description: "30 inch Tall Pantry Cabinet with upper doors and lower drawers",
+        placement: "tall",
+        x: 0,
+        y: 0,
+        rotation: 0,
+        width: 30,
+        height: 84,
+        depth: 24,
+        numberOfDoors: 2,
+        numberOfDrawers: 3,
+        drawerLayout: JSON.stringify([{ count: 1, height: 7.375 }, { count: 1, height: 7.375 }, { count: 1, height: 15 }]),
+        ...(constructionMethod ? { constructionMethod } : {}),
+      } as never);
+      addCabinetWithBarPulls(root, tallDrawerPantry, null, {}, 144, 120, "#d1ba8f", "#ffffff", { doorStyle: "Shaker", doorPanelType: null });
+      const upperDoors: THREE.Mesh[] = [];
+      const upperPulls: THREE.Object3D[] = [];
+      root.traverse((node) => {
+        if (node instanceof THREE.Mesh && node.userData.cabinetFront && !node.userData.cabinetDrawerFront) upperDoors.push(node);
+        if (node.userData.cabinetPull === "door") upperPulls.push(node);
+      });
+      return {
+        upperDoors: upperDoors.sort((left, right) => left.position.x - right.position.x),
+        upperPulls: upperPulls.sort((left, right) => left.position.x - right.position.x),
+      };
+    };
+
+    for (const constructionMethod of [undefined, AEF_PRINTED_GEOMETRY_MARKER]) {
+      const { upperDoors, upperPulls } = renderTallUpperDoorPulls(constructionMethod);
+      expect(upperDoors).toHaveLength(2);
+      expect(upperPulls).toHaveLength(2);
+      expect(upperPulls.every((pull, index) => pull.userData.pullDoorZone === "upper" && pull.position.y < upperDoors[index]!.position.y)).toBe(true);
+    }
+  });
+
   it("keeps the cabinet shell and selected Toe Kick in the finish while using recessed drawer gaps instead of ghost-prone outlines", () => {
     const root = new THREE.Group();
     addCabinet(root, {

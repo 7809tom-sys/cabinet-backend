@@ -4647,12 +4647,6 @@ export function addCabinet(
     // A design configured as touch-latch/push-to-open must not acquire a default
     // bar pull merely because a cabinet renderer was invoked.
     if (piece === "none") return;
-    // AEF's source-configured oven tower upper doors follow the same lower,
-    // opposite-hinge pull rule as framed upper doors. Keep the raised rail rule
-    // for every other tall/pantry or floor-seated wall cabinet.
-    const aefOvenDoorUsesUpperRule = !drawer
-      && isOvenCabinet
-      && sku.constructionMethod === AEF_PRINTED_GEOMETRY_MARKER;
     // A stacked tall pantry has two independent door openings. Its pulls meet
     // at the opening: the upper doors use their lower rails, while lower doors
     // use their upper rails. Do not let the generic tall-cabinet raised-rail
@@ -4660,13 +4654,19 @@ export function addCabinet(
     const isStackedTallPantryDoor = !drawer
       && sku.placementType === "tall"
       && /pantry/i.test(`${sku.masterCode ?? ""} ${sku.description ?? ""}`);
-    const raisedFloorWallDoorPull = !aefOvenDoorUsesUpperRule && !isStackedTallPantryDoor && !drawer && usesRaisedFloorWallDoorPull({
+    // This is an opening rule, not a distributor or finish rule: every tall
+    // cabinet's separate top door bank pulls from its bottom/meeting rail. A
+    // full-height, single-door tall cabinet remains on the existing raised rail.
+    const tallUpperDoorUsesMeetingRail = !drawer
+      && sku.placementType === "tall"
+      && (doorZone === "upper" || isStackedTallPantryDoor);
+    const raisedFloorWallDoorPull = !tallUpperDoorUsesMeetingRail && !drawer && usesRaisedFloorWallDoorPull({
       placement: sku.placementType,
       mountBottom: sku.mountBottom,
       islandFace: sku.islandFace,
       islandCounterHeightWallCabinet: sku.islandCounterHeightWallCabinet,
     });
-    const effectiveHardwarePosition = (raisedFloorWallDoorPull || isStackedTallPantryDoor) && hardwarePosition === "top-center" ? "auto" : hardwarePosition;
+    const effectiveHardwarePosition = (raisedFloorWallDoorPull || tallUpperDoorUsesMeetingRail) && hardwarePosition === "top-center" ? "auto" : hardwarePosition;
     const requestedTopCenteredDoorPull = !drawer && effectiveHardwarePosition === "top-center";
     const horizontalTopRailPull = requestedTopCenteredDoorPull && !raisedFloorWallDoorPull && piece === "pull";
     // Top-center is a construction position, not the center of the panel. For
@@ -5737,6 +5737,9 @@ export function addCabinet(
 		  const standardDoorCenterY = pantryLayout || (hasConfiguredOpening && sku.openingType === "bottom")
 		    ? bodyHeight / 2 - 0.04 - doorHeight / 2
 		    : -bodyHeight / 2 + 0.04 + doorHeight / 2;
+		  const standardDoorZone = placement === "wall" || (placement === "tall" && standardDoorCenterY > 0)
+		    ? "upper"
+		    : "lower";
 		  if (sku.glassDoor && doorCount > 0) {
 	    const interior = new THREE.Mesh(
 	      new THREE.BoxGeometry(Math.max(0.08, bodyWidth - 0.14), Math.max(0.08, doorHeight - 0.08), 0.018),
@@ -5772,7 +5775,7 @@ export function addCabinet(
 	    door.userData = { cabinetFront: true, flushPhysicalFace: true, ...(sku.glassDoor ? { glassCabinetDoor: true, transparentGlassCenter: true } : {}), ...(wd18Layout ? { wd18UpperDoor: true } : {}) };
 	    frontGroup.add(door);
 	    if (!sku.glassDoor) addFaceShadow(doorWidth, doorHeight, door.position.x, door.position.y);
-	    addPull(doorWidth, doorHeight, door.position.x, door.position.y, false, 0.086, placement === "wall" ? "upper" : "lower", doorCount === 1 ? singleDoorHinge : null);
+		    addPull(doorWidth, doorHeight, door.position.x, door.position.y, false, 0.086, standardDoorZone, doorCount === 1 ? singleDoorHinge : null);
 	    if (sku.glassDoor || profileKind === "shaker") {
 	      addShakerFrame(doorWidth, doorHeight, door.position.x, door.position.y, 0.036, 0, Boolean(sku.glassDoor));
 	    } else if (profileKind === "raised" || doorProfile?.panelConstruction === "raised") {
