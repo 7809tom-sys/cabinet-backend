@@ -260,6 +260,10 @@ function SidebarInner({
                   <Palette className="h-3.5 w-3.5 shrink-0" />
                   <span className="truncate">Open Closet Studio</span>
                 </a>
+                <a href={`/store/${storeSlug}/hardware`} className="flex items-center gap-2 text-xs text-muted-foreground hover:text-primary transition-colors px-2 py-1.5 rounded-lg hover:bg-accent">
+                  <PackageOpen className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">Browse Hardware Resources</span>
+                </a>
                 <a href={quoteUrl} className="flex items-center gap-2 text-xs text-muted-foreground hover:text-primary transition-colors px-2 py-1.5 rounded-lg hover:bg-accent">
                   <FileText className="h-3.5 w-3.5 shrink-0" />
                   <span className="truncate">Get a quote</span>

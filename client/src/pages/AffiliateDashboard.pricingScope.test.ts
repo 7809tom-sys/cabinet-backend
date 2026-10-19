@@ -14,7 +14,7 @@ const catalogPanel = readFileSync(
 describe("Affiliate Dashboard pricing scope", () => {
   it("passes the exact view-as affiliate into both pricing editors", () => {
     expect(dashboard).toContain('<AffiliateCatalogPanel affiliateId={affiliate.id} isAdminView={isAdminViewAs} />');
-    expect(dashboard).toContain('<AffiliatePricingPanel affiliateId={affiliate.id} isAdminView={isAdminViewAs} />');
+    expect(dashboard).toContain('<AffiliatePricingPanel affiliateId={affiliate.id} isAdminView={isAdminViewAs} hardwareCatalogHref={hardwareUrl} />');
   });
 
   it("loads and saves selected-store pricing through admin-scoped procedures", () => {

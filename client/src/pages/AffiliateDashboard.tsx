@@ -470,6 +470,7 @@ export default function AffiliateDashboard() {
 
   const { affiliate, orders, summary, commissionRate } = activeQuery.data;
   const { storefrontUrl: storeUrl, referralUrl: refLink } = affiliateDashboardLinks(affiliate);
+  const hardwareUrl = `${storeUrl.replace(/\/$/, "")}/hardware`;
 
   function copy(text: string, label: string) {
     navigator.clipboard.writeText(text).then(
@@ -504,10 +505,10 @@ export default function AffiliateDashboard() {
                 <h1 className="font-serif text-2xl font-bold">Products</h1>
               </div>
               <p className="mt-2 max-w-2xl text-muted-foreground">
-                Find the non-cabinet products customers can browse through your branded storefront. Both destinations keep your affiliate branding, referral attribution, and pricing context.
+                Find the non-cabinet products customers can browse through your branded storefront. Every destination keeps your affiliate branding, referral attribution, and pricing context.
               </p>
             </div>
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               <a href={`${storeUrl.replace(/\/$/, "")}/surfaces`} className="group rounded-2xl border border-border bg-card p-6 transition-colors hover:border-primary hover:bg-primary/5">
                 <div className="flex items-start justify-between gap-3">
                   <div className="rounded-xl bg-primary/10 p-3"><Package className="h-6 w-6 text-primary" /></div>
@@ -525,6 +526,15 @@ export default function AffiliateDashboard() {
                 <h2 className="mt-5 text-lg font-semibold">Closet Studio</h2>
                 <p className="mt-2 text-sm leading-relaxed text-muted-foreground">Plan towers, hanging areas, shelves, corner pieces, drawers, and visual basket layouts in your branded closet workspace.</p>
                 <span className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-primary">Open Closet Studio <ArrowRight className="h-4 w-4" /></span>
+              </a>
+              <a href={hardwareUrl} className="group rounded-2xl border border-sky-200 bg-sky-50/40 p-6 transition-colors hover:border-primary hover:bg-primary/5">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="rounded-xl bg-sky-100 p-3"><Package className="h-6 w-6 text-sky-800" /></div>
+                  <ExternalLink className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+                </div>
+                <h2 className="mt-5 text-lg font-semibold">Hardware Resources</h2>
+                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">Browse decorative knobs, pulls, and finishes in your branded hardware catalog. Customer prices use your separate above-list hardware markup.</p>
+                <span className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-primary">Browse hardware catalog <ArrowRight className="h-4 w-4" /></span>
               </a>
             </div>
           </div>
@@ -596,11 +606,12 @@ export default function AffiliateDashboard() {
                 { label: "Analytics", section: "analytics" as AffiliateSection, icon: BarChart2 },
                 { label: "My Catalog", section: "catalog" as AffiliateSection, icon: BookOpen },
                 { label: "Pricing", section: "pricing" as AffiliateSection, icon: Tag },
+                { label: "Hardware pricing", section: "pricing" as AffiliateSection, icon: Package },
                 { label: "Marketing Hub", section: "marketing" as AffiliateSection, icon: Megaphone },
                 { label: "Installation", section: "installation" as AffiliateSection, icon: Wrench },
               ] as const).map((item) => (
                 <button
-                  key={item.section}
+                  key={`${item.section}-${item.label}`}
                   onClick={() => setSection(item.section)}
                   className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 text-left hover:border-primary hover:bg-primary/5 transition-colors"
                 >
@@ -688,7 +699,7 @@ export default function AffiliateDashboard() {
       case "catalog":
         return <AffiliateCatalogPanel affiliateId={affiliate.id} isAdminView={isAdminViewAs} />;
       case "pricing":
-        return <AffiliatePricingPanel affiliateId={affiliate.id} isAdminView={isAdminViewAs} />;
+        return <AffiliatePricingPanel affiliateId={affiliate.id} isAdminView={isAdminViewAs} hardwareCatalogHref={hardwareUrl} />;
       case "customize":
       return (
           <div className="flex gap-6 items-start w-full">

@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
 import { Badge } from "@/components/ui/badge";
-import { DollarSign, Calculator, Save, Info } from "lucide-react";
+import { DollarSign, Calculator, Save, Info, PackageCheck, ExternalLink } from "lucide-react";
 
 // ─── Fee constants ────────────────────────────────────────────────────────────
 const BASELINE_PCT = 0.05;   // 5% Cabinet Dealz margin on affiliate
@@ -75,9 +75,11 @@ type AffiliatePricingPanelProps = {
   /** Required whenever an administrator is previewing a specific affiliate. */
   affiliateId?: number;
   isAdminView?: boolean;
+  /** Branded customer catalog; the selected store scope determines current hardware prices. */
+  hardwareCatalogHref?: string;
 };
 
-export default function AffiliatePricingPanel({ affiliateId, isAdminView = false }: AffiliatePricingPanelProps) {
+export default function AffiliatePricingPanel({ affiliateId, isAdminView = false, hardwareCatalogHref }: AffiliatePricingPanelProps) {
   const utils = trpc.useUtils();
   // Never let an admin "view as" session fall back to the first affiliate
   // linked to that admin. Both reads and writes are explicitly keyed by the
@@ -188,6 +190,43 @@ export default function AffiliatePricingPanel({ affiliateId, isAdminView = false
         </CardContent>
       </Card>
 
+      <Card data-testid="affiliate-hardware-pricing" className="border-sky-200 bg-sky-50/50">
+        <CardHeader className="pb-3">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <CardTitle className="flex items-center gap-2 text-base"><PackageCheck className="h-4 w-4 text-sky-700" /> Hardware Resources</CardTitle>
+              <p className="mt-1 text-sm text-slate-600">Define one above-list markup for every decorative hardware style and finish in your branded catalog.</p>
+            </div>
+            <Badge variant="outline" className="border-sky-300 bg-white text-sky-900">Decorative hardware</Badge>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="space-y-1.5">
+            <Label htmlFor="hardware-list-markup">Your markup above current list %</Label>
+            <div className="flex items-center gap-2 max-w-xs">
+              <Input
+                id="hardware-list-markup"
+                type="number"
+                min="0"
+                step="0.5"
+                value={hardwarePct}
+                onChange={(e) => setHardwarePct(e.target.value)}
+                placeholder="0"
+                aria-invalid={Boolean(hardwareMarkupError)}
+                className={hardwareMarkupError ? "border-destructive focus-visible:ring-destructive" : undefined}
+              />
+              <span className="text-muted-foreground text-sm">%</span>
+            </div>
+          </div>
+          {hardwareMarkupError ? <p className="text-xs text-destructive">{hardwareMarkupError}</p> : <div className="rounded-lg border border-sky-200 bg-white/80 p-3 text-xs leading-5 text-sky-950"><p><strong>Customer price:</strong> current Hardware Resources list price {Number(hardwarePct || 0) > 0 ? `+ ${hardwarePct}%` : "with no extra markup"}.</p><p className="mt-1">This applies to all hardware configurations and exact finishes. It never changes cabinet, surface, shipping, or tax pricing. After a paid order, hardware commission is locked at 25% of hardware merchandise only.</p></div>}
+          <Button type="button" onClick={save} disabled={updateOwnMarkup.isPending || updateAdminMarkup.isPending || Boolean(hardwareMarkupError)} className="gap-1.5">
+            <Save className="h-4 w-4" />
+            {updateOwnMarkup.isPending || updateAdminMarkup.isPending ? "Saving…" : "Save hardware pricing"}
+          </Button>
+          {hardwareCatalogHref && <a href={hardwareCatalogHref} className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary underline-offset-4 hover:underline"><ExternalLink className="h-4 w-4" /> Preview my Hardware Resources catalog</a>}
+        </CardContent>
+      </Card>
+
       {/* Cost Calculator */}
       <Card>
         <CardHeader className="pb-3">
@@ -289,25 +328,6 @@ export default function AffiliatePricingPanel({ affiliateId, isAdminView = false
                 This is your profit margin on top of your cost floor. A 20% markup on a $1,000 floor = $1,200 customer price. The minimum is 0%.
               </p>
             )}
-          </div>
-
-          <div className="rounded-lg border border-sky-200 bg-sky-50/70 p-3 space-y-2">
-            <Label htmlFor="hardware-list-markup">Hardware Resources markup above supplier list %</Label>
-            <div className="flex items-center gap-2 max-w-xs">
-              <Input
-                id="hardware-list-markup"
-                type="number"
-                min="0"
-                step="0.5"
-                value={hardwarePct}
-                onChange={(e) => setHardwarePct(e.target.value)}
-                placeholder="0"
-                aria-invalid={Boolean(hardwareMarkupError)}
-                className={hardwareMarkupError ? "border-destructive focus-visible:ring-destructive" : undefined}
-              />
-              <span className="text-muted-foreground text-sm">%</span>
-            </div>
-            {hardwareMarkupError ? <p className="text-xs text-destructive">{hardwareMarkupError}</p> : <p className="text-xs text-sky-950">Hardware starts at the supplier list price. This independent setting may add an above-list markup; it cannot reduce the list price and does not alter cabinet, surface, shipping, or tax calculations. Paid hardware merchandise earns the locked 25% commission snapshot.</p>}
           </div>
 
           {/* Per-category overrides */}
