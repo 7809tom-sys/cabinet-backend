@@ -24,16 +24,22 @@ describe("site toolbar account visibility", () => {
     expect(css()).not.toMatch(/overflow(?:-x)?:\s*(?:hidden|auto|scroll)/);
   });
 
-  it("keeps every desktop action visible without collisions at common computer widths", () => {
+  it("uses the full wide Designer viewport for a compact, left-aligned single navigation row", () => {
     const styles = css();
 
-    // The visual content container remains 1280px wide even on a larger
-    // monitor. Keep account controls in the first row and the complete
-    // shopping row beneath it instead of re-enabling two colliding clusters.
-    expect(styles).not.toContain("@media (min-width: 1280px) and (max-width: 1599px)");
+    // The Designer needs vertical room for its drawing surface. At an actual
+    // wide desktop width, let the header use the viewport instead of the
+    // generic capped content container, then keep the complete shop nav on
+    // the same left-aligned row as the account actions. Narrower desktops
+    // retain the safe wrapped fallback above.
+    expect(styles).toContain("@media (min-width: 1728px)");
+    expect(styles).toContain('[data-designer-route="true"] [data-testid="site-toolbar-row"]');
+    expect(styles).toContain("max-width: none;");
+    expect(styles).toContain("flex-wrap: nowrap;");
     expect(styles).toContain('[data-designer-route="true"] [data-testid="site-toolbar-navigation"]');
-    expect(styles).toContain("order: 4;");
-    expect(styles).toContain("flex-basis: 100%;");
+    expect(styles).toContain("order: initial;");
+    expect(styles).toContain("flex-basis: auto;");
+    expect(styles).toContain("justify-content: flex-start;");
     expect(styles).toContain("font-size: 0.75rem;");
     expect(styles).toContain("min-height: 2rem;");
   });
