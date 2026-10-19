@@ -1723,8 +1723,11 @@ export const crmDeals = mysqlTable("crm_deals", {
   // Sort order within a stage column (for manual drag ordering)
   boardOrder: int("boardOrder").default(0).notNull(),
   closedAt: timestamp("closedAt"), // set when stage becomes won/lost
-  // Flag set by affiliate when they need help from the master admin to close this deal
+  // Independent help flags let the team see whether a customer needs closing,
+  // layout/design, or shipping-cost assistance without overwriting another need.
   needsHelpClosing: boolean("needsHelpClosing").default(false).notNull(),
+  needsHelpDesigning: boolean("needsHelpDesigning").default(false).notNull(),
+  needsHelpShipping: boolean("needsHelpShipping").default(false).notNull(),
   // Kitchen design price + live shipping quote synced from the Designer page.
   designValue: decimal("designValue", { precision: 12, scale: 2 }),
   shippingQuote: decimal("shippingQuote", { precision: 12, scale: 2 }),

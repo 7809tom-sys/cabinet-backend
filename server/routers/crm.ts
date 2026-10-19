@@ -198,6 +198,8 @@ const dealCoreInput = {
   nextFollowUpAt: z.number().int().nullable().optional(), // epoch ms
   notes: z.string().max(8000).nullable().optional(),
   needsHelpClosing: z.boolean().optional(),
+  needsHelpDesigning: z.boolean().optional(),
+  needsHelpShipping: z.boolean().optional(),
 };
 
 function sameCustomerEmail(left: string | null | undefined, right: string | null | undefined) {
@@ -716,6 +718,9 @@ export const crmRouter = router({
         source: "manual",
         nextFollowUpAt: input.nextFollowUpAt != null ? new Date(input.nextFollowUpAt) : null,
         notes: input.notes ?? null,
+        needsHelpClosing: input.needsHelpClosing ?? false,
+        needsHelpDesigning: input.needsHelpDesigning ?? false,
+        needsHelpShipping: input.needsHelpShipping ?? false,
         closedAt: isClosedStage(stage) ? new Date() : null,
       });
       const insertId = (res as unknown as [{ insertId: number }])[0].insertId;
@@ -742,6 +747,8 @@ export const crmRouter = router({
         patch.nextFollowUpAt = input.nextFollowUpAt != null ? new Date(input.nextFollowUpAt) : null;
       if (input.notes !== undefined) patch.notes = input.notes;
       if (input.needsHelpClosing !== undefined) patch.needsHelpClosing = input.needsHelpClosing;
+      if (input.needsHelpDesigning !== undefined) patch.needsHelpDesigning = input.needsHelpDesigning;
+      if (input.needsHelpShipping !== undefined) patch.needsHelpShipping = input.needsHelpShipping;
       if (input.stage !== undefined && input.stage !== deal.stage) {
         patch.stage = input.stage;
         patch.closedAt = isClosedStage(input.stage as CrmStage) ? new Date() : null;
