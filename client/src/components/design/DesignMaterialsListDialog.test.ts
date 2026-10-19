@@ -28,7 +28,7 @@ describe("complete Design materials and parts dialog", () => {
     expect(dialogSource).toContain("<Trash2 className=\"h-4 w-4\" />");
     expect(dialogSource).toContain("sticky left-0");
     expect(dialogSource).toContain("Remove ${row.description} from this design");
-    expect(designToolSource).toContain('title="View, print, or export complete materials & parts list"');
+    expect(designToolSource).toContain('title={materialsConflictCount > 0 ? `${materialsConflictCount} placement conflict${materialsConflictCount === 1 ? "" : "s"} — open Materials & Parts to review` : "View, print, or export complete materials & parts list"}');
     expect(designToolSource).toContain("buildMaterialsListRows({");
     expect(designToolSource).toContain("<DesignMaterialsListDialog");
     expect(designToolSource).toContain("onAddPricedItemsToCart={() => void addAllToCart()}");

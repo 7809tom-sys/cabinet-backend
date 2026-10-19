@@ -61,7 +61,7 @@ describe("Designer Compact Workspace", () => {
   it("keeps the compact desktop toolbar non-scrolling and preserves direct materials and surfaces access", () => {
     expect(source).toContain('designer-top-toolbar border-b border-border bg-card px-2 py-1 flex flex-wrap');
     expect(source).toContain('data-testid="compact-workspace-materials-trigger"');
-    expect(source).toContain('title="View every cabinet, material, fixture, and part in this design"');
+    expect(source).toContain('title={materialsConflictCount > 0 ? `${materialsConflictCount} placement conflict${materialsConflictCount === 1 ? "" : "s"} — open Materials & Parts to review` : "View every cabinet, material, fixture, and part in this design"}');
     expect(source).toContain('data-testid="compact-workspace-surfaces-trigger"');
     expect(source).toContain('title="Choose flooring, countertops, backsplash, faucets, and sinks"');
     expect(source).toContain('onClick={() => setMaterialsListOpen(true)}');
@@ -126,6 +126,15 @@ describe("Designer Compact Workspace", () => {
     expect(contextualRow).toContain("onClick={() => setSaveSignal((n) => n + 1)}");
     expect(contextualRow).toContain("disabled={placed.length === 0}");
     expect(source).toContain('data-testid="designer-save-design"');
+  });
+
+  it("shows the exact live placement-conflict count on every Materials launcher without hiding the action", () => {
+    expect(source).toContain('const materialsConflictCount = conflictUids.size;');
+    expect(source).toContain('data-testid="materials-conflict-count-badge"');
+    expect(source).toContain('title={materialsConflictCount > 0 ? `${materialsConflictCount} placement conflict${materialsConflictCount === 1 ? "" : "s"} — open Materials & Parts to review`');
+    expect(source).toContain('data-testid="compact-workspace-materials-trigger"');
+    expect(source).toContain('badge={materialsConflictCount || undefined}');
+    expect(source).toContain('data-testid="tablet-more-materials-trigger"');
   });
 
   it("keeps the automatic-save timestamp compact and accessible in the Designer toolbar", () => {

@@ -42,4 +42,18 @@ describe("Designer sidebar reference information and conflict notices", () => {
     expect(source).toContain('onClick={(event) => { event.stopPropagation(); openCatalogSpecificationsFor(c); }}');
     expect(source).toContain('title="View this catalog item’s specifications"');
   });
+
+  it("also gives source-backed physical panel and accessory cards a separate Specs action without turning it into placement", () => {
+    const accessoryStart = source.indexOf('if (paletteType === "accessory" || paletteType === "panel")');
+    const accessoryEnd = source.indexOf('const placementDetail = cabinetPlacementHoverDetail(c);', accessoryStart);
+    const accessoryCard = source.slice(accessoryStart, accessoryEnd);
+
+    expect(accessoryStart).toBeGreaterThan(-1);
+    expect(accessoryEnd).toBeGreaterThan(accessoryStart);
+    expect(accessoryCard).toContain('data-testid={`catalog-noncabinet-card-specs-${c.masterCode}`}');
+    expect(accessoryCard).toContain('aria-label={`View specifications for ${c.displayMasterCode ?? c.masterCode}`}');
+    expect(accessoryCard).toContain('onClick={(event) => { event.stopPropagation(); openCatalogSpecificationsFor(c); }}');
+    expect(accessoryCard).toContain('title="View this catalog item’s specifications"');
+    expect(accessoryCard).toContain('onClick={() => addCabinet(c)}');
+  });
 });

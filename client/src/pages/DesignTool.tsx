@@ -5894,6 +5894,10 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     defaultDistributorName: lockedDistributorId != null ? distributorNameById.get(lockedDistributorId) ?? null : null,
     defaultStyleName: activeStyleName,
   }), [activeStyleName, buildRows, cartableLines, distributorNameById, lockedDistributorId, materialsListSupplements, selectedPlanSurfaces]);
+  // The Materials button repeats the same exact affected-placement count used by
+  // the canvas notice and the conflict-only Materials filter. It is advisory;
+  // existing cart and secure-order safeguards remain authoritative.
+  const materialsConflictCount = conflictUids.size;
 
   // ─── Placement actions ──────────────────────────────────────────────────────
 
@@ -13179,10 +13183,11 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
           className={`${isCompactWorkspace ? "hidden" : "hidden lg:inline-flex"} shrink-0`}
           disabled={materialsListRows.length === 0}
           onClick={() => setMaterialsListOpen(true)}
-          title="View, print, or export complete materials & parts list"
+          title={materialsConflictCount > 0 ? `${materialsConflictCount} placement conflict${materialsConflictCount === 1 ? "" : "s"} — open Materials & Parts to review` : "View, print, or export complete materials & parts list"}
           aria-label="Materials & Parts"
         >
           <FileText className="mr-1.5 h-3.5 w-3.5" /> <span className="designer-toolbar-full-label">Materials &amp; Parts</span><span aria-hidden="true" className="designer-toolbar-short-label">Materials</span>
+          {materialsConflictCount > 0 && <span data-testid="materials-conflict-count-badge" className="ml-1 inline-flex min-w-4 items-center justify-center rounded-full bg-red-600 px-1 py-0.5 text-[9px] font-extrabold leading-none text-white">{materialsConflictCount}</span>}
         </Button>
         <Button
           variant={isCompactWorkspace ? "default" : "outline"}
@@ -13223,10 +13228,11 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
               className={`${isTabletWorkspace ? "hidden" : "hidden lg:inline-flex"} shrink-0`}
               disabled={materialsListRows.length === 0}
               onClick={() => setMaterialsListOpen(true)}
-              title="View every cabinet, material, fixture, and part in this design"
+              title={materialsConflictCount > 0 ? `${materialsConflictCount} placement conflict${materialsConflictCount === 1 ? "" : "s"} — open Materials & Parts to review` : "View every cabinet, material, fixture, and part in this design"}
               aria-label="Materials & Parts"
             >
               <FileText className="mr-1.5 h-3.5 w-3.5" /> <span className="designer-toolbar-full-label">{isTabletWorkspace ? "Materials" : <>Materials &amp; Parts</>}</span><span aria-hidden="true" className="designer-toolbar-short-label">Materials</span>
+              {materialsConflictCount > 0 && <span data-testid="materials-conflict-count-badge" className="ml-1 inline-flex min-w-4 items-center justify-center rounded-full bg-red-600 px-1 py-0.5 text-[9px] font-extrabold leading-none text-white">{materialsConflictCount}</span>}
             </Button>
             <Button
               variant="outline"
@@ -13633,9 +13639,10 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                         }}
                       />
                     </div>
-                    <button disabled={materialsListRows.length === 0} onClick={() => { setMoreSheetOpen(false); setMaterialsListOpen(true); }} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted disabled:opacity-50 transition-colors">
+                    <button data-testid="tablet-more-materials-trigger" disabled={materialsListRows.length === 0} onClick={() => { setMoreSheetOpen(false); setMaterialsListOpen(true); }} title={materialsConflictCount > 0 ? `${materialsConflictCount} placement conflict${materialsConflictCount === 1 ? "" : "s"} — open Materials & Parts to review` : "View every cabinet, material, fixture, and part in this design"} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted disabled:opacity-50 transition-colors">
                       <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
                       <span className="flex-1 text-left">Materials &amp; Parts</span>
+                      {materialsConflictCount > 0 && <span data-testid="materials-conflict-count-badge" className="inline-flex min-w-5 items-center justify-center rounded-full bg-red-600 px-1.5 py-0.5 text-[10px] font-extrabold leading-none text-white">{materialsConflictCount}</span>}
                     </button>
                     <button onClick={() => { setMoreSheetOpen(false); setPaletteType("surfaces"); setMobilePanel("catalog"); }} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted transition-colors">
                       <Waves className="h-4 w-4 text-muted-foreground shrink-0" />
@@ -16007,34 +16014,51 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                     if (paletteType === "accessory" || paletteType === "panel") {
                       if (!isPlaceableAccessory(c)) return null;
                       return (
-                        <button
-                          type="button"
+                        <div
                           key={c.masterCode}
                           data-testid={paletteType === "panel" ? `panel-catalog-item-${c.masterCode}` : undefined}
                           draggable
                           onDragStart={(event) => { dragDataRef.current = c; setCatalogDragPreview(c); const item = interactive3dCatalogItems.find((candidate) => Number(candidate.id) === Number(c.id) && candidate.category === "Accessory"); if (item) { event.dataTransfer.effectAllowed = "copy"; event.dataTransfer.setData("text/plain", threeDLeftCatalogDragPayload(item.category, item.id)); } }}
                           onDragEnd={() => { dragDataRef.current = null; setCatalogDragPreview(null); }}
-                          onClick={() => addCabinet(c)}
-                          className="w-full text-left p-2 rounded-lg border border-border hover:border-primary/50 hover:bg-muted/50 transition-colors group flex items-center gap-2"
+                          className="group flex w-full items-center gap-1.5 rounded-lg border border-border p-2 transition-colors hover:border-primary/50 hover:bg-muted/50"
                         >
-                          <div className="h-9 w-9 flex items-center justify-center shrink-0">
-                            <CabinetImage cabinet={c} className="h-full w-auto max-w-full" />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="font-mono text-xs font-semibold text-foreground truncate">{c.masterCode}</div>
-                            <div className="text-[10px] text-muted-foreground truncate">{c.description}</div>
-                            {(() => {
-                              const dimensions = resolvedDesignCabinetDimensions(c);
-                              return dimensions.width > 0 && dimensions.height > 0 && dimensions.depth > 0 ? (
-                                <div data-testid={`panel-catalog-dimensions-${c.masterCode}`} className="text-[9px] text-muted-foreground">
-                                  {formatCatalogInchValue(dimensions.width)}″ W × {formatCatalogInchValue(dimensions.height)}″ H × {formatCatalogInchValue(dimensions.depth)}″ D
-                                </div>
-                              ) : null;
-                            })()}
-                            <div className="text-[9px] font-medium text-primary/70">{t("dt_pl_click_drag_place")}</div>
-                          </div>
-                          <Plus className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary shrink-0" />
-                        </button>
+                          <button
+                            type="button"
+                            onClick={() => addCabinet(c)}
+                            className="flex min-w-0 flex-1 items-center gap-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                            aria-label={`Place ${c.displayMasterCode ?? c.masterCode}`}
+                          >
+                            <div className="h-9 w-9 flex items-center justify-center shrink-0">
+                              <CabinetImage cabinet={c} className="h-full w-auto max-w-full" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="font-mono text-xs font-semibold text-foreground truncate">{c.displayMasterCode ?? c.masterCode}</div>
+                              <div className="text-[10px] text-muted-foreground truncate">{c.description}</div>
+                              {(() => {
+                                const dimensions = resolvedDesignCabinetDimensions(c);
+                                return dimensions.width > 0 && dimensions.height > 0 && dimensions.depth > 0 ? (
+                                  <div data-testid={`panel-catalog-dimensions-${c.masterCode}`} className="text-[9px] text-muted-foreground">
+                                    {formatCatalogInchValue(dimensions.width)}″ W × {formatCatalogInchValue(dimensions.height)}″ H × {formatCatalogInchValue(dimensions.depth)}″ D
+                                  </div>
+                                ) : null;
+                              })()}
+                              <div className="text-[9px] font-medium text-primary/70">{t("dt_pl_click_drag_place")}</div>
+                            </div>
+                            <Plus className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary shrink-0" />
+                          </button>
+                          <Tooltip><TooltipTrigger asChild>
+                            <button
+                              type="button"
+                              data-testid={`catalog-noncabinet-card-specs-${c.masterCode}`}
+                              aria-label={`View specifications for ${c.displayMasterCode ?? c.masterCode}`}
+                              title="View this catalog item’s specifications"
+                              onClick={(event) => { event.stopPropagation(); openCatalogSpecificationsFor(c); }}
+                              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded border border-[#b98d3e]/60 bg-white text-[#634b20] transition hover:bg-[#fff4d8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a2744] active:scale-95"
+                            >
+                              <FileText className="h-3.5 w-3.5" aria-hidden />
+                            </button>
+                          </TooltipTrigger><TooltipContent>View specifications</TooltipContent></Tooltip>
+                        </div>
                       );
                     }
 	                    const placementDetail = cabinetPlacementHoverDetail(c);
@@ -18478,6 +18502,9 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	            <MobileBarButton
 	              icon={<FileText className="h-5 w-5" />}
 	              label="Materials"
+	              ariaLabel={materialsConflictCount > 0 ? `Materials — ${materialsConflictCount} placement conflict${materialsConflictCount === 1 ? "" : "s"}` : "Materials"}
+	              badge={materialsConflictCount || undefined}
+	              badgeTestId="materials-conflict-count-badge"
 	              disabled={materialsListRows.length === 0}
 	              onClick={() => setMaterialsListOpen(true)}
 	            />
@@ -20727,7 +20754,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 
 // ─── Mobile bottom-bar button ───────────────────────────────────────────────
 function MobileBarButton({
-  icon, label, onClick, disabled, danger, badge, active, testId,
+  icon, label, onClick, disabled, danger, badge, badgeTestId, active, testId, ariaLabel,
 }: {
   icon: React.ReactNode;
   label: string;
@@ -20735,13 +20762,17 @@ function MobileBarButton({
   disabled?: boolean;
   danger?: boolean;
   badge?: number;
+  badgeTestId?: string;
   active?: boolean;
 	  testId?: string;
+  ariaLabel?: string;
 }) {
   return (
     <button
       type="button"
 	      data-testid={testId}
+      aria-label={ariaLabel}
+      title={ariaLabel}
       disabled={disabled}
       onClick={onClick}
       className={`relative flex h-full w-16 min-w-16 shrink-0 flex-col items-center justify-center gap-0.5 text-[10px] font-medium transition-colors active:scale-95 disabled:opacity-40 ${
@@ -20751,7 +20782,7 @@ function MobileBarButton({
       <span className="relative">
         {icon}
         {badge != null && (
-          <span className="absolute -right-2 -top-1.5 min-w-4 h-4 px-1 rounded-full bg-[#1a2744] text-white text-[9px] font-bold flex items-center justify-center">
+          <span data-testid={badgeTestId} className="absolute -right-2 -top-1.5 min-w-4 h-4 px-1 rounded-full bg-red-600 text-white text-[9px] font-bold flex items-center justify-center">
             {badge}
           </span>
         )}
