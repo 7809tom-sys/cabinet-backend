@@ -10,7 +10,6 @@ import { Separator } from "@/components/ui/separator";
 import { useCart } from "@/contexts/CartContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSeo } from "@/hooks/useSeo";
-import { CabinetImage } from "@/components/CabinetImage";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { resolveStorefrontTier, resolveTierPrice } from "@shared/pricingTier";
@@ -249,17 +248,6 @@ export default function Cart() {
                   ? "flex flex-col gap-2 p-3"
                   : "flex flex-col gap-2 rounded-xl border border-border bg-card p-4"}
               >
-                {/* Product artwork: pelican products show their photo; cabinets use CabinetImage */}
-                <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-muted/40">
-                  {item.imageUrl ? (
-                    <img src={item.imageUrl} alt={item.name} className="h-full w-full object-cover" />
-                  ) : (
-                    <CabinetImage
-                      cabinet={{ masterCode: item.masterCode, description: item.name, catalogImageUrl: item.catalogImageUrl ?? null }}
-                      className="h-full w-auto max-w-full"
-                    />
-                  )}
-                </div>
                 <div className="flex gap-3 items-start">
                   <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
