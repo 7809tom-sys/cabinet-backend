@@ -16,10 +16,22 @@ interface Form {
   onNewProApplication: string;
   onNewConsultation: string;
   onNewAffiliate: string;
+  onCrmDesignHelp: string;
+  onCrmShippingHelp: string;
+  notifyOnCrmDesignHelp: boolean;
+  notifyOnCrmShippingHelp: boolean;
   enabled: boolean;
 }
 
-const EVENTS: { key: keyof Omit<Form, "enabled">; label: string; description: string }[] = [
+type EventRecipientKey =
+  | "onNewOrder"
+  | "onNewDesignLead"
+  | "onNewQuoteRequest"
+  | "onNewProApplication"
+  | "onNewConsultation"
+  | "onNewAffiliate";
+
+const EVENTS: { key: EventRecipientKey; label: string; description: string }[] = [
   {
     key: "onNewOrder",
     label: "New Order",
@@ -66,6 +78,10 @@ export default function NotificationSettingsAdmin() {
         onNewProApplication: data.onNewProApplication ?? "",
         onNewConsultation: data.onNewConsultation ?? "",
         onNewAffiliate: data.onNewAffiliate ?? "",
+        onCrmDesignHelp: data.onCrmDesignHelp ?? "",
+        onCrmShippingHelp: data.onCrmShippingHelp ?? "",
+        notifyOnCrmDesignHelp: data.notifyOnCrmDesignHelp ?? false,
+        notifyOnCrmShippingHelp: data.notifyOnCrmShippingHelp ?? false,
         enabled: data.enabled ?? true,
       });
     }
@@ -135,6 +151,64 @@ export default function NotificationSettingsAdmin() {
               />
             </div>
           ))}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">CRM Help Team Alerts</CardTitle>
+          <CardDescription>
+            Route a newly requested CRM help type to its own internal team. Recipient lists can be saved while alerts are off; no email sends until the matching switch, the master notification switch, and SMTP are all enabled.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="rounded-lg border p-4 space-y-3">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <Label className="text-sm font-medium">CRM Design Help</Label>
+                <p className="text-xs text-muted-foreground mt-0.5">Sent once when a deal changes to Needs Help Designing.</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Label htmlFor="notify-crm-design-help" className="text-xs text-muted-foreground">Enable Design Help alerts</Label>
+                <Switch
+                  id="notify-crm-design-help"
+                  aria-label="Enable Design Help alerts"
+                  checked={form.notifyOnCrmDesignHelp}
+                  onCheckedChange={(notifyOnCrmDesignHelp) => set({ notifyOnCrmDesignHelp })}
+                />
+              </div>
+            </div>
+            <Input
+              value={form.onCrmDesignHelp}
+              onChange={(e) => set({ onCrmDesignHelp: e.target.value })}
+              placeholder="design@cabinetdealz.com, designer@example.com"
+              aria-label="CRM Design Help team recipients"
+            />
+          </div>
+
+          <div className="rounded-lg border p-4 space-y-3">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <Label className="text-sm font-medium">CRM Shipping Cost Help</Label>
+                <p className="text-xs text-muted-foreground mt-0.5">Sent once when a deal changes to Needs Help Shipping Costs.</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Label htmlFor="notify-crm-shipping-help" className="text-xs text-muted-foreground">Enable Shipping Cost Help alerts</Label>
+                <Switch
+                  id="notify-crm-shipping-help"
+                  aria-label="Enable Shipping Cost Help alerts"
+                  checked={form.notifyOnCrmShippingHelp}
+                  onCheckedChange={(notifyOnCrmShippingHelp) => set({ notifyOnCrmShippingHelp })}
+                />
+              </div>
+            </div>
+            <Input
+              value={form.onCrmShippingHelp}
+              onChange={(e) => set({ onCrmShippingHelp: e.target.value })}
+              placeholder="shipping@cabinetdealz.com, freight@example.com"
+              aria-label="CRM Shipping Cost Help team recipients"
+            />
+          </div>
         </CardContent>
       </Card>
 

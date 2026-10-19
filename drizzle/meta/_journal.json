@@ -1380,6 +1380,13 @@
       "when": 1792417247118,
       "tag": "0197_crm_help_type_statuses",
       "breakpoints": true
+    },
+    {
+      "idx": 198,
+      "version": "5",
+      "when": 1792443290919,
+      "tag": "0198_crm_help_team_notifications",
+      "breakpoints": true
     }
   ]
 }

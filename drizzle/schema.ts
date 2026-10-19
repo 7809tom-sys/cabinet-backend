@@ -2388,6 +2388,12 @@ export const notificationSettings = mysqlTable("notification_settings", {
   onNewProApplication: varchar("onNewProApplication", { length: 1024 }).default("").notNull(),
   onNewConsultation: varchar("onNewConsultation", { length: 1024 }).default("").notNull(),
   onNewAffiliate: varchar("onNewAffiliate", { length: 1024 }).default("").notNull(),
+  // CRM help requests are routed to their own teams and start disabled until an
+  // administrator deliberately configures both a recipient list and a toggle.
+  onCrmDesignHelp: varchar("onCrmDesignHelp", { length: 1024 }).default("").notNull(),
+  onCrmShippingHelp: varchar("onCrmShippingHelp", { length: 1024 }).default("").notNull(),
+  notifyOnCrmDesignHelp: boolean("notifyOnCrmDesignHelp").default(false).notNull(),
+  notifyOnCrmShippingHelp: boolean("notifyOnCrmShippingHelp").default(false).notNull(),
   // Global toggle — if false, no notification emails are sent
   enabled: boolean("enabled").default(true).notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),

@@ -22,4 +22,11 @@ describe("CRM help type persistence", () => {
     expect(router).toContain("patch.needsHelpDesigning = input.needsHelpDesigning");
     expect(router).toContain("patch.needsHelpShipping = input.needsHelpShipping");
   });
+
+  it("only plans the matching internal team alert when design or shipping help changes from off to on", () => {
+    expect(router).toContain("newlyRequestedCrmHelpKinds(deal, input)");
+    expect(router).toContain("notifyCrmHelpTeam(db, deal, kind)");
+    expect(router).toContain("recipientsForCrmHelpNotification(settings, kind)");
+    expect(router).toContain("sendEmailViaSettings");
+  });
 });

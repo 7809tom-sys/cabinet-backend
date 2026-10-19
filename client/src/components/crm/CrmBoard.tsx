@@ -31,6 +31,7 @@ import {
 import { CRM_CUSTOMER_LIST_TEMPLATE, crmCustomerFileReadProgress, parseCrmCustomerListCsv, type CrmCustomerImportRow, type CrmCustomerImportSkippedRow } from "@shared/crmCustomerListImport";
 import { affiliateCardColor, type CrmAffiliateBrand } from "@/lib/crmAffiliateBrand";
 import { MASTER_AFFILIATE_FILTER_ALL, masterAffiliateFilterId } from "@/lib/crmMasterFilter";
+import { filterDealsByHelpType, type CrmHelpFilter } from "@/lib/crmHelpFilter";
 import { crmQuickInvoiceTotal, openCrmQuickInvoicePdf, type CrmQuickInvoiceBrand, type CrmQuickInvoiceLine } from "@/lib/crmQuickInvoice";
 
 type Lang = CrmLanguage;
@@ -133,6 +134,7 @@ export function CrmBoard({ lang = "en", affiliateId }: { lang?: Lang; affiliateI
   const t = L(lang);
   const utils = trpc.useUtils();
   const [masterAffiliateFilter, setMasterAffiliateFilter] = useState(MASTER_AFFILIATE_FILTER_ALL);
+  const [helpFilter, setHelpFilter] = useState<CrmHelpFilter>("all");
   const masterAffiliateId = masterAffiliateFilterId(masterAffiliateFilter);
   const boardInput = affiliateId != null
     ? { affiliateId }
@@ -149,6 +151,7 @@ export function CrmBoard({ lang = "en", affiliateId }: { lang?: Lang; affiliateI
   const [mobileStage, setMobileStage] = useState<CrmStage>("new");
 
   const deals = (data?.deals ?? []) as DealRow[];
+  const filteredDeals = useMemo(() => filterDealsByHelpType(deals, helpFilter), [deals, helpFilter]);
   const affiliateNames = (data as any)?.affiliateNames as Record<number, string> | undefined;
   const affiliateBranding = (data as any)?.affiliateBranding as Record<number, CrmAffiliateBrand> | undefined;
   const isMasterView = (data as any)?.isMasterView === true;
@@ -161,16 +164,16 @@ export function CrmBoard({ lang = "en", affiliateId }: { lang?: Lang; affiliateI
     const map: Record<CrmStage, DealRow[]> = {
       new: [], contacted: [], qualified: [], image_review: [], quoted: [], won: [], lost: [],
     };
-    for (const d of deals) map[d.stage]?.push(d);
+    for (const d of filteredDeals) map[d.stage]?.push(d);
     return map;
-  }, [deals]);
+  }, [filteredDeals]);
 
   const openValue = useMemo(
-    () => deals.filter((d) => !isClosedStage(d.stage)).reduce((s, d) => s + Number(d.estimatedValue ?? 0), 0),
-    [deals],
+    () => filteredDeals.filter((d) => !isClosedStage(d.stage)).reduce((s, d) => s + Number(d.estimatedValue ?? 0), 0),
+    [filteredDeals],
   );
   const wonCount = byStage.won.length;
-  const openCount = deals.filter((d) => !isClosedStage(d.stage)).length;
+  const openCount = filteredDeals.filter((d) => !isClosedStage(d.stage)).length;
 
   const move = trpc.crm.moveStage.useMutation({
     onMutate: async (vars) => {
@@ -225,6 +228,16 @@ export function CrmBoard({ lang = "en", affiliateId }: { lang?: Lang; affiliateI
               </SelectContent>
             </Select>
           )}
+          <Select value={helpFilter} onValueChange={(value) => setHelpFilter(value as CrmHelpFilter)}>
+            <SelectTrigger className="w-[210px] bg-card" aria-label="Filter deals by help type">
+              <SelectValue placeholder="All help requests" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All help requests</SelectItem>
+              <SelectItem value="design">Needs Design Help</SelectItem>
+              <SelectItem value="shipping">Needs Shipping Cost Help</SelectItem>
+            </SelectContent>
+          </Select>
           <ImportLeadsDialog lang={lang} />
           <CustomerListImportDialog lang={lang} affiliateId={affiliateId} />
           <NewDealDialog lang={lang} affiliateId={affiliateId} />
