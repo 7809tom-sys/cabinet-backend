@@ -288,3 +288,11 @@
 - [x] Real-Designer wheel test: 9/9 positions scroll on Tile, Quartz, Sinks & Faucets, Flooring at 1560x715; Quartz and Sinks also 9/9 at 1280x600; last card reachable.
 - [x] Tests: SurfacesPickerDialog.scroll.test.ts (2 new). Related suites pass; the one photorealMaterials failure also fails on clean HEAD. tsc + build pass.
 - [ ] Not published. Checkpoint only.
+
+## Four anchors in the More sheet (tablet + phone) — admin only
+- [x] Added `more-sheet-four-anchors` row under Peninsula Wizard in the More sheet (`DesignTool.tsx`), inside `isAdmin`; closes the sheet, then opens the same Four-anchor dialog; disabled when the plan is not empty or the layout is locked (same rule as the desktop button).
+- [x] Source regression test `DesignTool.fourAnchorMoreSheet.test.ts` (4 tests; failed 3/4 before the change).
+- [x] Real Designer (sandbox preview, client-side admin shim, writes blocked): row present and in view at 390x844, 768x1024, 1024x768, 1280x720; absent for a signed-in role=user at 390 and 1280; greyed out when the layout is locked; dialog fits width/height with the Build button reachable; a full L-kitchen build from the phone More sheet completed (corner stage, hood choice, 8 base pieces) with no non-auth console errors.
+- [x] TypeScript clean, 6 focused suites (43 tests) pass, production build passes, whitespace check clean.
+- [ ] Not published. Designer code must be published before the live site shows the new row.
+- Note: on the phone the measured build freezes the page for a few seconds while it runs; automation needed dispatched clicks. Not changed.

@@ -13646,6 +13646,22 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	                    <span className="flex-1 text-left">Peninsula Wizard</span>
 	                    <Badge variant="secondary" className="text-[10px]">fast layout</Badge>
 	                  </button>
+                  {isAdmin && (
+                    <button
+                      data-testid="more-sheet-four-anchors"
+                      disabled={placed.length > 0 || layoutLocked}
+                      onClick={() => { setMoreSheetOpen(false); setTimeout(() => setFourAnchorAutoBuildOpen(true), 120); }}
+                      title={placed.length > 0 ? "Start this admin build from an empty Designer" : "Build a measured kitchen from four fixed fixture anchors"}
+                      className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted disabled:opacity-50 transition-colors"
+                    >
+                      <Ruler className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <span className="flex-1 text-left">
+                        Four anchors
+                        {placed.length > 0 && <span className="block text-[11px] font-normal text-muted-foreground">Needs an empty plan</span>}
+                      </span>
+                      <Badge variant="secondary" className="text-[10px]">admin</Badge>
+                    </button>
+                  )}
 	                  <button disabled={layoutLocked} onClick={autoFillActiveWall} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted disabled:opacity-50 transition-colors">
                     <Wand2 className="h-4 w-4 text-muted-foreground shrink-0" />
                     <span className="flex-1 text-left">{t("dt_sh_autofill_active")}</span>
