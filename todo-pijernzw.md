@@ -252,3 +252,16 @@
 - [x] Tests: fourAnchorKitchenRules, fourAnchorSinkWindow, fourAnchorRangeHood, DesignTool.fourAnchorKitchenRules, refrigerator bay (real-catalog fixtures). 131 related files: same 19 pre-existing failures as clean HEAD, zero new.
 - [x] Real Designer visual proof: /home/ubuntu/anchor-rules-proof/FOUR_ANCHOR_RULES_proof.png
 - [ ] Authenticated (real login) Four-anchor run still unverified; QA used a client-side-only admin shim with writes blocked.
+
+## Four-anchor round 2: no gaps anywhere, 15-inch range neighbors, closed upper layer
+- [x] New `client/src/lib/fourAnchorSeamFillers.ts`: finds every opening between anchors, panels, corner cabinets and runs; closes each (up to 12 in, one board to 6 in or two equal boards) with real catalog filler matched to its neighbor; never fills the refrigerator assembly's own clearances or a chosen corner's pocket.
+- [x] Base runs beside a range use the widest box (15 in or wider) via `planFourAnchorBaseSegment`; a too-short segment is reported, not hidden.
+- [x] Wall stage `closeSeams` option: uppers/fillers only above lower cabinets; nothing over the sink window, range/hood or refrigerator.
+- [x] 20 new real-catalog tests (fixture = the user's real built kitchen); 0 new failures vs clean HEAD (53 = 53 pre-existing); tsc + build pass; real-Designer before/after in /home/ubuntu/anchor-rules-proof/FOUR_ANCHOR_GAPS_before_after.png.
+- [ ] Not published. Authenticated customer-draft regeneration still unverified.
+
+## Four-anchor round 2 addendum: blind-corner base elevation
+- [x] Found while verifying: the elevation drew a blind corner base's hidden panel on the EXPOSED side when it was seated at its 3-6 in pull (it only recognised an offset of 2 in or less). It now uses the same physical rule that sets the saved door swing (`blindCornerDoorSide`), legacy rule kept for a blind unit mid-wall.
+- [x] The blind-corner door pull was centred on the whole 36 in face (over the blind panel). Hardware overlay is now confined to the visible 60% door box (`data-blind-door-hardware`), pull on the door's inner edge, matching the 3D `addPull(hingeSide)` rule.
+- [x] 7 tests in `ElevationView.blindCornerSide.test.ts`; 415 related files: 53 failures on both unchanged HEAD and this copy, 0 new; tsc + build pass.
+- [ ] Not published.

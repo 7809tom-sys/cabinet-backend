@@ -2,7 +2,7 @@ import { doorOpeningAppearance } from "@/lib/doorOpeningAppearance";
 import {
   PlacedCabinet, RoomData, STD, elevationBox, WallOpening,
   FinishColors, DEFAULT_FINISH_COLORS, CROWN_HEIGHT_IN, TOE_KICK_HEIGHT_IN, BATTEN_WIDTH_IN, LIGHT_RAIL_HEIGHT_IN,
-  type DoorPanelKind, type WallSide, cabinetWall,
+  type DoorPanelKind, type WallSide, cabinetWall, blindCornerDoorSide,
   countertopMaterial, roomCeiling, bearsCountertop, isBaseHeightAppliance, isSinkBaseCabinet, isFarmerSinkBase, isFillerItem, fillerWidthRange, formatEighthInches,
   wallCeiling, wallCeilingIsSloped, wallLength, wallRunOffset, wallRunSpan, wallRunFrame, wallPlacementAt,
   backsplashMaterial, isStacker, isBridgeOverRange, resolveSwing,
@@ -542,7 +542,14 @@ export function ElevationView({
     // is on the left. If its end is near planSpan (wall end), the corner is on
     // the right. This drives the door flip so the door faces the exposed side.
     const isBlind = p.cornerType === "blind-corner" || isBlindCorner(p.masterCode, p.description);
-    const blindLeft = isBlind ? (isWallBlindCornerCabinet(p) || posAlong <= 2) : true;
+    // The shared physical rule (the one that sets the saved door swing) decides first: a blind base is
+    // seated at its 3-6 in blind pull, so "within 2 in of the wall start" misses a corner seated at 6 in
+    // and drew the hidden panel on the exposed side. It returns null in the middle of a wall, where the
+    // legacy near-start test keeps its exact behavior.
+    const physicalDoorSide = isBlind && !seam && !isWallBlindCornerCabinet(p) ? blindCornerDoorSide(p, room) : null;
+    const blindLeft = isBlind
+      ? (isWallBlindCornerCabinet(p) || (physicalDoorSide ? physicalDoorSide === "right" : posAlong <= 2))
+      : true;
     const canDrag = !seam && !moveLocked && !!onMove && !isAppliance;
 
     const installedFillerWidth = isFillerItem(p) ? Math.min(Math.abs(Number(p.width)), Math.abs(Number(p.depth))) : null;
@@ -681,25 +688,42 @@ export function ElevationView({
               style={{ zIndex: 3 }}
             />
           )}
-          {!isAppliance && cabType !== "range-hood-front" && hw.id !== "none" && (
-            <HardwareOverlay
-              doors={displayCounts.doors}
-              drawers={displayCounts.drawers}
-              doorPiece={hw.doorPiece}
-              drawerPiece={hw.drawerPiece}
-              accent={hardwareAccent}
-              hardwarePosition={resolveCabinetHardwarePosition(p)}
-              raisedDoorPullOnRail={usesRaisedFloorWallDoorPull(p)}
-              swing={resolveSwing(p)}
-              isWall={isWall}
-              faceWidthIn={sizeAlong}
-              frameStileIn={cabFrameMetrics?.stileInches}
-              frameRailIn={cabFrameMetrics?.railInches}
-              cabinetHeightIn={height}
-              doorBandStartPct={farmhouseFace ? farmhouseFace.apronZonePct : undefined}
-              pantryLayout={pantryDrawerFrontLayout({ ...p, placementType: p.placement, graphicType: customProfile, numberOfDoors: displayCounts.doors, numberOfDrawers: displayCounts.drawers }, height)}
-            />
-          )}
+          {!isAppliance && cabType !== "range-hood-front" && hw.id !== "none" && (() => {
+            const overlay = (faceWidthIn: number) => (
+              <HardwareOverlay
+                doors={displayCounts.doors}
+                drawers={displayCounts.drawers}
+                doorPiece={hw.doorPiece}
+                drawerPiece={hw.drawerPiece}
+                accent={hardwareAccent}
+                hardwarePosition={resolveCabinetHardwarePosition(p)}
+                raisedDoorPullOnRail={usesRaisedFloorWallDoorPull(p)}
+                swing={resolveSwing(p)}
+                isWall={isWall}
+                faceWidthIn={faceWidthIn}
+                frameStileIn={cabFrameMetrics?.stileInches}
+                frameRailIn={cabFrameMetrics?.railInches}
+                cabinetHeightIn={height}
+                doorBandStartPct={farmhouseFace ? farmhouseFace.apronZonePct : undefined}
+                pantryLayout={pantryDrawerFrontLayout({ ...p, placementType: p.placement, graphicType: customProfile, numberOfDoors: displayCounts.doors, numberOfDrawers: displayCounts.drawers }, height)}
+              />
+            );
+            // A blind corner has one operating door: the exposed 60% of its face. The other 40% is the
+            // hidden blind panel in the room corner. Hardware measured on the whole face landed on that
+            // panel, so the overlay is confined to the same visible-door box DoorFront draws.
+            if (cabType === "blind-corner") {
+              return (
+                <div
+                  data-blind-door-hardware={blindLeft ? "left" : "right"}
+                  className="absolute top-0 bottom-0 pointer-events-none"
+                  style={blindLeft ? { right: 0, width: "60%" } : { left: 0, width: "60%" }}
+                >
+                  {overlay(sizeAlong * 0.6)}
+                </div>
+              );
+            }
+            return overlay(sizeAlong);
+          })()}
           {/* Appliance-specific detail overlays */}
           {!applianceVisualUrl && isAppliance && /^FRIDGE-/i.test(p.masterCode ?? "") && (
             <>

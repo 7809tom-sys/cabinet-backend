@@ -65,7 +65,10 @@ describe("admin four-anchor Designer wiring", () => {
   it("resolves the selected SB width only to a straight sink base and never fills a wall gap with a corner SKU", () => {
     expect(pageSource).toContain("const straightBaseCatalog = autoBuildStraightBaseCatalog(pool);");
     expect(pageSource).toContain("isAutoBuildStraightSinkBaseCandidate(item)");
-    expect(pageSource).toContain('autoFillSpan(segment.length, "kitchen", stage.straightBaseCatalog, { strategy: "largest-first" })');
+    // The largest-first fill now runs through the range-aware planner (which calls autoFillSpan with the same strategy and
+    // the same straight-base catalog) so a range always gets a 15-inch-or-wider cabinet on each side.
+    expect(pageSource).toContain("planFourAnchorBaseSegment({");
+    expect(pageSource).toContain("catalog: stage.straightBaseCatalog");
     expect(pageSource).not.toContain('autoFillSpan(segment.length, "kitchen", pool)');
   });
 
@@ -92,12 +95,16 @@ describe("admin four-anchor Designer wiring", () => {
   it("runs aligned source-priced wall cabinets only after required corners and regular base runs", () => {
     const completion = pageSource.slice(pageSource.indexOf("const completeFourAnchorAutoLayout"), pageSource.indexOf("const cancelFourAnchorCornerStage"));
     const corners = completion.indexOf("for (const slot of stage.slots)");
-    const bases = completion.indexOf("autoFillSpan(segment.length");
+    const bases = completion.indexOf("planFourAnchorBaseSegment({");
+    const seams = completion.indexOf("fillFourAnchorLowerSeams({");
     const walls = completion.indexOf("buildFourAnchorWallCabinets({");
     const commit = completion.indexOf("setPlaced(working)");
     expect(corners).toBeGreaterThanOrEqual(0);
     expect(bases).toBeGreaterThan(corners);
-    expect(walls).toBeGreaterThan(bases);
+    // Gap-closing filler comes after the base runs and before the wall boxes are matched to the finished lower runs.
+    expect(seams).toBeGreaterThan(bases);
+    expect(walls).toBeGreaterThan(seams);
+    expect(completion).toContain("closeSeams: true");
     expect(commit).toBeGreaterThan(walls);
     expect(completion).toContain("catalog: stage.wallPool");
     expect(completion).toContain("wallCabinetHeightIn: stage.input.wallCabinetHeightIn ?? 30");

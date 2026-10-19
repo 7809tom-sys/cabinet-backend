@@ -201,6 +201,7 @@ import { MasterTracRod3D, MasterTracRodElevation } from "@/components/design/Mas
 import { defaultTowerConfig, isMasterTracCornerBoard, planMasterTracTower, towerCleatReferenceItems, towerConceptReferenceSubtotal, towerConceptStorageReferenceItems, towerConfigFromPlacements, towerCornerReferenceItems, towerRodHardwareTakeoff, type MasterTracTowerConfig } from "@/lib/masterTracTower";
 import { canCommitPlanStyleSwitchWithoutReview, planStyleReviewCandidates } from "@/lib/planStyleSwitch";
 import { autoFillSpan, makeFiller, type FillMode } from "@/lib/autofill";
+import { fillFourAnchorLowerSeams, planFourAnchorBaseSegment } from "@/lib/fourAnchorSeamFillers";
 import { resolveTierPrice } from "@shared/pricingTier";
 import { normalizeDesignPricingTier, type DesignPricingTier } from "@/lib/designPricingTier";
 import { AIChatBox, type Message as AIMessage } from "@/components/AIChatBox";
@@ -3328,13 +3329,23 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     }
 
     const surrounding: PlacedCabinet[] = [];
+    const rangeNeighborNotes: string[] = [];
     for (const wallId of selectedWalls) {
       const rawSegments = freeSegmentsOnWall(wallId, room, working, stageOpenings, 9, 0, "base", false, undefined, footprintDepth(stage.baseSource));
       const reservations = [
         ...(stage.refrigeratorReservation?.wall === wallId ? [{ start: stage.refrigeratorReservation.start, end: stage.refrigeratorReservation.end }] : []),
       ];
       for (const segment of subtractAnchorRunReservations(rawSegments, reservations)) {
-        const fill = autoFillSpan(segment.length, "kitchen", stage.straightBaseCatalog, { strategy: "largest-first" });
+        // A range always has a real cabinet at least 15 inches wide beside it: the widest box
+        // of the run goes against the range, never a 9- or 12-inch stub.
+        const beside = (edge: "start" | "end") => working.some((other) => other.placement === "appliance"
+          && isRangeOrOven(other.masterCode, other.description) && cabinetWall(other, room) === wallId
+          && Math.abs((edge === "start" ? wallRunOffset(other, wallId, room) + wallRunSpan(other, wallId, room) - segment.start
+            : segment.start + segment.length - wallRunOffset(other, wallId, room))) <= 0.05);
+        const fill = planFourAnchorBaseSegment({
+          length: segment.length, catalog: stage.straightBaseCatalog, rangeAtStart: beside("start"), rangeAtEnd: beside("end"),
+        });
+        if (fill.note) rangeNeighborNotes.push(fill.note);
         let along = segment.start;
         for (const item of fill.items) {
           const catalogFillerCandidate = item.isFiller ? catalogFillerForGap(stage.pool, item.width, "base") : null;
@@ -3359,12 +3370,20 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       }
     }
 
+    // No gap is left anywhere: every opening between the measured anchors, panels, corner
+    // cabinets and runs (and the 3-inch seam a range leaves beside its corner) takes real
+    // catalog filler before the wall boxes are matched to the finished lower runs.
+    const seamResult = fillFourAnchorLowerSeams({
+      placed: working, room, openings: stageOpenings, fillers: catalogFillers, makeUid,
+      styleId: styleIdRef.current ?? null, corners: upperCorners.map((entry) => entry.point),
+    });
+    working = seamResult.placed;
     // Wall boxes are last. Match the completed lower projections, retaining
     // selected-line SKUs, height and opening clearances without moving anchors.
     const upperResult = buildFourAnchorWallCabinets({
       placed: working, room, openings: stageOpenings, catalog: stage.wallPool,
       wallCabinetHeightIn: stage.input.wallCabinetHeightIn ?? 30,
-      styleId: styleIdRef.current ?? null, makeUid, corners: upperCorners, catalogFillers,
+      styleId: styleIdRef.current ?? null, makeUid, corners: upperCorners, catalogFillers, closeSeams: true,
     });
     working = upperResult.placed;
     placedRef.current = working;
@@ -3375,7 +3394,8 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     }
     setFourAnchorCornerStage(null);
     setViewMode("threeD");
-    toast.success(`Placed ${selectedCornerCount} selected corners, ${surrounding.length} regular base-run pieces, and ${upperResult.additions.length} aligned wall cabinets.`);
+    toast.success(`Placed ${selectedCornerCount} selected corners, ${surrounding.length} regular base-run pieces, ${seamResult.additions.length} filler pieces closing every gap, and ${upperResult.additions.length} aligned wall cabinets and fillers.`);
+    for (const note of [...seamResult.notes, ...rangeNeighborNotes]) toast.info(note, { duration: 15000 });
     for (const move of applianceMoves) {
       toast.info(`Moved the ${move.label} ${formatInches(move.shiftIn)} away from the corner to fit the required corner cabinet. Its measured center is now ${formatInches(move.centerAlongIn)} along the wall.`, { duration: 12000 });
     }

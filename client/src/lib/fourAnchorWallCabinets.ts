@@ -1,4 +1,8 @@
 import { autoFillSpan } from "./autofill";
+import {
+  SEAM_MIN_IN, findFourAnchorSeams, fillersForSeam, intersectWithCoverage, lowerCoverageOnWall, upperReservedZones,
+  type FourAnchorSeam,
+} from "./fourAnchorSeamFillers";
 import { buildRequiredBlindCornerFiller, requiresConfiguredBlindCornerFiller } from "./blindCornerRequiredFiller";
 import { cabinetDrawingType, isWallBlindCornerCabinet } from "./cabinetGraphics";
 import type { CatalogFillerCandidate } from "./catalogFiller";
@@ -95,6 +99,12 @@ export function buildFourAnchorWallCabinets(input: {
   corners?: FourAnchorUpperCorner[];
   /** Selected-line fillers; required for a wall blind corner's integrated 3″ face filler. */
   catalogFillers?: readonly CatalogFillerCandidate[];
+  /**
+   * Close every remaining opening in the upper layer above the lower cabinets with real
+   * wall cabinets and catalog filler. Never fills over the range, the sink or its window,
+   * or the refrigerator assembly. Off by default so standalone callers keep exact behavior.
+   */
+  closeSeams?: boolean;
 }): {
   placed: PlacedCabinet[];
   additions: PlacedCabinet[];
@@ -294,6 +304,60 @@ export function buildFourAnchorWallCabinets(input: {
       working = before;
       additions.splice(addedBefore);
       skipped.push(`${lower.masterCode}: aligned upper needs review for an opening, corner, occupied bay, or ceiling clearance.`);
+    }
+  }
+  if (input.closeSeams) {
+    const reserved = upperReservedZones(input.placed, room);
+    const seams = findFourAnchorSeams({
+      layer: "wall", placed: working, room, openings, corners: (input.corners ?? []).map((entry) => entry.point), reservedZones: reserved,
+    });
+    const fillers = input.catalogFillers ?? [];
+    for (const seam of seams) {
+      const cover = lowerCoverageOnWall(input.placed, room, seam.wall, input.corners ?? []);
+      for (const region of intersectWithCoverage({ start: seam.start, end: seam.end }, cover)) {
+        const length = region.end - region.start;
+        const leftNeighbor = region.start <= seam.start + 0.02 ? seam.left : null;
+        const rightNeighbor = region.end >= seam.end - 0.02 ? seam.right : null;
+        // Real boxes first, anchored to the real upper they continue; whatever is left is filler.
+        let along = region.start;
+        let remainder = length;
+        const placedHere: PlacedCabinet[] = [];
+        if (length >= MIN_UPPER_WIDTH_IN - COLLISION_EPSILON_IN && standard.length) {
+          const tiled = autoFillSpan(length, "kitchen", standard.map((row) => ({ ...row, placement: "base" as const })), { strategy: "largest-first" });
+          const sources = tiled.items.filter((item) => !item.isFiller).map((item) => standard.find((row) => row.id === item.cabinet.id)).filter((row): row is DesignCabinet => row != null);
+          const fromRight = leftNeighbor == null && rightNeighbor != null;
+          const ordered = fromRight ? [...sources].reverse() : sources;
+          const total = ordered.reduce((sum, row) => sum + dim(row.width, 0), 0);
+          if (fromRight) along = region.end - total;
+          for (const source of ordered) {
+            const candidate = makeCandidate(source);
+            const spot = wallPlacementAt(along, candidate.width, candidate.depth, seam.wall as never, room);
+            if (spot && commit({ ...candidate, ...spot })) { placedHere.push(additions[additions.length - 1]!); along += candidate.width; }
+            else break;
+          }
+          const used = placedHere.reduce((sum, item) => sum + item.width, 0);
+          remainder = length - used;
+          if (fromRight) { along = region.start; } 
+        }
+        if (remainder >= SEAM_MIN_IN) {
+          const fromRight = leftNeighbor == null && rightNeighbor != null && placedHere.length > 0;
+          const start = placedHere.length ? (fromRight ? region.start : along) : region.start;
+          const end = start + remainder;
+          const lastPlaced = placedHere[placedHere.length - 1] ?? null;
+          const pseudo: FourAnchorSeam = {
+            wall: seam.wall, start, end,
+            left: fromRight ? leftNeighbor : (lastPlaced ?? leftNeighbor),
+            right: fromRight ? (placedHere[0] ?? rightNeighbor) : rightNeighbor,
+          };
+          const made = fillersForSeam({ seam: pseudo, layer: "wall", fillers, room, makeUid: input.makeUid, styleId: input.styleId });
+          if (!("error" in made)) {
+            const accepted = appendCollisionFreePlacements(working, made.pieces, room);
+            if (accepted.rejected.length === 0) { working = accepted.placed; additions.push(...made.pieces); }
+          } else if (!/no neighboring cabinet/.test(made.error)) {
+            skipped.push(made.error);
+          }
+        }
+      }
     }
   }
   // A wall blind corner exposes the door away from its blind side.
