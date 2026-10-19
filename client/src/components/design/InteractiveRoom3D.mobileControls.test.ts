@@ -25,7 +25,9 @@ describe("3D cabinet movement controls on mobile", () => {
     expect(source).toContain('data-testid="three-d-mobile-canvas-tools-menu"');
     expect(source).toContain('data-testid="three-d-mobile-wall-heights"');
     expect(source).toContain('data-testid="three-d-mobile-toggle-wall-cabinets"');
-    expect(source).toContain('data-testid="three-d-mobile-fitted-filler-labels"');
+    expect(source).toContain('data-testid="three-d-mobile-filler-notice"');
+    expect(source).not.toContain('data-testid="three-d-mobile-fitted-filler-labels"');
+    expect(source).toContain("×{label.quantity}");
     expect(source).toContain('hidden max-w-[calc(100%-10rem)]');
   });
 

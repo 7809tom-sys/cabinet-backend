@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import * as THREE from "three";
-import { canSyncThreeDOrderToCart, constrainedThreeDWallHeight, exactFittedFillerInches, filteredThreeDCatalogItems, hybridPlanUnderlayModel, resolvedPlacedCabinetDoorProfile, resolvedPlacedCabinetDoorSampleUrl, resolvedPlacedCabinetFinish, resolvedThreeDWallHeights, shouldShowThreeDCatalog, THREE_D_EMBEDDED_TOOLBAR_CLASS, THREE_D_WORKSPACE_ACTIONS, threeDCabinetHitFromObject, threeDDecorativeEndSides, threeDDrawerZoneHeight, threeDFittedFillerWidthText, threeDFrontDatumSnapIndicators, threeDHasVerifiedDoorLayout, threeDOrderLineForSelectedCabinet, threeDPointerSelectsCabinet, threeDPreviewFadeAllowed, threeDSelectedCabinetDescription, threeDSelectedCabinetDockClass, threeDSelectionFromPlaced, threeDStructuralFinish, threeDTallPantryDoorsPerRow, threeDTemporaryPreviewCounterText, threeDTouchTapOpensWindow, threeDUpperCabinetWallMinimums, threeDUsesAuthoritativePlanScene, threeDUsesCatalogFrontVisual, threeDWallClearanceText, threeDWallFitGuideText, threeDWallSideForEdge, threeDWallSideForPolygonEdge, updatedThreeDWallHeights } from "./InteractiveRoom3D";
+import { canSyncThreeDOrderToCart, constrainedThreeDWallHeight, exactFittedFillerInches, filteredThreeDCatalogItems, hybridPlanUnderlayModel, resolvedPlacedCabinetDoorProfile, resolvedPlacedCabinetDoorSampleUrl, resolvedPlacedCabinetFinish, resolvedThreeDWallHeights, shouldShowThreeDCatalog, THREE_D_EMBEDDED_TOOLBAR_CLASS, THREE_D_WORKSPACE_ACTIONS, threeDCabinetHitFromObject, threeDDecorativeEndSides, threeDDrawerZoneHeight, threeDFillerMeasurementNoticeEntries, threeDFittedFillerWidthText, threeDFrontDatumSnapIndicators, threeDHasVerifiedDoorLayout, threeDOrderLineForSelectedCabinet, threeDPointerSelectsCabinet, threeDPreviewFadeAllowed, threeDSelectedCabinetDescription, threeDSelectedCabinetDockClass, threeDSelectionFromPlaced, threeDStructuralFinish, threeDTallPantryDoorsPerRow, threeDTemporaryPreviewCounterText, threeDTouchTapOpensWindow, threeDUpperCabinetWallMinimums, threeDUsesAuthoritativePlanScene, threeDUsesCatalogFrontVisual, threeDWallClearanceText, threeDWallFitGuideText, threeDWallSideForEdge, threeDWallSideForPolygonEdge, updatedThreeDWallHeights } from "./InteractiveRoom3D";
 import { addCabinet, addPotFillerFixture, addSinkFixture, addThreeDPeninsulaCountertops, addWallOpening, cornerDrawerFrontLayout, describedOvenSpecification, diagonalCornerFootprintVertices, diagonalCornerFrontWidth, dimensions, doorProfileKind, existingCabinetTransform, existingCabinetSku, freestandingRangeHeightProfile, hasPersistedTwoDScene, isEqualHeightTwoDrawerBase, lCornerCarcassParts, openingTransform, potFillerWallMountTransform, quoteMaterialDetails, rangeCooktopLayout, rangeHoodFrontGeometry, rangeHoodGeometry, rangeHoodSceneStatus, rangeOvenFrontLayout, resolvedCatalogFinish, resolvedPlacedCabinetFrontVisual, resolvedThreeDCountertopFinish, resolvedThreeDDoorProfile, resolvedThreeDDoorSampleUrl, resolvedThreeDDrawerRows, resolvedThreeDFaceLayout, resolvedThreeDOvenLayout, resolvedThreeDSpecialtyProfile, savedRangeHoodTransform, sceneCabinetColor, shouldRenderCountertopOverSceneItem, shouldRenderPlacedDesign, shouldRenderSavedSceneCabinet, sinkFaucetTransform, sinkFixtureTransform, singleOvenTowerAssembly, threeDApplianceFrontVisualUrl, threeDBlindCornerFrontLayout, threeDCabinetFrontVisualUrl, threeDCameraDistanceLimits, threeDCountertopDepthIn, threeDDoorMaterialFallback, threeDFaceMaterialColor, threeDMaterialStatusText, threeDPhotoRenderDoorReferenceStatus, threeDPeninsulaCountertopGeometry, threeDPlacedWall, threeDPlanSyncText, threeDRoomFacingRotation, threeDSceneInputDiagnostics, threeDSceneRevisionKey, threeDSceneVisibilityContract, threeDShakerFramePose, threeDShakerRailThickness, threeDUsesDoorSampleTexture, threeDUsesExactDoorSampleMaterial, threeDUsesPhysicalShakerRails, threeDVisibleMaterialMode, triangleCornerFootprintVertices, triangleCornerFrontPose, triangleCornerFrontWidth, THREE_D_DRAWER_REVEAL_DEPTH, THREE_D_EXPORT_SIZE, THREE_D_ROOM_CONTEXT_DEFAULT, THREE_D_WALL_DEPTH_WRITE, THREE_D_WALL_OPACITY, type InteractiveRoomScene } from "./InteractiveRoom3D";
 import { addFurniture, addIslandZone, furnitureTransform, islandZoneTransform, ponyWallTransform } from "./InteractiveRoom3D";
 import { threeDFurnitureHitFromIntersections, threeDFurnitureHitFromObject } from "./InteractiveRoom3D";
@@ -1935,6 +1935,24 @@ describe("interactive 3D room scene helpers", () => {
       subCategory: "Base",
       width: 24,
     } as any)).toBeNull();
+  });
+
+  it("consolidates fitted filler cuts and maximums into one grouped notice without hiding an over-maximum warning", () => {
+    const entries = threeDFillerMeasurementNoticeEntries([
+      { uid: "of330-left", masterCode: "OF330", description: '3" Filler Overlay — cut to 1"', category: "Accessory", subCategory: "Filler", nominalWidth: 2.875, width: 1, depth: 24 },
+      { uid: "of330-right", masterCode: "OF330", description: '3" Filler Overlay — cut to 1"', category: "Accessory", subCategory: "Filler", nominalWidth: 2.875, width: 1, depth: 24 },
+      { uid: "of335-over", masterCode: "OF335", description: '3" Filler Overlay — cut to 3½"', category: "Accessory", subCategory: "Filler", nominalWidth: 2.875, width: 3.5, depth: 24 },
+    ] as any);
+
+    expect(entries).toEqual([
+      { masterCode: "OF330", installedWidth: 1, maximum: 2.875, over: false, quantity: 2 },
+      { masterCode: "OF335", installedWidth: 3.5, maximum: 2.875, over: true, quantity: 1 },
+    ]);
+
+    const source = readFileSync(new URL("./InteractiveRoom3D.tsx", import.meta.url), "utf8");
+    expect(source).toContain('data-testid="three-d-filler-notice"');
+    expect(source).not.toContain('data-testid="three-d-filler-measurement-labels"');
+    expect(source).not.toContain("Filler measurements</p>");
   });
 
   it("uses every selected cabinet finish on structural surfaces, including texture-backed styles", () => {
