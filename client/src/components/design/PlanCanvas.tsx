@@ -1530,11 +1530,16 @@ export function PlanCanvas({
 	                  data-testid="four-anchor-wall-guide-label"
 	                  data-wall-label={guide.label}
 	                  data-wall-color={guide.color}
-	                  aria-label={`${guide.label} marked in ${guide.color}`}
-	                  className="absolute grid h-7 w-7 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border-2 border-white text-xs font-black text-white shadow-[0_1px_4px_rgba(15,23,42,0.45)]"
+	                  aria-label={`${guide.label}. Measure from the matching colored dot.`}
+	                  title={`${guide.label} — measure from the matching colored dot.`}
+	                  tabIndex={0}
+	                  className="group pointer-events-auto absolute grid h-7 w-7 -translate-x-1/2 -translate-y-1/2 cursor-help place-items-center rounded-full border-2 border-white text-xs font-black text-white shadow-[0_1px_4px_rgba(15,23,42,0.45)] outline-none focus-visible:ring-2 focus-visible:ring-sky-950 focus-visible:ring-offset-2"
 	                  style={{ ...labelPosition, backgroundColor: guide.color }}
 	                >
 	                  {guide.label.replace("Wall ", "")}
+	                  <span data-testid="four-anchor-wall-guide-tooltip" role="tooltip" className="pointer-events-none absolute left-1/2 top-full z-50 mt-1 w-44 -translate-x-1/2 rounded bg-slate-950 px-2 py-1 text-center text-[10px] font-semibold leading-snug text-white opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100 group-focus:opacity-100">
+	                    {guide.label} — measure from the matching colored dot.
+	                  </span>
 	                </span>
 	                <span
 	                  data-testid="four-anchor-wall-guide-start"

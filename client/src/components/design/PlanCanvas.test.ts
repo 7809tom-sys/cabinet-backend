@@ -212,6 +212,9 @@ describe("Four-anchor wall guide", () => {
     expect(markup).toContain('data-wall-color="#c2410c"');
     expect(markup).toContain('data-testid="four-anchor-wall-guide-start"');
     expect(markup).toContain('Wall 1 measurement start');
+    expect(markup).toContain('data-testid="four-anchor-wall-guide-tooltip"');
+    expect(markup).toContain('title="Wall 1 — measure from the matching colored dot."');
+    expect(markup).toContain('title="Wall 2 — measure from the matching colored dot."');
     expect(markup).not.toContain('data-wall-label="Wall 3"');
   });
 

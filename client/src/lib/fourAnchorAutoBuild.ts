@@ -46,6 +46,44 @@ export type FourAnchorWallGuide = Pick<AutoBuildWallRef, "label" | "engineWallId
   color: (typeof FOUR_ANCHOR_WALL_GUIDE_COLORS)[number];
 };
 
+/**
+ * Blank, closed L-shaped room used only by the admin Four-Anchor training
+ * action. It deliberately contains no cabinet, appliance, opening, material,
+ * or user-plan data: staff can identify six real wall segments before entering
+ * their own fixture measurements.
+ */
+export const FOUR_ANCHOR_SIX_WALL_TRAINING_ROOM: RoomData = {
+  width: 180,
+  depth: 180,
+  ceilingHeight: 96,
+  openWallPath: false,
+  vertices: [
+    { id: "four-anchor-training-a", x: 0, y: 0 },
+    { id: "four-anchor-training-b", x: 120, y: 0 },
+    { id: "four-anchor-training-c", x: 180, y: 60 },
+    { id: "four-anchor-training-d", x: 180, y: 180 },
+    { id: "four-anchor-training-e", x: 60, y: 180 },
+    { id: "four-anchor-training-f", x: 0, y: 120 },
+  ],
+  customWalls: [
+    { id: "four-anchor-training-wall-1", label: "Wall 1", startVertexId: "four-anchor-training-a", endVertexId: "four-anchor-training-b" },
+    { id: "four-anchor-training-wall-2", label: "Wall 2", startVertexId: "four-anchor-training-b", endVertexId: "four-anchor-training-c", lockedAngle: 45 },
+    { id: "four-anchor-training-wall-3", label: "Wall 3", startVertexId: "four-anchor-training-c", endVertexId: "four-anchor-training-d" },
+    { id: "four-anchor-training-wall-4", label: "Wall 4", startVertexId: "four-anchor-training-d", endVertexId: "four-anchor-training-e" },
+    { id: "four-anchor-training-wall-5", label: "Wall 5", startVertexId: "four-anchor-training-e", endVertexId: "four-anchor-training-f", lockedAngle: 45 },
+    { id: "four-anchor-training-wall-6", label: "Wall 6", startVertexId: "four-anchor-training-f", endVertexId: "four-anchor-training-a" },
+  ],
+};
+
+/** Returns a fresh room object so a training session cannot mutate the preset. */
+export function makeFourAnchorSixWallTrainingRoom(): RoomData {
+  return {
+    ...FOUR_ANCHOR_SIX_WALL_TRAINING_ROOM,
+    vertices: FOUR_ANCHOR_SIX_WALL_TRAINING_ROOM.vertices?.map((vertex) => ({ ...vertex })),
+    customWalls: FOUR_ANCHOR_SIX_WALL_TRAINING_ROOM.customWalls?.map((wall) => ({ ...wall })),
+  };
+}
+
 export type FourAnchorInputs = {
   layoutType: FourAnchorLayoutType;
   originCorner: FourAnchorOriginCorner;

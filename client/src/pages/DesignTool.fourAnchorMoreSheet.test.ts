@@ -29,7 +29,7 @@ describe("Four anchors in the More sheet (tablet and phone)", () => {
     const sheet = moreSheetSource();
     const rowAt = sheet.indexOf('data-testid="more-sheet-four-anchors"');
     const row = sheet.slice(Math.max(0, rowAt - 600), rowAt + 900);
-    expect(row).toContain("setFourAnchorAutoBuildOpen(true)");
+    expect(row).toContain("setTimeout(openFourAnchorAutoBuild, 120)");
     expect(row).toContain("setMoreSheetOpen(false)");
     expect(row).toContain("placed.length > 0 || layoutLocked");
     expect(row).toContain("Four anchors");
@@ -43,6 +43,6 @@ describe("Four anchors in the More sheet (tablet and phone)", () => {
 
   it("does not expose the row outside the admin guard anywhere else in the sheet", () => {
     const sheet = moreSheetSource();
-    expect(sheet.split("setFourAnchorAutoBuildOpen(true)").length - 1).toBe(1);
+    expect(sheet.split("openFourAnchorAutoBuild").length - 1).toBe(1);
   });
 });

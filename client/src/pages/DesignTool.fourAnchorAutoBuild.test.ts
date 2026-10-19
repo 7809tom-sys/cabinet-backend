@@ -41,6 +41,14 @@ describe("admin four-anchor Designer wiring", () => {
     expect(pageSource).toContain("setViewMode(\"plan\")");
   });
 
+  it("keeps the six-wall sample room inside the admin-only empty-plan Four-Anchor workflow", () => {
+    expect(pageSource).toContain("makeFourAnchorSixWallTrainingRoom");
+    expect(pageSource).toContain("loadFourAnchorSixWallTrainingRoom");
+    expect(pageSource).toContain("onLoadSixWallTrainingRoom={loadFourAnchorSixWallTrainingRoom}");
+    expect(pageSource).toContain("A training room can only be loaded into an empty Designer");
+    expect(dialogSource).toContain("four-anchor-load-six-wall-training-room");
+  });
+
   it("keeps the sink-base workflow required but allows an explicitly omitted range, dishwasher, or refrigerator without forcing a palette or refrigerator bay", () => {
     expect(dialogSource).toContain("Do not add Range / stove");
     expect(dialogSource).toContain("Do not add Dishwasher");

@@ -84,6 +84,31 @@ describe("FourAnchorAutoBuildDialog", () => {
     expect(onWallGuideChange).toHaveBeenLastCalledWith({ originCorner: "right", runDirection: "left" });
   });
 
+  it("offers an explicit blank six-wall sample room action for staff training without building a kitchen", () => {
+    const onLoadSixWallTrainingRoom = vi.fn((): { ok: true } => ({ ok: true }));
+    const onBuild = vi.fn((): { ok: true } => ({ ok: true }));
+    render(
+      <FourAnchorAutoBuildDialog
+        open
+        onOpenChange={vi.fn()}
+        onBuild={onBuild}
+        onLoadSixWallTrainingRoom={onLoadSixWallTrainingRoom}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId("four-anchor-load-six-wall-training-room"));
+
+    expect(onLoadSixWallTrainingRoom).toHaveBeenCalledTimes(1);
+    expect(onBuild).not.toHaveBeenCalled();
+    expect(screen.getByText("Load six-wall training room")).toBeTruthy();
+  });
+
+  it("does not render a blocking modal backdrop so the colored Floor Plan wall tips remain hoverable", () => {
+    render(<FourAnchorAutoBuildDialog open onOpenChange={vi.fn()} onBuild={() => ({ ok: true })} />);
+
+    expect(document.querySelector('[data-slot="dialog-overlay"]')).toBeNull();
+  });
+
   it("docks on the wide desktop edge so the colored Floor Plan guide stays visible during Four-Anchor entry", () => {
     render(<FourAnchorAutoBuildDialog open onOpenChange={vi.fn()} onBuild={() => ({ ok: true })} />);
     const dialog = screen.getByTestId("four-anchor-auto-build-dialog");

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_ROOM } from "./design";
-import { adjacentDishwasherCenterIn, anchorAlongStartIn, autoBuildSelectedWallCornerReservations, autoBuildStraightBaseCatalog, buildWallLabelMap, canRunFourAnchorAutoBuild, isAutoBuildStraightSinkBaseCandidate, planFourAnchorAutoBuild, subtractAnchorRunReservations, wallLabelToEngineWallId } from "./fourAnchorAutoBuild";
+import { adjacentDishwasherCenterIn, anchorAlongStartIn, autoBuildSelectedWallCornerReservations, autoBuildStraightBaseCatalog, buildWallLabelMap, canRunFourAnchorAutoBuild, isAutoBuildStraightSinkBaseCandidate, makeFourAnchorSixWallTrainingRoom, planFourAnchorAutoBuild, subtractAnchorRunReservations, wallLabelToEngineWallId } from "./fourAnchorAutoBuild";
 
 describe("four-anchor wall-label mapping", () => {
   it.each([
@@ -49,6 +49,27 @@ describe("four-anchor wall-label mapping", () => {
     expect(map["Wall 6"]?.engineWallId).toBe("w6");
     expect(wallLabelToEngineWallId("Wall 5", DEFAULT_ROOM, "left", "right")).toBeNull();
     expect(wallLabelToEngineWallId("Wall 6", DEFAULT_ROOM, "left", "right")).toBeNull();
+  });
+
+  it("provides a blank, closed six-wall training room whose Wall 1–6 labels map to six real physical segments", () => {
+    const room = makeFourAnchorSixWallTrainingRoom();
+    const map = buildWallLabelMap(room, "left", "right");
+
+    expect(room.vertices).toHaveLength(6);
+    expect(room.customWalls).toHaveLength(6);
+    expect(room.openWallPath).not.toBe(true);
+    expect(room.customWalls?.map((wall) => wall.label)).toEqual([
+      "Wall 1", "Wall 2", "Wall 3", "Wall 4", "Wall 5", "Wall 6",
+    ]);
+    expect(Object.values(map).map((wall) => wall?.engineWallId)).toEqual([
+      "four-anchor-training-wall-1",
+      "four-anchor-training-wall-2",
+      "four-anchor-training-wall-3",
+      "four-anchor-training-wall-4",
+      "four-anchor-training-wall-5",
+      "four-anchor-training-wall-6",
+    ]);
+    expect(makeFourAnchorSixWallTrainingRoom()).not.toBe(room);
   });
 
   it("computes a flush left or right dishwasher center from the selected sink base width", () => {

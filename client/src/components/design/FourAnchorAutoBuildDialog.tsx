@@ -26,6 +26,8 @@ type Props = {
   wallCount?: number;
   /** Visual-only Floor Plan guide; receives the same datum choices as anchor measurements. */
   onWallGuideChange?: (selection: { originCorner: FourAnchorOriginCorner; runDirection: FourAnchorRunDirection }) => void;
+  /** Replaces only an empty admin Designer room with the blank six-wall training shell. */
+  onLoadSixWallTrainingRoom?: () => FourAnchorSubmitResult;
 };
 type PointField = "sink" | "stove" | "dishwasher" | "refrigerator";
 type SinkBaseWidth = 30 | 33 | 36 | 42;
@@ -52,7 +54,7 @@ const omissionLabels: Record<(typeof applianceFields)[number], string> = {
 };
 type FieldValue = { wallLabel: WallLabel; centerOffsetIn: string };
 
-export function FourAnchorAutoBuildDialog({ open, onOpenChange, onBuild, catalogLoading = false, wallCount = 4, onWallGuideChange }: Props) {
+export function FourAnchorAutoBuildDialog({ open, onOpenChange, onBuild, catalogLoading = false, wallCount = 4, onWallGuideChange, onLoadSixWallTrainingRoom }: Props) {
   const [layoutType, setLayoutType] = useState<FourAnchorLayoutType>("single-wall");
   const [originCorner, setOriginCorner] = useState<FourAnchorOriginCorner>("left");
   const [runDirection, setRunDirection] = useState<FourAnchorRunDirection>("right");
@@ -124,15 +126,29 @@ export function FourAnchorAutoBuildDialog({ open, onOpenChange, onBuild, catalog
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] w-[calc(100vw-2rem)] sm:max-w-2xl 2xl:!left-auto 2xl:!right-4 2xl:!w-[28rem] 2xl:!translate-x-0 overflow-y-auto overflow-x-hidden" data-testid="four-anchor-auto-build-dialog">
-        <DialogHeader>
-          <DialogTitle>Admin · Four-anchor auto-build</DialogTitle>
-          <DialogDescription>
-            Choose the layout and datum first. Every measured anchor uses its own selector from up to six actual room walls and a center measurement from that wall’s starting corner.
-          </DialogDescription>
-        </DialogHeader>
+    <Dialog open={open} onOpenChange={onOpenChange} modal={false}>
+      <DialogContent hideOverlay className="max-h-[90vh] w-[calc(100vw-2rem)] sm:max-w-2xl 2xl:!left-auto 2xl:!right-4 2xl:!w-[28rem] 2xl:!translate-x-0 overflow-y-auto overflow-x-hidden" data-testid="four-anchor-auto-build-dialog">
+	        <DialogHeader>
+	          <DialogTitle>Admin · Four-anchor auto-build</DialogTitle>
+	          <DialogDescription>
+	            Choose the layout and datum first. Every measured anchor uses its own selector from up to six actual room walls and a center measurement from that wall’s starting corner.
+	          </DialogDescription>
+	        </DialogHeader>
 	        <div className="grid gap-4">
+	          {onLoadSixWallTrainingRoom && (
+	            <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-sky-200 bg-sky-50/70 p-3">
+	              <div className="min-w-0 text-xs leading-relaxed text-slate-700">
+	                <p className="font-semibold text-slate-900">Staff training room</p>
+	                <p>Load a blank L-shaped room with six numbered physical walls. This does not build a kitchen.</p>
+	              </div>
+	              <Button type="button" variant="outline" size="sm" className="shrink-0 border-sky-300 bg-white text-sky-900 hover:bg-sky-100" onClick={() => {
+	                const result = onLoadSixWallTrainingRoom();
+	                if (!result.ok) setSubmitError(result.message);
+	              }} data-testid="four-anchor-load-six-wall-training-room">
+	                Load six-wall training room
+	              </Button>
+	            </div>
+	          )}
 	          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
 	            <div className="space-y-1.5">
 	              <Label>Layout type</Label>

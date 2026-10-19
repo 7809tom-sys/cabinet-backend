@@ -178,7 +178,7 @@ import { CabinetHandlesControl, DEFAULT_DESIGNER_HARDWARE_STYLE_ID } from "@/com
 import { HardwareCatalogPicker } from "@/components/design/HardwareCatalogPicker";
 import { isPanelPaletteItem } from "./designToolPanels";
 import { normalizePaletteSearch, matchesPaletteSearch } from "@/lib/paletteSearch";
-import { adjacentDishwasherCenterIn, anchorAlongStartIn, autoBuildStraightBaseCatalog, buildFourAnchorWallGuides, canRunFourAnchorAutoBuild, isAutoBuildStraightSinkBaseCandidate, pickFourAnchorSinkBase, planFourAnchorAutoBuild, subtractAnchorRunReservations, wallLabelToEngineWallId, type FourAnchorInputs, type FourAnchorOriginCorner, type FourAnchorRunDirection } from "@/lib/fourAnchorAutoBuild";
+import { adjacentDishwasherCenterIn, anchorAlongStartIn, autoBuildStraightBaseCatalog, buildFourAnchorWallGuides, canRunFourAnchorAutoBuild, isAutoBuildStraightSinkBaseCandidate, makeFourAnchorSixWallTrainingRoom, pickFourAnchorSinkBase, planFourAnchorAutoBuild, subtractAnchorRunReservations, wallLabelToEngineWallId, type FourAnchorInputs, type FourAnchorOriginCorner, type FourAnchorRunDirection } from "@/lib/fourAnchorAutoBuild";
 import { fourAnchorSinkWindow, windowOverlapsReservation } from "@/lib/fourAnchorSinkWindow";
 import { fourAnchorRangeHood, fourAnchorRangeNeedsVentilation } from "@/lib/fourAnchorRangeHood";
 import { autoBuildCornerCatalog, fourAnchorCornerSlotPoint, fourAnchorCornerSlots, isFourAnchorBlindCornerOption, type AutoBuildCornerCandidate, type FourAnchorCornerChoice, type FourAnchorCornerSlot } from "@/lib/fourAnchorCornerStage";
@@ -213,7 +213,7 @@ import { CornerView, type CornerId } from "@/components/design/CornerView";
 import { IslandElevationView } from "@/components/design/IslandElevationView";
 import { CsvImportDialog } from "@/components/design/CsvImportDialog";
 import { PlanImageImportDialog, type ReviewedPlan } from "@/components/design/PlanImageImportDialog";
-import { FourAnchorAutoBuildDialog } from "@/components/design/FourAnchorAutoBuildDialog";
+import { FourAnchorAutoBuildDialog, type FourAnchorSubmitResult } from "@/components/design/FourAnchorAutoBuildDialog";
 import { FourAnchorCornerSelectionDialog } from "@/components/design/FourAnchorCornerSelectionDialog";
 import { findClosestPlanCabinet } from "@/lib/planImportMapper";
 import { EmailGate, type LeadContact } from "@/components/design/EmailGate";
@@ -9416,6 +9416,37 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     setIsland((prev) => clampIslandToRoom(prev, next));
   }, []);
 
+  /**
+   * An admin-only blank room for reading the Wall 1–6 guide before a measured
+   * build. This intentionally refuses rather than clears any user-owned scene
+   * state, so the training sample cannot overwrite a customer layout.
+   */
+  const loadFourAnchorSixWallTrainingRoom = useCallback((): FourAnchorSubmitResult => {
+    const populated = placed.length > 0
+      || openings.length > 0
+      || sinks.length > 0
+      || potFillers.length > 0
+      || furniture.length > 0
+      || ponyWalls.length > 0
+      || annotations.length > 0
+      || island != null
+      || (room.peninsulaRuns?.length ?? 0) > 0;
+    if (!isAdmin || roomType !== "kitchen" || layoutLocked) {
+      return { ok: false, message: "The six-wall training room is available only to an unlocked admin kitchen Designer." };
+    }
+    if (populated) {
+      return { ok: false, message: "A training room can only be loaded into an empty Designer. Save or start a new design; no current items were changed." };
+    }
+    const trainingRoom = makeFourAnchorSixWallTrainingRoom();
+    applyRoom(trainingRoom);
+    setActiveWall("four-anchor-training-wall-1" as WallSide);
+    setPlacementTarget("wall");
+    setViewMode("plan");
+    setFourAnchorWallGuideSelection({ originCorner: "left", runDirection: "right" });
+    toast.success("Six-wall training room loaded. Hover a colored wall number to see where its center measurement begins.");
+    return { ok: true };
+  }, [annotations.length, applyRoom, furniture.length, isAdmin, island, layoutLocked, openings.length, ponyWalls.length, potFillers.length, room.peninsulaRuns, roomType, setPlacementTarget, sinks.length, placed.length]);
+
   const applyBathroomStarterTemplate = useCallback(() => {
     const existingItems = placed.length + openings.length + sinks.length + furniture.length + ponyWalls.length + annotations.length + (island ? 1 : 0);
     if (layoutLocked) {
@@ -18559,6 +18590,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	          open={fourAnchorAutoBuildOpen}
 	          onOpenChange={setFourAnchorAutoBuildOpen}
 	          onWallGuideChange={setFourAnchorWallGuideSelection}
+	          onLoadSixWallTrainingRoom={loadFourAnchorSixWallTrainingRoom}
 	          onBuild={buildFourAnchorAutoLayout}
 	          catalogLoading={autoFillCabinetsLoading || wallCabPoolLoading}
 	          wallCount={Math.min(6, Math.max(1, room.customWalls?.length ?? 4))}

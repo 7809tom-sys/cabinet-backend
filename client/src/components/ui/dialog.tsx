@@ -93,6 +93,7 @@ function DialogContent({
   className,
   children,
   showCloseButton = true,
+  hideOverlay = false,
   onEscapeKeyDown,
   style,
   onPointerDownCapture,
@@ -101,6 +102,8 @@ function DialogContent({
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean;
+  /** Use only for explicitly non-modal tools that must leave an underlying workspace interactive. */
+  hideOverlay?: boolean;
 }) {
   const { isComposing } = useDialogComposition();
   const dragOriginRef = React.useRef<{ pointerId: number; x: number; y: number; startX: number; startY: number } | null>(null);
@@ -149,7 +152,7 @@ function DialogContent({
 
   return (
     <DialogPortal data-slot="dialog-portal">
-      <DialogOverlay />
+      {!hideOverlay && <DialogOverlay />}
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(
