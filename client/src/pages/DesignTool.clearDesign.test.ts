@@ -120,6 +120,12 @@ describe("DesignTool authoritative Clear Design transaction", () => {
     expect(source).toContain("checked={valance}");
   });
 
+  it("resets the active cabinet or parts catalog back to condensed category headings", () => {
+    const block = clearDesignBlock();
+    expect(block).toContain("setCollapsedGroups(new Set());");
+    expect(block).toContain("setCatalogCollapseRequest(COLLAPSIBLE_CATALOG_TABS.has(paletteType) ? paletteType : null);");
+  });
+
   it("also prompts when verified draft restoration finds no designed kitchen", () => {
     expect(source).toContain("let restoredDesignedKitchen = false");
     expect(source).toContain("restoredDesignedKitchen = true");

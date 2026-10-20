@@ -1,10 +1,10 @@
-import { useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { groupPelicanConfigurations } from "@shared/pelicanConfigurationGrouping";
 import { PelicanConfigurationCard } from "./PelicanConfigurationCard";
 import { verifiedPelicanBathroomFixtureProfile, pelicanBathroomFixturePlacementText } from "@/lib/pelicanBathroomFixtureProfiles";
 import { trpc } from "@/lib/trpc";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import type { SelectedSurface } from "./SurfacesPickerDialog";
 
 /**
@@ -113,6 +113,8 @@ function RecommendedRow({
   label,
   blurb,
   limit,
+  open,
+  onOpenChange,
   selectedIds,
   onToggle,
   onBrowseAll,
@@ -122,6 +124,8 @@ function RecommendedRow({
   label: string;
   blurb: string;
   limit: number;
+  open: boolean;
+  onOpenChange: () => void;
   selectedIds: Set<number>;
   onToggle: (item: SelectedSurface, role: RecommendedRole) => void;
   onBrowseAll: (role: RecommendedRole) => void;
@@ -152,55 +156,64 @@ function RecommendedRow({
   };
   return (
     <div className="space-y-1.5">
-      <div className="sticky top-0 z-10 -mx-1 flex w-[calc(100%+0.5rem)] items-center gap-1.5 border-b border-border bg-background/95 px-2 py-1.5 backdrop-blur">
-        <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-          {label}
-        </span>
-        <span className="text-[10px] font-normal normal-case text-muted-foreground/70">
-          · {blurb}
-        </span>
+      <div className="sticky top-0 z-10 -mx-1 flex w-[calc(100%+0.5rem)] items-center gap-1 border-b border-border bg-background/95 px-1 py-1 backdrop-blur">
+        <button
+          type="button"
+          data-testid={`recommended-section-toggle-${role}`}
+          aria-expanded={open}
+          aria-controls={`recommended-section-${role}`}
+          onClick={onOpenChange}
+          className="flex min-w-0 flex-1 items-center gap-1.5 rounded px-1 py-0.5 text-left hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a2744]"
+        >
+          <ChevronDown className={`h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-200 ${open ? "" : "-rotate-90"}`} aria-hidden="true" />
+          <span className="truncate text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</span>
+          <span className="truncate text-[10px] font-normal normal-case text-muted-foreground/70">· {blurb}</span>
+          {!isLoading && <span className="ml-auto shrink-0 text-[10px] font-normal normal-case text-muted-foreground">({configurations.length})</span>}
+        </button>
         <button
           type="button"
           onClick={() => onBrowseAll(role)}
-          className="ml-auto flex items-center gap-0.5 rounded px-1 text-[10px] font-medium text-[#a87f33] hover:text-[#8a6828] transition-colors"
+          className="flex shrink-0 items-center gap-0.5 rounded px-1 py-0.5 text-[10px] font-medium text-[#a87f33] hover:text-[#8a6828] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a2744] transition-colors"
         >
           Browse all <ChevronRight className="h-3 w-3" />
         </button>
       </div>
-      {isLoading ? (
-        <div className="grid grid-cols-2 gap-2">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-28 w-full rounded-lg" />
-          ))}
-        </div>
-      ) : visible.length === 0 ? (
-        <button
-          type="button"
-          onClick={() => onBrowseAll(role)}
-          className="w-full rounded-lg border border-dashed border-border px-3 py-4 text-center text-[11px] text-muted-foreground hover:border-[#a87f33]/50 hover:text-foreground transition-colors"
-        >
-          No recommendations available — browse the full catalog
-        </button>
-      ) : (
-        <div className="grid grid-cols-2 gap-2">
-          {visible.map((configuration) => {
-            const first = configuration.variants[0]!.item;
-            const tubFiller = role === "bathroom-faucet" && verifiedPelicanBathroomFixtureProfile(first.pelicanCode)?.kind === "floor-tub-filler";
-            const placeable = role === "toilet-bidet" || role === "bathtub" || tubFiller;
-            return (
-              <PelicanConfigurationCard
-                key={configuration.key}
-                configuration={configuration}
-                selectedIds={selectedIds}
-                onUse={useVariant}
-                actionLabel={placeable && onPlaceBathroomFixture ? "Place in 3D" : undefined}
-                note={tubFiller ? <p className="text-[10px] font-medium leading-snug text-emerald-700">Floor-mounted · place in 3D</p> : undefined}
-                testIdPrefix={`recommended-${role}`}
-              />
-            );
-          })}
-        </div>
-      )}
+      {open && <div id={`recommended-section-${role}`}>
+        {isLoading ? (
+          <div className="grid grid-cols-2 gap-2">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Skeleton key={i} className="h-28 w-full rounded-lg" />
+            ))}
+          </div>
+        ) : visible.length === 0 ? (
+          <button
+            type="button"
+            onClick={() => onBrowseAll(role)}
+            className="w-full rounded-lg border border-dashed border-border px-3 py-4 text-center text-[11px] text-muted-foreground hover:border-[#a87f33]/50 hover:text-foreground transition-colors"
+          >
+            No recommendations available — browse the full catalog
+          </button>
+        ) : (
+          <div className="grid grid-cols-2 gap-2">
+            {visible.map((configuration) => {
+              const first = configuration.variants[0]!.item;
+              const tubFiller = role === "bathroom-faucet" && verifiedPelicanBathroomFixtureProfile(first.pelicanCode)?.kind === "floor-tub-filler";
+              const placeable = role === "toilet-bidet" || role === "bathtub" || tubFiller;
+              return (
+                <PelicanConfigurationCard
+                  key={configuration.key}
+                  configuration={configuration}
+                  selectedIds={selectedIds}
+                  onUse={useVariant}
+                  actionLabel={placeable && onPlaceBathroomFixture ? "Place in 3D" : undefined}
+                  note={tubFiller ? <p className="text-[10px] font-medium leading-snug text-emerald-700">Floor-mounted · place in 3D</p> : undefined}
+                  testIdPrefix={`recommended-${role}`}
+                />
+              );
+            })}
+          </div>
+        )}
+      </div>}
     </div>
   );
 }
@@ -231,6 +244,15 @@ export function RecommendedSurfaces({
   bathroomPaletteMode?: BathroomPaletteMode;
 }) {
   const selectedIds = useMemo(() => new Set(selected.map((s) => s.id)), [selected]);
+  const [openRoles, setOpenRoles] = useState<Set<RecommendedRole>>(() => new Set());
+  const toggleRole = useCallback((role: RecommendedRole) => {
+    setOpenRoles((current) => {
+      const next = new Set(current);
+      if (next.has(role)) next.delete(role);
+      else next.add(role);
+      return next;
+    });
+  }, []);
   const isBathroom = roomType === "bathroom";
   const sections = isBathroom
     ? bathroomPaletteMode === "fixtures"
@@ -254,6 +276,8 @@ export function RecommendedSurfaces({
           label={s.label}
           blurb={s.blurb}
           limit={limit}
+          open={openRoles.has(s.role)}
+          onOpenChange={() => toggleRole(s.role)}
           selectedIds={selectedIds}
           onToggle={onToggle}
           onBrowseAll={onBrowseAll}

@@ -242,6 +242,12 @@ import { CountertopQuoteDialog } from "@/components/design/CountertopQuoteDialog
 import { SurfacesPickerDialog, type SelectedSurface } from "@/components/design/SurfacesPickerDialog";
 import { FlooringAccessorySuggestionsDialog } from "@/components/design/FlooringAccessorySuggestionsDialog";
 import { RecommendedSurfaces, type RecommendedRole } from "@/components/design/RecommendedSurfaces";
+
+// These customer-facing catalog tabs open as concise category headings. Search
+// and a deliberate height filter still reveal their matching item cards.
+const COLLAPSIBLE_CATALOG_TABS = new Set<HeightFilterPaletteType>([
+  "base", "corner", "wall", "tall", "appliance", "accessory", "panel",
+]);
 import {
   takeSurfaceHandoff,
   activeCountertopForScope,
@@ -1866,6 +1872,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   const [towerDialog, setTowerDialog] = useState<{ config: MasterTracTowerConfig; wall: WallSide; startIn: number; editGroupId: string | null } | null>(null);
   const towerCommitInProgressRef = useRef(false);
   const [paletteType, setPaletteType] = useState<HeightFilterPaletteType>("base");
+  const [catalogCollapseRequest, setCatalogCollapseRequest] = useState<HeightFilterPaletteType | null>("base");
   const [paletteHeightByType, setPaletteHeightByType] = useState<Partial<Record<HeightFilterPaletteType, number | null>>>({});
   const [furniture, setFurniture] = useState<PlacedFurniture[]>([]);
   useEffect(() => {
@@ -2125,6 +2132,10 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       .filter((g) => !["Panels (Hang)", "Panels (Floor)", "Shelves"].includes(g.category))
       .map((g) => `closetparts:${g.category}`),
   ));
+  const selectCatalogPaletteTab = useCallback((tab: HeightFilterPaletteType) => {
+    setPaletteType(tab);
+    if (COLLAPSIBLE_CATALOG_TABS.has(tab)) setCatalogCollapseRequest(tab);
+  }, []);
   const toggleGroup = useCallback((key: string) => {
     setCollapsedGroups((prev) => {
       const next = new Set(prev);
@@ -3737,6 +3748,18 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         items,
       })));
   }, [heightFilteredPalette, paletteType, paletteSearch, closetGroups, masterTracFinish, isCornerBase, t]);
+
+  useEffect(() => {
+    if (catalogCollapseRequest !== paletteType || !COLLAPSIBLE_CATALOG_TABS.has(paletteType)) return;
+    const groupKeys = groupedPalette.map((group) => `${paletteType}:${group.label}`);
+    if (groupKeys.length === 0) return;
+    setCollapsedGroups((current) => {
+      const next = new Set(current);
+      groupKeys.forEach((key) => next.add(key));
+      return next;
+    });
+    setCatalogCollapseRequest(null);
+  }, [catalogCollapseRequest, groupedPalette, paletteType]);
 
   // Pricing for placed cabinets (appliances carry cabinetId 0 and are unpriced).
   const placedCabinetIds = useMemo(
@@ -12558,6 +12581,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     setLayoutLocked(false);
     setLockedWalls(new Set());
     setCollapsedGroups(new Set());
+    setCatalogCollapseRequest(COLLAPSIBLE_CATALOG_TABS.has(paletteType) ? paletteType : null);
     setCollapsedSheet(new Set());
     setTouchedSheet(new Set());
     setCustomPlacementMode(false);
@@ -15595,7 +15619,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                   key={tab}
                   data-testid={`catalog-tab-${tab}`}
                   aria-pressed={paletteType === tab}
-                  onClick={() => { setPaletteType(tab); if (tab === "closetparts" && !placedRef.current.length) setViewMode("plan"); }}
+                  onClick={() => { selectCatalogPaletteTab(tab); if (tab === "closetparts" && !placedRef.current.length) setViewMode("plan"); }}
                   className={`shrink-0 whitespace-nowrap px-2.5 lg:px-1 lg:flex-1 py-1.5 rounded-md text-[11px] font-medium capitalize transition-colors ${
                     paletteType === tab ? "bg-[#1a2744] text-white" : "text-muted-foreground hover:text-foreground"
                   }`}

@@ -61,6 +61,7 @@ afterEach(cleanup);
 const cardsOf = (prefix: string) =>
   screen.getAllByTestId(new RegExp(`^${prefix}-`)).filter((element) => !element.getAttribute("data-testid")!.startsWith(`${prefix}-use-`));
 const mentions = (card: HTMLElement, pattern: RegExp) => within(card).queryAllByText(pattern).length > 0;
+const openRecommendedSection = (role: string) => fireEvent.click(screen.getByTestId(`recommended-section-toggle-${role}`));
 
 const faucet = (code: string) => faucetRows.find((row) => row.pelicanCode === code)!;
 
@@ -104,6 +105,25 @@ describe("Pelican faucet picker uses the hardware card-plus-selector pattern", (
 });
 
 describe("Recommended Pelican rows swap finishes instead of duplicating a product", () => {
+  it("starts surface families condensed and exposes their exact cards only after the heading is opened", () => {
+    render(
+      <RecommendedSurfaces
+        selected={[]}
+        onToggle={vi.fn()}
+        onBrowseAll={vi.fn()}
+        limit={60}
+      />,
+    );
+
+    const faucetHeading = screen.getByTestId("recommended-section-toggle-faucet");
+    expect(faucetHeading.getAttribute("aria-expanded")).toBe("false");
+    expect(screen.queryAllByTestId(/^recommended-faucet-/)).toHaveLength(0);
+
+    fireEvent.click(faucetHeading);
+    expect(faucetHeading.getAttribute("aria-expanded")).toBe("true");
+    expect(cardsOf("recommended-faucet").length).toBeGreaterThan(0);
+  });
+
   it("removes the selected sibling finish before adding the newly chosen one", () => {
     const onToggle = vi.fn();
     const selected = [faucet("PL-8237 BN")];
@@ -115,6 +135,7 @@ describe("Recommended Pelican rows swap finishes instead of duplicating a produc
         limit={60}
       />,
     );
+    openRecommendedSection("faucet");
     const card = cardsOf("recommended-faucet").find((entry) => mentions(entry, /PL-8237/))!;
     // The card opens on the finish that is already in the design and says so.
     expect(within(card).getByRole("button", { name: /selected/i }).getAttribute("aria-pressed")).toBe("true");
@@ -138,6 +159,7 @@ describe("Recommended Pelican rows swap finishes instead of duplicating a produc
         limit={60}
       />,
     );
+    openRecommendedSection("countertop");
     const card = cardsOf("recommended-countertop").find((entry) => mentions(entry, /Calacatta Oro/i))!;
     const trigger = within(card).getByRole("combobox");
     fireEvent.keyDown(trigger, { key: "ArrowDown" });
