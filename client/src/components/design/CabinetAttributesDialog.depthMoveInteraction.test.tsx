@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { CabinetDepthMoveControls } from "./CabinetAttributesDialog";
+import { CabinetAttachedFillerControls, CabinetDepthMoveControls } from "./CabinetAttributesDialog";
 
 afterEach(cleanup);
 
@@ -29,5 +29,24 @@ describe("CabinetDepthMoveControls interaction", () => {
     const controls = view.getByTestId("cabinet-depth-move-controls");
     expect(controls.className).toContain("flex-wrap");
     expect(view.getAllByRole("button")).toHaveLength(2);
+  });
+});
+
+describe("CabinetAttachedFillerControls interaction", () => {
+  it("edits independent eighth-inch left/right cuts and can remove attached fillers", () => {
+    const onApply = vi.fn();
+    const view = render(<CabinetAttachedFillerControls value={{ leftAllowed: true, rightAllowed: true, leftIn: 0.5, rightIn: 1.5 }} onApply={onApply} />);
+    fireEvent.change(view.getByLabelText("Left attached filler size in inches"), { target: { value: "1.125" } });
+    fireEvent.change(view.getByLabelText("Right attached filler size in inches"), { target: { value: "2" } });
+    fireEvent.click(view.getByRole("button", { name: "Update attached fillers" }));
+    expect(onApply).toHaveBeenCalledWith({ leftIn: 1.125, rightIn: 2 });
+    fireEvent.click(view.getByRole("button", { name: "Remove attached fillers" }));
+    expect(onApply).toHaveBeenLastCalledWith({ leftIn: 0, rightIn: 0 });
+  });
+
+  it("does not render an exposed-side input", () => {
+    const view = render(<CabinetAttachedFillerControls value={{ leftAllowed: true, rightAllowed: false, leftIn: 0, rightIn: 0 }} onApply={vi.fn()} />);
+    expect(view.getByLabelText("Left attached filler size in inches")).toBeTruthy();
+    expect(view.queryByLabelText("Right attached filler size in inches")).toBeNull();
   });
 });

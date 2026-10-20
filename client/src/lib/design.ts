@@ -905,6 +905,10 @@ export interface PlacedCabinet {
   fillerPlacementMode?: "left" | "right" | "split" | null;
 	/** Cabinet whose measured opening owns this editable filler group. */
 	fillerForCabinetUid?: string | null;
+	/** Side of an optional regular-Designer cabinet that owns this attached filler. */
+	fillerAttachmentSide?: "left" | "right" | null;
+	/** Set when an attached filler loses its wall/cabinet termination after a later edit. */
+	fillerNeedsReview?: boolean | null;
 	/** Refrigerator-side fillers align to the appliance's complete bottom-to-top envelope. */
 	fillerMatchesFullOwnerEnvelope?: boolean | null;
 	/**

@@ -85,6 +85,8 @@ import { adjustedDesignUnitPrice, buildDesignCabinetCartLines, buildDesignPrevie
 import { combinedFillerNote, fillerCutSourceFor, isCombinedSmallFiller } from "@/lib/fillerBilling";
 import { activeCatalogPricingIdsByMasterCode, currentCatalogPricingCabinetId } from "@/lib/designPricingIdentity";
 import { catalogFillerForGap, catalogFillerPricingId, fittedCatalogFillerDescription, isCatalogFiller, type CatalogFillerCandidate } from "@/lib/catalogFiller";
+import { attachedFillerNeedsReview, attachedFillerPlanForCandidate, type AttachedFillerChoice } from "@/lib/cabinetAttachedFillers";
+import { buildAttachedFillerPlacement, supportsAttachedFillerChoice } from "@/lib/cabinetAttachedFillerPlacement";
 import { selectedPeninsulaCabinetSequencePlan, selectedPeninsulaCabinetTotalIn, wizardEligibleBaseCabinets, type PeninsulaWizardCabinet } from "@/lib/peninsulaWizardPlan";
 import { swapStandardSinkBaseForFarmSink, matchingFarmSinkBase } from "@/lib/farmSinkBaseSwap";
 import { editablePeninsulaWizard, peninsulaWizardAssemblyRunIds, type PeninsulaWizardEditDraft } from "@/lib/peninsulaWizardEdit";
@@ -773,6 +775,23 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     forceBackDepthAdjustment: boolean;
     resolvedWallTarget?: { wallId: WallSide; wallOffset: number; peninsulaSide?: PeninsulaCabinetSide };
     pullText: string;
+  } | null>(null);
+  const [attachedFillerPrompt, setAttachedFillerPrompt] = useState<{
+    cabinet: DesignCabinet;
+    x?: number;
+    y?: number;
+    forceAccessory: boolean;
+    rotation: number;
+    strictDropTarget: boolean;
+    targetCabinetUid?: string | null;
+    targetIslandFace?: IslandFace | null;
+    forceBackDepthAdjustment: boolean;
+    resolvedWallTarget?: { wallId: WallSide; wallOffset: number; peninsulaSide?: PeninsulaCabinetSide };
+    blindPullOverride?: number;
+    leftText: string;
+    rightText: string;
+    leftAllowed: boolean;
+    rightAllowed: boolean;
   } | null>(null);
   useEffect(() => {
     setSmallGapFillerCustomWidth(smallGapFillerPrompt?.remaining ?? null);
@@ -4367,8 +4386,9 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       // Per-cabinet door/hardware attribute notes (from the right-click dialog).
       const attrNotes: string[] = [];
       if (p.noDoor) attrNotes.push("No door (open unit)");
-      if ((p.handleSide === "left" || p.handleSide === "right") && !p.noDoor)
-        attrNotes.push(`Handle ${p.handleSide}`);
+	      if ((p.handleSide === "left" || p.handleSide === "right") && !p.noDoor)
+	        attrNotes.push(`Handle ${p.handleSide}`);
+	      if (p.fillerNeedsReview) attrNotes.push("REVIEW: attached filler is now on an exposed end");
       const attrNote = attrNotes.join(", ");
       // Per-cabinet color (two-tone aware) for the export, mirroring the on-screen
       // line items. Included in the dedup key so different colors stay separate.
@@ -5963,7 +5983,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   }, [openings, room]);
 
   const addCabinet = useCallback(
-    (c: DesignCabinet, x?: number, y?: number, forceAccessory = false, rotation = 0, strictDropTarget = false, targetCabinetUid?: string | null, targetIslandFace?: IslandFace | null, forceBackDepthAdjustment = false, resolvedWallTarget?: { wallId: WallSide; wallOffset: number; peninsulaSide?: PeninsulaCabinetSide }, blindPullOverride?: number) => {
+    (c: DesignCabinet, x?: number, y?: number, forceAccessory = false, rotation = 0, strictDropTarget = false, targetCabinetUid?: string | null, targetIslandFace?: IslandFace | null, forceBackDepthAdjustment = false, resolvedWallTarget?: { wallId: WallSide; wallOffset: number; peninsulaSide?: PeninsulaCabinetSide }, blindPullOverride?: number, attachedFillerChoice?: AttachedFillerChoice) => {
       // A configured blind base's pull is an installation choice, not a hidden default.
       // Ask before committing the BBC or its mandatory linked filler;
       // Cancel therefore leaves the plan exactly as it was.
@@ -6853,7 +6873,66 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	        return;
 	      }
 
-	      let committedRun = normalizedRun;
+      if (
+        attachedFillerChoice === undefined
+        && !requestedIslandFace
+        && !isFillerAccessory
+        && (!isAccessory || (isFlatPanel && accPlacement === "tall"))
+        && !isBaseBlindCorner(finalCab)
+        && supportsAttachedFillerChoice({ ...c, placement: finalCab.placement })
+      ) {
+        const attachment = attachedFillerPlanForCandidate(finalCab, normalizedPrevious, room);
+        if (attachment && (attachment.leftAllowed || attachment.rightAllowed)) {
+          isAddingRef.current = false;
+          setAttachedFillerPrompt({
+            cabinet: c,
+            x,
+            y,
+            forceAccessory,
+            rotation,
+            strictDropTarget,
+            targetCabinetUid,
+            targetIslandFace,
+            forceBackDepthAdjustment,
+            resolvedWallTarget,
+            blindPullOverride,
+            leftText: "",
+            rightText: "",
+            leftAllowed: attachment.leftAllowed,
+            rightAllowed: attachment.rightAllowed,
+          });
+          setMobilePanel(null);
+          return;
+        }
+      }
+
+      if (attachedFillerChoice && (attachedFillerChoice.leftIn > 0 || attachedFillerChoice.rightIn > 0)) {
+        const attachment = buildAttachedFillerPlacement({
+          cabinet: finalCab,
+          placed: normalizedPrevious,
+          room,
+          choice: attachedFillerChoice,
+          catalogFillers,
+          makeUid,
+          styleId: styleIdRef.current ?? null,
+        });
+        if (!attachment.ok) {
+          setPlacementWarning(attachment.reason);
+          toast.error(attachment.reason);
+          return;
+        }
+        const seated = appendCollisionFreePlacements(normalizedPrevious, [attachment.cabinet, ...attachment.fillers], room);
+        if (seated.rejected.length > 0 || !seated.placed.some((item) => item.uid === attachment.cabinet.uid)) {
+          const message = `${finalCab.masterCode} and its selected filler${attachment.fillers.length === 1 ? "" : "s"} cannot fit at that exact zero-overlap position. The design was not changed.`;
+          setPlacementWarning(message);
+          toast.error(message);
+          return;
+        }
+        finalCab = attachment.cabinet;
+        normalizedRun = seated.placed;
+      }
+
+      let committedRun = normalizedRun;
 	      if (!requestedIslandFace && requiresConfiguredBlindCornerFiller(finalCab)) {
 	        const required = buildRequiredBlindCornerFiller(
 	          finalCab,
@@ -7084,9 +7163,9 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 		        setIslandSeatingOverhangPrompt({ cabinetCode: finalCab.masterCode, face: requestedIslandFace });
 		        setCountertop(true);
 		      }
-		      if (!requestedIslandFace && !isAccessory && !isBaseBlindCorner(finalCab) && (finalCab.placement !== "appliance" || isRangeOrOven(finalCab.masterCode))) {
-		        queueSmallGapFillerOpportunity(committedRun, finalCab.uid);
-		      } else setSmallGapFillerPrompt(null);
+	      if (!requestedIslandFace && !isAccessory && !isBaseBlindCorner(finalCab) && attachedFillerChoice === undefined && (finalCab.placement !== "appliance" || isRangeOrOven(finalCab.masterCode))) {
+	        queueSmallGapFillerOpportunity(committedRun, finalCab.uid);
+	      } else setSmallGapFillerPrompt(null);
 
 	      // Farmhouse bases use the visible side-panel guide so an apron-front sink
 	      // is never mistaken for an ordinary sink-base selection. Standard bases
@@ -10188,9 +10267,15 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       (current, uid) => removePlacedCabinetWithRequiredBlindCornerFiller(current, uid),
       committed,
     );
-    if (removeSharedFillerGroups && fillerGroups.size > 0) {
-      next = next.filter((cabinet) => !cabinet.fillerPieceGroupId || !fillerGroups.has(cabinet.fillerPieceGroupId));
-    }
+	    if (removeSharedFillerGroups && fillerGroups.size > 0) {
+	      next = next.filter((cabinet) => !cabinet.fillerPieceGroupId || !fillerGroups.has(cabinet.fillerPieceGroupId));
+	    }
+	    // Optional attached fillers are never silently deleted when a later cabinet
+	    // edit exposes their outside edge. Keep the purchased stock in the design
+	    // and flag it for the installer/customer to review in Attributes and Parts.
+	    next = next.map((cabinet) => cabinet.fillerAttachmentSide
+	      ? { ...cabinet, fillerNeedsReview: attachedFillerNeedsReview(cabinet, next, room) }
+	      : cabinet);
 		    const nextIsland = island
 		      ? synchronizeIslandCountertopFootprint(island, committed, next)
       : null;
@@ -10206,7 +10291,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     setAlternateWallRecommendation(null);
     setAlternateIslandFaceRecommendation(null);
     setSmallGapFillerPrompt(null);
-  }, [deleteAttachedSinkFixtures, island]);
+	  }, [deleteAttachedSinkFixtures, island, room]);
 
 	  const removeCabinetAndReleaseVoid = useCallback((uid: string) => {
 	    removeCabinetsAndReleaseVoid([uid]);
@@ -10532,6 +10617,41 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	    },
 	    []
 	  );
+	  const applyAttachedCabinetFillers = useCallback((uid: string, choice: AttachedFillerChoice) => {
+	    const owner = placedRef.current.find((item) => item.uid === uid);
+	    if (!owner || !supportsAttachedFillerChoice(owner)) return;
+	    if (owner.locked) {
+	      toast.info(`${owner.masterCode} is locked — unlock it before changing attached fillers.`);
+	      return;
+	    }
+	    const withoutAttached = placedRef.current.filter((item) => item.uid !== uid && !(item.fillerForCabinetUid === uid && item.fillerAttachmentSide));
+	    const built = buildAttachedFillerPlacement({
+	      cabinet: owner,
+	      placed: withoutAttached,
+	      room,
+	      choice,
+	      catalogFillers,
+	      makeUid,
+	      styleId: owner.styleId ?? styleIdRef.current ?? null,
+	    });
+	    if (!built.ok) {
+	      setPlacementWarning(built.reason);
+	      toast.error(built.reason);
+	      return;
+	    }
+	    const committed = appendCollisionFreePlacements(withoutAttached, [built.cabinet, ...built.fillers], room);
+	    if (committed.rejected.length > 0 || !committed.placed.some((item) => item.uid === uid)) {
+	      const message = `${owner.masterCode} cannot apply those attached fillers without a physical overlap. The design was not changed.`;
+	      setPlacementWarning(message);
+	      toast.error(message);
+	      return;
+	    }
+	    placedRef.current = committed.placed;
+	    setPlaced(committed.placed);
+	    setPlacementWarning(null);
+	    setSelectedUid(uid);
+	    toast.success(built.fillers.length ? `${owner.masterCode} attached filler${built.fillers.length === 1 ? "" : "s"} updated.` : `${owner.masterCode} attached fillers removed.`);
+	  }, [catalogFillers, room]);
 	  const toggleCabinetLock = useCallback((uid: string) => {
 	    setPlaced((prev) => prev.map((p) => {
 	      if (p.uid !== uid) return p;
@@ -10590,6 +10710,21 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	      requiredClearanceIn: placement.clearanceIn,
 	      startGapIn: Math.max(0, start),
 	      endGapIn: Math.max(0, length - end),
+	    };
+	  }, [attrUid, placed, room]);
+	  const attrAttachedFillerOptions = useMemo(() => {
+	    const owner = attrUid ? placed.find((item) => item.uid === attrUid) : null;
+	    if (!owner || owner.islandFace || !supportsAttachedFillerChoice(owner) || isBaseBlindCorner(owner)) return null;
+	    const attached = placed.filter((item) => item.fillerForCabinetUid === owner.uid && item.fillerAttachmentSide);
+	    const withoutAttached = placed.filter((item) => item.uid !== owner.uid && !(item.fillerForCabinetUid === owner.uid && item.fillerAttachmentSide));
+	    const plan = attachedFillerPlanForCandidate(owner, withoutAttached, room);
+	    if (!plan || (!plan.leftAllowed && !plan.rightAllowed && attached.length === 0)) return null;
+	    return {
+	      leftAllowed: plan.leftAllowed,
+	      rightAllowed: plan.rightAllowed,
+	      leftIn: attached.find((item) => item.fillerAttachmentSide === "left")?.width ?? 0,
+	      rightIn: attached.find((item) => item.fillerAttachmentSide === "right")?.width ?? 0,
+	      needsReview: attached.some((item) => item.fillerNeedsReview),
 	    };
 	  }, [attrUid, placed, room]);
 	  const [fillerAttrUid, setFillerAttrUid] = useState<string | null>(null);
@@ -18959,6 +19094,8 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	        wallPosition={cabinetWallPosition}
 	        onSetWallOffset={setCabinetWallOffset}
 	        cornerClearance={cabinetCornerClearance}
+	        attachedFillerOptions={attrAttachedFillerOptions}
+	        onApplyAttachedFillers={applyAttachedCabinetFillers}
 	        onResetSize={() => { resetWidth(); resetHeight(); resetDepth(); }}
         onSetSwing={setSwingFor}
         onSetNoDoor={setNoDoorFor}
@@ -20022,6 +20159,66 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	          })()}
 	        </DialogContent>
 	      </Dialog>
+
+          <Dialog open={!!attachedFillerPrompt} onOpenChange={(open) => { if (!open) setAttachedFillerPrompt(null); }}>
+            <DialogContent data-testid="attached-filler-choice-dialog" className="max-w-lg">
+              {attachedFillerPrompt && (() => {
+                const parseCut = (text: string) => {
+                  const value = Number(text);
+                  return Number.isFinite(value) && value > 0 ? Math.min(6, Math.max(0.125, Math.round(value * 8) / 8)) : 0;
+                };
+                const leftIn = parseCut(attachedFillerPrompt.leftText);
+                const rightIn = parseCut(attachedFillerPrompt.rightText);
+                const place = (choice: AttachedFillerChoice) => {
+                  const prompt = attachedFillerPrompt;
+                  setAttachedFillerPrompt(null);
+                  addCabinet(
+                    prompt.cabinet,
+                    prompt.x,
+                    prompt.y,
+                    prompt.forceAccessory,
+                    prompt.rotation,
+                    prompt.strictDropTarget,
+                    prompt.targetCabinetUid,
+                    prompt.targetIslandFace,
+                    prompt.forceBackDepthAdjustment,
+                    prompt.resolvedWallTarget,
+                    prompt.blindPullOverride,
+                    choice,
+                  );
+                };
+                return <>
+                  <DialogHeader>
+                    <DialogTitle>Choose attached fillers</DialogTitle>
+                    <DialogDescription>
+                      Choose optional ⅛″–6″ fillers before placing {attachedFillerPrompt.cabinet.masterCode}. Only the sides that meet a real wall or adjoining cabinet are offered. Each installed strip uses existing CabinetDealz filler stock and its authorized price.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-3">
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950">
+                      <strong>No filler</strong> is the default. A strip of 3″ or less is field-cut from its companion stock board; no short filler SKU or price is invented.
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {attachedFillerPrompt.leftAllowed && <label className="grid gap-1 text-sm font-medium">Filler LEFT (inches)
+                        <Input data-testid="attached-filler-left-input" aria-label="Left attached filler size in inches" type="number" inputMode="decimal" min="0.125" max="6" step="0.125" placeholder="No filler" value={attachedFillerPrompt.leftText} onChange={(event) => setAttachedFillerPrompt((current) => current ? { ...current, leftText: event.target.value } : current)} />
+                      </label>}
+                      {attachedFillerPrompt.rightAllowed && <label className="grid gap-1 text-sm font-medium">Filler RIGHT (inches)
+                        <Input data-testid="attached-filler-right-input" aria-label="Right attached filler size in inches" type="number" inputMode="decimal" min="0.125" max="6" step="0.125" placeholder="No filler" value={attachedFillerPrompt.rightText} onChange={(event) => setAttachedFillerPrompt((current) => current ? { ...current, rightText: event.target.value } : current)} />
+                      </label>}
+                    </div>
+                    <p className="text-xs text-muted-foreground">Selected: {leftIn > 0 ? `left ${formatEighthInches(leftIn)}` : "no left filler"}{leftIn > 0 && rightIn > 0 ? " · " : ""}{rightIn > 0 ? `right ${formatEighthInches(rightIn)}` : leftIn > 0 ? "" : " · no right filler"}.</p>
+                  </div>
+                  <DialogFooter className="flex-wrap gap-2 sm:justify-between">
+                    <Button type="button" variant="outline" onClick={() => setAttachedFillerPrompt(null)}>Cancel placement</Button>
+                    <div className="flex flex-wrap gap-2">
+                      <Button type="button" variant="outline" data-testid="attached-filler-no-filler" onClick={() => place({ leftIn: 0, rightIn: 0 })}>No filler</Button>
+                      <Button type="button" data-testid="attached-filler-place" onClick={() => place({ leftIn, rightIn })}>Place cabinet{leftIn > 0 || rightIn > 0 ? " with fillers" : ""}</Button>
+                    </div>
+                  </DialogFooter>
+                </>;
+              })()}
+            </DialogContent>
+          </Dialog>
 
 	      <Dialog
 	        open={!!blindCornerFillerPrompt}
