@@ -134,7 +134,12 @@ function DialogContent({
     const interactive = event.target.closest("button, a, input, textarea, select, [role='button']");
     if (!handle || interactive) return;
     dragOriginRef.current = { pointerId: event.pointerId, x: event.clientX, y: event.clientY, startX: dragOffset.x, startY: dragOffset.y };
-    event.currentTarget.setPointerCapture(event.pointerId);
+    // Pointer Capture keeps the drag alive when the pointer leaves the popup.
+    // It is unavailable in a few embedded/web-test environments, where normal
+    // bubbling still supplies the move events we can use safely.
+    if (typeof event.currentTarget.setPointerCapture === "function") {
+      event.currentTarget.setPointerCapture(event.pointerId);
+    }
     event.preventDefault();
   }, [dragOffset.x, dragOffset.y, onPointerDownCapture]);
 
@@ -217,7 +222,9 @@ function DialogTitle({
   return (
     <DialogPrimitive.Title
       data-slot="dialog-title"
-      className={cn("text-lg leading-none font-semibold", className)}
+      data-dialog-drag-handle="true"
+      title="Drag this popup"
+      className={cn("cursor-grab select-none text-lg leading-none font-semibold active:cursor-grabbing", className)}
       {...props}
     />
   );

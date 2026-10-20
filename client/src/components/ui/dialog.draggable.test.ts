@@ -16,5 +16,7 @@ describe("movable popup headers", () => {
   it("gives confirmation dialogs the same header-only drag behavior", () => {
     expect(alertDialogSource).toContain('data-alert-dialog-drag-handle="true"');
     expect(alertDialogSource).toContain("event.currentTarget.setPointerCapture(event.pointerId)");
+    expect(alertDialogSource).toContain("function AlertDialogTitle");
+    expect(alertDialogSource).toContain('title="Drag this popup"');
   });
 });

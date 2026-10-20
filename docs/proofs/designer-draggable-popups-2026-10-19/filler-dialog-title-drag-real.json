@@ -1,0 +1,69 @@
+[
+  {
+    "at": "2026-10-19T23:49:18.968Z",
+    "kind": "navigation",
+    "url": "https://3000-iiiccrm83w0u12z611siq-33db4eec.us1.manus.computer/design?qaFillerDialog=1"
+  },
+  {
+    "at": "2026-10-19T23:49:19.109Z",
+    "kind": "console",
+    "type": "debug",
+    "text": "[vite] connecting..."
+  },
+  {
+    "at": "2026-10-19T23:49:19.112Z",
+    "kind": "console",
+    "type": "debug",
+    "text": "[Manus] Debug collector initialized (no rrweb, UI events only)"
+  },
+  {
+    "at": "2026-10-19T23:49:19.137Z",
+    "kind": "console",
+    "type": "debug",
+    "text": "[vite] connected."
+  },
+  {
+    "at": "2026-10-19T23:49:19.483Z",
+    "kind": "console",
+    "type": "info",
+    "text": "%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold"
+  },
+  {
+    "at": "2026-10-19T23:49:47.653Z",
+    "kind": "console",
+    "type": "warning",
+    "text": "THREE.WebGLShadowMap: PCFSoftShadowMap has been deprecated. Using PCFShadowMap instead."
+  },
+  {
+    "at": "2026-10-19T23:49:54.302Z",
+    "kind": "console",
+    "type": "warning",
+    "text": "THREE.WebGLShadowMap: PCFSoftShadowMap has been deprecated. Using PCFShadowMap instead."
+  },
+  {
+    "at": "2026-10-19T23:50:14.241Z",
+    "kind": "drag",
+    "before": {
+      "x": 608.5,
+      "y": 88.5,
+      "width": 512,
+      "height": 656
+    },
+    "after": {
+      "x": 608.5,
+      "y": 13.698486328125,
+      "width": 512,
+      "height": 656
+    },
+    "movedUp": true,
+    "cssTranslate": "-50% calc(-50% - 74.8015px)"
+  },
+  {
+    "at": "2026-10-19T23:50:16.524Z",
+    "kind": "result",
+    "url": "https://3000-iiiccrm83w0u12z611siq-33db4eec.us1.manus.computer/design?qaFillerDialog=1",
+    "savedPlan": false,
+    "dialogVisible": true,
+    "movedUp": true
+  }
+]

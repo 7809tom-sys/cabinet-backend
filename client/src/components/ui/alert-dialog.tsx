@@ -59,7 +59,9 @@ function AlertDialogContent({
     const interactive = event.target.closest("button, a, input, textarea, select, [role='button']");
     if (!handle || interactive) return;
     dragOriginRef.current = { pointerId: event.pointerId, x: event.clientX, y: event.clientY, startX: dragOffset.x, startY: dragOffset.y };
-    event.currentTarget.setPointerCapture(event.pointerId);
+    if (typeof event.currentTarget.setPointerCapture === "function") {
+      event.currentTarget.setPointerCapture(event.pointerId);
+    }
     event.preventDefault();
   }, [dragOffset.x, dragOffset.y, onPointerDownCapture]);
   const handlePointerMove = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
@@ -81,7 +83,10 @@ function AlertDialogContent({
           "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border p-6 shadow-lg duration-200 sm:max-w-lg",
           className
         )}
-        style={{ ...style, translate: `${dragOffset.x}px ${dragOffset.y}px` }}
+        // Preserve the Tailwind centering translation while adding the title-bar
+        // drag delta. Replacing it with raw pixels anchors the popup's top-left
+        // corner at the viewport center after the first move.
+        style={{ ...style, translate: `calc(-50% + ${dragOffset.x}px) calc(-50% + ${dragOffset.y}px)` }}
         onPointerDownCapture={handlePointerDownCapture}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
@@ -129,7 +134,9 @@ function AlertDialogTitle({
   return (
     <AlertDialogPrimitive.Title
       data-slot="alert-dialog-title"
-      className={cn("text-lg font-semibold", className)}
+      data-alert-dialog-drag-handle="true"
+      title="Drag this popup"
+      className={cn("cursor-grab select-none text-lg font-semibold active:cursor-grabbing", className)}
       {...props}
     />
   );
