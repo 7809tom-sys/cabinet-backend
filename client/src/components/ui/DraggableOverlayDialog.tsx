@@ -1,6 +1,7 @@
 import * as React from "react";
 
 import { cn } from "@/lib/utils";
+import { clampPopupSessionPosition, popupSessionPositionKey, readPopupSessionPosition, writePopupSessionPosition } from "./popupSessionPosition";
 
 type DraggableOverlayDialogProps = Omit<React.ComponentProps<"div">, "style" | "children"> & {
   children: React.ReactNode;
@@ -8,6 +9,8 @@ type DraggableOverlayDialogProps = Omit<React.ComponentProps<"div">, "style" | "
   contentStyle?: React.CSSProperties;
   overlayClassName?: string;
   onBackdropClick?: () => void;
+  /** Optional stable identity for remembering this popup’s position within the browser session. */
+  popupPositionKey?: string;
 };
 
 /**
@@ -24,23 +27,40 @@ export function DraggableOverlayDialog({
   overlayClassName,
   onBackdropClick,
   onPointerDownCapture,
+  popupPositionKey,
   ...contentProps
 }: DraggableOverlayDialogProps) {
   const [dragOffset, setDragOffset] = React.useState({ x: 0, y: 0 });
+  const dragOffsetRef = React.useRef(dragOffset);
   const dragOriginRef = React.useRef<{ pointerId: number; x: number; y: number; startX: number; startY: number } | null>(null);
   const contentRef = React.useRef<HTMLDivElement>(null);
+  const contentAriaLabel = contentProps["aria-label"];
 
-  const clampOffset = React.useCallback((x: number, y: number) => {
+  const clampOffset = React.useCallback((position: { x: number; y: number }) => {
     const rect = contentRef.current?.getBoundingClientRect();
-    if (!rect || !rect.width || !rect.height || typeof window === "undefined") return { x, y };
-    const inset = 12;
-    const baseLeft = window.innerWidth / 2 - rect.width / 2;
-    const baseTop = window.innerHeight / 2 - rect.height / 2;
-    return {
-      x: Math.min(Math.max(x, inset - baseLeft), window.innerWidth - inset - rect.width - baseLeft),
-      y: Math.min(Math.max(y, inset - baseTop), window.innerHeight - inset - rect.height - baseTop),
-    };
+    if (!rect || !rect.width || !rect.height || typeof window === "undefined") return position;
+    return clampPopupSessionPosition(position, rect.width, rect.height, window.innerWidth, window.innerHeight);
   }, []);
+
+  const setRememberedOffset = React.useCallback((position: { x: number; y: number }) => {
+    const clamped = clampOffset(position);
+    dragOffsetRef.current = clamped;
+    setDragOffset(clamped);
+    return clamped;
+  }, [clampOffset]);
+
+  React.useLayoutEffect(() => {
+    const title = contentRef.current?.querySelector("[data-popup-drag-handle='true']")?.textContent;
+    const key = popupSessionPositionKey({
+      kind: "overlay-dialog",
+      explicitKey: popupPositionKey,
+      testId: contentRef.current?.getAttribute("data-testid"),
+      ariaLabel: typeof contentAriaLabel === "string" ? contentAriaLabel : null,
+      title,
+    });
+    const remembered = readPopupSessionPosition(key);
+    if (remembered) setRememberedOffset(remembered);
+  }, [contentAriaLabel, popupPositionKey, setRememberedOffset]);
 
   const handlePointerDownCapture = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
     onPointerDownCapture?.(event);
@@ -53,24 +73,34 @@ export function DraggableOverlayDialog({
       pointerId: event.pointerId,
       x: event.clientX,
       y: event.clientY,
-      startX: dragOffset.x,
-      startY: dragOffset.y,
+      startX: dragOffsetRef.current.x,
+      startY: dragOffsetRef.current.y,
     };
     if (typeof event.currentTarget.setPointerCapture === "function") {
       event.currentTarget.setPointerCapture(event.pointerId);
     }
     event.preventDefault();
-  }, [dragOffset.x, dragOffset.y, onPointerDownCapture]);
+  }, [onPointerDownCapture]);
 
   const handlePointerMove = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
     const origin = dragOriginRef.current;
     if (!origin || origin.pointerId !== event.pointerId) return;
-    setDragOffset(clampOffset(origin.startX + event.clientX - origin.x, origin.startY + event.clientY - origin.y));
-  }, [clampOffset]);
+    setRememberedOffset({ x: origin.startX + event.clientX - origin.x, y: origin.startY + event.clientY - origin.y });
+  }, [setRememberedOffset]);
 
   const stopDragging = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
-    if (dragOriginRef.current?.pointerId === event.pointerId) dragOriginRef.current = null;
-  }, []);
+    if (dragOriginRef.current?.pointerId !== event.pointerId) return;
+    dragOriginRef.current = null;
+    const title = contentRef.current?.querySelector("[data-popup-drag-handle='true']")?.textContent;
+    const key = popupSessionPositionKey({
+      kind: "overlay-dialog",
+      explicitKey: popupPositionKey,
+      testId: contentRef.current?.getAttribute("data-testid"),
+      ariaLabel: typeof contentAriaLabel === "string" ? contentAriaLabel : null,
+      title,
+    });
+    writePopupSessionPosition(key, dragOffsetRef.current);
+  }, [contentAriaLabel, popupPositionKey]);
 
   return (
     <div className="fixed inset-0 z-[300]" role="dialog" aria-modal="true">

@@ -222,6 +222,7 @@ import { DesignDeliveryDialog } from "@/components/design/DesignDeliveryDialog";
 import { DesignActions, type BuildSheetRow } from "@/components/design/DesignActions";
 import { DesignMaterialsListDialog } from "@/components/design/DesignMaterialsListDialog";
 import { DraggableOverlayDialog } from "@/components/ui/DraggableOverlayDialog";
+import { PopupDragGrip } from "@/components/ui/PopupDragGrip";
 import { summarizeMissingPrices, missingPriceBannerText } from "@/lib/designMissingPrice";
 import { DesignMissingPricePopover, type MissingPriceAlternative } from "@/components/design/DesignMissingPricePopover";
 import { buildMaterialsListRows, type MaterialsListSupplement } from "@/lib/designMaterialsList";
@@ -19270,9 +19271,12 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
           >
               {rangeTopStep === "choose" && (
                 <>
-                  <div data-popup-drag-handle="true" title="Drag this popup" className="cursor-grab select-none active:cursor-grabbing">
-                    <h2 className="text-lg font-semibold text-foreground">{isBathroomVanity ? "Choose a vanity sink" : "What goes on top?"}</h2>
-                    <p className="text-sm text-muted-foreground mt-1">{isBathroomVanity ? "Choose a Pelican porcelain vanity sink and matching vanity faucet." : "Choose what will be installed on this sink base cabinet."}</p>
+                  <div data-popup-drag-handle="true" title="Drag this popup" className="flex cursor-grab select-none items-start gap-1.5 active:cursor-grabbing">
+                    <PopupDragGrip className="mt-0.5" />
+                    <div>
+                      <h2 className="text-lg font-semibold text-foreground">{isBathroomVanity ? "Choose a vanity sink" : "What goes on top?"}</h2>
+                      <p className="text-sm text-muted-foreground mt-1">{isBathroomVanity ? "Choose a Pelican porcelain vanity sink and matching vanity faucet." : "Choose what will be installed on this sink base cabinet."}</p>
+                    </div>
                   </div>
                   <div className={`grid gap-3 ${isBathroomVanity ? "grid-cols-1" : "grid-cols-2"}`}>
                     {!isBathroomVanity && <button
@@ -19305,6 +19309,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
               {rangeTopStep === "sink" && (
                 <>
                   <div data-popup-drag-handle="true" title="Drag this popup" className="flex cursor-grab select-none items-center gap-2 active:cursor-grabbing">
+                    <PopupDragGrip />
                     <button className="text-muted-foreground hover:text-foreground transition-colors" onClick={() => setRangeTopStep("choose")}>
                       <ChevronRight className="h-4 w-4 rotate-180" />
                     </button>
@@ -19332,6 +19337,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
               {rangeTopStep === "faucet" && (
                 <>
                   <div data-popup-drag-handle="true" title="Drag this popup" className="flex cursor-grab select-none items-center gap-2 active:cursor-grabbing">
+                    <PopupDragGrip />
                     <button className="text-muted-foreground hover:text-foreground transition-colors" onClick={() => setRangeTopStep("sink")}>
                       <ChevronRight className="h-4 w-4 rotate-180" />
                     </button>
@@ -19381,6 +19387,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
               {rangeTopStep === "range-type" && (
                 <>
                   <div data-popup-drag-handle="true" title="Drag this popup" className="flex cursor-grab select-none items-center gap-2 active:cursor-grabbing">
+                    <PopupDragGrip />
                     <button className="text-muted-foreground hover:text-foreground transition-colors" onClick={() => setRangeTopStep("choose")}>
                       <ChevronRight className="h-4 w-4 rotate-180" />
                     </button>
@@ -19419,6 +19426,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                 return (
                 <>
                   <div data-popup-drag-handle="true" title="Drag this popup" className="flex cursor-grab select-none items-center gap-2 active:cursor-grabbing">
+                    <PopupDragGrip />
                     <button className="text-muted-foreground hover:text-foreground transition-colors" onClick={() => setRangeTopStep("range-type")}>
                       <ChevronRight className="h-4 w-4 rotate-180" />
                     </button>
@@ -19494,7 +19502,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       {/* Oven Type Dialog: opens when an oven tall cabinet (O-code) is placed */}
       {ovenDialog && (
         <DraggableOverlayDialog contentClassName="bg-card rounded-2xl shadow-2xl border border-border p-6 w-[340px] max-w-[90vw] flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-200">
-            <h2 data-popup-drag-handle="true" title="Drag this popup" className="cursor-grab select-none text-lg font-semibold text-foreground active:cursor-grabbing">Oven Cabinet Type</h2>
+            <h2 data-popup-drag-handle="true" title="Drag this popup" className="flex cursor-grab select-none items-center gap-1.5 text-lg font-semibold text-foreground active:cursor-grabbing"><PopupDragGrip />Oven Cabinet Type</h2>
             <p className="text-sm text-muted-foreground">Is this going to be a single oven or a double oven?</p>
             <div className="grid grid-cols-2 gap-3">
               <button

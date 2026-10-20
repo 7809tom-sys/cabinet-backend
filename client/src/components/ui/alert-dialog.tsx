@@ -3,6 +3,8 @@ import * as AlertDialogPrimitive from "@radix-ui/react-alert-dialog";
 
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
+import { PopupDragGrip } from "./PopupDragGrip";
+import { clampPopupSessionPosition, popupSessionPositionKey, readPopupSessionPosition, writePopupSessionPosition } from "./popupSessionPosition";
 
 function AlertDialog({
   ...props
@@ -48,36 +50,85 @@ function AlertDialogContent({
   onPointerDownCapture,
   onPointerMove,
   onPointerUp,
+  popupPositionKey,
   ...props
-}: React.ComponentProps<typeof AlertDialogPrimitive.Content>) {
+}: React.ComponentProps<typeof AlertDialogPrimitive.Content> & {
+  /** Optional stable identity for remembering this popup’s position within the browser session. */
+  popupPositionKey?: string;
+}) {
   const dragOriginRef = React.useRef<{ pointerId: number; x: number; y: number; startX: number; startY: number } | null>(null);
   const [dragOffset, setDragOffset] = React.useState({ x: 0, y: 0 });
+  const dragOffsetRef = React.useRef(dragOffset);
+  const contentRef = React.useRef<HTMLDivElement>(null);
+  const [contentElement, setContentElement] = React.useState<HTMLDivElement | null>(null);
+  const contentAriaLabel = props["aria-label"];
+  const setContentRef = React.useCallback((element: HTMLDivElement | null) => {
+    contentRef.current = element;
+    setContentElement(element);
+  }, []);
+  const clampOffset = React.useCallback((position: { x: number; y: number }) => {
+    const rect = contentRef.current?.getBoundingClientRect();
+    if (!rect || !rect.width || !rect.height || typeof window === "undefined") return position;
+    return clampPopupSessionPosition(position, rect.width, rect.height, window.innerWidth, window.innerHeight);
+  }, []);
+  const setRememberedOffset = React.useCallback((position: { x: number; y: number }) => {
+    const clamped = clampOffset(position);
+    dragOffsetRef.current = clamped;
+    setDragOffset(clamped);
+    return clamped;
+  }, [clampOffset]);
+
+  React.useLayoutEffect(() => {
+    if (!contentElement) return;
+    const title = contentElement.querySelector("[data-slot='alert-dialog-title']")?.textContent;
+    const key = popupSessionPositionKey({
+      kind: "alert-dialog",
+      explicitKey: popupPositionKey,
+      testId: contentElement.getAttribute("data-testid"),
+      ariaLabel: typeof contentAriaLabel === "string" ? contentAriaLabel : null,
+      title,
+    });
+    const remembered = readPopupSessionPosition(key);
+    if (remembered) setRememberedOffset(remembered);
+  }, [contentAriaLabel, contentElement, popupPositionKey, setRememberedOffset]);
+
   const handlePointerDownCapture = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
     onPointerDownCapture?.(event);
     if (event.defaultPrevented || event.button !== 0 || !(event.target instanceof HTMLElement)) return;
     const handle = event.target.closest("[data-alert-dialog-drag-handle]");
     const interactive = event.target.closest("button, a, input, textarea, select, [role='button']");
     if (!handle || interactive) return;
-    dragOriginRef.current = { pointerId: event.pointerId, x: event.clientX, y: event.clientY, startX: dragOffset.x, startY: dragOffset.y };
+    dragOriginRef.current = { pointerId: event.pointerId, x: event.clientX, y: event.clientY, startX: dragOffsetRef.current.x, startY: dragOffsetRef.current.y };
     if (typeof event.currentTarget.setPointerCapture === "function") {
       event.currentTarget.setPointerCapture(event.pointerId);
     }
     event.preventDefault();
-  }, [dragOffset.x, dragOffset.y, onPointerDownCapture]);
+  }, [onPointerDownCapture]);
   const handlePointerMove = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
     onPointerMove?.(event);
     const origin = dragOriginRef.current;
     if (!origin || origin.pointerId !== event.pointerId) return;
-    setDragOffset({ x: origin.startX + event.clientX - origin.x, y: origin.startY + event.clientY - origin.y });
-  }, [onPointerMove]);
+    setRememberedOffset({ x: origin.startX + event.clientX - origin.x, y: origin.startY + event.clientY - origin.y });
+  }, [onPointerMove, setRememberedOffset]);
   const handlePointerUp = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
     onPointerUp?.(event);
-    if (dragOriginRef.current?.pointerId === event.pointerId) dragOriginRef.current = null;
-  }, [onPointerUp]);
+    if (dragOriginRef.current?.pointerId !== event.pointerId) return;
+    dragOriginRef.current = null;
+    const title = contentRef.current?.querySelector("[data-slot='alert-dialog-title']")?.textContent;
+    const key = popupSessionPositionKey({
+      kind: "alert-dialog",
+      explicitKey: popupPositionKey,
+      testId: contentRef.current?.getAttribute("data-testid"),
+      ariaLabel: typeof contentAriaLabel === "string" ? contentAriaLabel : null,
+      title,
+    });
+    writePopupSessionPosition(key, dragOffsetRef.current);
+  }, [contentAriaLabel, onPointerUp, popupPositionKey]);
   return (
     <AlertDialogPortal>
       <AlertDialogOverlay />
       <AlertDialogPrimitive.Content
+        ref={setContentRef}
         data-slot="alert-dialog-content"
         className={cn(
           "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border p-6 shadow-lg duration-200 sm:max-w-lg",
@@ -129,6 +180,7 @@ function AlertDialogFooter({
 
 function AlertDialogTitle({
   className,
+  children,
   ...props
 }: React.ComponentProps<typeof AlertDialogPrimitive.Title>) {
   return (
@@ -136,9 +188,12 @@ function AlertDialogTitle({
       data-slot="alert-dialog-title"
       data-alert-dialog-drag-handle="true"
       title="Drag this popup"
-      className={cn("cursor-grab select-none text-lg font-semibold active:cursor-grabbing", className)}
+      className={cn("flex cursor-grab select-none items-center gap-1.5 text-lg font-semibold active:cursor-grabbing", className)}
       {...props}
-    />
+    >
+      <PopupDragGrip />
+      {children}
+    </AlertDialogPrimitive.Title>
   );
 }
 

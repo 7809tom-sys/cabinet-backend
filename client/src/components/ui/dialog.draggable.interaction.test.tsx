@@ -1,11 +1,14 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "./dialog";
 import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogHeader, AlertDialogTitle } from "./alert-dialog";
 import { FillerAttributesDialog } from "@/components/design/FillerAttributesDialog";
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  window.sessionStorage.clear();
+});
 
 function TitleOnlyDialog() {
   return (
@@ -61,8 +64,24 @@ describe("Dialog popup dragging", () => {
     const title = screen.getByText("Title-only popup");
 
     expect(title.getAttribute("data-dialog-drag-handle")).toBe("true");
+    expect(title.querySelector("[data-popup-drag-grip='true']")?.getAttribute("title")).toBe("Drag to move");
     drag(title);
     expect(dialog.style.translate).toContain("-270px");
+  });
+
+  it("restores a standard popup to its last dragged position when it is reopened in the same Designer session", async () => {
+    const first = render(<HeaderDialog />);
+    const movedDialog = screen.getByTestId("header-dialog");
+    drag(screen.getByText("Header popup"), 70);
+    const savedTranslate = movedDialog.style.translate;
+    expect(savedTranslate).toContain("-270px");
+    expect(window.sessionStorage.length).toBeGreaterThan(0);
+    expect([...Array(window.sessionStorage.length)].map((_, index) => window.sessionStorage.key(index))).toContain("cabinet-dealz:popup-position:v1:dialog:header-dialog");
+
+    first.unmount();
+    render(<HeaderDialog />);
+
+    await waitFor(() => expect(screen.getByTestId("header-dialog").style.translate).toBe(savedTranslate));
   });
 
   it("moves a standard header popup upward without turning its close or form controls into drag handles", () => {
@@ -113,7 +132,21 @@ describe("Dialog popup dragging", () => {
     const title = screen.getByText("Confirmation popup");
 
     expect(title.getAttribute("data-alert-dialog-drag-handle")).toBe("true");
+    expect(title.querySelector("[data-popup-drag-grip='true']")?.getAttribute("title")).toBe("Drag to move");
     drag(title, 9);
     expect(dialog.style.translate).toContain("calc(-50% + 0px) calc(-50% + -270px)");
+  });
+
+  it("restores a confirmation popup to its last dragged position when reopened in the same Designer session", async () => {
+    const first = render(<TitleOnlyConfirmationDialog />);
+    const movedDialog = screen.getByTestId("title-only-confirmation-dialog");
+    drag(screen.getByText("Confirmation popup"), 90);
+    const savedTranslate = movedDialog.style.translate;
+    expect(savedTranslate).toContain("-270px");
+
+    first.unmount();
+    render(<TitleOnlyConfirmationDialog />);
+
+    await waitFor(() => expect(screen.getByTestId("title-only-confirmation-dialog").style.translate).toBe(savedTranslate));
   });
 });

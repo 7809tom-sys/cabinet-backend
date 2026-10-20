@@ -11,6 +11,9 @@ describe("movable popup headers", () => {
     expect(dialogSource).toContain("event.currentTarget.setPointerCapture(event.pointerId)");
 	    expect(dialogSource).toContain("calc(-50% + ${dragOffset.x}px) calc(-50% + ${dragOffset.y}px)");
 	    expect(dialogSource).toContain("Tailwind v4 implements the centering utilities");
+    expect(dialogSource).toContain("PopupDragGrip");
+    expect(dialogSource).toContain("readPopupSessionPosition");
+    expect(dialogSource).toContain("writePopupSessionPosition");
   });
 
   it("gives confirmation dialogs the same header-only drag behavior", () => {
@@ -18,5 +21,8 @@ describe("movable popup headers", () => {
     expect(alertDialogSource).toContain("event.currentTarget.setPointerCapture(event.pointerId)");
     expect(alertDialogSource).toContain("function AlertDialogTitle");
     expect(alertDialogSource).toContain('title="Drag this popup"');
+    expect(alertDialogSource).toContain("PopupDragGrip");
+    expect(alertDialogSource).toContain("readPopupSessionPosition");
+    expect(alertDialogSource).toContain("writePopupSessionPosition");
   });
 });

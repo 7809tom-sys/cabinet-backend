@@ -2,6 +2,8 @@ import { cn } from "@/lib/utils";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { XIcon } from "lucide-react";
 import * as React from "react";
+import { PopupDragGrip } from "./PopupDragGrip";
+import { clampPopupSessionPosition, popupSessionPositionKey, readPopupSessionPosition, writePopupSessionPosition } from "./popupSessionPosition";
 
 // Context to track composition state across dialog children
 const DialogCompositionContext = React.createContext<{
@@ -99,15 +101,53 @@ function DialogContent({
   onPointerDownCapture,
   onPointerMove,
   onPointerUp,
+  popupPositionKey,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean;
   /** Use only for explicitly non-modal tools that must leave an underlying workspace interactive. */
   hideOverlay?: boolean;
+  /** Optional stable identity for remembering this popup’s position within the browser session. */
+  popupPositionKey?: string;
 }) {
   const { isComposing } = useDialogComposition();
   const dragOriginRef = React.useRef<{ pointerId: number; x: number; y: number; startX: number; startY: number } | null>(null);
   const [dragOffset, setDragOffset] = React.useState({ x: 0, y: 0 });
+  const dragOffsetRef = React.useRef(dragOffset);
+  const contentRef = React.useRef<HTMLDivElement>(null);
+  const [contentElement, setContentElement] = React.useState<HTMLDivElement | null>(null);
+  const contentAriaLabel = props["aria-label"];
+  const setContentRef = React.useCallback((element: HTMLDivElement | null) => {
+    contentRef.current = element;
+    setContentElement(element);
+  }, []);
+
+  const clampOffset = React.useCallback((position: { x: number; y: number }) => {
+    const rect = contentRef.current?.getBoundingClientRect();
+    if (!rect || !rect.width || !rect.height || typeof window === "undefined") return position;
+    return clampPopupSessionPosition(position, rect.width, rect.height, window.innerWidth, window.innerHeight);
+  }, []);
+
+  const setRememberedOffset = React.useCallback((position: { x: number; y: number }) => {
+    const clamped = clampOffset(position);
+    dragOffsetRef.current = clamped;
+    setDragOffset(clamped);
+    return clamped;
+  }, [clampOffset]);
+
+  React.useLayoutEffect(() => {
+    if (!contentElement) return;
+    const title = contentElement.querySelector("[data-slot='dialog-title']")?.textContent;
+    const key = popupSessionPositionKey({
+      kind: "dialog",
+      explicitKey: popupPositionKey,
+      testId: contentElement.getAttribute("data-testid"),
+      ariaLabel: typeof contentAriaLabel === "string" ? contentAriaLabel : null,
+      title,
+    });
+    const remembered = readPopupSessionPosition(key);
+    if (remembered) setRememberedOffset(remembered);
+  }, [contentAriaLabel, contentElement, popupPositionKey, setRememberedOffset]);
 
   const handleEscapeKeyDown = React.useCallback(
     (e: KeyboardEvent) => {
@@ -133,7 +173,7 @@ function DialogContent({
     const handle = event.target.closest("[data-dialog-drag-handle]");
     const interactive = event.target.closest("button, a, input, textarea, select, [role='button']");
     if (!handle || interactive) return;
-    dragOriginRef.current = { pointerId: event.pointerId, x: event.clientX, y: event.clientY, startX: dragOffset.x, startY: dragOffset.y };
+    dragOriginRef.current = { pointerId: event.pointerId, x: event.clientX, y: event.clientY, startX: dragOffsetRef.current.x, startY: dragOffsetRef.current.y };
     // Pointer Capture keeps the drag alive when the pointer leaves the popup.
     // It is unavailable in a few embedded/web-test environments, where normal
     // bubbling still supplies the move events we can use safely.
@@ -141,24 +181,35 @@ function DialogContent({
       event.currentTarget.setPointerCapture(event.pointerId);
     }
     event.preventDefault();
-  }, [dragOffset.x, dragOffset.y, onPointerDownCapture]);
+  }, [onPointerDownCapture]);
 
   const handlePointerMove = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
     onPointerMove?.(event);
     const origin = dragOriginRef.current;
     if (!origin || origin.pointerId !== event.pointerId) return;
-    setDragOffset({ x: origin.startX + event.clientX - origin.x, y: origin.startY + event.clientY - origin.y });
-  }, [onPointerMove]);
+    setRememberedOffset({ x: origin.startX + event.clientX - origin.x, y: origin.startY + event.clientY - origin.y });
+  }, [onPointerMove, setRememberedOffset]);
 
   const handlePointerUp = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
     onPointerUp?.(event);
-    if (dragOriginRef.current?.pointerId === event.pointerId) dragOriginRef.current = null;
-  }, [onPointerUp]);
+    if (dragOriginRef.current?.pointerId !== event.pointerId) return;
+    dragOriginRef.current = null;
+    const title = contentRef.current?.querySelector("[data-slot='dialog-title']")?.textContent;
+    const key = popupSessionPositionKey({
+      kind: "dialog",
+      explicitKey: popupPositionKey,
+      testId: contentRef.current?.getAttribute("data-testid"),
+      ariaLabel: typeof contentAriaLabel === "string" ? contentAriaLabel : null,
+      title,
+    });
+    writePopupSessionPosition(key, dragOffsetRef.current);
+  }, [contentAriaLabel, onPointerUp, popupPositionKey]);
 
   return (
     <DialogPortal data-slot="dialog-portal">
       {!hideOverlay && <DialogOverlay />}
       <DialogPrimitive.Content
+        ref={setContentRef}
         data-slot="dialog-content"
         className={cn(
           "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border p-6 shadow-lg duration-200 sm:max-w-lg",
@@ -217,6 +268,7 @@ function DialogFooter({ className, ...props }: React.ComponentProps<"div">) {
 
 function DialogTitle({
   className,
+  children,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Title>) {
   return (
@@ -224,9 +276,12 @@ function DialogTitle({
       data-slot="dialog-title"
       data-dialog-drag-handle="true"
       title="Drag this popup"
-      className={cn("cursor-grab select-none text-lg leading-none font-semibold active:cursor-grabbing", className)}
+      className={cn("flex cursor-grab select-none items-center gap-1.5 text-lg leading-none font-semibold active:cursor-grabbing", className)}
       {...props}
-    />
+    >
+      <PopupDragGrip />
+      {children}
+    </DialogPrimitive.Title>
   );
 }
 
