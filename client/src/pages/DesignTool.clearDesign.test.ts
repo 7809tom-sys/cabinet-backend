@@ -98,6 +98,28 @@ describe("DesignTool authoritative Clear Design transaction", () => {
     expect(source).toContain("<RoomLayoutStarter");
   });
 
+  it("starts a new drawing with only the automatic toe kick selected", () => {
+    const block = clearDesignBlock();
+    expect(source).toContain("const [toeKick, setToeKick] = useState(true);");
+    expect(block).toContain("setToeKick(true);");
+    for (const optionalSelection of [
+      "setCrown(false);",
+      "setBatten(false);",
+      "setLightRail(false);",
+      "setValance(false);",
+      "setCountertop(false);",
+      "setIsland(null);",
+    ]) {
+      expect(block).toContain(optionalSelection);
+    }
+    expect(source).toContain('checked={!!island}');
+    expect(source).toContain("checked={toeKick}");
+    expect(source).toContain("checked={crown}");
+    expect(source).toContain("checked={batten}");
+    expect(source).toContain("checked={lightRail}");
+    expect(source).toContain("checked={valance}");
+  });
+
   it("also prompts when verified draft restoration finds no designed kitchen", () => {
     expect(source).toContain("let restoredDesignedKitchen = false");
     expect(source).toContain("restoredDesignedKitchen = true");

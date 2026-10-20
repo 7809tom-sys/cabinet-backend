@@ -1059,14 +1059,15 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         room,
       ));
   }, [placed, openings, room, setPlaced]);
-  // Trim toggles rendered in elevation + added to the BOM. Toe kick, crown,
-  // light rail, and batten AUTO-APPLY based on their physical layout rules.
+  // Trim toggles rendered in elevation + added to the BOM. A fresh drawing
+  // begins with its required toe kick selected; all other trim remains opt-in
+  // until its physical layout rule or the customer selects it.
   // An arched valance is decorative and must be deliberately selected—having a
   // window beside wall cabinets is not proof that one belongs in the plan or
   // invoice. trimOverride remembers an explicit user choice so automation never
   // fights the user.
   const [crown, setCrown] = useState(false);
-  const [toeKick, setToeKick] = useState(false);
+  const [toeKick, setToeKick] = useState(true);
   const [batten, setBatten] = useState(false);
   const [lightRail, setLightRail] = useState(false);
   const [valance, setValance] = useState(false);
@@ -2101,8 +2102,10 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   // leaves every physical collision and opening-clearance check in force.
   const [automaticSnapping, setAutomaticSnapping] = useState(true);
   const [showPeninsulaCornerSnapFeedback, setShowPeninsulaCornerSnapFeedback] = useState(() => {
-    if (typeof window === "undefined") return true;
-    return window.localStorage.getItem(PENINSULA_CORNER_SNAP_FEEDBACK_PREFERENCE) !== "false";
+    if (typeof window === "undefined") return false;
+    // The dropdown starts with no optional feedback selected. Preserve a
+    // customer’s own prior opt-in, but never treat a missing preference as one.
+    return window.localStorage.getItem(PENINSULA_CORNER_SNAP_FEEDBACK_PREFERENCE) === "true";
   });
   useEffect(() => {
     window.localStorage.setItem(
@@ -12535,7 +12538,8 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     setPendingRangeTopType(null);
     setBuiltinRunArmed(false);
     setCrown(false);
-    setToeKick(false);
+    // Toe kick is the sole automatic selection on a completely new drawing.
+    setToeKick(true);
     setBatten(false);
     setLightRail(false);
     setCountertop(false);
