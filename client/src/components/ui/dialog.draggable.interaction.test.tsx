@@ -52,9 +52,9 @@ function drag(handle: HTMLElement, pointerId = 7) {
   if (content && typeof content.setPointerCapture !== "function") {
     Object.defineProperty(content, "setPointerCapture", { configurable: true, value: () => undefined });
   }
-  fireEvent.pointerDown(handle, { pointerId, button: 0, clientX: 400, clientY: 450 });
-  fireEvent.pointerMove(handle, { pointerId, clientX: 400, clientY: 180 });
-  fireEvent.pointerUp(handle, { pointerId, clientX: 400, clientY: 180 });
+  fireEvent.pointerDown(handle, { pointerId, button: 0, buttons: 1, clientX: 400, clientY: 450 });
+  fireEvent.pointerMove(handle, { pointerId, buttons: 1, clientX: 400, clientY: 180 });
+  fireEvent.pointerUp(handle, { pointerId, buttons: 0, clientX: 400, clientY: 180 });
 }
 
 describe("Dialog popup dragging", () => {
@@ -93,7 +93,7 @@ describe("Dialog popup dragging", () => {
     const savedTranslate = movedDialog.style.translate;
     expect(savedTranslate).toContain("-270px");
     expect(window.sessionStorage.length).toBeGreaterThan(0);
-    expect([...Array(window.sessionStorage.length)].map((_, index) => window.sessionStorage.key(index))).toContain("cabinet-dealz:popup-position:v1:dialog:header-dialog");
+    expect([...Array(window.sessionStorage.length)].map((_, index) => window.sessionStorage.key(index))).toContain("cabinet-dealz:popup-position:v2:dialog:header-dialog");
 
     first.unmount();
     render(<HeaderDialog />);
@@ -109,6 +109,19 @@ describe("Dialog popup dragging", () => {
     fireEvent.pointerDown(grip, { pointerId: 73, button: 0, clientX: 400, clientY: 450 });
     fireEvent.pointerCancel(grip, { pointerId: 73, clientX: 400, clientY: 450 });
     fireEvent.pointerMove(grip, { pointerId: 73, clientX: 400, clientY: 180 });
+
+    expect(dialog.style.translate).toBe("calc(-50% + 0px) calc(-50% + 0px)");
+    expect(window.sessionStorage.length).toBe(0);
+  });
+
+  it("stops an abandoned grip drag when pointer movement reports no pressed input", () => {
+    render(<HeaderDialog />);
+    const dialog = screen.getByTestId("header-dialog");
+    const grip = screen.getByRole("button", { name: "Drag to move this popup" });
+
+    fireEvent.pointerDown(grip, { pointerId: 74, button: 0, buttons: 1, clientX: 400, clientY: 450 });
+    fireEvent.pointerMove(grip, { pointerId: 74, buttons: 0, clientX: 400, clientY: 180 });
+    fireEvent.pointerMove(grip, { pointerId: 74, buttons: 1, clientX: 400, clientY: 80 });
 
     expect(dialog.style.translate).toBe("calc(-50% + 0px) calc(-50% + 0px)");
     expect(window.sessionStorage.length).toBe(0);

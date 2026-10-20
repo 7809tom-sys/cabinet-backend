@@ -199,6 +199,13 @@ function DialogContent({
     onPointerMove?.(event);
     const origin = dragOriginRef.current;
     if (!origin || origin.pointerId !== event.pointerId) return;
+    // A missed pointerup must never leave a popup attached to ordinary hover
+    // movement. Pointer events report no pressed buttons once a mouse/finger
+    // is released, so abandon the drag rather than moving the popup.
+    if (event.buttons !== 1) {
+      dragOriginRef.current = null;
+      return;
+    }
     setRememberedOffset({ x: origin.startX + event.clientX - origin.x, y: origin.startY + event.clientY - origin.y });
   }, [onPointerMove, setRememberedOffset]);
 

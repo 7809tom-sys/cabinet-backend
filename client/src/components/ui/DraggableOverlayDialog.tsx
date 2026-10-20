@@ -99,6 +99,12 @@ export function DraggableOverlayDialog({
     onPointerMove?.(event);
     const origin = dragOriginRef.current;
     if (!origin || origin.pointerId !== event.pointerId) return;
+    // If pointerup was lost, a released pointer must never keep moving this
+    // popup as the user merely hovers across the screen.
+    if (event.buttons !== 1) {
+      dragOriginRef.current = null;
+      return;
+    }
     setRememberedOffset({ x: origin.startX + event.clientX - origin.x, y: origin.startY + event.clientY - origin.y });
   }, [onPointerMove, setRememberedOffset]);
 

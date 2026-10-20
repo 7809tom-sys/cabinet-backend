@@ -120,6 +120,11 @@ function AlertDialogContent({
     onPointerMove?.(event);
     const origin = dragOriginRef.current;
     if (!origin || origin.pointerId !== event.pointerId) return;
+    // Do not let a missed pointerup turn ordinary hover movement into a drag.
+    if (event.buttons !== 1) {
+      dragOriginRef.current = null;
+      return;
+    }
     setRememberedOffset({ x: origin.startX + event.clientX - origin.x, y: origin.startY + event.clientY - origin.y });
   }, [onPointerMove, setRememberedOffset]);
   const handlePointerUp = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {

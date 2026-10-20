@@ -11,9 +11,9 @@ afterEach(() => {
 });
 
 function drag(handle: Element, pointerId = 41) {
-  fireEvent.pointerDown(handle, { pointerId, clientX: 460, clientY: 390, button: 0 });
+  fireEvent.pointerDown(handle, { pointerId, clientX: 460, clientY: 390, button: 0, buttons: 1 });
   fireEvent.pointerMove(handle, { pointerId, clientX: 460, clientY: 110, buttons: 1 });
-  fireEvent.pointerUp(handle, { pointerId, clientX: 460, clientY: 110 });
+  fireEvent.pointerUp(handle, { pointerId, clientX: 460, clientY: 110, buttons: 0 });
 }
 
 describe("DraggableOverlayDialog", () => {
@@ -52,6 +52,22 @@ describe("DraggableOverlayDialog", () => {
     fireEvent.pointerDown(grip, { pointerId: 71, clientX: 460, clientY: 390, button: 0 });
     fireEvent.pointerCancel(grip, { pointerId: 71, clientX: 460, clientY: 390 });
     fireEvent.pointerMove(grip, { pointerId: 71, clientX: 460, clientY: 110, buttons: 1 });
+
+    expect(popup.style.translate).toBe("calc(-50% + 0px) calc(-50% + 0px)");
+  });
+
+  it("cancels an abandoned grip drag before later unheld pointer movement can move a legacy popup", () => {
+    render(
+      <DraggableOverlayDialog data-testid="manual-popup" aria-label="Choose placement">
+        <div><PopupDragGrip />Choose placement</div>
+      </DraggableOverlayDialog>,
+    );
+
+    const popup = screen.getByTestId("manual-popup");
+    const grip = screen.getByRole("button", { name: "Drag to move this popup" });
+    fireEvent.pointerDown(grip, { pointerId: 72, clientX: 460, clientY: 390, button: 0, buttons: 1 });
+    fireEvent.pointerMove(grip, { pointerId: 72, clientX: 460, clientY: 110, buttons: 0 });
+    fireEvent.pointerMove(grip, { pointerId: 72, clientX: 460, clientY: 40, buttons: 1 });
 
     expect(popup.style.translate).toBe("calc(-50% + 0px) calc(-50% + 0px)");
   });

@@ -3,7 +3,10 @@ export type PopupSessionPosition = {
   y: number;
 };
 
-const STORAGE_PREFIX = "cabinet-dealz:popup-position:v1";
+// v2 intentionally discards offsets written before abandoned pointer movement
+// was guarded. Those old session entries can contain an unintended drifted
+// position; new entries are written only by a completed grip drag or nudge.
+const STORAGE_PREFIX = "cabinet-dealz:popup-position:v2";
 
 function validPosition(value: unknown): value is PopupSessionPosition {
   return Boolean(
