@@ -31,9 +31,14 @@ import {
   type BathroomPaletteMode,
   type RecommendedRole,
 } from "./RecommendedSurfaces";
-import { hasVerifiedPelicanFixtureProfile } from "@/lib/pelicanFixtureProfiles";
+import {
+  hasVerifiedPelicanFixtureProfile,
+  verifiedPelicanFaucetProfile,
+  verifiedPelicanPotFillerProfile,
+  verifiedPelicanSinkProfile,
+} from "@/lib/pelicanFixtureProfiles";
 import { pelicanBathroomFixturePlacementText, verifiedPelicanBathroomFixtureProfile } from "@/lib/pelicanBathroomFixtureProfiles";
-import { Search, Plus, Check, Waves } from "lucide-react";
+import { Search, Plus, Check, FileText, Waves } from "lucide-react";
 import { usePreferredProducts } from "@/contexts/PreferredProductsContext";
 import {
   groupPelicanConfigurations,
@@ -144,6 +149,19 @@ export function matchesCountertopSwatchFilter(
   if (item.category !== "Quartz Slabs (Countertops)" || filter === "all") return true;
   const swatchReady = Boolean(item.materialImageUrl?.trim());
   return filter === "swatch-ready" ? swatchReady : !swatchReady;
+}
+
+/**
+ * Exposes a specification sheet only when this exact visible Pelican variant
+ * resolves through an existing verified fixture profile. Catalog product pages
+ * and shopper imagery deliberately do not qualify as technical sheets.
+ */
+export function verifiedSurfaceSpecificationUrl(item: Pick<SelectedSurface, "pelicanCode">): string | null {
+  return verifiedPelicanSinkProfile(item.pelicanCode)?.specificationUrl
+    ?? verifiedPelicanFaucetProfile(item.pelicanCode)?.specificationUrl
+    ?? verifiedPelicanPotFillerProfile(item.pelicanCode)?.specificationUrl
+    ?? verifiedPelicanBathroomFixtureProfile(item.pelicanCode)?.specificationUrl
+    ?? null;
 }
 
 export function SurfacesPickerDialog({
@@ -624,6 +642,7 @@ export function SurfacesPickerDialog({
                   const bathroomFixtureProfile = isBathroom
                     ? verifiedPelicanBathroomFixtureProfile(item.pelicanCode)
                     : null;
+                  const specificationUrl = verifiedSurfaceSpecificationUrl(item);
                   // One countertop, floor and wall tile are already replaced by choosing another;
                   // everything else (sinks, faucets, fixtures) swaps a selected sibling finish
                   // for the new one instead of adding a second copy of the same product.
@@ -742,6 +761,20 @@ export function SurfacesPickerDialog({
                           >
                             {bathroomFixtureProfile.kind === "floor-tub-filler" ? "Place floor-mounted tub filler" : bathroomFixtureProfile.planningOnly ? "Place visual planning envelope" : "Place in floor plan & 3D"}
                           </Button>
+                        )}
+                        {specificationUrl && (
+                          <a
+                            href={specificationUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            data-testid={`surface-card-specs-${p.id}`}
+                            aria-label={`View manufacturer specifications for ${configuration.label}`}
+                            title="View manufacturer specifications"
+                            onClick={(event) => event.stopPropagation()}
+                            className="inline-flex h-7 w-full items-center justify-center gap-1 rounded-md border border-[#b98d3e]/60 bg-white px-2 text-[11px] font-medium text-[#634b20] transition hover:bg-[#fff4d8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a2744] active:scale-95"
+                          >
+                            <FileText className="h-3.5 w-3.5" aria-hidden="true" /> Specs
+                          </a>
                         )}
                       </div>
                     </div>

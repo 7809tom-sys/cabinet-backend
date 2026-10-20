@@ -809,6 +809,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	    candidates: GlassStackerBulkPlacementCandidate[];
 	  } | null>(null);
 	  const [materialsListOpen, setMaterialsListOpen] = useState(false);
+	  const [materialsListInitialConflictsOnly, setMaterialsListInitialConflictsOnly] = useState(false);
 	  // Manufacturer construction details remain available on demand instead of
 	  // consuming the cart sidebar's limited working space.
 	  const [catalogSpecificationsOpen, setCatalogSpecificationsOpen] = useState(false);
@@ -5899,6 +5900,10 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   // the canvas notice and the conflict-only Materials filter. It is advisory;
   // existing cart and secure-order safeguards remain authoritative.
   const materialsConflictCount = conflictUids.size;
+  const openMaterialsList = (initialConflictsOnly = false) => {
+    setMaterialsListInitialConflictsOnly(initialConflictsOnly);
+    setMaterialsListOpen(true);
+  };
 
   // ─── Placement actions ──────────────────────────────────────────────────────
 
@@ -13178,18 +13183,19 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
             <Ruler className="mr-1.5 h-3.5 w-3.5" /> Four anchors
           </Button>
         )}
-        <Button
-          variant="outline"
-          size="sm"
-          className={`${isCompactWorkspace ? "hidden" : "hidden lg:inline-flex"} shrink-0`}
-          disabled={materialsListRows.length === 0}
-          onClick={() => setMaterialsListOpen(true)}
-          title={materialsConflictCount > 0 ? `${materialsConflictCount} placement conflict${materialsConflictCount === 1 ? "" : "s"} — open Materials & Parts to review` : "View, print, or export complete materials & parts list"}
-          aria-label="Materials & Parts"
-        >
-          <FileText className="mr-1.5 h-3.5 w-3.5" /> <span className="designer-toolbar-full-label">Materials &amp; Parts</span><span aria-hidden="true" className="designer-toolbar-short-label">Materials</span>
-          {materialsConflictCount > 0 && <span data-testid="materials-conflict-count-badge" className="ml-1 inline-flex min-w-4 items-center justify-center rounded-full bg-red-600 px-1 py-0.5 text-[9px] font-extrabold leading-none text-white">{materialsConflictCount}</span>}
-        </Button>
+        <div className={`${isCompactWorkspace ? "hidden" : "hidden lg:flex"} shrink-0 items-center gap-1`}>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={materialsListRows.length === 0}
+            onClick={() => openMaterialsList()}
+            title="View, print, or export complete materials & parts list"
+            aria-label="Materials & Parts"
+          >
+            <FileText className="mr-1.5 h-3.5 w-3.5" /> <span className="designer-toolbar-full-label">Materials &amp; Parts</span><span aria-hidden="true" className="designer-toolbar-short-label">Materials</span>
+          </Button>
+          <MaterialsConflictShortcut count={materialsConflictCount} disabled={materialsListRows.length === 0} onOpenConflicts={() => openMaterialsList(true)} />
+        </div>
         <Button
           variant={isCompactWorkspace ? "default" : "outline"}
           size="sm"
@@ -13222,19 +13228,20 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                 </Button>
               </div>
             )}
-            <Button
-              variant="outline"
-              size="sm"
-              data-testid="compact-workspace-materials-trigger"
-              className={`${isTabletWorkspace ? "hidden" : "hidden lg:inline-flex"} shrink-0`}
-              disabled={materialsListRows.length === 0}
-              onClick={() => setMaterialsListOpen(true)}
-              title={materialsConflictCount > 0 ? `${materialsConflictCount} placement conflict${materialsConflictCount === 1 ? "" : "s"} — open Materials & Parts to review` : "View every cabinet, material, fixture, and part in this design"}
-              aria-label="Materials & Parts"
-            >
-              <FileText className="mr-1.5 h-3.5 w-3.5" /> <span className="designer-toolbar-full-label">{isTabletWorkspace ? "Materials" : <>Materials &amp; Parts</>}</span><span aria-hidden="true" className="designer-toolbar-short-label">Materials</span>
-              {materialsConflictCount > 0 && <span data-testid="materials-conflict-count-badge" className="ml-1 inline-flex min-w-4 items-center justify-center rounded-full bg-red-600 px-1 py-0.5 text-[9px] font-extrabold leading-none text-white">{materialsConflictCount}</span>}
-            </Button>
+            <div className={`${isTabletWorkspace ? "hidden" : "hidden lg:flex"} shrink-0 items-center gap-1`}>
+              <Button
+                variant="outline"
+                size="sm"
+                data-testid="compact-workspace-materials-trigger"
+                disabled={materialsListRows.length === 0}
+                onClick={() => openMaterialsList()}
+                title="View every cabinet, material, fixture, and part in this design"
+                aria-label="Materials & Parts"
+              >
+                <FileText className="mr-1.5 h-3.5 w-3.5" /> <span className="designer-toolbar-full-label">Materials &amp; Parts</span><span aria-hidden="true" className="designer-toolbar-short-label">Materials</span>
+              </Button>
+              <MaterialsConflictShortcut count={materialsConflictCount} disabled={materialsListRows.length === 0} onOpenConflicts={() => openMaterialsList(true)} />
+            </div>
             <Button
               variant="outline"
               size="sm"
@@ -13640,11 +13647,13 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                         }}
                       />
                     </div>
-                    <button data-testid="tablet-more-materials-trigger" disabled={materialsListRows.length === 0} onClick={() => { setMoreSheetOpen(false); setMaterialsListOpen(true); }} title={materialsConflictCount > 0 ? `${materialsConflictCount} placement conflict${materialsConflictCount === 1 ? "" : "s"} — open Materials & Parts to review` : "View every cabinet, material, fixture, and part in this design"} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted disabled:opacity-50 transition-colors">
-                      <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
-                      <span className="flex-1 text-left">Materials &amp; Parts</span>
-                      {materialsConflictCount > 0 && <span data-testid="materials-conflict-count-badge" className="inline-flex min-w-5 items-center justify-center rounded-full bg-red-600 px-1.5 py-0.5 text-[10px] font-extrabold leading-none text-white">{materialsConflictCount}</span>}
-                    </button>
+                    <div className="flex items-center gap-1 rounded-lg hover:bg-muted transition-colors">
+                      <button data-testid="tablet-more-materials-trigger" disabled={materialsListRows.length === 0} onClick={() => { setMoreSheetOpen(false); openMaterialsList(); }} title="View every cabinet, material, fixture, and part in this design" className="flex min-w-0 flex-1 items-center gap-3 rounded-lg px-3 py-2.5 text-sm disabled:opacity-50">
+                        <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <span className="flex-1 text-left">Materials &amp; Parts</span>
+                      </button>
+                      <MaterialsConflictShortcut count={materialsConflictCount} disabled={materialsListRows.length === 0} onOpenConflicts={() => { setMoreSheetOpen(false); openMaterialsList(true); }} className="mr-2" />
+                    </div>
                     <button onClick={() => { setMoreSheetOpen(false); setPaletteType("surfaces"); setMobilePanel("catalog"); }} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted transition-colors">
                       <Waves className="h-4 w-4 text-muted-foreground shrink-0" />
                       <span className="flex-1 text-left">Surfaces — flooring, countertops, backsplash, sinks</span>
@@ -16138,18 +16147,33 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                         )}
                         <Plus className="h-3.5 w-3.5 shrink-0 text-muted-foreground group-hover:text-primary" />
                       </button>
-                      <Tooltip><TooltipTrigger asChild>
-                        <button
-                          type="button"
-                          data-testid={`catalog-card-specs-${c.masterCode}`}
-                          aria-label={`View specifications for ${c.displayMasterCode ?? c.masterCode}`}
-                          title="View this catalog item’s specifications"
-                          onClick={(event) => { event.stopPropagation(); openCatalogSpecificationsFor(c); }}
-                          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded border border-[#b98d3e]/60 bg-white text-[#634b20] transition hover:bg-[#fff4d8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a2744] active:scale-95"
-                        >
-                          <FileText className="h-3.5 w-3.5" aria-hidden />
-                        </button>
-                      </TooltipTrigger><TooltipContent>View specifications</TooltipContent></Tooltip>
+                      {paletteType === "appliance" && c.specImageUrl ? (
+                        <Tooltip><TooltipTrigger asChild>
+                          <button
+                            type="button"
+                            data-testid={`catalog-appliance-card-specs-${c.masterCode}`}
+                            aria-label={`View specifications for ${c.displayMasterCode ?? c.masterCode}`}
+                            title="View manufacturer specification sheet"
+                            onClick={(event) => { event.stopPropagation(); openCatalogSpecificationsFor(c); }}
+                            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded border border-[#b98d3e]/60 bg-white text-[#634b20] transition hover:bg-[#fff4d8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a2744] active:scale-95"
+                          >
+                            <FileText className="h-3.5 w-3.5" aria-hidden />
+                          </button>
+                        </TooltipTrigger><TooltipContent>View manufacturer specification sheet</TooltipContent></Tooltip>
+                      ) : paletteType !== "appliance" ? (
+                        <Tooltip><TooltipTrigger asChild>
+                          <button
+                            type="button"
+                            data-testid={`catalog-card-specs-${c.masterCode}`}
+                            aria-label={`View specifications for ${c.displayMasterCode ?? c.masterCode}`}
+                            title="View this catalog item’s specifications"
+                            onClick={(event) => { event.stopPropagation(); openCatalogSpecificationsFor(c); }}
+                            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded border border-[#b98d3e]/60 bg-white text-[#634b20] transition hover:bg-[#fff4d8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a2744] active:scale-95"
+                          >
+                            <FileText className="h-3.5 w-3.5" aria-hidden />
+                          </button>
+                        </TooltipTrigger><TooltipContent>View specifications</TooltipContent></Tooltip>
+                      ) : null}
                     </div>
                     );
                   })}</div>}
@@ -18500,15 +18524,16 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	              disabled={measureMode}
 	              onClick={openMobileAttributes}
 	            />
-	            <MobileBarButton
-	              icon={<FileText className="h-5 w-5" />}
-	              label="Materials"
-	              ariaLabel={materialsConflictCount > 0 ? `Materials — ${materialsConflictCount} placement conflict${materialsConflictCount === 1 ? "" : "s"}` : "Materials"}
-	              badge={materialsConflictCount || undefined}
-	              badgeTestId="materials-conflict-count-badge"
-	              disabled={materialsListRows.length === 0}
-	              onClick={() => setMaterialsListOpen(true)}
-	            />
+	            <div className="relative h-full w-16 min-w-16 shrink-0">
+	              <MobileBarButton
+	                icon={<FileText className="h-5 w-5" />}
+	                label="Materials"
+	                ariaLabel="Materials"
+	                disabled={materialsListRows.length === 0}
+	                onClick={() => openMaterialsList()}
+	              />
+	              <MaterialsConflictShortcut count={materialsConflictCount} disabled={materialsListRows.length === 0} onOpenConflicts={() => openMaterialsList(true)} className="absolute right-0.5 top-1 h-8 min-w-8 px-1 text-[10px]" />
+	            </div>
 	            <MobileBarButton
 	              icon={<Undo2 className="h-5 w-5" />}
               label="Undo"
@@ -20557,9 +20582,13 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         </DialogContent>
 	      </Dialog>
 
-		      <DesignMaterialsListDialog
+	      <DesignMaterialsListDialog
 	        open={materialsListOpen}
-	        onOpenChange={setMaterialsListOpen}
+	        onOpenChange={(open) => {
+	          setMaterialsListOpen(open);
+	          if (!open) setMaterialsListInitialConflictsOnly(false);
+	        }}
+	        initialConflictsOnly={materialsListInitialConflictsOnly}
 	        rows={materialsListRows}
 	        roomLabel={`${room.width}" × ${room.depth}"`}
 	        styleName={activeStyleName}
@@ -20749,6 +20778,36 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       </AlertDialog>
 
     </div>
+  );
+}
+
+function MaterialsConflictShortcut({
+  count,
+  disabled,
+  onOpenConflicts,
+  className,
+}: {
+  count: number;
+  disabled?: boolean;
+  onOpenConflicts: () => void;
+  className?: string;
+}) {
+  if (count <= 0) return null;
+  const conflictLabel = `${count} placement conflict${count === 1 ? "" : "s"}`;
+  return (
+    <button
+      type="button"
+      data-testid="materials-conflict-count-badge"
+      data-materials-conflict-badge="true"
+      disabled={disabled}
+      aria-label={`Open Materials & Parts with ${conflictLabel} only`}
+      aria-haspopup="dialog"
+      title={`Open Materials & Parts with ${conflictLabel} only`}
+      onClick={onOpenConflicts}
+      className={cn("inline-flex h-7 min-w-7 shrink-0 items-center justify-center rounded-full bg-red-600 px-1 text-[9px] font-extrabold leading-none text-white shadow-sm transition hover:bg-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a2744] focus-visible:ring-offset-1 active:scale-95 disabled:opacity-40", className)}
+    >
+      {count}
+    </button>
   );
 }
 

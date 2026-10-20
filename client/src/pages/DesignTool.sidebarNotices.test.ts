@@ -56,4 +56,21 @@ describe("Designer sidebar reference information and conflict notices", () => {
     expect(accessoryCard).toContain('title="View this catalog item’s specifications"');
     expect(accessoryCard).toContain('onClick={() => addCabinet(c)}');
   });
+
+  it("keeps appliance and surface Specs actions limited to cards with a real manufacturer specification sheet", () => {
+    expect(source).toContain('data-testid={`catalog-appliance-card-specs-${c.masterCode}`}');
+    expect(source).toContain('paletteType === "appliance" && c.specImageUrl');
+    expect(source).toContain('aria-label={`View specifications for ${c.displayMasterCode ?? c.masterCode}`}');
+
+    const surfacePicker = readFileSync(new URL("../components/design/SurfacesPickerDialog.tsx", import.meta.url), "utf8");
+    expect(surfacePicker).toContain('export function verifiedSurfaceSpecificationUrl');
+    expect(surfacePicker).toContain('verifiedPelicanSinkProfile(item.pelicanCode)?.specificationUrl');
+    expect(surfacePicker).toContain('verifiedPelicanFaucetProfile(item.pelicanCode)?.specificationUrl');
+    expect(surfacePicker).toContain('verifiedPelicanPotFillerProfile(item.pelicanCode)?.specificationUrl');
+    expect(surfacePicker).toContain('verifiedPelicanBathroomFixtureProfile(item.pelicanCode)?.specificationUrl');
+    expect(surfacePicker).toContain('const specificationUrl = verifiedSurfaceSpecificationUrl(item);');
+    expect(surfacePicker).toContain('data-testid={`surface-card-specs-${p.id}`}');
+    expect(surfacePicker).toContain('href={specificationUrl}');
+    expect(surfacePicker).toContain('View manufacturer specifications');
+  });
 });

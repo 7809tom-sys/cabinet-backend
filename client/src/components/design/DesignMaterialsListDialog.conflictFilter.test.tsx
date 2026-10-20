@@ -73,4 +73,49 @@ describe("DesignMaterialsListDialog conflict filter", () => {
 
     expect((screen.getByRole("button", { name: /conflicts only/i }) as HTMLButtonElement).disabled).toBe(true);
   });
+
+  it("opens directly in exact conflicts-only mode when launched from the Materials conflict badge", () => {
+    render(
+      <DesignMaterialsListDialog
+        open
+        initialConflictsOnly
+        onOpenChange={vi.fn()}
+        rows={[
+          row({ code: "B24", description: "Unaffected base cabinet", sourceUids: ["cabinet-a"] }),
+          row({ label: "B", code: "BBC36", description: "Affected blind corner cabinet", sourceUids: ["cabinet-b"] }),
+        ]}
+        roomLabel="Kitchen"
+        styleName="Aero Blanc"
+        conflictUids={new Set(["cabinet-b"])}
+      />,
+    );
+
+    expect(screen.queryByText("Unaffected base cabinet")).toBeNull();
+    expect(screen.getByText("Affected blind corner cabinet")).toBeTruthy();
+    expect(screen.getByRole("button", { name: /show all items/i }).getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("resets to every row on the next normal Materials launch after a conflict shortcut", () => {
+    const props = {
+      onOpenChange: vi.fn(),
+      rows: [
+        row({ code: "B24", description: "Unaffected base cabinet", sourceUids: ["cabinet-a"] }),
+        row({ label: "B", code: "BBC36", description: "Affected blind corner cabinet", sourceUids: ["cabinet-b"] }),
+      ],
+      roomLabel: "Kitchen",
+      styleName: "Aero Blanc",
+      conflictUids: new Set(["cabinet-b"]),
+    };
+    const { rerender } = render(<DesignMaterialsListDialog open initialConflictsOnly {...props} />);
+
+    expect(screen.queryByText("Unaffected base cabinet")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /show all items/i }));
+    expect(screen.getByText("Unaffected base cabinet")).toBeTruthy();
+
+    rerender(<DesignMaterialsListDialog open={false} initialConflictsOnly {...props} />);
+    rerender(<DesignMaterialsListDialog open initialConflictsOnly={false} {...props} />);
+
+    expect(screen.getByText("Unaffected base cabinet")).toBeTruthy();
+    expect(screen.getByRole("button", { name: /conflicts only/i }).getAttribute("aria-pressed")).toBe("false");
+  });
 });

@@ -1,5 +1,5 @@
 import { Download, FileSpreadsheet, Printer, ShoppingCart, Trash2, TriangleAlert } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { missingPriceBannerText, missingPriceLineLabel } from "@/lib/designMissingPrice";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -28,6 +28,7 @@ export function DesignMaterialsListDialog({
   missingPriceUids,
   missingPriceCount = 0,
   conflictUids,
+  initialConflictsOnly = false,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -46,8 +47,15 @@ export function DesignMaterialsListDialog({
   missingPriceCount?: number;
   /** Exact placed-item IDs currently flagged by the Designer conflict engine. */
   conflictUids?: ReadonlySet<string>;
+  /** Launch intent only: normal Materials opens show all rows; the conflict badge opens affected rows. */
+  initialConflictsOnly?: boolean;
 }) {
-  const [showConflictsOnly, setShowConflictsOnly] = useState(false);
+  const [showConflictsOnly, setShowConflictsOnly] = useState(initialConflictsOnly);
+  // This is deliberately an initialization, not a controlled filter: after a
+  // conflict-badge launch, the shopper can still select “Show all items”.
+  useEffect(() => {
+    setShowConflictsOnly(open ? initialConflictsOnly : false);
+  }, [initialConflictsOnly, open]);
   const rowMissingPrice = (row: MaterialsListRow) => (row.sourceUids ?? []).some((uid) => missingPriceUids?.has(uid));
   const rowHasConflict = (row: MaterialsListRow) => (row.sourceUids ?? []).some((uid) => conflictUids?.has(uid));
   const visibleRows = showConflictsOnly ? rows.filter(rowHasConflict) : rows;
