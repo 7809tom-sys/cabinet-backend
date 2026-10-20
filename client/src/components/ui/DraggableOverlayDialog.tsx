@@ -38,6 +38,8 @@ export function DraggableOverlayDialog({
   const [dragOffset, setDragOffset] = React.useState({ x: 0, y: 0 });
   const dragOffsetRef = React.useRef(dragOffset);
   const dragOriginRef = React.useRef<{ pointerId: number; x: number; y: number; startX: number; startY: number } | null>(null);
+  const suppressBackdropClickRef = React.useRef(false);
+  const clearBackdropSuppressionTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const contentRef = React.useRef<HTMLDivElement>(null);
   const contentAriaLabel = contentProps["aria-label"];
 
@@ -113,6 +115,15 @@ export function DraggableOverlayDialog({
     if (dragOriginRef.current?.pointerId !== event.pointerId) return;
     dragOriginRef.current = null;
     writePopupSessionPosition(popupStorageKey(), dragOffsetRef.current);
+    // Releasing a captured drag can synthesize a click at the release point.
+    // Ignore only that same-turn click so it cannot be misread as an overlay
+    // dismissal. A subsequent ordinary backdrop click still closes as usual.
+    suppressBackdropClickRef.current = true;
+    if (clearBackdropSuppressionTimerRef.current) clearTimeout(clearBackdropSuppressionTimerRef.current);
+    clearBackdropSuppressionTimerRef.current = setTimeout(() => {
+      suppressBackdropClickRef.current = false;
+      clearBackdropSuppressionTimerRef.current = null;
+    }, 0);
   }, [onPointerUp, popupStorageKey]);
   const cancelDragging = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
     onPointerCancel?.(event);
@@ -136,13 +147,30 @@ export function DraggableOverlayDialog({
     const next = setRememberedOffset({ x: dragOffsetRef.current.x + delta.x, y: dragOffsetRef.current.y + delta.y });
     writePopupSessionPosition(popupStorageKey(), next);
   }, [onKeyDownCapture, popupStorageKey, setRememberedOffset]);
+  const handleBackdropClick = React.useCallback((event: React.MouseEvent<HTMLDivElement>) => {
+    if (suppressBackdropClickRef.current) {
+      event.preventDefault();
+      event.stopPropagation();
+      suppressBackdropClickRef.current = false;
+      if (clearBackdropSuppressionTimerRef.current) {
+        clearTimeout(clearBackdropSuppressionTimerRef.current);
+        clearBackdropSuppressionTimerRef.current = null;
+      }
+      return;
+    }
+    onBackdropClick?.();
+  }, [onBackdropClick]);
+
+  React.useEffect(() => () => {
+    if (clearBackdropSuppressionTimerRef.current) clearTimeout(clearBackdropSuppressionTimerRef.current);
+  }, []);
 
   return (
     <div className="fixed inset-0 z-[300]" role="dialog" aria-modal="true">
       <div
         aria-hidden="true"
         className={cn("absolute inset-0 bg-black/50", overlayClassName)}
-        onClick={onBackdropClick}
+        onClick={handleBackdropClick}
       />
       <div
         ref={contentRef}

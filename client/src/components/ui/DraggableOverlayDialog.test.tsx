@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import React from "react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { DraggableOverlayDialog } from "./DraggableOverlayDialog";
 import { PopupDragGrip } from "./PopupDragGrip";
@@ -70,6 +70,25 @@ describe("DraggableOverlayDialog", () => {
     fireEvent.pointerMove(grip, { pointerId: 72, clientX: 460, clientY: 40, buttons: 1 });
 
     expect(popup.style.translate).toBe("calc(-50% + 0px) calc(-50% + 0px)");
+  });
+
+  it("does not invoke a legacy backdrop close from the completion click of a grip drag", () => {
+    const onBackdropClick = vi.fn();
+    render(
+      <DraggableOverlayDialog data-testid="manual-popup" aria-label="Choose placement" onBackdropClick={onBackdropClick}>
+        <div><PopupDragGrip />Choose placement</div>
+      </DraggableOverlayDialog>,
+    );
+
+    const grip = screen.getByRole("button", { name: "Drag to move this popup" });
+    const backdrop = document.querySelector("[aria-hidden='true']") as HTMLElement;
+    fireEvent.pointerDown(grip, { pointerId: 75, clientX: 460, clientY: 390, button: 0, buttons: 1 });
+    fireEvent.pointerMove(grip, { pointerId: 75, clientX: 460, clientY: 110, buttons: 1 });
+    fireEvent.pointerUp(grip, { pointerId: 75, clientX: 460, clientY: 110, buttons: 0 });
+    fireEvent.click(backdrop);
+
+    expect(onBackdropClick).not.toHaveBeenCalled();
+    expect(screen.getByTestId("manual-popup")).not.toBeNull();
   });
 
   it("restores a manual Designer popup to its last dragged position when reopened in the same session", () => {

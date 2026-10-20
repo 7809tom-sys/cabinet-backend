@@ -104,6 +104,8 @@ function DialogContent({
   onPointerCancel,
   onLostPointerCapture,
   onKeyDownCapture,
+  onPointerDownOutside,
+  onInteractOutside,
   popupPositionKey,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
@@ -117,6 +119,8 @@ function DialogContent({
   const dragOriginRef = React.useRef<{ pointerId: number; x: number; y: number; startX: number; startY: number } | null>(null);
   const [dragOffset, setDragOffset] = React.useState({ x: 0, y: 0 });
   const dragOffsetRef = React.useRef(dragOffset);
+  const suppressOutsideDismissRef = React.useRef(false);
+  const clearOutsideDismissTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const contentRef = React.useRef<HTMLDivElement>(null);
   const [contentElement, setContentElement] = React.useState<HTMLDivElement | null>(null);
   const contentAriaLabel = props["aria-label"];
@@ -214,6 +218,12 @@ function DialogContent({
     if (dragOriginRef.current?.pointerId !== event.pointerId) return;
     dragOriginRef.current = null;
     writePopupSessionPosition(popupStorageKey(), dragOffsetRef.current);
+    suppressOutsideDismissRef.current = true;
+    if (clearOutsideDismissTimerRef.current) clearTimeout(clearOutsideDismissTimerRef.current);
+    clearOutsideDismissTimerRef.current = setTimeout(() => {
+      suppressOutsideDismissRef.current = false;
+      clearOutsideDismissTimerRef.current = null;
+    }, 0);
   }, [onPointerUp, popupStorageKey]);
   const handlePointerCancel = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
     onPointerCancel?.(event);
@@ -237,6 +247,18 @@ function DialogContent({
     const next = setRememberedOffset({ x: dragOffsetRef.current.x + delta.x, y: dragOffsetRef.current.y + delta.y });
     writePopupSessionPosition(popupStorageKey(), next);
   }, [onKeyDownCapture, popupStorageKey, setRememberedOffset]);
+  const handlePointerDownOutside = React.useCallback((event: Parameters<NonNullable<typeof onPointerDownOutside>>[0]) => {
+    onPointerDownOutside?.(event);
+    if (suppressOutsideDismissRef.current) event.preventDefault();
+  }, [onPointerDownOutside]);
+  const handleInteractOutside = React.useCallback((event: Parameters<NonNullable<typeof onInteractOutside>>[0]) => {
+    onInteractOutside?.(event);
+    if (suppressOutsideDismissRef.current) event.preventDefault();
+  }, [onInteractOutside]);
+
+  React.useEffect(() => () => {
+    if (clearOutsideDismissTimerRef.current) clearTimeout(clearOutsideDismissTimerRef.current);
+  }, []);
 
   return (
     <DialogPortal data-slot="dialog-portal">
@@ -260,6 +282,8 @@ function DialogContent({
         onPointerCancel={handlePointerCancel}
         onLostPointerCapture={handleLostPointerCapture}
         onKeyDownCapture={handleKeyDownCapture}
+        onPointerDownOutside={handlePointerDownOutside}
+        onInteractOutside={handleInteractOutside}
         {...props}
       >
         {children}
