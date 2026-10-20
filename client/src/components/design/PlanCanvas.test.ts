@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { LanguageProvider } from "@/contexts/LanguageContext";
-import { FLOOR_PLAN_ZOOM_MAX, FLOOR_PLAN_ZOOM_MIN, PlanCanvas, clampFloorPlanZoom, formatFloorPlanDimension, nearestIslandFaceInRect, parallelWallLabelAngleDeg, peninsulaCatalogDropHitRadiusIn, planCabinetClipPath, planCornerGeometry, planOpeningWallFrame, planTapeMeasure, snapPlanMeasurePoint } from "./PlanCanvas";
+import { FLOOR_PLAN_ZOOM_MAX, FLOOR_PLAN_ZOOM_MIN, PlanCanvas, clampFloorPlanZoom, floorPlanAvailableCabinetSpans, formatFloorPlanDimension, nearestIslandFaceInRect, parallelWallLabelAngleDeg, peninsulaCatalogDropHitRadiusIn, planCabinetClipPath, planCornerGeometry, planOpeningWallFrame, planTapeMeasure, snapPlanMeasurePoint } from "./PlanCanvas";
 import type { PlacedCabinet, RoomData, WallOpening } from "@/lib/design";
 
 const base = {
@@ -392,7 +392,7 @@ describe("user measured open wall paths", () => {
     expect(markup).toContain("2438 mm");
   });
 
-  it("labels clear wall spans and both distances around a physical wall opening", () => {
+  it("labels source-of-truth usable cabinet spans in red and keeps physical opening dimensions", () => {
     const room: RoomData = { width: 120, depth: 96, ceilingHeight: 96 };
     const baseCabinet = {
       ...base,
@@ -424,10 +424,26 @@ describe("user measured open wall paths", () => {
       showWallLayer: true, autoDimensions: true, openings: [opening],
     })));
 
-    expect(markup).toContain("Open 84");
+    expect(markup).toContain("Fits up to 84");
+    expect(markup).toContain("Base");
+    expect(markup).toContain('fill="#dc2626"');
+    expect(markup).not.toContain("Open 84");
     expect(markup).toContain("Window 36");
     expect(markup).toContain("24&quot; / 60&quot; to ends");
-    expect(markup).toContain("Cabinet placement evaluates wall holds and collision separately.");
+    expect(markup).not.toContain("Cabinet placement evaluates wall holds and collision separately.");
+  });
+
+  it("uses the exact placement opening policy for red cabinet-fit spans", () => {
+    const room: RoomData = { width: 120, depth: 96, ceilingHeight: 96 };
+    const window: WallOpening = { uid: "fit-window", kind: "window", label: "Window", side: "top", offset: 24, width: 36, height: 36, sill: 42 };
+    const door: WallOpening = { uid: "fit-door", kind: "door", label: "Door", side: "bottom", offset: 24, width: 36, height: 80, sill: 0 };
+    const spans = floorPlanAvailableCabinetSpans(room, [], [window, door], true);
+
+    // Base cabinets can use the run beneath a window, but neither base nor wall
+    // labels may advertise the door opening as usable cabinet space.
+    expect(spans).toContainEqual(expect.objectContaining({ side: "top", layer: "base", start: 0, length: 120 }));
+    expect(spans).toContainEqual(expect.objectContaining({ side: "top", layer: "wall", start: 0, length: 21 }));
+    expect(spans).not.toContainEqual(expect.objectContaining({ side: "bottom", layer: "base", start: 0, length: 120 }));
   });
 
   it("routes right-click and double-click wall gestures to the existing attributes dialog", () => {
@@ -610,7 +626,7 @@ describe("plan placement assistance wiring", () => {
 	   expect(source).toContain('font-extrabold text-slate-950 shadow-sm whitespace-nowrap');
 	 });
 
-	 it("offers one upper-right control that hides every Floor Plan measurement layer without changing the room", () => {
+	 it("offers one upper-right control that hides measurement layers without decorative foot-ruler ticks", () => {
 	   const source = readFileSync(new URL("./PlanCanvas.tsx", import.meta.url), "utf8");
 	   expect(source).toContain('data-testid="floor-plan-measurement-bubbles-toggle"');
 	   expect(source).toContain('data-testid="floor-plan-measurement-opacity-slider"');
@@ -623,8 +639,15 @@ describe("plan placement assistance wiring", () => {
 	   expect(source).toContain('measurementBubblesVisible && autoDimensions');
 	   expect(source).toContain('measurementBubblesVisible && dragTape');
 	   expect(source).toContain('measurementBubblesVisible && measure');
-	   expect(source).toContain('measurementBubblesVisible && xTicks.map');
-	   expect(source).toContain('measurementBubblesVisible && yTicks.map');
+	   expect(source).not.toContain('const xTicks: number[]');
+	   expect(source).not.toContain('const yTicks: number[]');
+	   expect(source).not.toContain('measurementBubblesVisible && xTicks.map');
+	   expect(source).not.toContain('measurementBubblesVisible && yTicks.map');
+    expect(source).toContain('freeSegmentsOnWall(');
+    expect(source).toContain('WALL_OPENING_CLEARANCE_IN');
+	   expect(source).toContain('data-testid={`floor-available-gap-${gap.side}-${gap.layer}-${index}`}');
+	   expect(source).toContain('label = `Fits up to ${formatDisplayDimension(gap.length)}');
+	   expect(source).toContain('fill="#dc2626"');
 	   expect(source).toContain('style={measurementBubbleStyle}');
 	   expect(source).toContain('data-testid={`live-gap-dimension-bubble-${segment.side}`}');
 	   expect(source).toContain('const clearanceFontSize');
