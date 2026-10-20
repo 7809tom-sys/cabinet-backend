@@ -1354,26 +1354,11 @@ export function ElevationView({
           // or the full wall-cabinet top line if no wall cab sits above.
           const BACKSPLASH_RANGE_TOP = wallCabinetTopLine(room); // 84" on 8ft ceiling
 
-          // Backsplash follows cabinet runs only — spans behind base cabinets
-          // and appliances (ranges/ovens) that have countertops, not the full wall.
-          const cabinetRuns: { start: number; end: number }[] = sorted
-            .filter((p) => (p.placement === "base" || p.placement === "appliance") && p.cabinetId !== 0)
-            .map((p) => {
-              const sA = wallRunSpan(p, side, room);
-              const pA = wallRunOffset(p, side, room);
-              return { start: pA, end: pA + sA };
-            })
-            .sort((a, b) => a.start - b.start);
-          // Merge overlapping/adjacent runs into contiguous spans
-          const runs: { start: number; end: number }[] = [];
-          for (const r of cabinetRuns) {
-            const last = runs[runs.length - 1];
-            if (last && r.start <= last.end + 0.5) {
-              last.end = Math.max(last.end, r.end);
-            } else {
-              runs.push({ ...r });
-            }
-          }
+	          // A selected backsplash is an installed field on this wall, from
+	          // corner to corner. It is not limited to raw cabinet boxes: that
+	          // previously exposed an untiled patch at a BBC return. Opening and
+	          // tall-cabinet clipping below remain authoritative.
+	          const runs: { start: number; end: number }[] = [{ start: 0, end: planSpan }];
 
           // Identify range positions on this wall for the taller stretch zone.
           const rangeSpans = sorted
@@ -1523,10 +1508,12 @@ export function ElevationView({
           }
           return (
             <>
-              {segments.map((seg, i) => (
-                <div
-                  key={`bs${i}`}
-                  className="absolute pointer-events-none"
+	              {segments.map((seg, i) => (
+	                <div
+	                  key={`bs${i}`}
+	                  data-testid="elevation-backsplash-segment"
+	                  data-backsplash-field-coverage="perimeter"
+	                  className="absolute pointer-events-none"
                   style={{
                     left: seg.left,
                     width: seg.width,

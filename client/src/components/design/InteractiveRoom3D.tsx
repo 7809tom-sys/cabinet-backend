@@ -14,7 +14,7 @@ import { ThreeDHandlesControl } from "./ThreeDHandlesControl";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { APPLIANCES, BLIND_CORNER_FILLER_WIDTH_IN, COUNTERTOP_DEPTH_IN, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, isBaseHeightAppliance, blindCornerRearCountertopExtensionIn, cabinetWall, cabinetWallDragPreview, cornerRotationForPlaced, countertopRunFaceNormal, countertopSurfacePlanPolygon, countertopSurfaces, crownBlockingCabinets, crownEligibleCabinets, customWallCabinetSide, drywallPonyWallAppearance, elevationBox, formatEighthInches, formatInches, glassDoorShelfCount, isAgainstWall, isBaseEndCornerCabinet, isCustomRoomWall, isFillerItem, fillerWidthRange, isGlassDoorCabinet, isMicrowaveOverRangePair, isRangeHoodPlacement, isRangeOrOven, isRefrigerator, isStacker, isWallRunDraggable, isWd18CountertopDrawerCabinet, kitchenCrestGenericOpenEndShelfCount, normalizeInstalledFillersToAdjacentCabinets, peninsulaCountertopPonyWallBackExtensionIn, peninsulaCountertopPonyWallBarOverhang, peninsulaCountertopSeatingOverhang, peninsulaCountertopWaterfallEnd, peninsulaLowerWorktopOppositeSideExtensionIn, peninsulaRunEndpoints, placedCornerGeometryKind, placedFootprint, ponyWallMiteredFootprint, ponyWallPlanFrame, potFillerMountedRange, rangeVisualAppearance, refrigeratorBayVerificationMetrics, resolveCabinetHardwarePosition, resolveSwing, roomWallAppearance, seatedWallRunFrame, wallRunFrame, selectedLowerCabinetWallPlacement, sinkPlanDimensions, usesRaisedFloorWallDoorPull, wallCabinetFitMeasure, wallGapFitPreview, wallGapFreehandPreview, wallGaps, wallPlacementAt, wallRunOffset, wallRunSpan, wallSpanMeasure, wd18CountertopFaceLayout, type CabinetWallDragPreview, type CountertopSurface, type IslandZone, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type PotFillerFixture, rotatedSize, type RoomData, type SinkFixture, type WallCabinetFitMeasure, type WallGapFitPreview, type WallOpening, type WallSide, type WallSpanMeasure, wallTopLimit, } from "@/lib/design";
+import { APPLIANCES, BLIND_CORNER_FILLER_WIDTH_IN, COUNTERTOP_DEPTH_IN, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, isBaseHeightAppliance, blindCornerRearCountertopExtensionIn, cabinetWall, cabinetWallDragPreview, cornerRotationForPlaced, countertopRunFaceNormal, countertopSurfacePlanPolygon, countertopSurfaces, crownBlockingCabinets, crownEligibleCabinets, customWallCabinetSide, drywallPonyWallAppearance, elevationBox, formatEighthInches, formatInches, glassDoorShelfCount, isAgainstWall, isBaseEndCornerCabinet, isCustomRoomWall, isFillerItem, fillerWidthRange, isGlassDoorCabinet, isMicrowaveOverRangePair, isRangeHoodPlacement, isRangeOrOven, isRefrigerator, isStacker, isWallRunDraggable, isWd18CountertopDrawerCabinet, kitchenCrestGenericOpenEndShelfCount, normalizeInstalledFillersToAdjacentCabinets, peninsulaCountertopPonyWallBackExtensionIn, peninsulaCountertopPonyWallBarOverhang, peninsulaCountertopSeatingOverhang, peninsulaCountertopWaterfallEnd, peninsulaLowerWorktopOppositeSideExtensionIn, peninsulaRunEndpoints, placedCornerGeometryKind, placedFootprint, ponyWallMiteredFootprint, ponyWallPlanFrame, potFillerMountedRange, rangeVisualAppearance, refrigeratorBayVerificationMetrics, resolveCabinetHardwarePosition, resolveSwing, roomWallAppearance, seatedWallRunFrame, wallRunFrame, selectedLowerCabinetWallPlacement, sinkPlanDimensions, usesRaisedFloorWallDoorPull, wallCabinetFitMeasure, wallGapFitPreview, wallGapFreehandPreview, wallGaps, wallPlacementAt, wallRunOffset, wallRunSpan, wallSpanMeasure, wallLength, wd18CountertopFaceLayout, type CabinetWallDragPreview, type CountertopSurface, type IslandZone, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type PotFillerFixture, rotatedSize, type RoomData, type SinkFixture, type WallCabinetFitMeasure, type WallGapFitPreview, type WallOpening, type WallSide, type WallSpanMeasure, wallTopLimit, } from "@/lib/design";
 import { islandCountertopRects, islandCountertopVisibleRects, islandRaisedBarRects, islandFaceFitMeasure } from "@/lib/islandScene";
 import { furniturePlanFrame, resolvedFurnitureDimensions } from "@/lib/design";
 import { farmhouseSinkBaseFaceLayout } from "@/lib/farmhouseSinkBaseFace";
@@ -8467,6 +8467,8 @@ export type ThreeDBacksplashSegment = {
 };
 
 export type BacksplashHeightMode = "standard" | "full-height";
+/** Supported spans drive quantity/upstands; perimeter is the selected visual wall field. */
+export type ThreeDBacksplashCoverage = "supported" | "perimeter";
 export const THREE_D_BACKSPLASH_TILE_SIZE_IN = 12;
 
 /**
@@ -8494,13 +8496,12 @@ export function threeDBacksplashTileTextureTransform(segment: ThreeDBacksplashSe
   };
 }
 
-function threeDWallRunSpan(cabinet: PlacedCabinet, side: WallSide) {
-  const quarterTurn = Math.abs(Math.round(cabinet.rotation / 90)) % 2 === 1;
-  const rotatedWidth = quarterTurn ? cabinet.depth : cabinet.width;
-  const rotatedDepth = quarterTurn ? cabinet.width : cabinet.depth;
-  const start = side === "top" || side === "bottom" ? cabinet.x : cabinet.y;
-  const span = side === "top" || side === "bottom" ? rotatedWidth : rotatedDepth;
-  return { start, end: start + span };
+function threeDWallRunSpan(cabinet: PlacedCabinet, side: WallSide, room: RoomData) {
+	  // The shared run helpers retain the catalog-authoritative 36-inch BBC body
+	  // for legacy saves that stored its reduced 33-inch box width.
+	  const start = wallRunOffset(cabinet, side, room);
+	  const span = wallRunSpan(cabinet, side, room);
+	  return { start, end: start + span };
 }
 
 /**
@@ -8513,10 +8514,10 @@ function threeDWallRunSpan(cabinet: PlacedCabinet, side: WallSide) {
  */
 export function threeDBacksplashSupportSpans(cabinet: PlacedCabinet, side: WallSide, room: RoomData) {
   if (!threeDSupportsBacksplash(cabinet, room)) return [];
-  const cornerKind = placedCornerGeometryKind(cabinet);
-  const wrapsCornerLegs = cornerKind === "l-shape" || cornerKind === "diagonal" || cornerKind === "corner-drawer";
-  if (!wrapsCornerLegs) {
-    return cabinetWall(cabinet, room) === side ? [threeDWallRunSpan(cabinet, side)] : [];
+	const cornerKind = placedCornerGeometryKind(cabinet);
+	const wrapsCornerLegs = cornerKind === "l-shape" || cornerKind === "diagonal" || cornerKind === "corner-drawer";
+	if (!wrapsCornerLegs) {
+		return cabinetWall(cabinet, room) === side ? [threeDWallRunSpan(cabinet, side, room)] : [];
   }
   const footprint = placedFootprint(cabinet);
   const wallToleranceIn = 0.5;
@@ -8558,11 +8559,12 @@ function subtractThreeDBacksplashRect(
 }
 
 export function threeDBacksplashSegments(
-  placed: PlacedCabinet[],
-  openings: WallOpening[],
-  room: RoomData,
-  heightMode: BacksplashHeightMode = "standard",
-  countertopUpstandIn = 0,
+	placed: PlacedCabinet[],
+	openings: WallOpening[],
+	room: RoomData,
+	heightMode: BacksplashHeightMode = "standard",
+	countertopUpstandIn = 0,
+	coverage: ThreeDBacksplashCoverage = "supported",
 ) {
   const sides: WallSide[] = ["top", "bottom", "left", "right"];
   const countertopTop = COUNTERTOP_TOP;
@@ -8575,13 +8577,13 @@ export function threeDBacksplashSegments(
     const supportIntervals = mergeThreeDIntervals(placed.flatMap((cabinet) =>
       cabinet.islandFace ? [] : threeDBacksplashSupportSpans(cabinet, side, room),
     ));
-    const rangeIntervals = mergeThreeDIntervals(wallItems.flatMap((cabinet) => {
-      if (cabinet.islandFace || cabinetWall(cabinet, room) !== side || cabinet.placement !== "appliance") return [];
-      return isRangeOrOven(cabinet.masterCode, cabinet.description) ? [threeDWallRunSpan(cabinet, side)] : [];
-    }));
-    const hoodIntervals = wallItems.flatMap((cabinet) => {
-      if (!isRangeHoodPlacement(cabinet)) return [];
-      const span = threeDWallRunSpan(cabinet, side);
+		const rangeIntervals = mergeThreeDIntervals(wallItems.flatMap((cabinet) => {
+			if (cabinet.islandFace || cabinetWall(cabinet, room) !== side || cabinet.placement !== "appliance") return [];
+			return isRangeOrOven(cabinet.masterCode, cabinet.description) ? [threeDWallRunSpan(cabinet, side, room)] : [];
+		}));
+		const hoodIntervals = wallItems.flatMap((cabinet) => {
+			if (!isRangeHoodPlacement(cabinet)) return [];
+			const span = threeDWallRunSpan(cabinet, side, room);
       return [{ ...span, bottom: elevationBox(cabinet, room).bottom }];
     });
     const cuts = [
@@ -8597,19 +8599,21 @@ export function threeDBacksplashSegments(
 	        const raisedAppliance = cabinet.placement === "appliance" && box.bottom > countertopTop;
 	        const floorTallAppliance = cabinet.placement === "appliance" && box.bottom <= 0.5 && !threeDSupportsBacksplash(cabinet, room);
 	        if (cabinet.placement !== "wall" && cabinet.placement !== "tall" && !raisedAppliance && !floorTallAppliance) return [];
-	        const span = threeDWallRunSpan(cabinet, side);
+			const span = threeDWallRunSpan(cabinet, side, room);
 	        return [{ ...span, bottom: box.bottom, top: box.bottom + box.height }];
 	      }),
 	    ];
-    // Backsplash is an optional installed surface, and when selected it follows
-    // the actual cabinet-supported run—not the entire architectural wall. Use
-    // both countertop supports and wall-cabinet spans so a run can continue up
-    // to the upper-cabinet edge, then let openings (especially windows) cut the
-    // field without changing the saved wall or opening geometry.
-    const wallCabinetIntervals = mergeThreeDIntervals(wallItems
-      .filter((cabinet) => cabinet.placement === "wall")
-      .map((cabinet) => threeDWallRunSpan(cabinet, side)));
-    const coverageIntervals = mergeThreeDIntervals([...supportIntervals, ...wallCabinetIntervals]);
+		// Supported coverage is the measured material/takeoff basis. The visual
+		// selected perimeter field is intentionally corner-to-corner, so it does
+		// not leave an untiled BBC corner merely because an old save stored a
+		// reduced box width or the adjoining run has no base box.
+		const wallCabinetIntervals = mergeThreeDIntervals(wallItems
+			.filter((cabinet) => cabinet.placement === "wall")
+			.map((cabinet) => threeDWallRunSpan(cabinet, side, room)));
+		const supportedIntervals = mergeThreeDIntervals([...supportIntervals, ...wallCabinetIntervals]);
+		const coverageIntervals = coverage === "perimeter"
+			? [{ start: 0, end: wallLength(side, room) }]
+			: supportedIntervals;
     const sourceSegments: Array<Omit<ThreeDBacksplashSegment, "side">> = coverageIntervals.map((interval) => ({
       ...interval,
       bottom: tileBottom,
@@ -8648,7 +8652,7 @@ export function threeDCountertopUpstandSegments(
 ) {
   if (upstandIn !== 2.5 && upstandIn !== 3) return [];
   const upstandTop = COUNTERTOP_TOP + upstandIn;
-  return threeDBacksplashSegments(placed, openings, room, "standard", 0)
+	return threeDBacksplashSegments(placed, openings, room, "standard", 0, "supported")
     .map((segment) => ({ ...segment, top: Math.min(segment.top, upstandTop) }))
     .filter((segment) => segment.top - segment.bottom > 0.001);
 }
@@ -10423,7 +10427,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
 	      ceilingHeight: wallHeightIn,
 	    } as RoomData);
 	    const backsplashSegments = backsplashTexture && renderExistingDesign
-	      ? threeDBacksplashSegments(renderedPlaced, openings, backsplashRoom, backsplashHeightMode, countertopBacksplashHeightIn)
+	      ? threeDBacksplashSegments(renderedPlaced, openings, backsplashRoom, backsplashHeightMode, countertopBacksplashHeightIn, "perimeter")
 	      : [];
 	    const countertopUpstandSegments = renderExistingDesign
 	      ? threeDCountertopUpstandSegments(renderedPlaced, openings, backsplashRoom, countertopBacksplashHeightIn)

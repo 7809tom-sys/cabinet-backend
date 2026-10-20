@@ -137,7 +137,7 @@ import {
   snapToWall, snapPosition, nextFreeSpotOnWall, mountedMicrowaveOverRangeSpot, overRangeMicrowaveAttachment,
   clampCabinetsToRoom, clampOpeningsToRoom, clampIslandToRoom, clampRoomInches,
   WALL_LABELS, doorPanelKind,
-		  freeSegmentsOnWall, magneticAvailableWallStart, nearestAvailableWallStart, cabinetWallMovePreview, firstCollisionFreeWallPlacement, roundToEighth, syncWallRunOffsets, backfillLegacyWallRuns, wallRunFrame, wallRunAlongAtPoint, nearestWallRunAtPoint, clampCabinetToRoom, wallPlacementAt, wallPlacementAtUnbounded, wallLength, wallRunOffset, wallRunSpan, cabinetWall, cabinetPlacementCollisionDetail, explainPeninsulaSeatFailure, kneeDrawerWallPlacement, isCustomRoomWall, firstCollisionFreeCustomWallPlacement, continuousWallApplianceSnapInfo, peninsulaRunById, peninsulaRootRunId, peninsulaRunAssemblyLocked, peninsulaCountertopPonyWallBarOverhang, peninsulaCountertopRaisedBarEnabled, peninsulaCountertopRaisedBarOverhang, peninsulaCountertopSeatingOverhang, peninsulaCountertopWaterfallEnd, peninsulaRunOffsetAtPoint, peninsulaRunMaxLength, normalizeLegacyPeninsulaCabinets, firstCollisionFreePeninsulaPlacement, bestFitCatalogOption, removePeninsulaRun,
+		  freeSegmentsOnWall, magneticAvailableWallStart, nearestAvailableWallStart, cabinetWallMovePreview, firstCollisionFreeWallPlacement, resolveBaseBlindCornerFillerSnap, roundToEighth, syncWallRunOffsets, backfillLegacyWallRuns, wallRunFrame, wallRunAlongAtPoint, nearestWallRunAtPoint, clampCabinetToRoom, wallPlacementAt, wallPlacementAtUnbounded, wallLength, wallRunOffset, wallRunSpan, cabinetWall, cabinetPlacementCollisionDetail, explainPeninsulaSeatFailure, kneeDrawerWallPlacement, isCustomRoomWall, firstCollisionFreeCustomWallPlacement, continuousWallApplianceSnapInfo, peninsulaRunById, peninsulaRootRunId, peninsulaRunAssemblyLocked, peninsulaCountertopPonyWallBarOverhang, peninsulaCountertopRaisedBarEnabled, peninsulaCountertopRaisedBarOverhang, peninsulaCountertopSeatingOverhang, peninsulaCountertopWaterfallEnd, peninsulaRunOffsetAtPoint, peninsulaRunMaxLength, normalizeLegacyPeninsulaCabinets, firstCollisionFreePeninsulaPlacement, bestFitCatalogOption, removePeninsulaRun,
 	  formatEighthInches, formatInches, type WallGap, wallGaps, wallGapFitPreview, wallGapFreehandPreview, nearestRectRoomWallAtPoint, gapFillCandidatesByWidth, nextSmartGapPreviewIndex, withTemporarySmartGapPreview, isRangeHoodPlacement,
   rangeOvenClearanceViolations, RANGE_CLEARANCE_FILLER_IN,
 	  wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN, baseOpeningOverlaps,
@@ -6727,8 +6727,24 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       // microwave intentionally projects over its range, so retain the exact
       // wall/run center calculated above instead of allowing snapPosition to
       // push it beside the range and invalidate the mounted-pair exception.
-      const mountedRange = otrRangeUid ? normalizedPrevious.find((cabinet) => cabinet.uid === otrRangeUid) : undefined;
-      if (mountedRange) {
+	      const mountedRange = otrRangeUid ? normalizedPrevious.find((cabinet) => cabinet.uid === otrRangeUid) : undefined;
+	      // BBC seam recovery happens only after its selected pull has been
+	      // applied. It aligns the full physical BBC body to an actual adjacent
+	      // F342 seam, including strict 2D/3D drops, but never reduces that pull
+	      // or permits a cabinet through a nominal-only 36-inch opening.
+	      const blindCornerFillerSnap = automaticSnapping && !requestedIslandFace && isBaseBlindCorner(finalCab)
+	        ? resolveBaseBlindCornerFillerSnap(finalCab, room, normalizedPrevious, openings)
+	        : null;
+	      if (blindCornerFillerSnap) {
+	        const snappedBlind = { ...finalCab, ...blindCornerFillerSnap };
+	        if (!cabinetPlacementCollisionDetail(snappedBlind, normalizedPrevious, room)) {
+	          const moved = Math.abs(snappedBlind.x - finalCab.x) > COLLISION_EPSILON_IN
+	            || Math.abs(snappedBlind.y - finalCab.y) > COLLISION_EPSILON_IN;
+	          finalCab = snappedBlind;
+	          if (moved) toast.success(`${finalCab.masterCode} snapped flush to the adjacent filler while keeping its selected ${formatInches(Number(finalCab.blindPull) || 0)} pull.`);
+	        }
+	      }
+	      if (mountedRange) {
         const mountedSpot = mountedMicrowaveOverRangeSpot(finalCab, mountedRange, room);
         finalCab = { ...finalCab, ...mountedSpot, mountBottom: otrMountBottom ?? finalCab.mountBottom };
 	      } else if (automaticSnapping && !requestedIslandFace && !strictDropTarget && !preserveResolvedPlacement && !peninsulaRunById(room, finalCab.wallId)) {

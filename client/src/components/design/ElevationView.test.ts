@@ -76,6 +76,23 @@ import { CustomProfileFace, DoorFront, ElevationView, isBaseEndAngleCabinet, isR
 		    expect(markup).not.toContain('data-testid="continuous-toe-kick-run"');
 		  });
 
+		  it("renders selected backsplash corner-to-corner behind a short base run instead of leaving a corner field blank", () => {
+		    const markup = renderToStaticMarkup(
+		      createElement(LanguageProvider, null, createElement(ElevationView, {
+		        room: { width: 120, depth: 96, ceilingHeight: 96 },
+		        cabinets: [{
+		          uid: "bbc-adjacent-base", cabinetId: 86, masterCode: "B24", description: '24" Base Cabinet',
+		          placement: "base", x: 0, y: 0, width: 24, height: 34.5, depth: 24, rotation: 0,
+		          numberOfDoors: 1, numberOfDrawers: 1,
+		        }],
+		        selectedUid: null, onSelect: () => undefined, wall: "back", backsplashMaterialId: "white-subway",
+		      })),
+		    );
+
+		    // The static render's 4px/in scale makes the full 120-inch wall 480px.
+		    expect(markup).toMatch(/data-testid="elevation-backsplash-segment"[^>]*data-backsplash-field-coverage="perimeter"[^>]*left:0;width:480px/);
+		  });
+
 		  it("repairs a legacy bridge-linked refrigerator cap filler before rendering its exact over-fridge envelope", () => {
 		    const markup = renderToStaticMarkup(
 		      createElement(LanguageProvider, null, createElement(ElevationView, {

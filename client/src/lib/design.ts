@@ -8549,6 +8549,86 @@ export function firstCollisionFreeWallPlacement(
   }
   return null;
 }
+
+/**
+ * A base blind corner is set back from its room corner by the customer-selected
+ * 3–6 inch pull.  A normal 36-inch free-span lookup happens before that pull is
+ * applied, which can leave a BBC intersecting a small same-run F342 even though
+ * the next true seam is exactly pull + 36 inches from the corner.
+ *
+ * This is intentionally a narrow regular-Designer recovery, not a global
+ * snap rule: it only considers a floor-layer filler no wider than the real
+ * blind-corner clearance, preserves the already selected pull exactly, stays
+ * on its existing cardinal wall, and requires the entire post-pull cabinet body
+ * to fit one actual opening with zero physical collision.  The required
+ * perpendicular BBC filler remains the caller's existing atomic transaction.
+ */
+export function resolveBaseBlindCornerFillerSnap(
+  blind: PlacedCabinet,
+  room: RoomData,
+  placed: readonly PlacedCabinet[],
+  openings: WallOpening[],
+): { x: number; y: number; rotation: number; wallId?: string; wallOffset?: number } | null {
+  if (!isBaseBlindCorner(blind) || blind.islandFace) return null;
+  const side = (blind.wallId ?? cabinetWall(blind, room)) as WallSide;
+  const frame = wallRunFrame(side, room);
+  // Measured/peninsula run ownership is already handled by their dedicated
+  // placement engines.  Do not let this cabinet-specific recovery reinterpret
+  // their geometry or Continuous Wall Builder behavior.
+  if (!frame || frame.kind !== "cardinal") return null;
+  const pull = Number(blind.blindPull);
+  const range = blindPullRange(blind);
+  if (!range || !Number.isFinite(pull) || pull < range.min - COLLISION_EPSILON_IN || pull > range.max + COLLISION_EPSILON_IN) return null;
+  const bodySpan = wallRunSpan(blind, side, room);
+  const depth = Number(blind.depth) || STD.BASE_DEPTH;
+  if (bodySpan <= COLLISION_EPSILON_IN || depth <= COLLISION_EPSILON_IN) return null;
+
+  const currentStart = wallRunOffset(blind, side, room);
+  const wallSpan = wallLength(side, room);
+  const currentEnd = currentStart + bodySpan;
+  const cornerAtStart = currentStart <= wallSpan - currentEnd;
+  const expectedStart = cornerAtStart ? pull : wallSpan - bodySpan - pull;
+  const expectedEnd = expectedStart + bodySpan;
+  if (expectedStart < -COLLISION_EPSILON_IN || expectedEnd > wallSpan + COLLISION_EPSILON_IN) return null;
+
+  const ownRunFillerAtSeam = placed.some((item) => {
+    if (!isFillerItem(item) || item.islandFace || item.placement !== "base") return false;
+    if (cabinetWall(item, room) !== side) return false;
+    const fillerSpan = wallRunSpan(item, side, room);
+    if (fillerSpan <= COLLISION_EPSILON_IN || fillerSpan > BLIND_CORNER_FILLER_WIDTH_IN + COLLISION_EPSILON_IN) return false;
+    const fillerStart = wallRunOffset(item, side, room);
+    const fillerEnd = fillerStart + fillerSpan;
+    const seam = cornerAtStart ? fillerStart : fillerEnd;
+    return Math.abs(seam - (cornerAtStart ? expectedEnd : expectedStart)) <= COLLISION_EPSILON_IN;
+  });
+  if (!ownRunFillerAtSeam) return null;
+
+  const segmentContainsBody = freeSegmentsOnWall(
+    side,
+    room,
+    [...placed],
+    openings,
+    Math.min(bodySpan, 9),
+    0,
+    "base",
+    false,
+    blind,
+    depth,
+  ).some((segment) => (
+    segment.start <= expectedStart + COLLISION_EPSILON_IN
+    && segment.start + segment.length >= expectedEnd - COLLISION_EPSILON_IN
+  ));
+  if (!segmentContainsBody) return null;
+
+  const spot = wallPlacementAt(expectedStart, bodySpan, depth, side, room);
+  const candidate: PlacedCabinet = {
+    ...blind,
+    ...spot,
+    wallId: spot.wallId ?? side,
+    wallOffset: spot.wallOffset ?? expectedStart,
+  };
+	return cabinetPlacementCollisionDetail(candidate, [...placed], room) ? null : spot;
+}
 /** @deprecated One search serves every wall; kept for older call sites and tests. */
 export const firstCollisionFreeCustomWallPlacement = firstCollisionFreeWallPlacement;
 

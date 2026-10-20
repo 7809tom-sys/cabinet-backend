@@ -1605,9 +1605,9 @@ describe("interactive 3D room scene helpers", () => {
 	    }
 	  });
 
-		  it("bounds backsplash to countertop and wall-cabinet runs while keeping transforms on the owning wall", () => {
-	    const room = { width: 120, depth: 96, ceilingHeight: 96 } as RoomData;
-	    expect(threeDBacksplashSegments([], [], room)).toEqual([]);
+		  it("keeps support-only backsplash geometry for takeoff and countertop-upstand calculations", () => {
+		    const room = { width: 120, depth: 96, ceilingHeight: 96 } as RoomData;
+		    expect(threeDBacksplashSegments([], [], room)).toEqual([]);
 	    const bases = [
 	      { uid: "top-base", masterCode: "B-30", placement: "base", x: 12, y: 0, width: 30, depth: 24, height: 34.5, rotation: 0, islandFace: null },
 	      { uid: "left-base", masterCode: "B-24", placement: "base", x: 0, y: 24, width: 24, depth: 24, height: 34.5, rotation: 90, islandFace: null },
@@ -1618,6 +1618,28 @@ describe("interactive 3D room scene helpers", () => {
 		      { side: "left", start: 24, end: 48, bottom: 36, top: 54 },
 		    ]));
 		    expect(threeDBacksplashTransform(segments.find((segment) => segment.side === "left")!, room)).toMatchObject({ x: 0.07, z: 36, rotation: Math.PI / 2 });
+		  });
+
+		  it("covers the selected perimeter backsplash field corner-to-corner around a legacy-width BBC36", () => {
+		    const room = { width: 120, depth: 96, ceilingHeight: 96 } as RoomData;
+		    const legacyBlind = {
+		      uid: "legacy-bbc-36", masterCode: "BBC36", description: "Blind Corner Base",
+		      placement: "base", x: 0, y: 0, width: 33, nominalWidth: 33, depth: 24,
+		      height: 34.5, rotation: 0, wallId: "top", wallOffset: 0, islandFace: null,
+		    } as PlacedCabinet;
+
+		    // The normalized 36-inch BBC body owns its actual 36-inch top-wall
+		    // support, while the selected field covers both walls at its corner.
+		    expect(threeDBacksplashSupportSpans(legacyBlind, "top", room)).toEqual([{ start: 0, end: 36 }]);
+		    const perimeter = threeDBacksplashSegments([legacyBlind], [], room, "standard", 0, "perimeter");
+		    expect(perimeter).toEqual(expect.arrayContaining([
+		      { side: "top", start: 0, end: 120, bottom: 36, top: 54 },
+		      { side: "left", start: 0, end: 96, bottom: 36, top: 54 },
+		    ]));
+		    // The supported-run mode remains the measurement input for materials
+		    // takeoff and short countertop upstands.
+		    expect(threeDBacksplashSegments([legacyBlind], [], room)).toContainEqual({ side: "top", start: 0, end: 36, bottom: 36, top: 54 });
+		    expect(threeDCountertopUpstandSegments([legacyBlind], [], room, 3)).toContainEqual({ side: "top", start: 0, end: 36, bottom: 36, top: 39 });
 		  });
 
 		  it("does not tile beyond separated countertop supports on the same wall", () => {
