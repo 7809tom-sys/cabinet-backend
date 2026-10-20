@@ -456,14 +456,20 @@ export function smallGapFillerLayout(
   return { cabinetStart, leftWidth, rightWidth, pieces };
 }
 
-/** Replaces only the cabinet being repositioned, then appends filler pieces without dropping unrelated saved items. */
+/**
+ * Replaces only the cabinet being repositioned, then appends filler pieces
+ * without dropping unrelated saved items. Measured custom-wall rooms must be
+ * supplied so the batch preserves valid physical seams that have overlapping
+ * rotated screen envelopes at a diagonal corner.
+ */
 export function appendSmallGapFillerPlacement(
   placed: readonly PlacedCabinet[],
   movedCabinet: PlacedCabinet,
   pieces: readonly PlacedCabinet[],
+  room?: RoomData,
 ) {
   const preserved = placed.map((item) => item.uid === movedCabinet.uid ? movedCabinet : item);
-  return appendCollisionFreePlacements(preserved, [...pieces]);
+  return appendCollisionFreePlacements(preserved, [...pieces], room);
 }
 
 /** Removing either half removes the complete purchased filler group. */

@@ -8054,11 +8054,14 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	          } : {}),
 	        };
 	      })();
-    const peers = workingPlaced.filter((item) => item.uid !== cabinet.uid);
-    if (hasCollision(movedCabinet, peers)) {
-      toast.error("The cabinet cannot move to that filler position without overlapping another item.");
-      return;
-    }
+	    const peers = workingPlaced.filter((item) => item.uid !== cabinet.uid);
+	    // This must match normal placement and batch insertion. A 2DB24 can butt
+	    // a measured diagonal corner's actual run edge even when their rotated
+	    // screen envelopes overlap; room-aware collision still rejects real bodies.
+	    if (cabinetPlacementCollisionDetail(movedCabinet, peers, room)) {
+	      toast.error("The cabinet cannot move to that filler position without overlapping another item.");
+	      return;
+	    }
 
 		  const fillerGroupId = cutOpportunity.replacingFillerGroupId ?? `filler-group-${makeUid()}`;
 		  const fallbackDepth = dim(fillerDef.depth, cutOpportunity.layer === "wall" ? STD.WALL_DEPTH : STD.BASE_DEPTH);
@@ -8122,7 +8125,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	      ? islandFacePlacement(fillerPiece, island, cutOpportunity.islandFace, piece.start)
         : fillerPiece;
     });
-    const result = appendSmallGapFillerPlacement(workingPlaced, movedCabinet, pieces);
+	    const result = appendSmallGapFillerPlacement(workingPlaced, movedCabinet, pieces, room);
     if (result.rejected.length > 0 || result.placed.length !== workingPlaced.length + pieces.length) {
       toast.error("The filler could not be seated at exact zero overlap. The design was not changed.");
       return;
