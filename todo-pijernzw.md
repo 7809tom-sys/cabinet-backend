@@ -18,3 +18,13 @@
 - [ ] OPEN: no postage purchase (no carrier label API in repo) — vendor buys postage with own carrier, enters tracking
 - [ ] OPEN: orders with no affiliate have no code path to leave affiliate_review (shown as "Waiting for Cabinet Dealz to release")
 - [ ] OPEN: Railway publish still failing on the platform side; publish needed before live site shows any of this
+
+## Vendor "Upload by code" (code + door name + price) — built, unpublished
+- [x] shared/vendorCodeUpload.ts: CSV/TSV/paste parser, header auto-detect, quote-aware, rejects a cut-off "$1,000"
+- [x] Code matches master code OR any alias (cabinets sku/vendorSku/altSku1-3, sku_master_aliases, cabinet_aliases, global code_aliases, the line's own SKU codes); ambiguous alias is never guessed
+- [x] Unknown code => new master, created hidden (no catalog/designer/2020, no invented dimensions), SKU pending + unpublished
+- [x] Door name must match exactly one active door on the line (our/public/vendor name or style code)
+- [x] Preview (read-only) then Commit (server re-plans from raw rows); large price moves (>=50%) flagged, not blocked
+- [x] UI: "Upload by code" on My Catalog (.xlsx/.csv/paste), phone/tablet/desktop checked in real browser
+- [ ] Admin review queue for uploaded-pending masters (complete spec: dimensions/category) — masters stay hidden until then
+- [ ] Publish needed: Railway deploys still failing; live site does not have this yet

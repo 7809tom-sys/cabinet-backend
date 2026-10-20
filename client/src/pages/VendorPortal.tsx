@@ -30,6 +30,7 @@ import { Label } from "@/components/ui/label";
 import { csvEscape } from "@shared/inventoryForecast";
 import { VendorOtherProducts } from "@/components/vendor/VendorOtherProducts";
 import { VendorFulfillmentQueue } from "@/components/vendor/VendorFulfillmentQueue";
+import { VendorCodeUpload } from "@/components/vendor/VendorCodeUpload";
 import { PelicanShippingProfilesPanel } from "@/components/admin/ShippingAdmin";
 import { designerFrameCompliance } from "@/lib/doorFrameMetrics";
 import { US_CABINET_DEPOT_AVAILABILITY_SOURCES, US_CABINET_DEPOT_WAREHOUSES } from "@/lib/vendorWarehouseNetwork";
@@ -1007,6 +1008,7 @@ function CatalogPage() {
   const [editingOnHand, setEditingOnHand] = useState<{ skuId: number; value: string } | null>(null);
   const [showNewProduct, setShowNewProduct] = useState(false);
   const [showCsvUpload, setShowCsvUpload] = useState(false);
+  const [showCodeUpload, setShowCodeUpload] = useState(false);
   const catalogInput = useMemo(
     () => ({
       ...(adminDistId ? { distributorId: adminDistId } : {}),
@@ -1099,6 +1101,10 @@ function CatalogPage() {
         <h2 className="text-xl font-bold">My Catalog</h2>
         <Badge variant="outline">{catalog.data?.total ?? 0} products</Badge>
         <div className="flex gap-2 ml-auto">
+          <Button size="sm" onClick={() => setShowCodeUpload(!showCodeUpload)}>
+            <Upload className="h-4 w-4 mr-2" />
+            Upload by code
+          </Button>
           <Button variant="outline" size="sm" onClick={() => setShowCsvUpload(!showCsvUpload)}>
             <FileSpreadsheet className="h-4 w-4 mr-2" />
             Spreadsheet Upload
@@ -1110,6 +1116,7 @@ function CatalogPage() {
         </div>
       </div>
 
+      {showCodeUpload && <VendorCodeUpload distributorId={adminDistId} onDone={() => setCatalogPage(0)} />}
       {showCsvUpload && <CsvUploadSection />}
 
       {showNewProduct && (
