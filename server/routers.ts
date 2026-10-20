@@ -37,6 +37,7 @@ import { masterChangesRouter } from "./routers/masterChanges";
 import { cabinetRecoveryRouter } from "./routers/cabinetRecovery";
 import { emailSettingsRouter } from "./routers/emailSettings";
 import { pelicanRouter } from "./routers/pelican";
+import { vendorFulfillmentRouter } from "./routers/vendorFulfillment";
 import { vendorsRouter } from "./routers/vendors";
 import { surfacesRouter } from "./routers/surfaces";
 import { promotionsRouter } from "./routers/promotions";
@@ -112,6 +113,7 @@ export const appRouter = router({
   cabinetRecovery: cabinetRecoveryRouter,
   emailSettings: emailSettingsRouter,
   pelican: pelicanRouter,
+  vendorFulfillment: vendorFulfillmentRouter,
   vendors: vendorsRouter,
   surfaces: surfacesRouter,
   promotions: promotionsRouter,

@@ -8,7 +8,8 @@ describe("Vendor Portal Featured Styles and Shipping", () => {
     expect(source).toContain('id: "featured-styles", label: "Featured Styles"');
     expect(source).toContain('id: "shipping", label: "Shipping"');
     expect(source).toContain('{page === "featured-styles" && <VendorFeaturedStylesPage />}');
-    expect(source).toContain('{page === "shipping" && <VendorShippingPage />}');
+    // Cabinet vendors get the warehouse/coverage page; Pelican gets its per-SKU shipping profiles.
+    expect(source).toContain('{page === "shipping" && (isPelican ? <PelicanShippingProfilesPanel isAdmin={isAdmin} /> : <VendorShippingPage />)}');
   });
 
 	  it("uses vendor-scoped Featured Styles procedures instead of the global admin list", () => {
@@ -166,7 +167,11 @@ describe("Vendor Portal Featured Styles and Shipping", () => {
   it("keeps every approved vendor logged into its own editable profile before a catalog line is linked", () => {
     expect(source).toContain("const supplierProfileOnly = Boolean(");
     expect(source).toContain("user.approvedVendorLineId != null");
-    expect(source).toContain('page={supplierProfileOnly ? "supplier-profile" : page}');
+    // A profile-only vendor stays on Supplier Profile. The one deliberate exception
+    // is an approved Pelican vendor, which has no cabinet line but owns its catalog,
+    // shipping and fulfillment pages.
+    expect(source).toContain('page={supplierProfileOnly ? "supplier-profile" : isPelicanVendor && !PELICAN_NAV_IDS.has(page) ? "overview" : page}');
+    expect(source).toContain("const supplierProfileOnly = Boolean(\n    !isPelicanVendor");
     expect(source).toContain('item.id === "supplier-profile"');
     expect(source).toContain("Pending source-line link");
   });

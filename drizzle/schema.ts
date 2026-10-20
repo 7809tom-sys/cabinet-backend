@@ -3183,3 +3183,28 @@ export const freightQuoteHistory = mysqlTable("freight_quote_history", {
 }, (t) => ({
   kitchenDesignIdx: index("freight_quote_history_kitchen_design_idx").on(t.kitchenDesignId),
 }));
+
+// ─── Vendor order fulfillment ─────────────────────────────────────────────────
+// One row per (order request, supplying vendor). A single customer order can mix
+// cabinets from one distributor, Pelican surfaces/fixtures and Hardware
+// Resources, and each of those vendors ships its own boxes with its own carrier
+// and tracking number. vendorScope is "pelican" or "dist:<distributorId>".
+export const orderShipments = mysqlTable("order_shipments", {
+  id: int("id").autoincrement().primaryKey(),
+  orderRequestId: int("orderRequestId").notNull(),
+  vendorScope: varchar("vendorScope", { length: 32 }).notNull(),
+  status: mysqlEnum("status", ["pending", "shipped"]).default("pending").notNull(),
+  carrier: varchar("carrier", { length: 64 }),
+  trackingNumber: varchar("trackingNumber", { length: 128 }),
+  packageCount: int("packageCount").default(1).notNull(),
+  notes: varchar("notes", { length: 1000 }),
+  labelPrintedAt: timestamp("labelPrintedAt"),
+  shippedAt: timestamp("shippedAt"),
+  shippedByUserId: int("shippedByUserId"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (t) => ({
+  orderScopeUnique: uniqueIndex("order_shipments_order_scope_uq").on(t.orderRequestId, t.vendorScope),
+  scopeStatusIdx: index("order_shipments_scope_status_idx").on(t.vendorScope, t.status),
+}));
+export type OrderShipment = typeof orderShipments.$inferSelect;

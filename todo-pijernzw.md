@@ -7,3 +7,14 @@
 - [x] Preserve existing Pelican visibility and quote-only safeguards when pricing is changed.
 - [x] Add focused editor and pricing regression coverage; TypeScript and production build pass.
 - [x] Database migration applied successfully for `pelican_products.retailPrice`.
+
+## Vendor order fulfillment queue (Pelican + every vendor) — done, unpublished
+- [x] New `order_shipments` table (one row per order + vendor scope), migration 0200 applied
+- [x] `vendorFulfillment` router: scopes / queue / markLabelPrinted / markShipped; vendor sees only own items, no prices
+- [x] Ships only when paid AND order rail = fulfillment_authorized; "Coming soon" tab is read-only
+- [x] 4x6 ship-to labels (one per package) + packing slip PDFs, no prices; tracking links for UPS/FedEx/USPS/DHL
+- [x] Fulfillment page + phone bottom-nav entry in Vendor Portal; Pelican vendor limited to Overview, Profile, Catalog, Shipping, Fulfillment
+- [x] FIXED: Pelican vendor login never reached its catalog/shipping (identity was keyed to a supply line that does not exist); now keyed to approved vendor record sourceKey="pelican"
+- [ ] OPEN: no postage purchase (no carrier label API in repo) — vendor buys postage with own carrier, enters tracking
+- [ ] OPEN: orders with no affiliate have no code path to leave affiliate_review (shown as "Waiting for Cabinet Dealz to release")
+- [ ] OPEN: Railway publish still failing on the platform side; publish needed before live site shows any of this

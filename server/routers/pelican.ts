@@ -1,10 +1,10 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { and, asc, desc, eq, gt, isNull, like, lte, not, or, sql } from "drizzle-orm";
-import { router, publicProcedure, adminProcedure, distributorProcedure } from "../_core/trpc";
+import { router, publicProcedure, adminProcedure, supplierProfileProcedure } from "../_core/trpc";
 import { getDb } from "../db";
 import { pelicanProducts, pelicanShippingProfiles } from "../../drizzle/pelicanSchema";
-import { distributors, pelicanCategoryMarkups } from "../../drizzle/schema";
+import { distributors, pelicanCategoryMarkups, vendorLines } from "../../drizzle/schema";
 import { normalizeCode } from "../../shared/cabinetCodeMatch";
 import { positiveAuthorizedSurfaceBase } from "../../shared/surfacePricing";
 import { auditPelicanDesignerReadiness, isPelicanDesignerReady, isPelicanDesignerSelectable } from "../lib/pelicanDesignerReadiness";
@@ -34,24 +34,36 @@ const DEFAULT_MARKUP_BPS: Record<string, number> = {
 
 type MarkupMap = Record<string, number>;
 
+/**
+ * Pelican has no supply-line (distributors) row; its vendor identity is the
+ * approved vendor record whose sourceKey is "pelican". A vendor account passes
+ * only when its approvedVendorLineId points at that approved record, so a
+ * cabinet distributor or hardware vendor can never edit Pelican products.
+ * A legacy account linked to a supply line coded "PEL" is still accepted.
+ */
 async function requirePelicanVendor(
   db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
-  ctx: { user: { role: string }; distributorId: number | null },
+  ctx: { user: { role: string }; distributorId: number | null; approvedVendorLineId?: number | null },
 ) {
   if (ctx.user.role === "admin") return;
-  if (ctx.distributorId == null) {
-    throw new TRPCError({ code: "FORBIDDEN", message: "Your account is not linked to a Pelican supply line." });
+  if (ctx.approvedVendorLineId != null) {
+    const [vendor] = await db
+      .select({ sourceKey: vendorLines.sourceKey, isApproved: vendorLines.isApproved })
+      .from(vendorLines)
+      .where(eq(vendorLines.id, ctx.approvedVendorLineId))
+      .limit(1);
+    if (vendor?.isApproved && vendor.sourceKey?.trim().toLowerCase() === "pelican") return;
   }
-  const [line] = await db
-    .select({ code: distributors.code, isActive: distributors.isActive })
-    .from(distributors)
-    .where(eq(distributors.id, ctx.distributorId))
-    .limit(1);
-  if (!line || !line.isActive || line.code !== "PEL") {
-    throw new TRPCError({ code: "FORBIDDEN", message: "This catalog is only available to the Pelican vendor." });
+  if (ctx.distributorId != null) {
+    const [line] = await db
+      .select({ code: distributors.code, isActive: distributors.isActive })
+      .from(distributors)
+      .where(eq(distributors.id, ctx.distributorId))
+      .limit(1);
+    if (line?.isActive && line.code === "PEL") return;
   }
+  throw new TRPCError({ code: "FORBIDDEN", message: "This catalog is only available to the Pelican vendor." });
 }
-
 async function loadMarkupMap(db: NonNullable<Awaited<ReturnType<typeof getDb>>>): Promise<MarkupMap> {
   const rows = await db
     .select({ category: pelicanCategoryMarkups.category, markupBps: pelicanCategoryMarkups.markupBps })
@@ -332,7 +344,7 @@ export const pelicanRouter = router({
         .filter((r) => r.sellPrice && r.sellPrice > 0);
     }),
 
-  adminList: distributorProcedure
+  adminList: supplierProfileProcedure
     .input(
       z.object({
         category: CategoryEnum.optional(),
@@ -385,7 +397,7 @@ export const pelicanRouter = router({
    * Operations has recorded a verified ship-from origin, package facts and a
    * source reference for that exact catalog row.
    */
-  adminShippingProfiles: distributorProcedure
+  adminShippingProfiles: supplierProfileProcedure
     .input(z.object({ search: z.string().trim().optional(), limit: z.number().min(1).max(500).default(200) }))
     .query(async ({ input, ctx }) => {
       const db = await getDb();
@@ -426,7 +438,7 @@ export const pelicanRouter = router({
         .limit(input.limit);
     }),
 
-  saveShippingProfile: distributorProcedure
+  saveShippingProfile: supplierProfileProcedure
     .input(z.object({
       productId: z.number().int().positive(),
       originName: z.string().trim().min(2).max(191),
@@ -578,7 +590,7 @@ export const pelicanRouter = router({
       return { success: true } as const;
     }),
 
-  setPopular: distributorProcedure
+  setPopular: supplierProfileProcedure
     .input(z.object({ id: z.number(), isPopular: z.boolean(), popularRank: z.number().min(0).default(0) }))
     .mutation(async ({ input, ctx }) => {
       const db = await getDb();
@@ -590,7 +602,7 @@ export const pelicanRouter = router({
         .where(eq(pelicanProducts.id, input.id));
       return { success: true } as const;
     }),
-  setVisibility: distributorProcedure
+  setVisibility: supplierProfileProcedure
     .input(
       z.object({
         id: z.number(),
@@ -626,7 +638,7 @@ export const pelicanRouter = router({
       }
       return { success: true } as const;
     }),
-  setPricing: distributorProcedure
+  setPricing: supplierProfileProcedure
     .input(
       z.object({
         id: z.number(),
@@ -666,7 +678,7 @@ export const pelicanRouter = router({
       }
       return { success: true, unpublished: resultingBase == null } as const;
     }),
-  updateProduct: distributorProcedure
+  updateProduct: supplierProfileProcedure
     .input(z.object({
       id: z.number().int().positive(),
       name: z.string().trim().min(1).max(255),
@@ -717,7 +729,7 @@ export const pelicanRouter = router({
       return { success: true } as const;
     }),
   /** Set the box coverage (sq ft per box) for tile/flooring products. */
-  setCoverage: distributorProcedure
+  setCoverage: supplierProfileProcedure
     .input(
       z.object({
         id: z.number(),
@@ -735,7 +747,7 @@ export const pelicanRouter = router({
       return { success: true } as const;
     }),
   /** Store only a supplier/fabricator-verified unsupported overhang limit. */
-  setUnsupportedOverhangLimit: distributorProcedure
+  setUnsupportedOverhangLimit: supplierProfileProcedure
     .input(
       z.object({
         id: z.number().int().positive(),
@@ -762,7 +774,7 @@ export const pelicanRouter = router({
    * Catalog images are displayed to shoppers. This separate URL is an
    * administrator-approved, repeatable material swatch for the 3D Designer.
    */
-  setMaterialImage: distributorProcedure
+  setMaterialImage: supplierProfileProcedure
     .input(
       z.object({
         id: z.number().int().positive(),

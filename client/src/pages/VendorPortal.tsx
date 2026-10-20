@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Package, Palette, Star, ClipboardList, Upload,
   Eye, EyeOff, Search, DollarSign, ImageIcon, Check, X, AlertTriangle, Loader2,
 	  PlusCircle, Plus, ArrowLeft, ArrowUp, ArrowDown, GripVertical, Truck, MapPin, FileSpreadsheet, Download, BarChart3, Pencil, Trash2, RotateCcw,
-	  Sparkles, Clock, CheckCircle2, Send, Link2, CreditCard, FileText, ExternalLink, Ruler,
+	  Sparkles, Clock, CheckCircle2, Send, Link2, CreditCard, FileText, ExternalLink, Ruler, PackageCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,6 +29,7 @@ import { toast } from "sonner";
 import { Label } from "@/components/ui/label";
 import { csvEscape } from "@shared/inventoryForecast";
 import { VendorOtherProducts } from "@/components/vendor/VendorOtherProducts";
+import { VendorFulfillmentQueue } from "@/components/vendor/VendorFulfillmentQueue";
 import { PelicanShippingProfilesPanel } from "@/components/admin/ShippingAdmin";
 import { designerFrameCompliance } from "@/lib/doorFrameMetrics";
 import { US_CABINET_DEPOT_AVAILABILITY_SOURCES, US_CABINET_DEPOT_WAREHOUSES } from "@/lib/vendorWarehouseNetwork";
@@ -76,7 +77,7 @@ async function readSupplierPdfAsBase64(file: File): Promise<string> {
 }
 
 // ─── Sub-pages ────────────────────────────────────────────────────────────────
-type VendorPage = "overview" | "supplier-profile" | "catalog" | "other-products" | "styles" | "featured-styles" | "shipping" | "picks" | "orders" | "promotions" | "gallery" | "analytics" | "ai-services" | "integrations" | "payments";
+type VendorPage = "overview" | "supplier-profile" | "catalog" | "other-products" | "styles" | "featured-styles" | "shipping" | "picks" | "orders" | "fulfillment" | "promotions" | "gallery" | "analytics" | "ai-services" | "integrations" | "payments";
 
 const NAV_ITEMS: { id: VendorPage; label: string; icon: typeof LayoutDashboard }[] = [
   { id: "overview", label: "Overview", icon: LayoutDashboard },
@@ -91,11 +92,15 @@ const NAV_ITEMS: { id: VendorPage; label: string; icon: typeof LayoutDashboard }
   { id: "gallery", label: "Gallery", icon: ImageIcon },
   { id: "analytics", label: "Analytics", icon: BarChart3 },
   { id: "orders", label: "Orders", icon: ClipboardList },
+  { id: "fulfillment", label: "Fulfillment", icon: PackageCheck },
   { id: "ai-services", label: "AI Services", icon: Sparkles },
   { id: "integrations", label: "Integrations", icon: Link2 },
   { id: "payments", label: "Payments", icon: CreditCard },
 ];
 
+// Pelican has no cabinet supply line, so its portal is limited to the pages that
+// apply to surfaces and fixtures.
+const PELICAN_NAV_IDS: ReadonlySet<VendorPage> = new Set<VendorPage>(["overview", "supplier-profile", "catalog", "shipping", "fulfillment"]);
 // ─── Pelican Vendor Catalog Page ─────────────────────────────────────────────
 function PelicanVendorCatalogPage({ initialCategory }: { initialCategory?: string } = {}) {
   const utils = trpc.useUtils();
@@ -4411,12 +4416,24 @@ export default function VendorPortal() {
 
   // Fetch distributors list for admin selector
   const isAdmin = user?.role === "admin";
+  // An approved Pelican vendor has no supply line, but it does own catalog,
+  // shipping and fulfillment. Identity comes from the server, which resolves it
+  // from the approved vendor record's source key, never from a display name.
+  const fulfillmentScopes = trpc.vendorFulfillment.scopes.useQuery(
+    {
+      approvedVendorLineId: isAdmin ? adminApprovedVendorLineId ?? undefined : undefined,
+      distributorId: isAdmin ? adminDistributorId ?? undefined : undefined,
+    },
+    { enabled: Boolean(user) && (isAdmin === true || user?.role === "distributor") },
+  );
+  const isPelicanVendor = (fulfillmentScopes.data ?? []).some((option) => option.scope === "pelican");
   const supplierProfileOnly = Boolean(
-    (isAdmin && adminApprovedVendorLineId != null && adminDistributorId == null)
+    !isPelicanVendor
+    && ((isAdmin && adminApprovedVendorLineId != null && adminDistributorId == null)
     || (!isAdmin
       && user?.role === "distributor"
       && user.distributorId == null
-      && user.approvedVendorLineId != null)
+      && user.approvedVendorLineId != null))
   );
   const distList = trpc.distributors.list.useQuery(undefined, { enabled: isAdmin === true || user?.role === "distributor" });
   const approvedVendors = trpc.vendors.list.useQuery(undefined, { enabled: isAdmin === true });
@@ -4514,7 +4531,8 @@ export default function VendorPortal() {
   return (
     <VendorPortalDashboard
       user={user}
-      page={supplierProfileOnly ? "supplier-profile" : page}
+      page={supplierProfileOnly ? "supplier-profile" : isPelicanVendor && !PELICAN_NAV_IDS.has(page) ? "overview" : page}
+      isPelicanVendor={isPelicanVendor}
       setPage={navigateToPage}
       isAdmin={isAdmin}
       adminDistributorId={adminDistributorId}
@@ -4602,9 +4620,11 @@ function VendorPortalDashboard({
   distList,
   approvedVendorList,
   supplierProfileOnly = false,
+  isPelicanVendor = false,
 }: {
   user: any;
   page: VendorPage;
+  isPelicanVendor?: boolean;
   setPage: (p: VendorPage) => void;
   isAdmin: boolean;
   adminDistributorId: number | null;
@@ -4618,10 +4638,12 @@ function VendorPortalDashboard({
   const activeDistCode = activeDistributorId
     ? (distList.find((d: any) => d.id === activeDistributorId)?.code ?? undefined)
     : undefined;
-  const isPelican = activeDistCode === PEL_DIST_CODE;
+  const isPelican = activeDistCode === PEL_DIST_CODE || isPelicanVendor;
   const portalItems = supplierProfileOnly
     ? NAV_ITEMS.filter((item) => item.id === "supplier-profile")
-    : NAV_ITEMS;
+    : isPelicanVendor
+      ? NAV_ITEMS.filter((item) => PELICAN_NAV_IDS.has(item.id))
+      : NAV_ITEMS;
   const [pelicanCategoryFilter, setPelicanCategoryFilter] = useState<string | undefined>(undefined);
 
   const handleNavigateToCatalog = useCallback((category?: string) => {
@@ -4713,6 +4735,12 @@ function VendorPortalDashboard({
         {page === "gallery" && <GalleryPage />}
         {page === "analytics" && <VendorAnalyticsPage />}
         {page === "orders" && <OrdersPage />}
+        {page === "fulfillment" && (
+          <VendorFulfillmentQueue
+            approvedVendorLineId={isAdmin ? adminApprovedVendorLineId ?? undefined : undefined}
+            distributorId={isAdmin ? adminDistributorId ?? undefined : undefined}
+          />
+        )}
         {page === "ai-services" && <AICatalogServicesPage />}
         {page === "integrations" && <IntegrationsPage />}
         {page === "payments" && <PaymentsPage />}
