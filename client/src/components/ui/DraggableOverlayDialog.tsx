@@ -15,9 +15,9 @@ type DraggableOverlayDialogProps = Omit<React.ComponentProps<"div">, "style" | "
 
 /**
  * A small bridge for legacy Designer popups that were composed from plain divs
- * instead of the shared Dialog primitive. Only descendants marked with
- * `data-popup-drag-handle="true"` start a drag, so their buttons and form
- * controls remain normal controls.
+ * instead of the shared Dialog primitive. Only the shared dedicated grip
+ * (`data-popup-drag-handle="true"`) starts a drag, so title text, buttons,
+ * and form controls remain ordinary non-moving controls.
  */
 export function DraggableOverlayDialog({
   children,
@@ -27,6 +27,11 @@ export function DraggableOverlayDialog({
   overlayClassName,
   onBackdropClick,
   onPointerDownCapture,
+  onPointerMove,
+  onPointerUp,
+  onPointerCancel,
+  onLostPointerCapture,
+  onKeyDownCapture,
   popupPositionKey,
   ...contentProps
 }: DraggableOverlayDialogProps) {
@@ -48,9 +53,19 @@ export function DraggableOverlayDialog({
     setDragOffset(clamped);
     return clamped;
   }, [clampOffset]);
+  const popupStorageKey = React.useCallback(() => {
+    const title = contentRef.current?.querySelector("h1, h2, h3, [role='heading']")?.textContent;
+    return popupSessionPositionKey({
+      kind: "overlay-dialog",
+      explicitKey: popupPositionKey,
+      testId: contentRef.current?.getAttribute("data-testid"),
+      ariaLabel: typeof contentAriaLabel === "string" ? contentAriaLabel : null,
+      title,
+    });
+  }, [contentAriaLabel, popupPositionKey]);
 
   React.useLayoutEffect(() => {
-    const title = contentRef.current?.querySelector("[data-popup-drag-handle='true']")?.textContent;
+    const title = contentRef.current?.querySelector("h1, h2, h3, [role='heading']")?.textContent;
     const key = popupSessionPositionKey({
       kind: "overlay-dialog",
       explicitKey: popupPositionKey,
@@ -64,11 +79,9 @@ export function DraggableOverlayDialog({
 
   const handlePointerDownCapture = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
     onPointerDownCapture?.(event);
-    if (event.defaultPrevented) return;
-    const target = event.target as HTMLElement;
-    const handle = target.closest("[data-popup-drag-handle='true']");
-    const interactive = target.closest("button, a, input, textarea, select, [role='button']");
-    if (!handle || interactive) return;
+    if (event.defaultPrevented || event.button !== 0 || !(event.target instanceof Element)) return;
+    const handle = event.target.closest("[data-popup-drag-handle='true']");
+    if (!handle) return;
     dragOriginRef.current = {
       pointerId: event.pointerId,
       x: event.clientX,
@@ -83,24 +96,40 @@ export function DraggableOverlayDialog({
   }, [onPointerDownCapture]);
 
   const handlePointerMove = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    onPointerMove?.(event);
     const origin = dragOriginRef.current;
     if (!origin || origin.pointerId !== event.pointerId) return;
     setRememberedOffset({ x: origin.startX + event.clientX - origin.x, y: origin.startY + event.clientY - origin.y });
-  }, [setRememberedOffset]);
+  }, [onPointerMove, setRememberedOffset]);
 
   const stopDragging = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    onPointerUp?.(event);
     if (dragOriginRef.current?.pointerId !== event.pointerId) return;
     dragOriginRef.current = null;
-    const title = contentRef.current?.querySelector("[data-popup-drag-handle='true']")?.textContent;
-    const key = popupSessionPositionKey({
-      kind: "overlay-dialog",
-      explicitKey: popupPositionKey,
-      testId: contentRef.current?.getAttribute("data-testid"),
-      ariaLabel: typeof contentAriaLabel === "string" ? contentAriaLabel : null,
-      title,
-    });
-    writePopupSessionPosition(key, dragOffsetRef.current);
-  }, [contentAriaLabel, popupPositionKey]);
+    writePopupSessionPosition(popupStorageKey(), dragOffsetRef.current);
+  }, [onPointerUp, popupStorageKey]);
+  const cancelDragging = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    onPointerCancel?.(event);
+    if (dragOriginRef.current?.pointerId === event.pointerId) dragOriginRef.current = null;
+  }, [onPointerCancel]);
+  const handleLostPointerCapture = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    onLostPointerCapture?.(event);
+    if (dragOriginRef.current?.pointerId === event.pointerId) dragOriginRef.current = null;
+  }, [onLostPointerCapture]);
+  const handleKeyDownCapture = React.useCallback((event: React.KeyboardEvent<HTMLDivElement>) => {
+    onKeyDownCapture?.(event);
+    if (event.defaultPrevented || !(event.target instanceof Element) || !event.target.closest("[data-popup-drag-handle='true']")) return;
+    const step = 16;
+    const delta = event.key === "ArrowLeft" ? { x: -step, y: 0 }
+      : event.key === "ArrowRight" ? { x: step, y: 0 }
+      : event.key === "ArrowUp" ? { x: 0, y: -step }
+      : event.key === "ArrowDown" ? { x: 0, y: step }
+      : null;
+    if (!delta) return;
+    event.preventDefault();
+    const next = setRememberedOffset({ x: dragOffsetRef.current.x + delta.x, y: dragOffsetRef.current.y + delta.y });
+    writePopupSessionPosition(popupStorageKey(), next);
+  }, [onKeyDownCapture, popupStorageKey, setRememberedOffset]);
 
   return (
     <div className="fixed inset-0 z-[300]" role="dialog" aria-modal="true">
@@ -117,7 +146,9 @@ export function DraggableOverlayDialog({
         onPointerDownCapture={handlePointerDownCapture}
         onPointerMove={handlePointerMove}
         onPointerUp={stopDragging}
-        onPointerCancel={stopDragging}
+        onPointerCancel={cancelDragging}
+        onLostPointerCapture={handleLostPointerCapture}
+        onKeyDownCapture={handleKeyDownCapture}
       >
         {children}
       </div>

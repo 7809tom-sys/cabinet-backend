@@ -19274,7 +19274,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
           >
               {rangeTopStep === "choose" && (
                 <>
-                  <div data-popup-drag-handle="true" title="Drag this popup" className="flex cursor-grab select-none items-start gap-1.5 active:cursor-grabbing">
+                  <div className="flex items-start gap-1.5">
                     <PopupDragGrip className="mt-0.5" />
                     <div>
                       <h2 className="text-lg font-semibold text-foreground">{isBathroomVanity ? "Choose a vanity sink" : "What goes on top?"}</h2>
@@ -19311,7 +19311,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
               )}
               {rangeTopStep === "sink" && (
                 <>
-                  <div data-popup-drag-handle="true" title="Drag this popup" className="flex cursor-grab select-none items-center gap-2 active:cursor-grabbing">
+                  <div className="flex items-center gap-2">
                     <PopupDragGrip />
                     <button className="text-muted-foreground hover:text-foreground transition-colors" onClick={() => setRangeTopStep("choose")}>
                       <ChevronRight className="h-4 w-4 rotate-180" />
@@ -19339,7 +19339,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
               )}
               {rangeTopStep === "faucet" && (
                 <>
-                  <div data-popup-drag-handle="true" title="Drag this popup" className="flex cursor-grab select-none items-center gap-2 active:cursor-grabbing">
+                  <div className="flex items-center gap-2">
                     <PopupDragGrip />
                     <button className="text-muted-foreground hover:text-foreground transition-colors" onClick={() => setRangeTopStep("sink")}>
                       <ChevronRight className="h-4 w-4 rotate-180" />
@@ -19389,7 +19389,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
               {/* Step 1 of Range Top: choose the type (Gas / Electric / Smooth Top) */}
               {rangeTopStep === "range-type" && (
                 <>
-                  <div data-popup-drag-handle="true" title="Drag this popup" className="flex cursor-grab select-none items-center gap-2 active:cursor-grabbing">
+                  <div className="flex items-center gap-2">
                     <PopupDragGrip />
                     <button className="text-muted-foreground hover:text-foreground transition-colors" onClick={() => setRangeTopStep("choose")}>
                       <ChevronRight className="h-4 w-4 rotate-180" />
@@ -19428,7 +19428,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                 const effectiveType: "gas" | "electric" | "induction" | "smooth-top" = (rangeTopStep === "gas" || rangeTopStep === "electric" || rangeTopStep === "induction" || rangeTopStep === "smooth-top") ? rangeTopStep : (pendingRangeTopType ?? "gas");
                 return (
                 <>
-                  <div data-popup-drag-handle="true" title="Drag this popup" className="flex cursor-grab select-none items-center gap-2 active:cursor-grabbing">
+                  <div className="flex items-center gap-2">
                     <PopupDragGrip />
                     <button className="text-muted-foreground hover:text-foreground transition-colors" onClick={() => setRangeTopStep("range-type")}>
                       <ChevronRight className="h-4 w-4 rotate-180" />
@@ -19505,7 +19505,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       {/* Oven Type Dialog: opens when an oven tall cabinet (O-code) is placed */}
       {ovenDialog && (
         <DraggableOverlayDialog contentClassName="bg-card rounded-2xl shadow-2xl border border-border p-6 w-[340px] max-w-[90vw] flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-200">
-            <h2 data-popup-drag-handle="true" title="Drag this popup" className="flex cursor-grab select-none items-center gap-1.5 text-lg font-semibold text-foreground active:cursor-grabbing"><PopupDragGrip />Oven Cabinet Type</h2>
+            <h2 className="flex items-center gap-1.5 text-lg font-semibold text-foreground"><PopupDragGrip />Oven Cabinet Type</h2>
             <p className="text-sm text-muted-foreground">Is this going to be a single oven or a double oven?</p>
             <div className="grid grid-cols-2 gap-3">
               <button

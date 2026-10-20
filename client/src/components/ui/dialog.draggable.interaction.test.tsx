@@ -15,7 +15,7 @@ function TitleOnlyDialog() {
     <Dialog open>
       <DialogContent showCloseButton={false} data-testid="title-only-dialog">
         <DialogTitle>Title-only popup</DialogTitle>
-        <DialogDescription>Its visible title still needs to move the popup.</DialogDescription>
+        <DialogDescription>Ordinary clicks must not move or dismiss this popup.</DialogDescription>
       </DialogContent>
     </Dialog>
   );
@@ -27,7 +27,7 @@ function HeaderDialog() {
       <DialogContent showCloseButton={false} data-testid="header-dialog">
         <DialogHeader>
           <DialogTitle>Header popup</DialogTitle>
-          <DialogDescription>Drag the header to move me.</DialogDescription>
+          <DialogDescription>Use the dedicated grip to move me.</DialogDescription>
         </DialogHeader>
       </DialogContent>
     </Dialog>
@@ -40,7 +40,7 @@ function TitleOnlyConfirmationDialog() {
       <AlertDialogContent data-testid="title-only-confirmation-dialog">
         <AlertDialogHeader>
           <AlertDialogTitle>Confirmation popup</AlertDialogTitle>
-          <AlertDialogDescription>Its header remains draggable while centered.</AlertDialogDescription>
+          <AlertDialogDescription>Its dedicated grip remains draggable while centered.</AlertDialogDescription>
         </AlertDialogHeader>
       </AlertDialogContent>
     </AlertDialog>
@@ -48,7 +48,7 @@ function TitleOnlyConfirmationDialog() {
 }
 
 function drag(handle: HTMLElement, pointerId = 7) {
-  const content = handle.closest("[data-slot='dialog-content']") as HTMLElement;
+  const content = handle.closest("[data-slot='dialog-content'], [data-slot='alert-dialog-content']") as HTMLElement;
   if (content && typeof content.setPointerCapture !== "function") {
     Object.defineProperty(content, "setPointerCapture", { configurable: true, value: () => undefined });
   }
@@ -58,21 +58,38 @@ function drag(handle: HTMLElement, pointerId = 7) {
 }
 
 describe("Dialog popup dragging", () => {
-  it("moves a title-only popup upward when the visible title is clicked and held", () => {
+  it("moves a title-only popup only from its explicit Drag to move grip", () => {
     render(<TitleOnlyDialog />);
     const dialog = screen.getByTestId("title-only-dialog");
     const title = screen.getByText("Title-only popup");
+    const grip = screen.getByRole("button", { name: "Drag to move this popup" });
 
-    expect(title.getAttribute("data-dialog-drag-handle")).toBe("true");
-    expect(title.querySelector("[data-popup-drag-grip='true']")?.getAttribute("title")).toBe("Drag to move");
-    drag(title);
+    expect(title.getAttribute("data-dialog-drag-handle")).toBeNull();
+    expect(grip.getAttribute("data-popup-drag-handle")).toBe("true");
+    expect(grip.getAttribute("title")).toBe("Drag to move");
+    drag(grip);
     expect(dialog.style.translate).toContain("-270px");
   });
 
-  it("restores a standard popup to its last dragged position when it is reopened in the same Designer session", async () => {
+  it("keeps title and content clicks in place instead of beginning a drag or dismissing the popup", () => {
+    render(<HeaderDialog />);
+    const dialog = screen.getByTestId("header-dialog");
+    const title = screen.getByText("Header popup");
+    const description = screen.getByText("Use the dedicated grip to move me.");
+
+    fireEvent.pointerDown(title, { pointerId: 31, button: 0, clientX: 400, clientY: 450 });
+    fireEvent.pointerMove(title, { pointerId: 31, clientX: 400, clientY: 180 });
+    fireEvent.pointerUp(title, { pointerId: 31, clientX: 400, clientY: 180 });
+    fireEvent.click(description);
+
+    expect(dialog.style.translate).toBe("calc(-50% + 0px) calc(-50% + 0px)");
+    expect(screen.getByTestId("header-dialog")).not.toBeNull();
+  });
+
+  it("restores a standard popup to its last grip-dragged position when reopened in the same Designer session", async () => {
     const first = render(<HeaderDialog />);
     const movedDialog = screen.getByTestId("header-dialog");
-    drag(screen.getByText("Header popup"), 70);
+    drag(screen.getByRole("button", { name: "Drag to move this popup" }), 70);
     const savedTranslate = movedDialog.style.translate;
     expect(savedTranslate).toContain("-270px");
     expect(window.sessionStorage.length).toBeGreaterThan(0);
@@ -84,14 +101,20 @@ describe("Dialog popup dragging", () => {
     await waitFor(() => expect(screen.getByTestId("header-dialog").style.translate).toBe(savedTranslate));
   });
 
-  it("moves a standard header popup upward without turning its close or form controls into drag handles", () => {
+  it("clears a canceled touch drag so later pointer movement cannot move the popup", () => {
     render(<HeaderDialog />);
     const dialog = screen.getByTestId("header-dialog");
-    drag(screen.getByText("Header popup"));
-    expect(dialog.style.translate).toContain("-270px");
+    const grip = screen.getByRole("button", { name: "Drag to move this popup" });
+
+    fireEvent.pointerDown(grip, { pointerId: 73, button: 0, clientX: 400, clientY: 450 });
+    fireEvent.pointerCancel(grip, { pointerId: 73, clientX: 400, clientY: 450 });
+    fireEvent.pointerMove(grip, { pointerId: 73, clientX: 400, clientY: 180 });
+
+    expect(dialog.style.translate).toBe("calc(-50% + 0px) calc(-50% + 0px)");
+    expect(window.sessionStorage.length).toBe(0);
   });
 
-  it("gives the actual Filler attributes popup the same movable header", () => {
+  it("gives the actual Filler attributes popup the same dedicated grip", () => {
     render(
       <FillerAttributesDialog
         open
@@ -121,26 +144,29 @@ describe("Dialog popup dragging", () => {
 
     const dialog = screen.getByTestId("filler-attributes-dialog");
     const title = screen.getByText("Filler attributes");
-    expect(title.closest("[data-dialog-drag-handle]")).toBeTruthy();
-    drag(title, 8);
+    const grip = screen.getByRole("button", { name: "Drag to move this popup" });
+    expect(title.closest("[data-popup-drag-handle]")).toBeNull();
+    expect(grip.getAttribute("data-popup-drag-handle")).toBe("true");
+    drag(grip, 8);
     expect(dialog.style.translate).toContain("-270px");
   });
 
-  it("moves a confirmation popup by its title without replacing its centered translate", () => {
+  it("moves a confirmation popup by its explicit grip without replacing its centered translate", () => {
     render(<TitleOnlyConfirmationDialog />);
     const dialog = screen.getByTestId("title-only-confirmation-dialog");
     const title = screen.getByText("Confirmation popup");
+    const grip = screen.getByRole("button", { name: "Drag to move this popup" });
 
-    expect(title.getAttribute("data-alert-dialog-drag-handle")).toBe("true");
-    expect(title.querySelector("[data-popup-drag-grip='true']")?.getAttribute("title")).toBe("Drag to move");
-    drag(title, 9);
+    expect(title.getAttribute("data-alert-dialog-drag-handle")).toBeNull();
+    expect(grip.getAttribute("data-popup-drag-handle")).toBe("true");
+    drag(grip, 9);
     expect(dialog.style.translate).toContain("calc(-50% + 0px) calc(-50% + -270px)");
   });
 
-  it("restores a confirmation popup to its last dragged position when reopened in the same Designer session", async () => {
+  it("restores a confirmation popup to its last grip-dragged position when reopened in the same session", async () => {
     const first = render(<TitleOnlyConfirmationDialog />);
     const movedDialog = screen.getByTestId("title-only-confirmation-dialog");
-    drag(screen.getByText("Confirmation popup"), 90);
+    drag(screen.getByRole("button", { name: "Drag to move this popup" }), 90);
     const savedTranslate = movedDialog.style.translate;
     expect(savedTranslate).toContain("-270px");
 

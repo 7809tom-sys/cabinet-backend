@@ -101,6 +101,9 @@ function DialogContent({
   onPointerDownCapture,
   onPointerMove,
   onPointerUp,
+  onPointerCancel,
+  onLostPointerCapture,
+  onKeyDownCapture,
   popupPositionKey,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
@@ -134,6 +137,16 @@ function DialogContent({
     setDragOffset(clamped);
     return clamped;
   }, [clampOffset]);
+  const popupStorageKey = React.useCallback(() => {
+    const title = contentRef.current?.querySelector("[data-slot='dialog-title']")?.textContent;
+    return popupSessionPositionKey({
+      kind: "dialog",
+      explicitKey: popupPositionKey,
+      testId: contentRef.current?.getAttribute("data-testid"),
+      ariaLabel: typeof contentAriaLabel === "string" ? contentAriaLabel : null,
+      title,
+    });
+  }, [contentAriaLabel, popupPositionKey]);
 
   React.useLayoutEffect(() => {
     if (!contentElement) return;
@@ -169,10 +182,9 @@ function DialogContent({
 
   const handlePointerDownCapture = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
     onPointerDownCapture?.(event);
-    if (event.defaultPrevented || event.button !== 0 || !(event.target instanceof HTMLElement)) return;
-    const handle = event.target.closest("[data-dialog-drag-handle]");
-    const interactive = event.target.closest("button, a, input, textarea, select, [role='button']");
-    if (!handle || interactive) return;
+    if (event.defaultPrevented || event.button !== 0 || !(event.target instanceof Element)) return;
+    const handle = event.target.closest("[data-popup-drag-handle='true']");
+    if (!handle) return;
     dragOriginRef.current = { pointerId: event.pointerId, x: event.clientX, y: event.clientY, startX: dragOffsetRef.current.x, startY: dragOffsetRef.current.y };
     // Pointer Capture keeps the drag alive when the pointer leaves the popup.
     // It is unavailable in a few embedded/web-test environments, where normal
@@ -194,16 +206,30 @@ function DialogContent({
     onPointerUp?.(event);
     if (dragOriginRef.current?.pointerId !== event.pointerId) return;
     dragOriginRef.current = null;
-    const title = contentRef.current?.querySelector("[data-slot='dialog-title']")?.textContent;
-    const key = popupSessionPositionKey({
-      kind: "dialog",
-      explicitKey: popupPositionKey,
-      testId: contentRef.current?.getAttribute("data-testid"),
-      ariaLabel: typeof contentAriaLabel === "string" ? contentAriaLabel : null,
-      title,
-    });
-    writePopupSessionPosition(key, dragOffsetRef.current);
-  }, [contentAriaLabel, onPointerUp, popupPositionKey]);
+    writePopupSessionPosition(popupStorageKey(), dragOffsetRef.current);
+  }, [onPointerUp, popupStorageKey]);
+  const handlePointerCancel = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    onPointerCancel?.(event);
+    if (dragOriginRef.current?.pointerId === event.pointerId) dragOriginRef.current = null;
+  }, [onPointerCancel]);
+  const handleLostPointerCapture = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    onLostPointerCapture?.(event);
+    if (dragOriginRef.current?.pointerId === event.pointerId) dragOriginRef.current = null;
+  }, [onLostPointerCapture]);
+  const handleKeyDownCapture = React.useCallback((event: React.KeyboardEvent<HTMLDivElement>) => {
+    onKeyDownCapture?.(event);
+    if (event.defaultPrevented || !(event.target instanceof Element) || !event.target.closest("[data-popup-drag-handle='true']")) return;
+    const step = 16;
+    const delta = event.key === "ArrowLeft" ? { x: -step, y: 0 }
+      : event.key === "ArrowRight" ? { x: step, y: 0 }
+      : event.key === "ArrowUp" ? { x: 0, y: -step }
+      : event.key === "ArrowDown" ? { x: 0, y: step }
+      : null;
+    if (!delta) return;
+    event.preventDefault();
+    const next = setRememberedOffset({ x: dragOffsetRef.current.x + delta.x, y: dragOffsetRef.current.y + delta.y });
+    writePopupSessionPosition(popupStorageKey(), next);
+  }, [onKeyDownCapture, popupStorageKey, setRememberedOffset]);
 
   return (
     <DialogPortal data-slot="dialog-portal">
@@ -224,6 +250,9 @@ function DialogContent({
         onPointerDownCapture={handlePointerDownCapture}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerCancel}
+        onLostPointerCapture={handleLostPointerCapture}
+        onKeyDownCapture={handleKeyDownCapture}
         {...props}
       >
         {children}
@@ -245,9 +274,7 @@ function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="dialog-header"
-      data-dialog-drag-handle="true"
-      title="Drag this popup"
-      className={cn("flex cursor-grab flex-col gap-2 select-none text-center active:cursor-grabbing sm:text-left", className)}
+      className={cn("flex flex-col gap-2 text-center sm:text-left", className)}
       {...props}
     />
   );
@@ -274,9 +301,7 @@ function DialogTitle({
   return (
     <DialogPrimitive.Title
       data-slot="dialog-title"
-      data-dialog-drag-handle="true"
-      title="Drag this popup"
-      className={cn("flex cursor-grab select-none items-center gap-1.5 text-lg leading-none font-semibold active:cursor-grabbing", className)}
+      className={cn("flex items-center gap-1.5 text-lg leading-none font-semibold", className)}
       {...props}
     >
       <PopupDragGrip />
