@@ -1,0 +1,1 @@
+ALTER TABLE `pelican_products` ADD `retailPrice` decimal(10,2);

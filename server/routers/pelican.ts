@@ -56,16 +56,20 @@ function markupBpsFor(map: MarkupMap, category: string): number {
 export const positivePelicanPriceBase = positiveAuthorizedSurfaceBase;
 
 export function computeSellPrice(
-  product: { listPrice: string | null; yourCost: string | null; category: string },
+  product: { listPrice: string | null; yourCost: string | null; retailPrice?: string | null; category: string },
   map: MarkupMap
 ): number | null {
+  const retailPrice = product.retailPrice == null ? null : Number(product.retailPrice);
+  if (retailPrice != null && Number.isFinite(retailPrice) && retailPrice > 0) {
+    return Math.round(retailPrice * 100) / 100;
+  }
   const cost = positivePelicanPriceBase(product);
   if (cost == null) return null;
   const bps = markupBpsFor(map, product.category);
   return Math.round(cost * (1 + bps / 10000) * 100) / 100;
 }
 
-function withPricing<T extends { listPrice: string | null; yourCost: string | null; category: string }>(
+function withPricing<T extends { listPrice: string | null; yourCost: string | null; retailPrice?: string | null; category: string }>(
   product: T,
   map: MarkupMap,
   affiliateMarkupBps?: number,
@@ -603,8 +607,9 @@ export const pelicanRouter = router({
     .input(
       z.object({
         id: z.number(),
-        listPrice: z.number().nonnegative().optional(),
-        yourCost: z.number().nonnegative().optional(),
+        listPrice: z.number().nonnegative().nullable().optional(),
+        yourCost: z.number().nonnegative().nullable().optional(),
+        retailPrice: z.number().nonnegative().nullable().optional(),
         markupPercent: z.number().optional(),
       })
     )
@@ -617,13 +622,14 @@ export const pelicanRouter = router({
         .where(eq(pelicanProducts.id, input.id))
         .limit(1);
       if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "Surface product not found." });
-      const patch: Record<string, string | boolean> = {};
-      if (input.listPrice !== undefined) patch.listPrice = String(input.listPrice);
-      if (input.yourCost !== undefined) patch.yourCost = String(input.yourCost);
+      const patch: Record<string, string | boolean | null> = {};
+      if (input.listPrice !== undefined) patch.listPrice = input.listPrice == null ? null : String(input.listPrice);
+      if (input.yourCost !== undefined) patch.yourCost = input.yourCost == null ? null : String(input.yourCost);
+      if (input.retailPrice !== undefined) patch.retailPrice = input.retailPrice == null ? null : String(input.retailPrice);
       if (input.markupPercent !== undefined) patch.markupPercent = String(input.markupPercent);
       const resultingBase = positiveAuthorizedSurfaceBase({
-        listPrice: input.listPrice === undefined ? existing.listPrice : String(input.listPrice),
-        yourCost: input.yourCost === undefined ? existing.yourCost : String(input.yourCost),
+        listPrice: input.listPrice === undefined ? existing.listPrice : input.listPrice == null ? null : String(input.listPrice),
+        yourCost: input.yourCost === undefined ? existing.yourCost : input.yourCost == null ? null : String(input.yourCost),
       });
       if (resultingBase == null) {
         patch.isActive = false;
@@ -635,6 +641,55 @@ export const pelicanRouter = router({
         await db.update(pelicanProducts).set(patch).where(eq(pelicanProducts.id, input.id));
       }
       return { success: true, unpublished: resultingBase == null } as const;
+    }),
+  updateProduct: adminProcedure
+    .input(z.object({
+      id: z.number().int().positive(),
+      name: z.string().trim().min(1).max(255),
+      description: z.string().trim().max(10000),
+      imageUrl: z.string().trim().url().max(512).nullable(),
+      yourCost: z.number().nonnegative().nullable(),
+      retailPrice: z.number().nonnegative().nullable(),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Pelican catalog is unavailable." });
+      const [existing] = await db.select({ id: pelicanProducts.id, listPrice: pelicanProducts.listPrice }).from(pelicanProducts).where(eq(pelicanProducts.id, input.id)).limit(1);
+      if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "Pelican product not found." });
+      const patch: Record<string, string | boolean | null> = {
+        name: input.name,
+        description: input.description,
+        imageUrl: input.imageUrl,
+        yourCost: input.yourCost == null ? null : String(input.yourCost),
+        retailPrice: input.retailPrice == null ? null : String(input.retailPrice),
+      };
+      if (positiveAuthorizedSurfaceBase({ listPrice: existing.listPrice, yourCost: input.yourCost == null ? null : String(input.yourCost) }) == null) {
+        patch.isActive = false;
+        patch.showInCatalog = false;
+        patch.showInDesigner = false;
+        patch.isPopular = false;
+      }
+      await db.update(pelicanProducts).set(patch).where(eq(pelicanProducts.id, input.id));
+      return { success: true } as const;
+    }),
+  updateProductDetails: adminProcedure
+    .input(z.object({
+      id: z.number().int().positive(),
+      name: z.string().trim().min(1).max(255),
+      description: z.string().trim().max(10000),
+      imageUrl: z.string().trim().url().max(512).nullable(),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Pelican catalog is unavailable." });
+      const [existing] = await db.select({ id: pelicanProducts.id }).from(pelicanProducts).where(eq(pelicanProducts.id, input.id)).limit(1);
+      if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "Pelican product not found." });
+      await db.update(pelicanProducts).set({
+        name: input.name,
+        description: input.description,
+        imageUrl: input.imageUrl,
+      }).where(eq(pelicanProducts.id, input.id));
+      return { success: true } as const;
     }),
   /** Set the box coverage (sq ft per box) for tile/flooring products. */
   setCoverage: adminProcedure

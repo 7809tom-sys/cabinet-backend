@@ -1387,6 +1387,13 @@
       "when": 1792443290919,
       "tag": "0198_crm_help_team_notifications",
       "breakpoints": true
+    },
+    {
+      "idx": 199,
+      "version": "5",
+      "when": 1792500568111,
+      "tag": "0199_acoustic_black_cat",
+      "breakpoints": true
     }
   ]
 }

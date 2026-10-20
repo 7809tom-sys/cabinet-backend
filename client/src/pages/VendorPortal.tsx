@@ -100,6 +100,8 @@ function PelicanVendorCatalogPage({ initialCategory }: { initialCategory?: strin
   const utils = trpc.useUtils();
   const [category, setCategory] = useState<string>(initialCategory ?? ALL);
   const [search, setSearch] = useState("");
+  const [editingProduct, setEditingProduct] = useState<any | null>(null);
+  const [draft, setDraft] = useState({ name: "", description: "", imageUrl: "", yourCost: "", retailPrice: "" });
   const input = useMemo(
     () => ({
       category: category === ALL ? undefined : (category as any),
@@ -122,6 +124,29 @@ function PelicanVendorCatalogPage({ initialCategory }: { initialCategory?: strin
     onSuccess: () => utils.pelican.adminList.invalidate(),
     onError: (e) => toast.error(e.message || "Failed to update"),
   });
+  const updateProduct = trpc.pelican.updateProduct.useMutation({
+    onSuccess: () => { void utils.pelican.adminList.invalidate(); setEditingProduct(null); toast.success("Pelican item saved."); },
+    onError: (e) => toast.error(e.message || "Failed to save Pelican item"),
+  });
+
+  const openEditor = (item: any) => {
+    setEditingProduct(item);
+    setDraft({ name: item.name ?? "", description: item.description ?? "", imageUrl: item.imageUrl ?? "", yourCost: item.yourCost == null ? "" : String(item.yourCost), retailPrice: item.retailPrice == null ? "" : String(item.retailPrice) });
+  };
+  const parseMoney = (value: string, label: string): number | null | undefined => {
+    if (!value.trim()) return null;
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed) || parsed < 0) { toast.error(`${label} must be a non-negative number.`); return undefined; }
+    return Math.round(parsed * 100) / 100;
+  };
+  const saveEditor = () => {
+    if (!editingProduct) return;
+    const yourCost = parseMoney(draft.yourCost, "Our cost");
+    const retailPrice = parseMoney(draft.retailPrice, "Retail price");
+    if (yourCost === undefined || retailPrice === undefined) return;
+    if (draft.imageUrl.trim() && !/^https?:\/\//i.test(draft.imageUrl.trim())) { toast.error("Image URL must start with http:// or https://."); return; }
+    updateProduct.mutate({ id: editingProduct.id, name: draft.name.trim(), description: draft.description.trim(), imageUrl: draft.imageUrl.trim() || null, yourCost, retailPrice });
+  };
 
   const categories = useMemo(() => {
     const cats = new Set<string>();
@@ -179,6 +204,7 @@ function PelicanVendorCatalogPage({ initialCategory }: { initialCategory?: strin
                 <TableHead className="text-center">Designer</TableHead>
                 <TableHead className="text-center">Featured</TableHead>
                 <TableHead className="text-right">Sq ft/Box</TableHead>
+                <TableHead className="text-right">Edit</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -236,12 +262,63 @@ function PelicanVendorCatalogPage({ initialCategory }: { initialCategory?: strin
                         ? <span className="text-muted-foreground text-xs">{it.size}</span>
                         : <span className="text-muted-foreground">—</span>}
                   </TableCell>
+                  <TableCell className="text-right">
+                    <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={() => openEditor(it)}>
+                      <Pencil className="h-3.5 w-3.5" /> Edit
+                    </Button>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
         </div>
       )}
+      <Dialog open={Boolean(editingProduct)} onOpenChange={(open) => !open && setEditingProduct(null)}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Edit Pelican item</DialogTitle>
+            <p className="text-sm text-muted-foreground">{editingProduct?.pelicanCode} · Changes apply to the shared catalog and Designer.</p>
+          </DialogHeader>
+          <div className="grid gap-4 py-2">
+            <div className="grid gap-2 sm:grid-cols-[128px_1fr] sm:items-start">
+              <div className="flex h-32 w-32 items-center justify-center overflow-hidden rounded-lg border bg-muted">
+                {draft.imageUrl ? <img src={draft.imageUrl} alt="Preview" className="h-full w-full object-contain" /> : <ImageIcon className="h-6 w-6 text-muted-foreground" />}
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="pelican-edit-image">Image URL</Label>
+                <Input id="pelican-edit-image" value={draft.imageUrl} placeholder="https://…" onChange={(e) => setDraft((d) => ({ ...d, imageUrl: e.target.value }))} />
+                <p className="text-xs text-muted-foreground">Paste the approved product image URL. Leave blank to remove it.</p>
+              </div>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="pelican-edit-name">Product name</Label>
+              <Input id="pelican-edit-name" value={draft.name} onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))} />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="pelican-edit-description">Description</Label>
+              <Textarea id="pelican-edit-description" rows={5} value={draft.description} onChange={(e) => setDraft((d) => ({ ...d, description: e.target.value }))} />
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-2">
+                <Label htmlFor="pelican-edit-cost">Our cost</Label>
+                <Input id="pelican-edit-cost" inputMode="decimal" placeholder="0.00" value={draft.yourCost} onChange={(e) => setDraft((d) => ({ ...d, yourCost: e.target.value }))} />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="pelican-edit-retail">Selling price / retail</Label>
+                <Input id="pelican-edit-retail" inputMode="decimal" placeholder="Leave blank to use category markup" value={draft.retailPrice} onChange={(e) => setDraft((d) => ({ ...d, retailPrice: e.target.value }))} />
+                <p className="text-xs text-muted-foreground">Blank uses the existing category markup calculation.</p>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingProduct(null)}>Cancel</Button>
+            <Button onClick={saveEditor} disabled={updateProduct.isPending || !draft.name.trim()}>
+              {updateProduct.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Save item
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

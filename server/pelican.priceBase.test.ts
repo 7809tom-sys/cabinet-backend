@@ -38,6 +38,11 @@ describe("Pelican surface price base", () => {
     expect(computeSellPrice(product, markups)).toBeNull();
   });
 
+  it("uses an administrator-set retail price instead of recalculating category markup", () => {
+    const product = { category, yourCost: "8.00", listPrice: "12.50", retailPrice: "19.99" };
+    expect(computeSellPrice(product, markups)).toBe(19.99);
+  });
+
   it("does not allow zero imported cost placeholders to suppress a positive list price in markup statistics", () => {
     expect(routerSource).toContain("case when ${pelicanProducts.yourCost} > 0 then ${pelicanProducts.yourCost} when ${pelicanProducts.listPrice} > 0 then ${pelicanProducts.listPrice} else null end");
   });
