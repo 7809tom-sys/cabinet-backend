@@ -72,12 +72,42 @@ import { CustomProfileFace, DoorFront, ElevationView, isBaseEndAngleCabinet, isR
 	      })),
 	    );
 
-	    expect(markup).toContain("bottom:0;height:280px");
-	    expect(markup).not.toContain('data-testid="continuous-toe-kick-run"');
-	  });
+		    expect(markup).toContain("bottom:0;height:280px");
+		    expect(markup).not.toContain('data-testid="continuous-toe-kick-run"');
+		  });
 
-	  it("shows installed filler measurement and an explicit over-maximum warning", () => {
-	    const markup = renderToStaticMarkup(
+		  it("repairs a legacy bridge-linked refrigerator cap filler before rendering its exact over-fridge envelope", () => {
+		    const markup = renderToStaticMarkup(
+		      createElement(LanguageProvider, null, createElement(ElevationView, {
+		        room: { width: 144, depth: 120, ceilingHeight: 96 },
+		        cabinets: [
+		          {
+		            uid: "legacy-fridge", cabinetId: 82, masterCode: "FRIDGE-36", description: "36 inch refrigerator",
+		            placement: "appliance", x: 20, y: 0, width: 36, height: 70, depth: 30, rotation: 0, mountBottom: 0,
+		          },
+		          {
+		            uid: "legacy-refrigerator-bridge", cabinetId: 84, masterCode: "WR3612", description: "Refrigerator cabinet above",
+		            placement: "wall", x: 20, y: 0, width: 36, height: 12, depth: 24, rotation: 0, mountBottom: 72,
+		            refrigeratorAssemblyId: "legacy-fridge", refrigeratorAssemblyRole: "bridge",
+		          },
+		          {
+		            uid: "legacy-cap-filler", cabinetId: 85, masterCode: "F342", description: "Filler — cut to 1/2 inch", category: "Filler", subCategory: "Filler",
+		            placement: "base", x: 19.5, y: 0, width: 0.5, height: 70, depth: 24, rotation: 0, mountBottom: 0,
+		            fillerForCabinetUid: "legacy-refrigerator-bridge", numberOfDoors: 0, numberOfDrawers: 0,
+		          },
+		        ],
+		        selectedUid: null, onSelect: () => undefined, wall: "back",
+		      })),
+		    );
+
+		    // Four pixels per inch at the server-rendered test scale: both the
+		    // bridge and its cap filler must run from 72 to 84 inches.
+		    expect(markup.match(/bottom:288px;height:48px/g)).toHaveLength(2);
+		    expect(markup).not.toContain("bottom:18px;height:262px");
+		  });
+
+		  it("shows installed filler measurement and an explicit over-maximum warning", () => {
+		    const markup = renderToStaticMarkup(
 	      createElement(LanguageProvider, null, createElement(ElevationView, {
 	        room: { width: 144, depth: 120, ceilingHeight: 96 },
 	        cabinets: [{ uid: "oversized-filler", cabinetId: 83, masterCode: "FILL-3", description: "Measured filler", placement: "base", x: 0, y: 0, width: 3.5, height: 34.5, depth: 24, rotation: 0, nominalWidth: 3 }],

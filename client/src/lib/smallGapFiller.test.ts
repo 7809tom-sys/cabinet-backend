@@ -383,6 +383,67 @@ const cabinet: PlacedCabinet = {
 		    expect(elevationBox(normalized[2]!, DEFAULT_ROOM)).toEqual({ bottom: 72, height: 12 });
 		  });
 
+		  it("keeps a legacy cap filler linked to its refrigerator bridge at the bridge envelope even before assembly roles were stored", () => {
+		    const refrigerator: PlacedCabinet = {
+		      ...cabinet,
+		      uid: "legacy-fridge",
+		      masterCode: "FRIDGE-36",
+		      description: "36 inch refrigerator",
+		      placement: "appliance",
+		      x: 20,
+		      width: 36,
+		      depth: 30,
+		      height: 70,
+		      mountBottom: 0,
+		    };
+		    const bridge: PlacedCabinet = {
+		      ...cabinet,
+		      uid: "legacy-refrigerator-bridge",
+		      masterCode: "WR3612",
+		      description: "Refrigerator cabinet above",
+		      placement: "wall",
+		      x: 20,
+		      width: 36,
+		      depth: 24,
+		      height: 12,
+		      mountBottom: 72,
+		      refrigeratorAssemblyId: refrigerator.uid,
+		      refrigeratorAssemblyRole: "bridge",
+		    };
+		    // This saved record predates refrigeratorAssemblyRole on cap fillers but
+		    // still stores the authoritative bridge UID chosen by the user.
+		    const legacyCapFiller: PlacedCabinet = {
+		      ...cabinet,
+		      uid: "legacy-cap-filler-by-bridge-uid",
+		      masterCode: "F342",
+		      description: "Filler — cut to 1/2 inch",
+		      category: "Filler",
+		      subCategory: "Filler",
+		      placement: "base",
+		      x: 19.5,
+		      width: 0.5,
+		      depth: 24,
+		      height: 70,
+		      mountBottom: 0,
+		      fillerForCabinetUid: bridge.uid,
+		    };
+
+		    const normalized = normalizeInstalledFillersToAdjacentCabinets(
+		      [refrigerator, bridge, legacyCapFiller],
+		      DEFAULT_ROOM,
+		    );
+
+		    expect(normalized[2]).toMatchObject({
+		      placement: "wall",
+		      depth: 24,
+		      height: 12,
+		      mountBottom: 72,
+		      fillerForCabinetUid: bridge.uid,
+		      fillerMatchesFullOwnerEnvelope: false,
+		    });
+		    expect(elevationBox(normalized[2]!, DEFAULT_ROOM)).toEqual({ bottom: 72, height: 12 });
+		  });
+
 	  it("repairs a legacy wall filler from the exact cabinet touching its edge", () => {
 	    const owner: PlacedCabinet = {
 	      ...cabinet,

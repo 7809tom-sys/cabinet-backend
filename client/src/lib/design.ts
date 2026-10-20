@@ -409,12 +409,24 @@ export function normalizeInstalledFillersToAdjacentCabinets(
   let changed = false;
   const next = placements.map((item) => {
     if (!isFillerItem(item) || item.integratedWallBlindFiller === true) return item;
-    const bridgeOwner = (item.refrigeratorAssemblyRole === "bridge-left-filler" || item.refrigeratorAssemblyRole === "bridge-right-filler")
+    const roleLinkedBridgeOwner = (item.refrigeratorAssemblyRole === "bridge-left-filler" || item.refrigeratorAssemblyRole === "bridge-right-filler")
       && item.refrigeratorAssemblyId
       ? placements.find((candidate) => candidate.refrigeratorAssemblyId === item.refrigeratorAssemblyId
         && candidate.refrigeratorAssemblyRole === "bridge"
         && !isFillerItem(candidate)) ?? null
       : null;
+    // The durable cap-filler role was added after the original refrigerator
+    // enclosure picker. Those older saved fillers still carry the user's exact
+    // selected bridge UID. When that owner is a wall cabinet explicitly linked
+    // to a refrigerator, it is a cap filler—not a floor-to-fridge-side strip.
+    // Preserve that proven association before the refrigerator edge fallback.
+    const explicitBridgeOwner = item.fillerForCabinetUid
+      ? placements.find((candidate) => candidate.uid === item.fillerForCabinetUid
+        && candidate.placement === "wall"
+        && candidate.refrigeratorAssemblyId
+        && placements.some((refrigerator) => refrigerator.uid === candidate.refrigeratorAssemblyId && isRefrigerator(refrigerator))) ?? null
+      : null;
+    const bridgeOwner = roleLinkedBridgeOwner ?? explicitBridgeOwner;
     const refrigeratorOwner = refrigeratorAdjacentToFiller(item, placements, room);
     // A saved cap filler can predate its explicit bridge UID and still retain
     // the refrigerator assembly role. That role is more specific than merely

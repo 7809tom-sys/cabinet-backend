@@ -7,7 +7,7 @@ import {
   wallCeiling, wallCeilingIsSloped, wallLength, wallRunOffset, wallRunSpan, wallRunFrame, wallPlacementAt,
   backsplashMaterial, isStacker, isBridgeOverRange, resolveSwing,
   isRangeOrOven, wallCabinetTopLine, isBlindCorner, placedFootprint, crownEligibleCabinets, isLightRailEligibleCabinet, usesRaisedFloorWallDoorPull,
-	  flooringMaterial, normalizeRefrigeratorBayUppers, applianceAppearanceImage, applianceElevationPresentation, rangeVisualAppearance, resolveCabinetHardwarePosition, isWd18CountertopDrawerCabinet, wd18CountertopFaceLayout,
+	  flooringMaterial, normalizeInstalledFillersToAdjacentCabinets, normalizeRefrigeratorBayUppers, applianceAppearanceImage, applianceElevationPresentation, rangeVisualAppearance, resolveCabinetHardwarePosition, isWd18CountertopDrawerCabinet, wd18CountertopFaceLayout,
 	  isGlassDoorCabinet, glassDoorShelfCount, kitchenCrestGenericOpenEndShelfCount,
 } from "@/lib/design";
 import { crownTopRuns, formatCrownTop } from "@/lib/crownTopRuns";
@@ -321,9 +321,12 @@ export function ElevationView({
 
   // Normalize the refrigerator bay at render time too. A legacy plan can stay
   // live in local React state through an HMR refresh or a direct elevation view
-  // before DesignTool's restore normalizer runs; rendering the same shared rule
-  // prevents its refrigerator upper from visibly collapsing onto the appliance.
-  const elevationCabinets = normalizeRefrigeratorBayUppers(cabinets, room);
+  // before DesignTool's restore normalizer runs. Repair its cap-filler owner as
+  // well, so a stale floor-height filler cannot render beside the bridge.
+  const elevationCabinets = normalizeInstalledFillersToAdjacentCabinets(
+    normalizeRefrigeratorBayUppers(cabinets, room),
+    room,
+  );
 
   // Only show cabinets that actually sit on the wall being viewed, so other
   // walls' cabinets don't bleed into this elevation.

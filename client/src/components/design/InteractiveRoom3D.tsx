@@ -14,7 +14,7 @@ import { ThreeDHandlesControl } from "./ThreeDHandlesControl";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { APPLIANCES, BLIND_CORNER_FILLER_WIDTH_IN, COUNTERTOP_DEPTH_IN, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, isBaseHeightAppliance, blindCornerRearCountertopExtensionIn, cabinetWall, cabinetWallDragPreview, cornerRotationForPlaced, countertopRunFaceNormal, countertopSurfacePlanPolygon, countertopSurfaces, crownBlockingCabinets, crownEligibleCabinets, customWallCabinetSide, drywallPonyWallAppearance, elevationBox, formatEighthInches, formatInches, glassDoorShelfCount, isAgainstWall, isBaseEndCornerCabinet, isCustomRoomWall, isFillerItem, fillerWidthRange, isGlassDoorCabinet, isMicrowaveOverRangePair, isRangeHoodPlacement, isRangeOrOven, isRefrigerator, isStacker, isWallRunDraggable, isWd18CountertopDrawerCabinet, kitchenCrestGenericOpenEndShelfCount, peninsulaCountertopPonyWallBackExtensionIn, peninsulaCountertopPonyWallBarOverhang, peninsulaCountertopSeatingOverhang, peninsulaCountertopWaterfallEnd, peninsulaLowerWorktopOppositeSideExtensionIn, peninsulaRunEndpoints, placedCornerGeometryKind, placedFootprint, ponyWallMiteredFootprint, ponyWallPlanFrame, potFillerMountedRange, rangeVisualAppearance, refrigeratorBayVerificationMetrics, resolveCabinetHardwarePosition, resolveSwing, roomWallAppearance, seatedWallRunFrame, wallRunFrame, selectedLowerCabinetWallPlacement, sinkPlanDimensions, usesRaisedFloorWallDoorPull, wallCabinetFitMeasure, wallGapFitPreview, wallGapFreehandPreview, wallGaps, wallPlacementAt, wallRunOffset, wallRunSpan, wallSpanMeasure, wd18CountertopFaceLayout, type CabinetWallDragPreview, type CountertopSurface, type IslandZone, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type PotFillerFixture, rotatedSize, type RoomData, type SinkFixture, type WallCabinetFitMeasure, type WallGapFitPreview, type WallOpening, type WallSide, type WallSpanMeasure, wallTopLimit, } from "@/lib/design";
+import { APPLIANCES, BLIND_CORNER_FILLER_WIDTH_IN, COUNTERTOP_DEPTH_IN, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, isBaseHeightAppliance, blindCornerRearCountertopExtensionIn, cabinetWall, cabinetWallDragPreview, cornerRotationForPlaced, countertopRunFaceNormal, countertopSurfacePlanPolygon, countertopSurfaces, crownBlockingCabinets, crownEligibleCabinets, customWallCabinetSide, drywallPonyWallAppearance, elevationBox, formatEighthInches, formatInches, glassDoorShelfCount, isAgainstWall, isBaseEndCornerCabinet, isCustomRoomWall, isFillerItem, fillerWidthRange, isGlassDoorCabinet, isMicrowaveOverRangePair, isRangeHoodPlacement, isRangeOrOven, isRefrigerator, isStacker, isWallRunDraggable, isWd18CountertopDrawerCabinet, kitchenCrestGenericOpenEndShelfCount, normalizeInstalledFillersToAdjacentCabinets, peninsulaCountertopPonyWallBackExtensionIn, peninsulaCountertopPonyWallBarOverhang, peninsulaCountertopSeatingOverhang, peninsulaCountertopWaterfallEnd, peninsulaLowerWorktopOppositeSideExtensionIn, peninsulaRunEndpoints, placedCornerGeometryKind, placedFootprint, ponyWallMiteredFootprint, ponyWallPlanFrame, potFillerMountedRange, rangeVisualAppearance, refrigeratorBayVerificationMetrics, resolveCabinetHardwarePosition, resolveSwing, roomWallAppearance, seatedWallRunFrame, wallRunFrame, selectedLowerCabinetWallPlacement, sinkPlanDimensions, usesRaisedFloorWallDoorPull, wallCabinetFitMeasure, wallGapFitPreview, wallGapFreehandPreview, wallGaps, wallPlacementAt, wallRunOffset, wallRunSpan, wallSpanMeasure, wd18CountertopFaceLayout, type CabinetWallDragPreview, type CountertopSurface, type IslandZone, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type PotFillerFixture, rotatedSize, type RoomData, type SinkFixture, type WallCabinetFitMeasure, type WallGapFitPreview, type WallOpening, type WallSide, type WallSpanMeasure, wallTopLimit, } from "@/lib/design";
 import { islandCountertopRects, islandCountertopVisibleRects, islandRaisedBarRects, islandFaceFitMeasure } from "@/lib/islandScene";
 import { furniturePlanFrame, resolvedFurnitureDimensions } from "@/lib/design";
 import { farmhouseSinkBaseFaceLayout } from "@/lib/farmhouseSinkBaseFace";
@@ -9463,6 +9463,15 @@ export function threeDSceneInputDiagnostics(
   };
 }
 
+/**
+ * Rendering-only compatibility repair for legacy saved refrigerator cap
+ * fillers. The source plan stays untouched; this returns the exact same
+ * verified filler envelope used by the regular Designer restore path.
+ */
+export function threeDRenderPlacements(placed: PlacedCabinet[], room: RoomData): PlacedCabinet[] {
+  return normalizeInstalledFillersToAdjacentCabinets(placed, room);
+}
+
 export type ThreeDDesignParityInput = Pick<Props,
   "roomOverride" | "placed" | "openings" | "sinks" | "potFillers" | "island" | "furniture" | "ponyWalls"
   | "catalogDoorSampleUrl" | "catalogFinishOverride" | "catalogFinishName"
@@ -10213,9 +10222,10 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
   useEffect(() => {
     const mount = mountRef.current;
     if (!mount || (!scene.roomShape && !roomOverride)) return;
-    const room = roomOverride
-      ? { ...roomOverride, ceilingHeight: wallHeightIn }
-      : { ...dimensions(scene.roomShape?.defaultDimensions), ceilingHeight: wallHeightIn };
+	    const room = roomOverride
+	      ? { ...roomOverride, ceilingHeight: wallHeightIn }
+	      : { ...dimensions(scene.roomShape?.defaultDimensions), ceilingHeight: wallHeightIn };
+	    const renderedPlaced = renderExistingDesign ? threeDRenderPlacements(placed, room) : placed;
 
     const roomFrameKey = threeDCameraRoomFrameKey(room);
 	    const canvasWidth = Math.max(280, mount.clientWidth);
@@ -10413,10 +10423,10 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
 	      ceilingHeight: wallHeightIn,
 	    } as RoomData);
 	    const backsplashSegments = backsplashTexture && renderExistingDesign
-	      ? threeDBacksplashSegments(placed, openings, backsplashRoom, backsplashHeightMode, countertopBacksplashHeightIn)
+	      ? threeDBacksplashSegments(renderedPlaced, openings, backsplashRoom, backsplashHeightMode, countertopBacksplashHeightIn)
 	      : [];
 	    const countertopUpstandSegments = renderExistingDesign
-	      ? threeDCountertopUpstandSegments(placed, openings, backsplashRoom, countertopBacksplashHeightIn)
+	      ? threeDCountertopUpstandSegments(renderedPlaced, openings, backsplashRoom, countertopBacksplashHeightIn)
 	      : [];
     // Measured room vertices are absolute inches. Starter-layout templates use
     // normalized points, so keep their conversion separate from the saved-plan
@@ -10545,15 +10555,15 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
 		    const finish = resolvedCabinetFinish;
 		    const visibleCabinetFinishOverrides = selectedCabinetPreviewFinish ? undefined : cabinetFinishOverrides;
 	    const fittedFillerToeKickSuppressions = renderExistingDesign
-	      ? threeDFittedFillerToeKickSuppressionUids(placed)
+	      ? threeDFittedFillerToeKickSuppressionUids(renderedPlaced)
 	      : new Set<string>();
 	    const continuousToeKickSegments = renderExistingDesign && toeKick
-	      ? threeDContinuousToeKickSegments(placed, room)
+	      ? threeDContinuousToeKickSegments(renderedPlaced, room)
 	      : [];
 	    const continuousToeKickMemberUids = new Set(continuousToeKickSegments.flatMap((segment) => segment.memberUids));
-    const hasAnyDoorSample = Boolean(activeDoorTexture || Object.values(cabinetDoorSampleUrls ?? {}).some(Boolean));
-    setDoorTextureState(hasAnyDoorSample ? "loading" : "not-requested");
-    catalogRoot.userData.sceneInput = threeDSceneInputDiagnostics(placed, activeDoorTexture, catalogRoomSceneUrl);
+	    const hasAnyDoorSample = Boolean(activeDoorTexture || Object.values(cabinetDoorSampleUrls ?? {}).some(Boolean));
+	    setDoorTextureState(hasAnyDoorSample ? "loading" : "not-requested");
+	    catalogRoot.userData.sceneInput = threeDSceneInputDiagnostics(renderedPlaced, activeDoorTexture, catalogRoomSceneUrl);
 	    catalogRoot.userData.administrationVisualReference = {
       roomSceneUrl: catalogRoomSceneUrl ?? null,
       renderedAsBackdropOrGeometry: false,
@@ -10573,13 +10583,13 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
     let disposed = false;
     const updateDoorTextureState = (state: "loading" | "loaded" | "failed") => {
       if (!disposed) setDoorTextureState(state);
-    };
-    if (renderExistingDesign) {
-	      const sharedStandardCountertopSurfaces = threeDStandardCountertopSurfaces(room, placed, island, ponyWalls);
-      for (const cabinet of placed) {
-	        if (!shouldRenderSavedSceneCabinet(cabinet, placed)) continue;
+	    };
+	    if (renderExistingDesign) {
+	      const sharedStandardCountertopSurfaces = threeDStandardCountertopSurfaces(room, renderedPlaced, island, ponyWalls);
+	      for (const cabinet of renderedPlaced) {
+	        if (!shouldRenderSavedSceneCabinet(cabinet, renderedPlaced)) continue;
 	        const baseSku = existingCabinetSku(cabinet, room);
-	        const transitionFootprint = angledWallTransitionFootprint(cabinet, room, placed);
+	        const transitionFootprint = angledWallTransitionFootprint(cabinet, room, renderedPlaced);
         const sku = {
           ...baseSku,
           catalogImageUrl: resolvedPlacedCabinetFrontVisual(cabinet, cabinetFrontVisuals, baseSku.catalogImageUrl),
@@ -10588,8 +10598,8 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
 	        const cabinetFinish = resolvedPlacedCabinetFinish(cabinet, visibleCabinetFinishOverrides, finish);
         const cabinetDoorProfile = resolvedPlacedCabinetDoorProfile(cabinet, cabinetDoorProfiles, resolvedDoorProfile);
         const cabinetDoorTexture = resolvedPlacedCabinetDoorSampleUrl(cabinet, cabinetDoorSampleUrls, catalogDoorSampleUrl, renderExistingDesign);
-        const transform = /^HOOD[-_]?/i.test(cabinet.masterCode ?? "")
-          ? savedRangeHoodTransform(cabinet, placed, room)
+	        const transform = /^HOOD[-_]?/i.test(cabinet.masterCode ?? "")
+	          ? savedRangeHoodTransform(cabinet, renderedPlaced, room)
           : existingCabinetTransform(cabinet, room);
 	        const hasExactFarmhouseFixture = sinks.some((sink) => (
 	          sink.cabinetUid === cabinet.uid
@@ -10613,23 +10623,23 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
 		          suppressFarmhouseSinkPlaceholder: hasExactFarmhouseFixture,
 		          hardwareStyleId,
 		          hardwareAccent,
-		        });
-		        if (cabinet.masterTracConceptStorage || cabinet.masterTracStorageItems) {
-		          const fixedTopIn = placed.find((board) => board.masterTracTowerId === cabinet.masterTracTowerId
-		            && board.masterTracTowerBayIndex === cabinet.masterTracTowerBayIndex && board.masterTracTowerRole === "fixed-top")?.mountBottom;
+	        });
+	        if (cabinet.masterTracConceptStorage || cabinet.masterTracStorageItems) {
+	          const fixedTopIn = renderedPlaced.find((board) => board.masterTracTowerId === cabinet.masterTracTowerId
+	            && board.masterTracTowerBayIndex === cabinet.masterTracTowerBayIndex && board.masterTracTowerRole === "fixed-top")?.mountBottom;
 		          addMasterTracConceptStorage(catalogRoot, cabinet, room, fixedTopIn ?? undefined);
 		        }
 		      }
-		      if (toeKick && continuousToeKickSegments.length > 0) {
-		        addThreeDContinuousToeKicks(catalogRoot, continuousToeKickSegments, room, visibleCabinetFinishOverrides, finish);
-		      }
-		      addThreeDStandardCountertops(catalogRoot, room, placed, materialDefaults.countertop, countertopTexture, island, ponyWalls);
-		      if (roomOverride) {
-		        addThreeDMeasuredWallMiterCountertops(catalogRoot, roomOverride, placed, materialDefaults.countertop, countertopTexture);
-		        addThreeDPeninsulaCountertops(catalogRoot, roomOverride, placed, materialDefaults.countertop, countertopTexture);
-		      }
-		      addThreeDGlassStackerRearSupports(catalogRoot, placed, room, visibleCabinetFinishOverrides, finish);
-		      if (crown) addThreeDCrownMolding(catalogRoot, placed, room, visibleCabinetFinishOverrides, finish);
+	      if (toeKick && continuousToeKickSegments.length > 0) {
+	        addThreeDContinuousToeKicks(catalogRoot, continuousToeKickSegments, room, visibleCabinetFinishOverrides, finish);
+	      }
+	      addThreeDStandardCountertops(catalogRoot, room, renderedPlaced, materialDefaults.countertop, countertopTexture, island, ponyWalls);
+	      if (roomOverride) {
+	        addThreeDMeasuredWallMiterCountertops(catalogRoot, roomOverride, renderedPlaced, materialDefaults.countertop, countertopTexture);
+	        addThreeDPeninsulaCountertops(catalogRoot, roomOverride, renderedPlaced, materialDefaults.countertop, countertopTexture);
+	      }
+	      addThreeDGlassStackerRearSupports(catalogRoot, renderedPlaced, room, visibleCabinetFinishOverrides, finish);
+	      if (crown) addThreeDCrownMolding(catalogRoot, renderedPlaced, room, visibleCabinetFinishOverrides, finish);
 	    } else {
       for (const suggestion of validSuggestions) {
         if (!suggestion.sku) continue;
