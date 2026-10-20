@@ -1,10 +1,10 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { and, asc, desc, eq, gt, isNull, like, lte, not, or, sql } from "drizzle-orm";
-import { router, publicProcedure, adminProcedure } from "../_core/trpc";
+import { router, publicProcedure, adminProcedure, distributorProcedure } from "../_core/trpc";
 import { getDb } from "../db";
 import { pelicanProducts, pelicanShippingProfiles } from "../../drizzle/pelicanSchema";
-import { pelicanCategoryMarkups } from "../../drizzle/schema";
+import { distributors, pelicanCategoryMarkups } from "../../drizzle/schema";
 import { normalizeCode } from "../../shared/cabinetCodeMatch";
 import { positiveAuthorizedSurfaceBase } from "../../shared/surfacePricing";
 import { auditPelicanDesignerReadiness, isPelicanDesignerReady, isPelicanDesignerSelectable } from "../lib/pelicanDesignerReadiness";
@@ -33,6 +33,24 @@ const DEFAULT_MARKUP_BPS: Record<string, number> = {
 };
 
 type MarkupMap = Record<string, number>;
+
+async function requirePelicanVendor(
+  db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
+  ctx: { user: { role: string }; distributorId: number | null },
+) {
+  if (ctx.user.role === "admin") return;
+  if (ctx.distributorId == null) {
+    throw new TRPCError({ code: "FORBIDDEN", message: "Your account is not linked to a Pelican supply line." });
+  }
+  const [line] = await db
+    .select({ code: distributors.code, isActive: distributors.isActive })
+    .from(distributors)
+    .where(eq(distributors.id, ctx.distributorId))
+    .limit(1);
+  if (!line || !line.isActive || line.code !== "PEL") {
+    throw new TRPCError({ code: "FORBIDDEN", message: "This catalog is only available to the Pelican vendor." });
+  }
+}
 
 async function loadMarkupMap(db: NonNullable<Awaited<ReturnType<typeof getDb>>>): Promise<MarkupMap> {
   const rows = await db
@@ -314,7 +332,7 @@ export const pelicanRouter = router({
         .filter((r) => r.sellPrice && r.sellPrice > 0);
     }),
 
-  adminList: adminProcedure
+  adminList: distributorProcedure
     .input(
       z.object({
         category: CategoryEnum.optional(),
@@ -324,9 +342,10 @@ export const pelicanRouter = router({
         offset: z.number().min(0).default(0),
       })
     )
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) return { items: [], total: 0 };
+      await requirePelicanVendor(db, ctx);
       const markupMap = await loadMarkupMap(db);
       const conds = [] as any[];
       if (input.category) conds.push(eq(pelicanProducts.category, input.category));
@@ -366,11 +385,12 @@ export const pelicanRouter = router({
    * Operations has recorded a verified ship-from origin, package facts and a
    * source reference for that exact catalog row.
    */
-  adminShippingProfiles: adminProcedure
+  adminShippingProfiles: distributorProcedure
     .input(z.object({ search: z.string().trim().optional(), limit: z.number().min(1).max(500).default(200) }))
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) return [];
+      await requirePelicanVendor(db, ctx);
       const query = input.search?.trim();
       const q = query ? `%${query}%` : null;
       const where = q
@@ -406,7 +426,7 @@ export const pelicanRouter = router({
         .limit(input.limit);
     }),
 
-  saveShippingProfile: adminProcedure
+  saveShippingProfile: distributorProcedure
     .input(z.object({
       productId: z.number().int().positive(),
       originName: z.string().trim().min(2).max(191),
@@ -424,9 +444,10 @@ export const pelicanRouter = router({
       verifiedAt: z.coerce.date(),
       isEnabled: z.boolean(),
     }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Shipping profiles are unavailable." });
+      await requirePelicanVendor(db, ctx);
       const [product] = await db
         .select({ id: pelicanProducts.id })
         .from(pelicanProducts)
@@ -557,18 +578,19 @@ export const pelicanRouter = router({
       return { success: true } as const;
     }),
 
-  setPopular: adminProcedure
+  setPopular: distributorProcedure
     .input(z.object({ id: z.number(), isPopular: z.boolean(), popularRank: z.number().min(0).default(0) }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) return { success: false } as const;
+      await requirePelicanVendor(db, ctx);
       await db
         .update(pelicanProducts)
         .set({ isPopular: input.isPopular, popularRank: input.popularRank })
         .where(eq(pelicanProducts.id, input.id));
       return { success: true } as const;
     }),
-  setVisibility: adminProcedure
+  setVisibility: distributorProcedure
     .input(
       z.object({
         id: z.number(),
@@ -577,9 +599,10 @@ export const pelicanRouter = router({
         isActive: z.boolean().optional(),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) return { success: false } as const;
+      await requirePelicanVendor(db, ctx);
       const patch: Record<string, boolean> = {};
       if (input.showInCatalog !== undefined) patch.showInCatalog = input.showInCatalog;
       if (input.showInDesigner !== undefined) patch.showInDesigner = input.showInDesigner;
@@ -603,7 +626,7 @@ export const pelicanRouter = router({
       }
       return { success: true } as const;
     }),
-  setPricing: adminProcedure
+  setPricing: distributorProcedure
     .input(
       z.object({
         id: z.number(),
@@ -613,9 +636,10 @@ export const pelicanRouter = router({
         markupPercent: z.number().optional(),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) return { success: false } as const;
+      await requirePelicanVendor(db, ctx);
       const [existing] = await db
         .select({ listPrice: pelicanProducts.listPrice, yourCost: pelicanProducts.yourCost })
         .from(pelicanProducts)
@@ -642,7 +666,7 @@ export const pelicanRouter = router({
       }
       return { success: true, unpublished: resultingBase == null } as const;
     }),
-  updateProduct: adminProcedure
+  updateProduct: distributorProcedure
     .input(z.object({
       id: z.number().int().positive(),
       name: z.string().trim().min(1).max(255),
@@ -651,9 +675,10 @@ export const pelicanRouter = router({
       yourCost: z.number().nonnegative().nullable(),
       retailPrice: z.number().nonnegative().nullable(),
     }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Pelican catalog is unavailable." });
+      await requirePelicanVendor(db, ctx);
       const [existing] = await db.select({ id: pelicanProducts.id, listPrice: pelicanProducts.listPrice }).from(pelicanProducts).where(eq(pelicanProducts.id, input.id)).limit(1);
       if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "Pelican product not found." });
       const patch: Record<string, string | boolean | null> = {
@@ -692,16 +717,17 @@ export const pelicanRouter = router({
       return { success: true } as const;
     }),
   /** Set the box coverage (sq ft per box) for tile/flooring products. */
-  setCoverage: adminProcedure
+  setCoverage: distributorProcedure
     .input(
       z.object({
         id: z.number(),
         coverageSqFt: z.number().positive().nullable(),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) return { success: false } as const;
+      await requirePelicanVendor(db, ctx);
       await db
         .update(pelicanProducts)
         .set({ coverageSqFt: input.coverageSqFt != null ? String(input.coverageSqFt) : null })
@@ -709,16 +735,17 @@ export const pelicanRouter = router({
       return { success: true } as const;
     }),
   /** Store only a supplier/fabricator-verified unsupported overhang limit. */
-  setUnsupportedOverhangLimit: adminProcedure
+  setUnsupportedOverhangLimit: distributorProcedure
     .input(
       z.object({
         id: z.number().int().positive(),
         unsupportedOverhangLimitIn: z.number().min(0).max(36).nullable(),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) return { success: false } as const;
+      await requirePelicanVendor(db, ctx);
       if (input.unsupportedOverhangLimitIn != null) {
         const eighths = input.unsupportedOverhangLimitIn * 8;
         if (Math.abs(eighths - Math.round(eighths)) > 0.000001) {
@@ -735,16 +762,17 @@ export const pelicanRouter = router({
    * Catalog images are displayed to shoppers. This separate URL is an
    * administrator-approved, repeatable material swatch for the 3D Designer.
    */
-  setMaterialImage: adminProcedure
+  setMaterialImage: distributorProcedure
     .input(
       z.object({
         id: z.number().int().positive(),
         materialImageUrl: z.string().url().max(512).nullable(),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) return { success: false } as const;
+      await requirePelicanVendor(db, ctx);
       await db
         .update(pelicanProducts)
         .set({ materialImageUrl: input.materialImageUrl?.trim() || null })

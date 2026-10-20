@@ -29,6 +29,7 @@ import { toast } from "sonner";
 import { Label } from "@/components/ui/label";
 import { csvEscape } from "@shared/inventoryForecast";
 import { VendorOtherProducts } from "@/components/vendor/VendorOtherProducts";
+import { PelicanShippingProfilesPanel } from "@/components/admin/ShippingAdmin";
 import { designerFrameCompliance } from "@/lib/doorFrameMetrics";
 import { US_CABINET_DEPOT_AVAILABILITY_SOURCES, US_CABINET_DEPOT_WAREHOUSES } from "@/lib/vendorWarehouseNetwork";
 
@@ -4417,7 +4418,7 @@ export default function VendorPortal() {
       && user.distributorId == null
       && user.approvedVendorLineId != null)
   );
-  const distList = trpc.distributors.list.useQuery(undefined, { enabled: isAdmin === true });
+  const distList = trpc.distributors.list.useQuery(undefined, { enabled: isAdmin === true || user?.role === "distributor" });
   const approvedVendors = trpc.vendors.list.useQuery(undefined, { enabled: isAdmin === true });
 
   useEffect(() => {
@@ -4613,8 +4614,9 @@ function VendorPortalDashboard({
   approvedVendorList: PortalApprovedVendorOption[];
   supplierProfileOnly?: boolean;
 }) {
-  const activeDistCode = isAdmin && adminDistributorId
-    ? (distList.find((d: any) => d.id === adminDistributorId)?.code ?? undefined)
+  const activeDistributorId = isAdmin ? adminDistributorId : user.distributorId;
+  const activeDistCode = activeDistributorId
+    ? (distList.find((d: any) => d.id === activeDistributorId)?.code ?? undefined)
     : undefined;
   const isPelican = activeDistCode === PEL_DIST_CODE;
   const portalItems = supplierProfileOnly
@@ -4705,7 +4707,7 @@ function VendorPortalDashboard({
 	        {page === "other-products" && <VendorOtherProducts distributorId={adminDistributorId ?? undefined} />}
 	        {page === "styles" && <DoorStylesPage />}
 	        {page === "featured-styles" && <VendorFeaturedStylesPage />}
-	        {page === "shipping" && <VendorShippingPage />}
+        {page === "shipping" && (isPelican ? <PelicanShippingProfilesPanel isAdmin={isAdmin} /> : <VendorShippingPage />)}
 	        {page === "picks" && <DesignToolPicksPage />}
         {page === "promotions" && <PromotionsPage />}
         {page === "gallery" && <GalleryPage />}

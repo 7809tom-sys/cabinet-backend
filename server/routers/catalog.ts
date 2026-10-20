@@ -135,7 +135,11 @@ export const distributorsRouter = router({
       ));
     const publicLineIds = new Set(publicLineRows.map((row) => row.distributorId));
     // Resolve the customer-facing label per line; never leak hidden supplier names.
-    return rows.filter((d) => ctx.user?.role === "admin" || publicLineIds.has(d.id)).map((d) => {
+    return rows.filter((d) =>
+      ctx.user?.role === "admin"
+      || publicLineIds.has(d.id)
+      || (ctx.user?.role === "distributor" && ctx.user.distributorId === d.id)
+    ).map((d) => {
       const p = resolvePresentation(d);
       return {
         id: d.id,

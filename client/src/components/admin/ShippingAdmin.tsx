@@ -957,7 +957,7 @@ function shippingProfileDraft(row: PelicanShippingProfileRow): PelicanShippingPr
  * can distinguish supplier carton evidence from an owner-authorized comparable
  * package estimate and reconcile every live shipment rate.
  */
-function PelicanShippingProfilesPanel() {
+export function PelicanShippingProfilesPanel({ isAdmin = true }: { isAdmin?: boolean } = {}) {
   const utils = trpc.useUtils();
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<number | null>(null);
@@ -1029,12 +1029,12 @@ function PelicanShippingProfilesPanel() {
           <AlertTriangle className="mr-1.5 inline h-4 w-4 align-text-bottom" />
           Product dimensions are not shipping dimensions. Comparison estimates use the published comparable rule and the official Pelican pickup origin; replace them with supplier-verified carton facts as they arrive.
         </div>
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-blue-200 bg-blue-50 p-3 text-xs text-blue-950 dark:border-blue-900 dark:bg-blue-950/30 dark:text-blue-100">
+        {isAdmin && <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-blue-200 bg-blue-50 p-3 text-xs text-blue-950 dark:border-blue-900 dark:bg-blue-950/30 dark:text-blue-100">
           <span>Seed all eligible active Pelican SKUs with cited, conservative comparison-package estimates. Existing supplier-verified profiles are never replaced.</span>
           <Button size="sm" variant="outline" className="bg-background" onClick={() => applyComparable.mutate()} disabled={applyComparable.isPending}>
             {applyComparable.isPending ? "Applying…" : "Apply comparison estimates"}
           </Button>
-        </div>
+        </div>}
         <div className="relative max-w-xl">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input value={search} onChange={(event) => setSearch(event.target.value)} className="pl-9" placeholder="Find Pelican SKU, product name, or category" aria-label="Find Pelican product shipping profile" />

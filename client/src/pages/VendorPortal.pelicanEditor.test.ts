@@ -18,4 +18,10 @@ describe("Pelican vendor catalog editor", () => {
     expect(catalogSource).toContain("limit: 200");
     expect(catalogSource).toContain("Edit");
   });
+
+  it("routes Pelican vendors to the shipping profile editor", () => {
+    expect(source).toContain("PelicanShippingProfilesPanel");
+    expect(source).toContain("page === \"shipping\" && (isPelican");
+    expect(source).toContain("distList.find((d: any) => d.id === activeDistributorId)");
+  });
 });
