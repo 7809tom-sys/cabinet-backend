@@ -411,12 +411,16 @@ export function normalizeInstalledFillersToAdjacentCabinets(
     if (!isFillerItem(item) || item.integratedWallBlindFiller === true) return item;
     const bridgeOwner = (item.refrigeratorAssemblyRole === "bridge-left-filler" || item.refrigeratorAssemblyRole === "bridge-right-filler")
       && item.refrigeratorAssemblyId
-      ? placements.find((candidate) => candidate.uid === item.refrigeratorAssemblyId
+      ? placements.find((candidate) => candidate.refrigeratorAssemblyId === item.refrigeratorAssemblyId
         && candidate.refrigeratorAssemblyRole === "bridge"
         && !isFillerItem(candidate)) ?? null
       : null;
     const refrigeratorOwner = refrigeratorAdjacentToFiller(item, placements, room);
-    const owner = refrigeratorOwner ?? bridgeOwner ?? adjacentCabinetForFiller(item, placements, room);
+    // A saved cap filler can predate its explicit bridge UID and still retain
+    // the refrigerator assembly role. That role is more specific than merely
+    // touching the refrigerator: it follows the cabinet above the fridge, not
+    // the refrigerator's floor-to-top side-filler envelope.
+    const owner = bridgeOwner ?? refrigeratorOwner ?? adjacentCabinetForFiller(item, placements, room);
     if (!owner) return item;
     // Front-miter pairs retain their deliberately shallow physical board and
     // measured plan footprint. Their vertical band still belongs exactly to
