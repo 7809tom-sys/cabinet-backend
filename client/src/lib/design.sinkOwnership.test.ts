@@ -32,4 +32,12 @@ describe("sink fixture cabinet ownership", () => {
     expect(fixture.faucet).toBe(true);
     expect(fixtureBelongsToCabinet(fixture, sinkBase)).toBe(true);
   });
+
+  it("keeps a linked standard fixture owned by its sink base even after its valid rear-deck setback moves it off the old footprint center", () => {
+    const fixture = makeSinkForCabinet("single", sinkBase, DEFAULT_ROOM, { width: 25, depth: 18 });
+    const movedBase = { ...sinkBase, x: sinkBase.x + 12 };
+
+    expect(fixture.cabinetUid).toBe(sinkBase.uid);
+    expect(fixtureBelongsToCabinet(fixture, movedBase)).toBe(true);
+  });
 });

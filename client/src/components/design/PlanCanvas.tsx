@@ -683,9 +683,12 @@ export function PlanCanvas({
     | null
   >(null);
   const onSinkPointerDown = (e: React.PointerEvent, s: SinkFixture) => {
-    if (!onMoveSink || layoutLocked) return;
     e.stopPropagation();
     onSelectSink?.(s.uid);
+    // A linked standard sink is deliberately positioned by the shared 3-inch
+    // setback policy. Keep it selectable, but do not offer a free drag that
+    // would put it back over the bowl/faucet deck geometry.
+    if (!onMoveSink || layoutLocked || (s.cabinetUid && s.frontSetbackIn != null && !s.apronFront)) return;
     sinkDrag.current = { uid: s.uid, startX: e.clientX, startY: e.clientY, origX: s.x, origY: s.y, w: s.width, d: s.depth };
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
   };
@@ -2076,13 +2079,14 @@ export function PlanCanvas({
         {sinks.map((s) => {
           const isSel = s.uid === selectedSinkUid;
           const verticalWall = s.wallSide === "left" || s.wallSide === "right";
+          const isAttachedStandardSink = Boolean(s.cabinetUid && s.frontSetbackIn != null && !s.apronFront);
           return (
             <div
               key={s.uid}
               onPointerDown={(e) => onSinkPointerDown(e, s)}
               onPointerMove={onSinkPointerMove}
               onPointerUp={onSinkPointerUp}
-              className={`absolute z-[3] ${onMoveSink && !layoutLocked ? "cursor-move" : ""}`}
+              className={`absolute z-[3] ${onMoveSink && !layoutLocked && !isAttachedStandardSink ? "cursor-move" : ""}`}
 	              style={{
 	                left: s.x * ppi,
 	                top: s.y * ppi,
@@ -2091,7 +2095,9 @@ export function PlanCanvas({
 	                transform: s.planRotation ? `rotate(${s.planRotation}deg)` : undefined,
 	                transformOrigin: "50% 50%",
 	              }}
-              title={t("dt_pc_sink_drag", { name: s.pelicanProductName || SINK_PRESETS[s.type].name })}
+              title={isAttachedStandardSink
+                ? `${s.pelicanProductName || SINK_PRESETS[s.type].name} · centered with ${formatEighthInches(s.frontSetbackIn!)} front setback`
+                : t("dt_pc_sink_drag", { name: s.pelicanProductName || SINK_PRESETS[s.type].name })}
             >
               {/* basin */}
               <div
@@ -2113,6 +2119,11 @@ export function PlanCanvas({
                   : s.wallSide === "left" ? <div className="absolute left-[-5px] top-1/2 -translate-y-1/2" style={{ width: Math.max(4, 4 * ppi), height: Math.max(4, 3 * ppi), background: "#5b636b", borderRadius: 2 }} />
                     : s.wallSide === "right" ? <div className="absolute right-[-5px] top-1/2 -translate-y-1/2" style={{ width: Math.max(4, 4 * ppi), height: Math.max(4, 3 * ppi), background: "#5b636b", borderRadius: 2 }} />
                       : <div className="absolute left-1/2 -translate-x-1/2" style={{ top: -5, width: Math.max(4, 3 * ppi), height: Math.max(4, 4 * ppi), background: "#5b636b", borderRadius: 2 }} />
+              )}
+              {s.faucetDeckConflict === "shallow-countertop-deck" && (
+                <span data-testid={`sink-faucet-deck-conflict-${s.uid}`} role="alert" className="absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded bg-rose-700 px-1 py-0.5 text-[8px] font-bold text-white shadow">
+                  REAR DECK TOO SHALLOW
+                </span>
               )}
             </div>
           );

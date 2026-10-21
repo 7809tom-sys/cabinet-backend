@@ -135,7 +135,7 @@ import {
   COUNTERTOP_MATERIALS, DEFAULT_COUNTERTOP_MATERIAL_ID, countertopMaterial,
   EDGE_PROFILES, DEFAULT_EDGE_PROFILE_ID, edgeProfile,
 	  type PlanAnnotation, type CabinetWallDragPreview, makeAnnotation,
-  makeSink, makeSinkForCabinet, makeDefaultSinkForCabinet, normalizeSinkFixturesToBases, potFillerMountedRange, isRangeOrCooktop, sinkPlanDimensions, SINK_PRESETS, type PotFillerFixture, type SinkFixture, type SinkType,
+	  makeSink, makeSinkForCabinet, makeDefaultSinkForCabinet, nonApronSinkDeckPlacement, normalizeSinkFixturesToBases, potFillerMountedRange, isRangeOrCooktop, sinkPlanDimensions, SINK_PRESETS, type PotFillerFixture, type SinkFixture, type SinkType,
   snapToWall, snapPosition, nextFreeSpotOnWall, mountedMicrowaveOverRangeSpot, overRangeMicrowaveAttachment,
   clampCabinetsToRoom, clampOpeningsToRoom, clampIslandToRoom, clampRoomInches,
   WALL_LABELS, doorPanelKind,
@@ -19376,19 +19376,30 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
             toast.error(`${pelicanSinkBaseKind(sinkProduct) === "farmhouse" ? "Farmhouse/apron-front" : "Standard"} sinks do not fit this ${targetBaseKind === "farmhouse" ? "farmhouse/apron-front" : "standard"} sink base.`);
             return;
           }
-          if (!cab || !verifiedPelicanSinkFitsCabinet(verifiedProfile, cabinetWidth)) {
-            toast.error(`${verifiedProfile.name} requires a sink base at least ${verifiedProfile.minimumCabinetWidthIn}" wide.`);
-            setPendingSinkProduct(null);
-            setRangeTopStep("sink");
-            return;
-          }
-          const verifiedDimensions = { width: verifiedProfile.exteriorWidthIn, depth: verifiedProfile.exteriorDepthIn };
-          const autoSink = cab
-            ? makeSinkForCabinet(verifiedProfile.sinkType, cab, room, verifiedDimensions)
-            : makeSink(verifiedProfile.sinkType, 0, 0, activeWall, verifiedDimensions);
+	          if (!cab || !verifiedPelicanSinkFitsCabinet(verifiedProfile, cabinetWidth)) {
+	            toast.error(`${verifiedProfile.name} requires a sink base at least ${verifiedProfile.minimumCabinetWidthIn}" wide.`);
+	            setPendingSinkProduct(null);
+	            setRangeTopStep("sink");
+	            return;
+	          }
+	          const verifiedDimensions = { width: verifiedProfile.exteriorWidthIn, depth: verifiedProfile.exteriorDepthIn };
+	          // Part 1: a deck-mounted faucet must sit behind—not in—the selected
+	          // non-apron sink. Farmhouse/apron and wall-mounted fixtures retain
+	          // their existing dedicated installation paths.
+	          const deckPlacement = cab && !isBathroomVanity && verifiedProfile.sinkType !== "farmhouse" && !isWallMountedFaucet
+	            ? nonApronSinkDeckPlacement(cab, room, verifiedDimensions)
+	            : null;
+	          if (faucetProduct && deckPlacement?.applies && !deckPlacement.faucetCanFit) {
+	            toast.error(`${verifiedProfile.name} does not leave the required rear countertop deck for a faucet. ${deckPlacement.reason ?? "Choose a shallower sink or a different installation."}`);
+	            return;
+	          }
+	          const autoSink = cab
+	            ? makeSinkForCabinet(verifiedProfile.sinkType, cab, room, verifiedDimensions)
+	            : makeSink(verifiedProfile.sinkType, 0, 0, activeWall, verifiedDimensions);
           const sinkWithFaucet: SinkFixture = {
-            ...autoSink,
-            faucet: Boolean(faucetProduct),
+	            ...autoSink,
+	            faucet: Boolean(faucetProduct),
+	            faucetDeckConflict: faucetProduct ? autoSink.faucetDeckConflict : undefined,
             pelicanProductId: sinkProduct?.id,
             pelicanProductName: sinkProduct?.name,
             pelicanProductImage: sinkProduct?.imageUrl ?? undefined,

@@ -7657,14 +7657,20 @@ export function sinkFixtureTransform(sink: SinkFixture) {
 
 export function sinkFaucetTransform(sink: SinkFixture) {
   const sinkTransform = sinkFixtureTransform(sink);
-  const offset = sink.sourceDepth ?? sink.depth;
+  const sinkDepth = sink.sourceDepth ?? sink.depth;
+  // New non-apron fixtures carry an explicit rear-deck datum. Preserve the
+  // pre-Part-1 offset for legacy unowned/free fixtures until a linked restore
+  // can safely derive their countertop relationship.
+  const offset = sink.faucetRearDeckOffsetIn == null
+    ? sinkDepth * 0.31
+    : sinkDepth / 2 + sink.faucetRearDeckOffsetIn;
   const back = sink.wallSide === "bottom"
-    ? { x: 0, z: offset * INCH * 0.31 }
+    ? { x: 0, z: offset * INCH }
     : sink.wallSide === "left"
-      ? { x: -offset * INCH * 0.31, z: 0 }
+      ? { x: -offset * INCH, z: 0 }
       : sink.wallSide === "right"
-        ? { x: offset * INCH * 0.31, z: 0 }
-        : { x: 0, z: -offset * INCH * 0.31 };
+        ? { x: offset * INCH, z: 0 }
+        : { x: 0, z: -offset * INCH };
   return {
     x: sinkTransform.x + back.x,
     z: sinkTransform.z + back.z,

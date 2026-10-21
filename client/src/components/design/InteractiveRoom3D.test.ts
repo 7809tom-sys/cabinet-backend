@@ -36,6 +36,33 @@ function addCabinetWithBarPulls(...args: Parameters<typeof addCabinet>) {
   return addCabinet(...withHardware);
 }
 
+describe("standard sink faucet deck placement", () => {
+  it("places a deck-mounted faucet behind the rear sink rim rather than inside the bowl", () => {
+    const sink = {
+      uid: "rear-deck-sink",
+      type: "double" as const,
+      x: 24,
+      y: 2.5,
+      width: 33,
+      depth: 20,
+      sourceWidth: 33,
+      sourceDepth: 20,
+      wallSide: "top" as const,
+      faucet: true,
+      faucetRearDeckOffsetIn: 1.25,
+    };
+
+    const faucet = sinkFaucetTransform(sink);
+    const sinkCenter = sinkFixtureTransform(sink);
+
+    // At the top wall, negative Z is toward the rear deck/wall. The faucet
+    // must clear the 10-inch rear half of this 20-inch sink plus its 1¼-inch
+    // declared rear-deck offset.
+    expect(faucet.z).toBeCloseTo(sinkCenter.z - 11.25 / 12, 6);
+    expect(faucet.back.z).toBeCloseTo(-11.25 / 12, 6);
+  });
+});
+
 describe("customer manual AI render handoff", () => {
   it("sends only verified customer requests into manual review while retaining the administrator path", () => {
     const source = readFileSync(new URL("./InteractiveRoom3D.tsx", import.meta.url), "utf8");

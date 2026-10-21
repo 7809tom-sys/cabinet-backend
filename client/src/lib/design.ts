@@ -13678,6 +13678,12 @@ export interface SinkFixture {
   /** Physical product dimensions before the plan footprint is rotated. */
   sourceWidth?: number;
   sourceDepth?: number;
+  /** Non-apron sink front setback from the finished countertop front. */
+  frontSetbackIn?: number;
+  /** Center of the usable rear countertop deck, measured from the sink rear. */
+  faucetRearDeckOffsetIn?: number;
+  /** Planning conflict when a deck-mounted faucet has no physical rear deck. */
+  faucetDeckConflict?: "shallow-countertop-deck";
   /** Pelican product ID (when selected from real inventory) */
   pelicanProductId?: number;
   /** Pelican product name for display */
@@ -13868,6 +13874,40 @@ export const SINK_PRESETS: Record<SinkType, { name: string; width: number; depth
   bar:       { name: "Bar / Prep Sink",  width: 15, depth: 15 },
 };
 
+/** Approved non-apron sink setback range from the finished countertop front. */
+export const NON_APRON_SINK_FRONT_SETBACK = {
+  minimumIn: 2.5,
+  defaultIn: 3,
+  maximumIn: 3.5,
+} as const;
+
+/**
+ * Published faucet profiles do not carry a countertop-hole/base-footprint
+ * datum. This documented Designer planning policy reserves a usable rear deck
+ * for their actual deck-mounted render, without claiming a source-specific
+ * installation clearance.
+ */
+export const MINIMUM_FAUCET_REAR_DECK_IN = 2.5;
+
+export type NonApronSinkDeckPlacement = {
+  applies: boolean;
+  ok: boolean;
+  x: number;
+  y: number;
+  planWidth: number;
+  planDepth: number;
+  frontSetbackIn: number;
+  rearDeckIn: number;
+  faucetCanFit: boolean;
+  faucetRearDeckOffsetIn?: number;
+  sinkFitsCountertop: boolean;
+  reason?: string;
+};
+
+const isCardinalSinkWall = (side: WallSide | undefined): side is "top" | "bottom" | "left" | "right" => (
+  side === "top" || side === "bottom" || side === "left" || side === "right"
+);
+
 export function sinkPlanDimensions(
   width: number,
   depth: number,
@@ -13876,6 +13916,96 @@ export function sinkPlanDimensions(
   return wallSide === "left" || wallSide === "right"
     ? { width: depth, depth: width }
     : { width, depth };
+}
+
+/**
+ * Places a standard, non-apron sink on an ordinary cardinal base run. Its long
+ * side stays parallel to the cabinet front; its front is three inches behind
+ * the finished countertop front by default; and the remaining rear deck is
+ * the only allowed deck-mounted faucet location. Part 1 intentionally leaves
+ * island, peninsula, angled/custom wall, apron-front, and countertop meshes
+ * untouched.
+ */
+export function nonApronSinkDeckPlacement(
+  cabinet: PlacedCabinet,
+  room: RoomData,
+  dimensions: { width: number; depth: number },
+  requestedFrontSetbackIn: number = NON_APRON_SINK_FRONT_SETBACK.defaultIn,
+): NonApronSinkDeckPlacement {
+  const side = cabinet.islandFace
+    ? ({ front: "top", back: "bottom", left: "right", right: "left" } as const)[cabinet.islandFace]
+    : cabinetWall(cabinet, room);
+  const plan = sinkPlanDimensions(dimensions.width, dimensions.depth, side);
+  const footprint = placedFootprint(cabinet);
+  const centeredX = Math.max(cabinet.x, Math.min(cabinet.x + footprint.w - plan.width, cabinet.x + footprint.w / 2 - plan.width / 2));
+  const centeredY = Math.max(cabinet.y, Math.min(cabinet.y + footprint.d - plan.depth, cabinet.y + footprint.d / 2 - plan.depth / 2));
+  const fallback: NonApronSinkDeckPlacement = {
+    applies: false,
+    ok: true,
+    x: centeredX,
+    y: centeredY,
+    planWidth: plan.width,
+    planDepth: plan.depth,
+    frontSetbackIn: requestedFrontSetbackIn,
+    rearDeckIn: 0,
+    faucetCanFit: true,
+    sinkFitsCountertop: true,
+  };
+  if (cabinet.islandFace || !isCardinalSinkWall(side)) return fallback;
+
+  const frontSetbackIn = Number.isFinite(requestedFrontSetbackIn)
+    ? requestedFrontSetbackIn
+    : NON_APRON_SINK_FRONT_SETBACK.defaultIn;
+  if (frontSetbackIn < NON_APRON_SINK_FRONT_SETBACK.minimumIn || frontSetbackIn > NON_APRON_SINK_FRONT_SETBACK.maximumIn) {
+    return {
+      ...fallback,
+      applies: true,
+      ok: false,
+      frontSetbackIn,
+      faucetCanFit: false,
+      sinkFitsCountertop: false,
+      reason: `Sink front setback must be between ${NON_APRON_SINK_FRONT_SETBACK.minimumIn}″ and ${NON_APRON_SINK_FRONT_SETBACK.maximumIn}″.`,
+    };
+  }
+
+  const countertopDepthIn = countertopDepthForCabinet(cabinet);
+  const rearDeckIn = countertopDepthIn - frontSetbackIn - dimensions.depth;
+  const sinkFitsCountertop = rearDeckIn >= -COLLISION_EPSILON_IN;
+  const faucetCanFit = rearDeckIn + COLLISION_EPSILON_IN >= MINIMUM_FAUCET_REAR_DECK_IN;
+  // Keep the deck-mounted base a tangible 1¼ inches behind the sink's rear
+  // edge when the approved deck minimum exists; do not visually drift it to
+  // the far rear edge on shallower/deeper sink models.
+  const faucetRearDeckOffsetIn = Math.max(0, Math.min(rearDeckIn / 2, 1.25));
+  let x = centeredX;
+  let y = centeredY;
+  if (side === "top") {
+    y = cabinet.y + footprint.d + (countertopDepthIn - footprint.d) - frontSetbackIn - plan.depth;
+  } else if (side === "bottom") {
+    y = cabinet.y - (countertopDepthIn - footprint.d) + frontSetbackIn;
+  } else if (side === "left") {
+    x = cabinet.x + footprint.w + (countertopDepthIn - footprint.w) - frontSetbackIn - plan.width;
+  } else {
+    x = cabinet.x - (countertopDepthIn - footprint.w) + frontSetbackIn;
+  }
+  const reason = !sinkFitsCountertop
+    ? `The selected sink is deeper than the finished countertop after its ${frontSetbackIn}″ front setback.`
+    : !faucetCanFit
+      ? `The selected sink leaves ${Math.max(0, rearDeckIn).toFixed(2)}″ of rear deck; a deck-mounted faucet requires ${MINIMUM_FAUCET_REAR_DECK_IN}″.`
+      : undefined;
+  return {
+    applies: true,
+    ok: sinkFitsCountertop,
+    x,
+    y,
+    planWidth: plan.width,
+    planDepth: plan.depth,
+    frontSetbackIn,
+    rearDeckIn: Math.max(0, rearDeckIn),
+    faucetCanFit,
+    faucetRearDeckOffsetIn,
+    sinkFitsCountertop,
+    reason,
+  };
 }
 
 export function makeSink(
@@ -13909,6 +14039,7 @@ export function makeSinkForCabinet(
 	  cabinet: PlacedCabinet,
 	  room: RoomData,
 	  dimensions?: { width: number; depth: number },
+	  options?: { frontSetbackIn?: number },
 ): SinkFixture {
 	  const side = cabinet.islandFace
 	    ? ({ front: "top", back: "bottom", left: "right", right: "left" } as const)[cabinet.islandFace]
@@ -13936,9 +14067,21 @@ export function makeSinkForCabinet(
         ? cabinet.y
         : centeredY
     : centeredY;
-	  const cardinalWall = side === "top" || side === "bottom" || side === "left" || side === "right";
+	  const deckPlacement = type === "farmhouse"
+	    ? null
+	    : nonApronSinkDeckPlacement(cabinet, room, { width: rawWidth, depth: rawDepth }, options?.frontSetbackIn);
+	  const cardinalWall = isCardinalSinkWall(side);
 	  const planRotation = cardinalWall ? 0 : ((Number(cabinet.rotation) % 360) + 360) % 360;
-	  return { ...makeSink(type, x, y, side, { width: rawWidth, depth: rawDepth }), cabinetUid: cabinet.uid, planRotation };
+	  return {
+	    ...makeSink(type, deckPlacement?.applies ? deckPlacement.x : x, deckPlacement?.applies ? deckPlacement.y : y, side, { width: rawWidth, depth: rawDepth }),
+	    cabinetUid: cabinet.uid,
+	    planRotation,
+	    ...(deckPlacement?.applies ? {
+	      frontSetbackIn: deckPlacement.frontSetbackIn,
+	      faucetRearDeckOffsetIn: deckPlacement.faucetRearDeckOffsetIn,
+	      ...(deckPlacement.faucetCanFit ? {} : { faucetDeckConflict: "shallow-countertop-deck" as const }),
+	    } : {}),
+	  };
 }
 
 /** Default visual-planning sink created with a required sink base. */
@@ -13963,14 +14106,22 @@ export function normalizeSinkFixturesToBases(
     if (!owner) return sink;
     const sourceWidth = sink.sourceWidth ?? sink.width;
     const sourceDepth = sink.sourceDepth ?? sink.depth;
-    const next = makeSinkForCabinet(sink.type, owner, room, { width: sourceWidth, depth: sourceDepth });
-    const same = sink.x === next.x && sink.y === next.y && sink.width === next.width && sink.depth === next.depth && sink.wallSide === next.wallSide && sink.planRotation === next.planRotation && sink.sourceWidth === next.sourceWidth && sink.sourceDepth === next.sourceDepth && sink.cabinetUid === next.cabinetUid;
+    const next = makeSinkForCabinet(
+      sink.type,
+      owner,
+      room,
+      { width: sourceWidth, depth: sourceDepth },
+      { frontSetbackIn: sink.frontSetbackIn },
+    );
+    const nextDeckConflict = sink.faucet ? next.faucetDeckConflict : undefined;
+    const same = sink.x === next.x && sink.y === next.y && sink.width === next.width && sink.depth === next.depth && sink.wallSide === next.wallSide && sink.planRotation === next.planRotation && sink.sourceWidth === next.sourceWidth && sink.sourceDepth === next.sourceDepth && sink.cabinetUid === next.cabinetUid && sink.frontSetbackIn === next.frontSetbackIn && sink.faucetRearDeckOffsetIn === next.faucetRearDeckOffsetIn && sink.faucetDeckConflict === nextDeckConflict;
     if (same) return sink;
     changed = true;
     return {
       ...next,
       uid: sink.uid,
       faucet: sink.faucet,
+      faucetDeckConflict: nextDeckConflict,
       pelicanProductId: sink.pelicanProductId,
       pelicanProductName: sink.pelicanProductName,
       pelicanProductImage: sink.pelicanProductImage,
