@@ -4882,7 +4882,7 @@ export function wallCabinetClearsWindow(
   const start = wallRunOffset(cabinet, side, room);
   const end = start + wallRunSpan(cabinet, side, room);
   const crossesWindow = start < opening.offset + opening.width - 0.01 && end > opening.offset + 0.01;
-  return crossesWindow && elevationBox(cabinet, room).bottom >= opening.sill + opening.height + clearance - 0.01;
+  return crossesWindow && !windowVerticallyOverlapsCabinet(cabinet, opening, room, clearance);
 }
 
 // Footprint rectangle (rotation-aware) for a placed item.
@@ -5954,6 +5954,31 @@ export type OpeningKind = "door" | "window" | "opening";
 // under a window). Used by base-overlap detection.
 export function blocksFloorRun(kind: OpeningKind): boolean {
   return kind === "door" || kind === "opening";
+}
+
+/**
+ * A window blocks a cabinet only where their real elevation envelopes overlap.
+ * Base cabinets and under-counter appliances remain usable below a raised sill;
+ * wall, tall, and hood/upper appliances remain blocked in the window zone.
+ * Doors and cased openings continue to use the separate floor-run rule above.
+ */
+export function windowVerticallyOverlapsCabinet(
+  cabinet: PlacedCabinet,
+  opening: WallOpening,
+  room: RoomData,
+  clearance = 0,
+): boolean {
+  if (opening.kind !== "window") return false;
+  const box = elevationBox(cabinet, room);
+  const openingBottom = opening.sill - clearance;
+  const openingTop = opening.sill + opening.height + clearance;
+  return box.bottom < openingTop - COLLISION_EPSILON_IN
+    && box.bottom + box.height > openingBottom + COLLISION_EPSILON_IN;
+}
+
+/** A window below the finished countertop must be corrected before base placement. */
+export function isWindowBelowCountertop(opening: WallOpening): boolean {
+  return opening.kind === "window" && opening.sill < STD.COUNTERTOP_HEIGHT - COLLISION_EPSILON_IN;
 }
 
 export interface OpeningDef {
@@ -8107,8 +8132,7 @@ export function baseOpeningOverlaps(
   room: RoomData
 ): Set<string> {
   const bad = new Set<string>();
-  const floorOpenings = openings.filter((o) => blocksFloorRun(o.kind));
-  if (floorOpenings.length === 0) return bad;
+
 	  for (const p of placed) {
 	    // Floor layer = base + appliance; tall spans the floor too.
 	    if (p.placement === "wall") continue;
@@ -8118,8 +8142,11 @@ export function baseOpeningOverlaps(
 	    const side = cabinetWall(p, room);
 	    const cStart = wallRunOffset(p, side, room);
 	    const cEnd = cStart + wallRunSpan(p, side, room);
-    for (const o of floorOpenings) {
+    for (const o of openings) {
       if (o.side !== side) continue;
+      const blocksFloorPlacement = blocksFloorRun(o.kind)
+        || windowVerticallyOverlapsCabinet(p, o, room);
+      if (!blocksFloorPlacement) continue;
       const oStart = o.offset;
       const oEnd = o.offset + o.width;
       // Any positive overlap along the run axis is a conflict.
@@ -8369,17 +8396,19 @@ export function freeSegmentsOnWall(
     blocked.push({ s: start, e: start + span });
   }
 
-  // Openings on this wall. A window only blocks the upper/wall-cabinet layer;
-  // a base, appliance, or tall run may pass under it. A door or cased opening
-  // blocks the floor layers as well. This deliberately matches
-  // baseOpeningOverlaps(), so a valid DW-24 opening does not first appear free
-  // in Plan and then disappear during the placement/collision step.
-  const openingBlocksLayer = (opening: WallOpening) =>
-    layer === "wall" || blocksFloorRun(opening.kind);
+  // Openings on this wall. A raised window blocks only a cabinet whose actual
+  // elevation reaches its sill-to-top zone. Doors and cased openings still
+  // block floor layers. Candidate-aware use keeps drag/drop and final placement
+  // collision validation in lockstep.
+  const openingBlocksLayer = (opening: WallOpening) => {
+    if (blocksFloorRun(opening.kind)) return true;
+    if (opening.kind !== "window") return false;
+    if (candidate) return windowVerticallyOverlapsCabinet(candidate, opening, room, openingClearance);
+    return layer === "wall" || layer === "tall" || isWindowBelowCountertop(opening);
+  };
   for (const o of openings) {
     if (o.side !== side) continue;
     if (!openingBlocksLayer(o)) continue;
-    if (candidate && wallCabinetClearsWindow(candidate, o, room, openingClearance)) continue;
     blocked.push({
       s: Math.max(wallStart, o.offset - openingClearance),
       e: Math.min(wallEnd, o.offset + o.width + openingClearance),

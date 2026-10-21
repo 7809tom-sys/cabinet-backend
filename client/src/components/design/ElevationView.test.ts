@@ -76,7 +76,7 @@ import { CustomProfileFace, DoorFront, ElevationView, isBaseEndAngleCabinet, isR
 		    expect(markup).not.toContain('data-testid="continuous-toe-kick-run"');
 		  });
 
-		  it("renders selected backsplash corner-to-corner behind a short base run instead of leaving a corner field blank", () => {
+		  it("renders selected backsplash only behind a short real countertop run, never across the open wall", () => {
 		    const markup = renderToStaticMarkup(
 		      createElement(LanguageProvider, null, createElement(ElevationView, {
 		        room: { width: 120, depth: 96, ceilingHeight: 96 },
@@ -89,8 +89,8 @@ import { CustomProfileFace, DoorFront, ElevationView, isBaseEndAngleCabinet, isR
 		      })),
 		    );
 
-		    // The static render's 4px/in scale makes the full 120-inch wall 480px.
-		    expect(markup).toMatch(/data-testid="elevation-backsplash-segment"[^>]*data-backsplash-field-coverage="perimeter"[^>]*left:0;width:480px/);
+		    // The static render's 4px/in scale makes the supported 24-inch run 96px.
+		    expect(markup).toMatch(/data-testid="elevation-backsplash-segment"[^>]*data-backsplash-field-coverage="supported"[^>]*left:0;width:96px/);
 		  });
 
 		  it("repairs a legacy bridge-linked refrigerator cap filler before rendering its exact over-fridge envelope", () => {

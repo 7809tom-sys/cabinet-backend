@@ -809,3 +809,44 @@ describe("island work-zone face selection", () => {
 	    expect(zoneTag).toContain("transform-origin:50% 50%");
 	  });
 });
+
+
+describe("low-sill window conflict", () => {
+  it("flags a window whose sill falls below the finished countertop instead of silently allowing a base run", () => {
+    const markup = renderToStaticMarkup(
+      createElement(
+        LanguageProvider,
+        null,
+        createElement(PlanCanvas, {
+          room: { width: 144, depth: 120, ceilingHeight: 96 },
+          cabinets: [],
+          openings: [{ uid: "low-window", kind: "window", label: "Over-Sink Window", side: "top", offset: 54.25, width: 36, height: 48, sill: 30 }],
+          selectedUid: null,
+          onSelect: () => undefined,
+          onMove: () => undefined,
+          showWallLayer: true,
+        }),
+      ),
+    );
+
+    expect(markup).toContain('data-testid="low-sill-window-conflict"');
+    expect(markup).toContain("below the 36&quot; countertop height");
+  });
+});
+
+
+describe("Floor Plan window-aware fit labels", () => {
+  const room = { width: 144, depth: 120, ceilingHeight: 96 } as RoomData;
+  const raisedWindow = { uid: "raised-window", kind: "window", label: "Over-Sink Window", side: "top", offset: 54.25, width: 36, height: 48, sill: 44 } as WallOpening;
+
+  it("keeps the base-layer fit span available under a 44-inch sill while retaining the wall-layer exclusion", () => {
+    const spans = floorPlanAvailableCabinetSpans(room, [], [raisedWindow], true);
+    expect(spans.some((span) => span.side === "top" && span.layer === "base" && span.start === 0 && span.length === 144)).toBe(true);
+    expect(spans.some((span) => span.side === "top" && span.layer === "wall" && span.start < 54.25 + 36 && span.start + span.length > 54.25)).toBe(false);
+  });
+
+  it("removes the low-sill window width from base-layer fit labels", () => {
+    const spans = floorPlanAvailableCabinetSpans(room, [], [{ ...raisedWindow, sill: 30 }], true);
+    expect(spans.some((span) => span.side === "top" && span.layer === "base" && span.start < 54.25 + 36 && span.start + span.length > 54.25)).toBe(false);
+  });
+});

@@ -25,7 +25,7 @@ import {
 			  isStacker, glassStackerParentPlacement, glassStackerFrontFlushSpot, glassStackerFrontSnapTarget, normalizeGlassStackersToParentFronts, isWd18CountertopDrawerCabinet, wd18CountertopFaceLayout, normalizeWd18CountertopMounts, normalizeStandardWallMounts,
   isDiagonalCorner, footprintDepth,
   isLCornerCabinet, cornerLegRatioForPlaced, placedCornerGeometryKind, placedFootprint, normalizeLCornerDepths,
-  baseOpeningOverlaps, blocksFloorRun, missingCornerBaseViolations,
+	  baseOpeningOverlaps, blocksFloorRun, missingCornerBaseViolations, isWindowBelowCountertop, windowVerticallyOverlapsCabinet,
   snapPosition, snapCabinetSeamOverlap, CABINET_CONFLICT_LOCK_IN, orientToWall, hasCollision, collisionReason, cabinetPlacementCollisionDetail, wallCabinetPlacementReason, removeOverlappingPlacements, shouldBlockPlacementCollision, isHoodOverRangePair,
   resolveSwing, cycleSwing, swingLabel, swingText, hasDoorSwing, type DoorSwing,
   isCustomWidth, isCustomHeight, isCustomDepth, isCustomSize, customSizeNote, customSizeFee, CUSTOM_SIZE_FEE, dimLabel,
@@ -5274,5 +5274,49 @@ describe("filler conflict ownership", () => {
       x: 0, y: 23, width: 6, depth: 24, height: 34.5, rotation: 90,
     });
     expect(blindCornerViolations([blind, filler]).has(blind.uid)).toBe(false);
+  });
+});
+
+describe("window sill-to-top clearance", () => {
+  const room = { width: 144, depth: 120, ceilingHeight: 96 } as RoomData;
+  const raisedWindow = {
+    uid: "over-sink-window", kind: "window", label: 'Over-Sink Window 30"',
+    side: "top", offset: 54.25, width: 36, height: 48, sill: 44,
+  } as WallOpening;
+
+  it("keeps a base cabinet below a 44-inch sill while blocking upper, tall, and hood envelopes in the window zone", () => {
+    const base = {
+      uid: "base-under-window", masterCode: "B24", description: "24 inch Base Cabinet",
+      placement: "base", x: 54.25, y: 0, width: 24, depth: 24, height: 34.5, rotation: 0,
+    } as PlacedCabinet;
+    const wall = {
+      uid: "wall-through-window", masterCode: "W3030", description: "30 inch Wall Cabinet",
+      placement: "wall", x: 54.25, y: 0, width: 30, depth: 12, height: 30, rotation: 0, mountBottom: 54,
+    } as PlacedCabinet;
+    const tall = {
+      uid: "tall-through-window", masterCode: "P2496", description: "Tall Pantry",
+      placement: "tall", x: 54.25, y: 0, width: 24, depth: 24, height: 84, rotation: 0,
+    } as PlacedCabinet;
+    const hood = {
+      uid: "hood-through-window", masterCode: "HOOD-30", description: "30 inch Range Hood",
+      placement: "appliance", x: 54.25, y: 0, width: 30, depth: 18, height: 18, rotation: 0, mountBottom: 66,
+    } as PlacedCabinet;
+
+    expect(windowVerticallyOverlapsCabinet(base, raisedWindow, room)).toBe(false);
+    expect(windowVerticallyOverlapsCabinet(wall, raisedWindow, room)).toBe(true);
+    expect(windowVerticallyOverlapsCabinet(tall, raisedWindow, room)).toBe(true);
+    expect(windowVerticallyOverlapsCabinet(hood, raisedWindow, room)).toBe(true);
+    expect(baseOpeningOverlaps([base], [raisedWindow], room)).toEqual(new Set());
+  });
+
+  it("flags a window below the finished countertop and blocks the affected base run", () => {
+    const lowWindow = { ...raisedWindow, uid: "low-window", sill: 30 };
+    const base = {
+      uid: "base-at-low-window", masterCode: "B24", description: "24 inch Base Cabinet",
+      placement: "base", x: 54.25, y: 0, width: 24, depth: 24, height: 34.5, rotation: 0,
+    } as PlacedCabinet;
+
+    expect(isWindowBelowCountertop(lowWindow)).toBe(true);
+    expect(baseOpeningOverlaps([base], [lowWindow], room)).toEqual(new Set([base.uid]));
   });
 });

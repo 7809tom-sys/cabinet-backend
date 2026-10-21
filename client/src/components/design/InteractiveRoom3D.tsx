@@ -8467,8 +8467,6 @@ export type ThreeDBacksplashSegment = {
 };
 
 export type BacksplashHeightMode = "standard" | "full-height";
-/** Supported spans drive quantity/upstands; perimeter is the selected visual wall field. */
-export type ThreeDBacksplashCoverage = "supported" | "perimeter";
 export const THREE_D_BACKSPLASH_TILE_SIZE_IN = 12;
 
 /**
@@ -8559,12 +8557,11 @@ function subtractThreeDBacksplashRect(
 }
 
 export function threeDBacksplashSegments(
-	placed: PlacedCabinet[],
-	openings: WallOpening[],
-	room: RoomData,
-	heightMode: BacksplashHeightMode = "standard",
-	countertopUpstandIn = 0,
-	coverage: ThreeDBacksplashCoverage = "supported",
+		placed: PlacedCabinet[],
+		openings: WallOpening[],
+		room: RoomData,
+		heightMode: BacksplashHeightMode = "standard",
+		countertopUpstandIn = 0,
 ) {
   const sides: WallSide[] = ["top", "bottom", "left", "right"];
   const countertopTop = COUNTERTOP_TOP;
@@ -8603,18 +8600,14 @@ export function threeDBacksplashSegments(
 	        return [{ ...span, bottom: box.bottom, top: box.bottom + box.height }];
 	      }),
 	    ];
-		// Supported coverage is the measured material/takeoff basis. The visual
-		// selected perimeter field is intentionally corner-to-corner, so it does
-		// not leave an untiled BBC corner merely because an old save stored a
-		// reduced box width or the adjoining run has no base box.
+		// These are the real countertop/range-supported wall runs. Use exactly the
+		// same spans for display, elevation parity, and materials—never a room-wide
+		// perimeter field that can paint an open wall or bare floor.
 		const wallCabinetIntervals = mergeThreeDIntervals(wallItems
 			.filter((cabinet) => cabinet.placement === "wall")
 			.map((cabinet) => threeDWallRunSpan(cabinet, side, room)));
 		const supportedIntervals = mergeThreeDIntervals([...supportIntervals, ...wallCabinetIntervals]);
-		const coverageIntervals = coverage === "perimeter"
-			? [{ start: 0, end: wallLength(side, room) }]
-			: supportedIntervals;
-    const sourceSegments: Array<Omit<ThreeDBacksplashSegment, "side">> = coverageIntervals.map((interval) => ({
+	    const sourceSegments: Array<Omit<ThreeDBacksplashSegment, "side">> = supportedIntervals.map((interval) => ({
       ...interval,
       bottom: tileBottom,
       top: heightMode === "full-height" ? ceilingTop : standardTop,
@@ -8652,7 +8645,7 @@ export function threeDCountertopUpstandSegments(
 ) {
   if (upstandIn !== 2.5 && upstandIn !== 3) return [];
   const upstandTop = COUNTERTOP_TOP + upstandIn;
-	return threeDBacksplashSegments(placed, openings, room, "standard", 0, "supported")
+	return threeDBacksplashSegments(placed, openings, room, "standard", 0)
     .map((segment) => ({ ...segment, top: Math.min(segment.top, upstandTop) }))
     .filter((segment) => segment.top - segment.bottom > 0.001);
 }
@@ -10427,7 +10420,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
 	      ceilingHeight: wallHeightIn,
 	    } as RoomData);
 	    const backsplashSegments = backsplashTexture && renderExistingDesign
-	      ? threeDBacksplashSegments(renderedPlaced, openings, backsplashRoom, backsplashHeightMode, countertopBacksplashHeightIn, "perimeter")
+	      ? threeDBacksplashSegments(renderedPlaced, openings, backsplashRoom, backsplashHeightMode, countertopBacksplashHeightIn)
 	      : [];
 	    const countertopUpstandSegments = renderExistingDesign
 	      ? threeDCountertopUpstandSegments(renderedPlaced, openings, backsplashRoom, countertopBacksplashHeightIn)

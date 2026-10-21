@@ -11,6 +11,7 @@ import {
 	  isGlassDoorCabinet, glassDoorShelfCount, kitchenCrestGenericOpenEndShelfCount,
 } from "@/lib/design";
 import { crownTopRuns, formatCrownTop } from "@/lib/crownTopRuns";
+import { threeDBacksplashSupportSpans } from "./InteractiveRoom3D";
 import {
   type HardwareStyleId,
   hardwareStyle as resolveHardwareStyle,
@@ -1354,11 +1355,19 @@ export function ElevationView({
           // or the full wall-cabinet top line if no wall cab sits above.
           const BACKSPLASH_RANGE_TOP = wallCabinetTopLine(room); // 84" on 8ft ceiling
 
-	          // A selected backsplash is an installed field on this wall, from
-	          // corner to corner. It is not limited to raw cabinet boxes: that
-	          // previously exposed an untiled patch at a BBC return. Opening and
-	          // tall-cabinet clipping below remain authoritative.
-	          const runs: { start: number; end: number }[] = [{ start: 0, end: planSpan }];
+	          // A selected backsplash exists only behind a real countertop/range
+	          // support on this solid wall. Use the same base/filler/dishwasher
+	          // support spans as 3D so an open wall, peninsula room-side, or bare
+	          // floor can never receive a floating field of tile.
+	          const runs = elevationCabinets
+	            .flatMap((cabinet) => threeDBacksplashSupportSpans(cabinet, side as WallSide, room))
+	            .sort((left, right) => left.start - right.start)
+	            .reduce<{ start: number; end: number }[]>((merged, run) => {
+	              const previous = merged[merged.length - 1];
+	              if (previous && run.start <= previous.end + 0.01) previous.end = Math.max(previous.end, run.end);
+	              else merged.push({ ...run });
+	              return merged;
+	            }, []);
 
           // Identify range positions on this wall for the taller stretch zone.
           const rangeSpans = sorted
@@ -1512,7 +1521,7 @@ export function ElevationView({
 	                <div
 	                  key={`bs${i}`}
 	                  data-testid="elevation-backsplash-segment"
-	                  data-backsplash-field-coverage="perimeter"
+	                  data-backsplash-field-coverage="supported"
 	                  className="absolute pointer-events-none"
                   style={{
                     left: seg.left,

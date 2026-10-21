@@ -6,7 +6,7 @@ import {
   type FloorPlanDimensionAdjustment, type FloorPlanDimensionUnit,
 	  isCornerCabinet, isProtectedCornerCabinet, cornerClipPath, cornerLegRatioForPlaced, cornerRotationForPlaced, diagonalCornerClipPath, isDiagonalCorner, isAngledWallCabinet, formatEighthInches, formatInches, isBlindCorner, isTriangleCorner, triangleCornerClipPath,
 	  resolveSwing, resolveCabinetHardwarePosition,
-  WallOpening, clampOpening, FinishColors, DEFAULT_FINISH_COLORS,
+	  WallOpening, clampOpening, FinishColors, DEFAULT_FINISH_COLORS, isWindowBelowCountertop,
   clampRoomInches, inchesToFeetInches, WallSide, type PeninsulaRun, peninsulaRunEndpoints, peninsulaRunMaxLength, peninsulaRunHitAtPoint, peninsulaRunStartOffsetAtPoint, peninsulaRunAssemblyLocked, peninsulaRootRunId,
 	  cabinetWall, wallSpanMeasure, wallRunFrame, wallRunDistanceToPoint, peninsulaRunById, continuousWallApplianceSnapInfo, configuredRefrigeratorAssemblyMembers, customWallCabinetSide,
 	  countertopSurfaces, countertopMaterial, potFillerMountedRange, type CountertopSurface, type PotFillerFixture, type SinkFixture, SINK_PRESETS,
@@ -1356,6 +1356,7 @@ export function PlanCanvas({
 	    if (requiredWidth <= capacity.largestOpenSpan + 0.01) return null;
 	    return { requiredWidth, remaining: capacity.largestOpenSpan, shortage: requiredWidth - capacity.largestOpenSpan };
 	  })();
+	  const lowSillWindows = openings.filter(isWindowBelowCountertop);
 
   // Compute the point-to-point tape in the same inch coordinate system used by
   // all placed cabinets, walls, openings, and clearances.
@@ -1429,8 +1430,19 @@ export function PlanCanvas({
 	        setCatalogDragFit(null);
 	        setCatalogDragFreehand(false);
       }}
-    >
-      {/* Live draw-room rectangle (container coordinates) */}
+	    >
+	      {lowSillWindows.length > 0 && (
+	        <div
+	          role="alert"
+	          data-testid="low-sill-window-conflict"
+	          className="pointer-events-none absolute left-3 top-3 z-[70] max-w-[min(28rem,calc(100%-1.5rem))] rounded-md border border-red-300 bg-red-50 px-3 py-2 text-xs font-medium text-red-800 shadow-sm"
+	        >
+	          {lowSillWindows.length === 1
+	            ? `${lowSillWindows[0].label || "Window"} sill is below the ${formatEighthInches(STD.COUNTERTOP_HEIGHT)} countertop height. Raise the sill or revise the base run.`
+	            : `${lowSillWindows.length} window sills are below the ${formatEighthInches(STD.COUNTERTOP_HEIGHT)} countertop height. Raise the sills or revise the base runs.`}
+	        </div>
+	      )}
+	      {/* Live draw-room rectangle (container coordinates) */}
       {drawMode && drawRect && (
         <div
           className="pointer-events-none absolute z-50 border-2 border-dashed border-[#d4a75a] bg-[#d4a75a]/10"

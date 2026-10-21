@@ -1620,7 +1620,7 @@ describe("interactive 3D room scene helpers", () => {
 		    expect(threeDBacksplashTransform(segments.find((segment) => segment.side === "left")!, room)).toMatchObject({ x: 0.07, z: 36, rotation: Math.PI / 2 });
 		  });
 
-		  it("covers the selected perimeter backsplash field corner-to-corner around a legacy-width BBC36", () => {
+		  it("keeps a legacy-width BBC36 backsplash on its real supported wall leg rather than painting open walls", () => {
 		    const room = { width: 120, depth: 96, ceilingHeight: 96 } as RoomData;
 		    const legacyBlind = {
 		      uid: "legacy-bbc-36", masterCode: "BBC36", description: "Blind Corner Base",
@@ -1628,17 +1628,12 @@ describe("interactive 3D room scene helpers", () => {
 		      height: 34.5, rotation: 0, wallId: "top", wallOffset: 0, islandFace: null,
 		    } as PlacedCabinet;
 
-		    // The normalized 36-inch BBC body owns its actual 36-inch top-wall
-		    // support, while the selected field covers both walls at its corner.
+		    // The normalized 36-inch BBC body owns its actual top-wall support.
 		    expect(threeDBacksplashSupportSpans(legacyBlind, "top", room)).toEqual([{ start: 0, end: 36 }]);
-		    const perimeter = threeDBacksplashSegments([legacyBlind], [], room, "standard", 0, "perimeter");
-		    expect(perimeter).toEqual(expect.arrayContaining([
-		      { side: "top", start: 0, end: 120, bottom: 36, top: 54 },
-		      { side: "left", start: 0, end: 96, bottom: 36, top: 54 },
-		    ]));
-		    // The supported-run mode remains the measurement input for materials
-		    // takeoff and short countertop upstands.
-		    expect(threeDBacksplashSegments([legacyBlind], [], room)).toContainEqual({ side: "top", start: 0, end: 36, bottom: 36, top: 54 });
+		    const segments = threeDBacksplashSegments([legacyBlind], [], room);
+		    expect(segments).toContainEqual({ side: "top", start: 0, end: 36, bottom: 36, top: 54 });
+		    expect(segments.some((segment) => segment.side === "top" && segment.end > 36)).toBe(false);
+		    expect(segments.some((segment) => segment.side === "left")).toBe(false);
 		    expect(threeDCountertopUpstandSegments([legacyBlind], [], room, 3)).toContainEqual({ side: "top", start: 0, end: 36, bottom: 36, top: 39 });
 		  });
 
@@ -1691,17 +1686,17 @@ describe("interactive 3D room scene helpers", () => {
 
 	  it("clips the selected supported-run backsplash around a saved window without changing the opening or wall", () => {
 	    const room = { width: 120, depth: 96, ceilingHeight: 96 } as RoomData;
-	    const windowOpening = { uid: "window-1", kind: "window", label: "Window", side: "top", offset: 30, width: 30, height: 30, sill: 40 } as WallOpening;
+		    const windowOpening = { uid: "window-1", kind: "window", label: "Window", side: "top", offset: 30, width: 30, height: 30, sill: 44 } as WallOpening;
 	    const openingBefore = JSON.stringify(windowOpening);
 	    const base = { uid: "base-1", masterCode: "B-120", placement: "base", x: 0, y: 0, width: 120, depth: 24, height: 34.5, rotation: 0, islandFace: null } as PlacedCabinet;
 	    const segments = threeDBacksplashSegments([base], [windowOpening], room).filter((segment) => segment.side === "top");
 	    expect(JSON.stringify(windowOpening)).toBe(openingBefore);
 	    expect(segments).toEqual(expect.arrayContaining([
 	      { side: "top", start: 0, end: 30, bottom: 36, top: 54 },
-	      { side: "top", start: 30, end: 60, bottom: 36, top: 40 },
+		      { side: "top", start: 30, end: 60, bottom: 36, top: 44 },
 	      { side: "top", start: 60, end: 120, bottom: 36, top: 54 },
 	    ]));
-	    expect(segments.some((segment) => segment.start < 60 && segment.end > 30 && segment.top > 40)).toBe(false);
+		    expect(segments.some((segment) => segment.start < 60 && segment.end > 30 && segment.top > 44)).toBe(false);
 	  });
 
 	  it("extends a supported range backsplash continuously to the matching range-hood underside", () => {
