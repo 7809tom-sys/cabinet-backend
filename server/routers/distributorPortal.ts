@@ -5,6 +5,7 @@ import { adminProcedure, distributorProcedure, router, supplierProfileProcedure 
 import { getDb } from "../db";
 import {
 	  distributors,
+	  catalogImports,
 	  cabinets,
 	  distributorSkus,
 	  vendorProducts,
@@ -18,8 +19,10 @@ import {
   kitchenDesigns,
 	  aiServiceRequests,
 	  skuMasterAliases,
+	  distributorIntegrations,
 	} from "../../drizzle/schema";
 import { storagePut } from "../storage";
+import { encryptDistributorSecret } from "../lib/distributorIntegrationCrypto";
 import { normalizeCode } from "../../shared/cabinetCodeMatch";
 import { matchVendorCabinetBySku, hasVendorPrice, buildUnmatchedPlatformSku } from "../vendorProductSubmission";
 import {
@@ -110,6 +113,12 @@ async function resolveApprovedVendorProfile(
 }
 
 const MAX_DESIGN_TOOL_PICKS = 8;
+
+function csvCell(value: unknown): string {
+  const text = value == null ? "" : String(value);
+  return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
 
 const sampleDoorMeasurementSchema = z.object({
   doorStyle: z.enum(["Shaker", "Slim Shaker", "Double Shaker", "Raised Panel", "Beaded", "Slab", "Other"]).optional(),
@@ -266,10 +275,158 @@ export const distributorPortalRouter = router({
           pending: Number(counts?.pending ?? 0),
         },
         styles,
-      };
+	      };
+	    }),
+
+	  /**
+	   * Archive a vendor-supplied catalog file in first-party storage. This is
+	   * intentionally separate from SKU mutation: a distributor can upload the
+	   * source workbook/CSV for audit, then use the validated spreadsheet flow.
+	   */
+	  uploadCatalogFile: distributorProcedure
+	    .input(z.object({
+	      distributorId: z.number().optional(),
+	      fileName: z.string().trim().min(1).max(255),
+	      contentType: z.string().trim().max(128).default("text/csv"),
+	      fileBase64: z.string().min(1).max(32_000_000),
+	      preservePricing: z.boolean().default(true),
+	    }))
+	    .mutation(async ({ ctx, input }) => {
+	      const db = await getDb();
+	      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+	      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId);
+	      const [line] = await db.select({ id: distributors.id }).from(distributors).where(eq(distributors.id, lineId)).limit(1);
+	      if (!line) throw new TRPCError({ code: "NOT_FOUND", message: "Supply line not found" });
+      const buffer = Buffer.from(input.fileBase64, "base64");
+      if (buffer.length > 24 * 1024 * 1024) throw new TRPCError({ code: "BAD_REQUEST", message: "Catalog files must be 24 MB or smaller." });
+      const safeName = input.fileName.replace(/[^a-z0-9._-]/gi, "-");
+      const key = `distributor-catalogs/${lineId}/${Date.now()}-${safeName}`;
+      const stored = await storagePut(key, buffer, input.contentType);
+      const result = await db.insert(catalogImports).values({
+        distributorId: lineId,
+        fileName: input.fileName,
+        fileSize: buffer.length,
+        status: "completed",
+        preservePricing: input.preservePricing,
+        isRollbackable: false,
+        uploadedByUserId: ctx.user.id,
+        uploadedByName: ctx.user.name ?? null,
+        fileKey: stored.key,
+        fileUrl: stored.url,
+      });
+      return { ok: true, importId: Number((result as { insertId?: number }).insertId ?? 0), fileUrl: stored.url };
     }),
 
-  /**
+	  /** Most-recent-first archive list; file URLs are only returned to the owning line. */
+	  catalogFileHistory: distributorProcedure
+	    .input(z.object({ distributorId: z.number().optional(), limit: z.number().int().min(1).max(100).default(25) }).optional())
+	    .query(async ({ ctx, input }) => {
+	      const db = await getDb();
+	      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+	      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input?.distributorId);
+	      return db.select({
+	        id: catalogImports.id, fileName: catalogImports.fileName, fileSize: catalogImports.fileSize,
+	        status: catalogImports.status, preservePricing: catalogImports.preservePricing,
+	        uploadedAt: catalogImports.uploadedAt, uploadedByName: catalogImports.uploadedByName,
+	        fileUrl: catalogImports.fileUrl,
+	      }).from(catalogImports).where(eq(catalogImports.distributorId, lineId)).orderBy(desc(catalogImports.uploadedAt)).limit(input?.limit ?? 25);
+	    }),
+
+	  /** Export the complete current distributor SKU view as a portable CSV. */
+	  exportCatalog: distributorProcedure
+	    .input(z.object({ distributorId: z.number().optional() }).optional())
+	    .query(async ({ ctx, input }) => {
+	      const db = await getDb();
+	      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+	      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input?.distributorId);
+      const rows = await db.select({
+	        distributorSku: distributorSkus.distributorSku,
+	        platformSku: distributorSkus.platformSku,
+	        masterCode: cabinets.masterCode,
+	        styleCode: doorStyles.styleCode,
+	        styleName: doorStyles.ourName,
+	        description: cabinets.description,
+	        category: cabinets.category,
+	        listPrice: distributorSkus.listPrice,
+	        wholesalePrice: distributorSkus.wholesalePrice,
+	        contractorPrice: distributorSkus.contractorPrice,
+	        homeownerPrice: distributorSkus.homeownerPrice,
+	        onHandQty: distributorSkus.onHandQty,
+	        isAvailable: distributorSkus.isAvailable,
+	        isPublished: distributorSkus.isPublished,
+	        imageUrl: distributorSkus.imageUrl,
+	      }).from(distributorSkus)
+	        .leftJoin(cabinets, eq(distributorSkus.cabinetId, cabinets.id))
+	        .leftJoin(doorStyles, eq(distributorSkus.styleId, doorStyles.id))
+	        .where(eq(distributorSkus.distributorId, lineId))
+	        .orderBy(distributorSkus.distributorSku);
+      const headers = ["distributorSku", "platformSku", "masterCode", "styleCode", "styleName", "description", "category", "listPrice", "wholesalePrice", "contractorPrice", "homeownerPrice", "onHandQty", "isAvailable", "isPublished", "imageUrl"];
+      const csv = [headers.join(","), ...rows.map((row) => headers.map((header) => csvCell((row as Record<string, unknown>)[header])).join(","))].join("\n") + "\n";
+      return { fileName: `catalog-${lineId}-${new Date().toISOString().slice(0, 10)}.csv`, rowCount: rows.length, csv };
+    }),
+
+	  /** Return only redacted integration metadata; encrypted values never cross the API. */
+	  listIntegrations: distributorProcedure
+	    .input(z.object({ distributorId: z.number().optional() }).optional())
+	    .query(async ({ ctx, input }) => {
+	      const db = await getDb();
+	      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+	      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input?.distributorId);
+	      const rows = await db.select({
+	        id: distributorIntegrations.id, integrationType: distributorIntegrations.integrationType,
+	        provider: distributorIntegrations.provider, displayName: distributorIntegrations.displayName,
+	        baseUrl: distributorIntegrations.baseUrl, accountNumber: distributorIntegrations.accountNumber,
+	        clientId: distributorIntegrations.clientId, authHeaderName: distributorIntegrations.authHeaderName,
+	        environment: distributorIntegrations.environment, isEnabled: distributorIntegrations.isEnabled,
+	        lastVerifiedAt: distributorIntegrations.lastVerifiedAt, lastError: distributorIntegrations.lastError,
+	        hasApiKey: sql<boolean>`${distributorIntegrations.apiKeyEncrypted} is not null`,
+	        hasClientSecret: sql<boolean>`${distributorIntegrations.clientSecretEncrypted} is not null`,
+	        hasPassword: sql<boolean>`${distributorIntegrations.passwordEncrypted} is not null`,
+	      }).from(distributorIntegrations).where(eq(distributorIntegrations.distributorId, lineId)).orderBy(distributorIntegrations.integrationType, distributorIntegrations.provider);
+      return rows;
+    }),
+
+	  saveIntegration: distributorProcedure
+	    .input(z.object({
+	      distributorId: z.number().optional(), id: z.number().int().positive().optional(),
+	      integrationType: z.enum(["inventory", "shipping"]), provider: z.string().trim().min(1).max(64),
+	      displayName: z.string().trim().min(1).max(128), baseUrl: z.string().trim().max(512).nullable().optional(),
+	      accountNumber: z.string().trim().max(128).nullable().optional(), clientId: z.string().trim().max(255).nullable().optional(),
+	      apiKey: z.string().max(2000).optional(), clientSecret: z.string().max(2000).optional(),
+	      username: z.string().trim().max(255).nullable().optional(), password: z.string().max(2000).optional(),
+	      authHeaderName: z.string().trim().max(128).nullable().optional(), environment: z.enum(["sandbox", "production"]).default("production"), isEnabled: z.boolean().default(false),
+	    }))
+	    .mutation(async ({ ctx, input }) => {
+	      const db = await getDb();
+	      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+	      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId);
+	      const secretPatch = {
+	        apiKeyEncrypted: input.apiKey?.trim() ? encryptDistributorSecret(input.apiKey) : undefined,
+	        clientSecretEncrypted: input.clientSecret?.trim() ? encryptDistributorSecret(input.clientSecret) : undefined,
+	        passwordEncrypted: input.password?.trim() ? encryptDistributorSecret(input.password) : undefined,
+	      };
+	      const shared = {
+	        distributorId: lineId, integrationType: input.integrationType, provider: input.provider.trim(), displayName: input.displayName.trim(),
+	        baseUrl: input.baseUrl?.trim() || null, accountNumber: input.accountNumber?.trim() || null, clientId: input.clientId?.trim() || null,
+	        username: input.username?.trim() || null, authHeaderName: input.authHeaderName?.trim() || null,
+	        environment: input.environment, isEnabled: input.isEnabled, lastError: null,
+	      };
+	      if (input.id) {
+	        const [owned] = await db.select({ id: distributorIntegrations.id }).from(distributorIntegrations).where(and(eq(distributorIntegrations.id, input.id), eq(distributorIntegrations.distributorId, lineId))).limit(1);
+	        if (!owned) throw new TRPCError({ code: "FORBIDDEN", message: "That integration is not in your distributor account." });
+        await db.update(distributorIntegrations).set({ ...shared, ...secretPatch } as any).where(eq(distributorIntegrations.id, input.id));
+        return { ok: true, id: input.id };
+      }
+      const existing = await db.select({ id: distributorIntegrations.id }).from(distributorIntegrations).where(and(eq(distributorIntegrations.distributorId, lineId), eq(distributorIntegrations.integrationType, input.integrationType), eq(distributorIntegrations.provider, input.provider.trim()))).limit(1);
+      if (existing[0]) {
+        await db.update(distributorIntegrations).set({ ...shared, ...secretPatch } as any).where(eq(distributorIntegrations.id, existing[0].id));
+        return { ok: true, id: existing[0].id };
+      }
+      const result = await db.insert(distributorIntegrations).values({ ...shared, apiKeyEncrypted: secretPatch.apiKeyEncrypted ?? null, clientSecretEncrypted: secretPatch.clientSecretEncrypted ?? null, passwordEncrypted: secretPatch.passwordEncrypted ?? null });
+      return { ok: true, id: Number((result as { insertId?: number }).insertId ?? 0) };
+    }),
+
+	  /**
    * Supplier-owned details on the approved vendor record. Supply-line identity,
    * approval, and catalog mappings remain administrative controls; this mutation
    * never accepts a caller-selected vendor ID.

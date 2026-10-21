@@ -719,10 +719,55 @@ export const catalogImports = mysqlTable("catalog_imports", {
   importCompletedAt: timestamp("importCompletedAt"),
   uploadedByUserId: int("uploadedByUserId"),
   uploadedByName: varchar("uploadedByName", { length: 128 }),
+  // Vendor-facing file archive. The bytes live in first-party storage; these
+  // fields let the owning distributor download the exact file they uploaded.
+  fileKey: varchar("fileKey", { length: 512 }),
+  fileUrl: varchar("fileUrl", { length: 512 }),
 });
 
 export type CatalogImport = typeof catalogImports.$inferSelect;
 export type InsertCatalogImport = typeof catalogImports.$inferInsert;
+
+// ─── Distributor integrations ───────────────────────────────────────────────
+// One row per distributor/provider connection. Secret values are authenticated
+// encrypted envelopes, never returned to the browser. Non-secret metadata is
+// intentionally generic so Pelican and future distributors can use the same
+// portal without schema churn.
+export const distributorIntegrations = mysqlTable(
+  "distributor_integrations",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    distributorId: int("distributorId").notNull(),
+    integrationType: mysqlEnum("integrationType", ["inventory", "shipping"]).notNull(),
+    provider: varchar("provider", { length: 64 }).notNull(),
+    displayName: varchar("displayName", { length: 128 }).notNull(),
+    baseUrl: varchar("baseUrl", { length: 512 }),
+    accountNumber: varchar("accountNumber", { length: 128 }),
+    clientId: varchar("clientId", { length: 255 }),
+    apiKeyEncrypted: varchar("apiKeyEncrypted", { length: 2048 }),
+    clientSecretEncrypted: varchar("clientSecretEncrypted", { length: 2048 }),
+    username: varchar("username", { length: 255 }),
+    passwordEncrypted: varchar("passwordEncrypted", { length: 2048 }),
+    authHeaderName: varchar("authHeaderName", { length: 128 }),
+    environment: mysqlEnum("environment", ["sandbox", "production"]).default("production").notNull(),
+    isEnabled: boolean("isEnabled").default(false).notNull(),
+    lastVerifiedAt: timestamp("lastVerifiedAt"),
+    lastError: varchar("lastError", { length: 512 }),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  (t) => ({
+    distributorProviderUnique: uniqueIndex("distributor_integrations_dist_type_provider_uq").on(
+      t.distributorId,
+      t.integrationType,
+      t.provider,
+    ),
+    distributorIndex: index("distributor_integrations_distributor_idx").on(t.distributorId),
+  }),
+);
+
+export type DistributorIntegration = typeof distributorIntegrations.$inferSelect;
+export type InsertDistributorIntegration = typeof distributorIntegrations.$inferInsert;
 
 // ─── Distributor SKU Mapping ───────────────────────────────────────────────────
 
@@ -757,6 +802,11 @@ export const distributorSkus = mysqlTable("distributor_skus", {
   isPublished: boolean("isPublished").default(true).notNull(), // distributor visibility toggle
   // SKU-level image (per cabinet + door style). Falls back to door-style image, then drawing.
   imageUrl: varchar("imageUrl", { length: 512 }),
+  // The original vendor upload is retained separately from the normalized
+  // product art shown on the site.
+  sourceImageUrl: varchar("sourceImageUrl", { length: 512 }),
+  imageRerenderStatus: varchar("imageRerenderStatus", { length: 16 }), // completed | failed
+  imageRerenderedAt: timestamp("imageRerenderedAt"),
   // Vendor portal: new product submission status (existing products default to 'approved')
   status: mysqlEnum("status", ["approved", "pending", "rejected"]).default("approved").notNull(),
   // PO-only fields (internal; never shown to customers)

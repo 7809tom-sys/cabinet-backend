@@ -158,6 +158,8 @@ function PelicanVendorCatalogPage({ initialCategory }: { initialCategory?: strin
         </div>
       </div>
 
+      <CatalogTransferTools />
+
       {isLoading ? (
         <div className="space-y-2">{[1,2,3,4,5].map((i) => <Skeleton key={i} className="h-12 w-full" />)}</div>
       ) : error ? (
@@ -911,6 +913,38 @@ function SupplierPdfResource({ label, url }: { label: string; url: string | null
 }
 
 // ─── Catalog Page ─────────────────────────────────────────────────────────────
+function CatalogTransferTools() {
+  const adminDistId = useAdminDistributorId();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const history = trpc.distributorPortal.catalogFileHistory.useQuery(adminDistId ? { distributorId: adminDistId } : undefined);
+  const exportCatalog = trpc.distributorPortal.exportCatalog.useQuery(adminDistId ? { distributorId: adminDistId } : undefined, { enabled: false });
+  const upload = trpc.distributorPortal.uploadCatalogFile.useMutation({
+    onSuccess: () => { toast.success("Catalog file uploaded and archived"); void history.refetch(); },
+    onError: (error) => toast.error(error.message),
+  });
+  const download = async () => {
+    try {
+      const result = await exportCatalog.refetch();
+      if (!result.data) throw new Error("No catalog data returned");
+      const blob = new Blob([result.data.csv], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a"); anchor.href = url; anchor.download = result.data.fileName; anchor.click(); URL.revokeObjectURL(url);
+      toast.success(`Downloaded ${result.data.rowCount.toLocaleString()} catalog rows`);
+    } catch (error) { toast.error(error instanceof Error ? error.message : "Could not download catalog"); }
+  };
+  const handleUpload = async (file: File) => {
+    if (file.size > 24 * 1024 * 1024) { toast.error("Catalog files must be 24 MB or smaller"); return; }
+    setUploading(true);
+    try {
+      const base64 = await new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result).split(",")[1] ?? ""); reader.onerror = () => reject(new Error("Could not read catalog file")); reader.readAsDataURL(file); });
+      await upload.mutateAsync({ ...(adminDistId ? { distributorId: adminDistId } : {}), fileName: file.name, contentType: file.type || "application/octet-stream", fileBase64: base64, preservePricing: true });
+    } catch (error) { toast.error(error instanceof Error ? error.message : "Could not upload catalog"); }
+    finally { setUploading(false); }
+  };
+  return <Card className="border-sky-200 bg-sky-50/40"><CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-base"><FileSpreadsheet className="h-4 w-4 text-sky-700" />Catalog transfer center</CardTitle><CardDescription>Upload the source CSV or workbook for your distributor line, download the current catalog, and keep an audit history. Uploads are archived; the existing validated price update flow remains separate.</CardDescription></CardHeader><CardContent className="space-y-3"><div className="flex flex-wrap gap-2"><Button size="sm" onClick={() => fileRef.current?.click()} disabled={uploading || upload.isPending}><Upload className="mr-1.5 h-4 w-4" />{uploading ? "Uploading…" : "Upload catalog"}</Button><Button size="sm" variant="outline" onClick={download} disabled={exportCatalog.isFetching}><Download className="mr-1.5 h-4 w-4" />{exportCatalog.isFetching ? "Preparing…" : "Download current CSV"}</Button><input ref={fileRef} type="file" accept=".csv,.xlsx,.xls,.zip,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" className="hidden" onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ""; if (file) void handleUpload(file); }} /></div>{history.data && history.data.length > 0 && <div className="space-y-1"><p className="text-xs font-semibold text-sky-950">Recent uploads</p>{history.data.slice(0, 5).map((item) => <div key={item.id} className="flex items-center justify-between gap-3 rounded border bg-background px-2.5 py-2 text-xs"><span className="truncate">{item.fileName}<span className="ml-2 text-muted-foreground">{item.uploadedAt ? new Date(item.uploadedAt).toLocaleString() : ""}</span></span>{item.fileUrl && <a href={item.fileUrl} target="_blank" rel="noreferrer" className="shrink-0 text-primary hover:underline">Download</a>}</div>)}</div>}</CardContent></Card>;
+}
+
 function CatalogPage() {
   const utils = trpc.useUtils();
   const adminDistId = useAdminDistributorId();
@@ -1028,6 +1062,7 @@ function CatalogPage() {
       </div>
 
       {showCsvUpload && <CsvUploadSection />}
+      <CatalogTransferTools />
 
       {showNewProduct && (
         <Card>
@@ -3918,132 +3953,26 @@ function ServiceHistoryLog() {
 
 // ─── Integrations Page ───────────────────────────────────────────────────────
 const INTEGRATIONS = [
-  {
-    id: "netsuite",
-    name: "Oracle NetSuite",
-    description: "Full ERP with inventory management. Sync stock levels, orders, and pricing automatically.",
-    fields: ["Account ID", "Consumer Key", "Consumer Secret", "Token ID", "Token Secret"],
-    popular: true,
-  },
-  {
-    id: "epicor",
-    name: "Epicor",
-    description: "Building materials distribution ERP. Real-time inventory and order routing.",
-    fields: ["API URL", "API Key", "Company ID"],
-    popular: true,
-  },
-  {
-    id: "quickbooks",
-    name: "QuickBooks Commerce",
-    description: "Inventory and order management for small-to-mid distributors.",
-    fields: ["Client ID", "Client Secret", "Realm ID"],
-    popular: true,
-  },
-  {
-    id: "generic",
-    name: "Custom REST API",
-    description: "Connect any system with a REST API. Map your endpoints to our standard format.",
-    fields: ["Base URL", "API Key", "Auth Header Name"],
-    popular: false,
-  },
+  { type: "inventory" as const, id: "netsuite", name: "Oracle NetSuite", description: "Inventory, pricing, and order routing through NetSuite.", fields: ["accountNumber", "clientId", "apiKey", "clientSecret", "username", "password"] },
+  { type: "inventory" as const, id: "epicor", name: "Epicor", description: "Real-time inventory and order management.", fields: ["baseUrl", "accountNumber", "apiKey"] },
+  { type: "inventory" as const, id: "quickbooks", name: "QuickBooks Commerce", description: "Inventory and order management for smaller distributors.", fields: ["baseUrl", "accountNumber", "clientId", "clientSecret"] },
+  { type: "inventory" as const, id: "generic-inventory", name: "Custom Inventory REST API", description: "Connect another inventory system to the standard feed.", fields: ["baseUrl", "apiKey", "authHeaderName"] },
+  { type: "shipping" as const, id: "ups", name: "UPS Rating API", description: "Use your UPS shipper account for live package rates.", fields: ["accountNumber", "clientId", "clientSecret"] },
+  { type: "shipping" as const, id: "fedex", name: "FedEx Rate API", description: "Use your FedEx account and project for live rates.", fields: ["accountNumber", "clientId", "clientSecret"] },
+  { type: "shipping" as const, id: "generic-shipping", name: "Custom Shipping API", description: "Connect another carrier or broker rate service.", fields: ["baseUrl", "accountNumber", "apiKey", "authHeaderName"] },
 ];
+const INTEGRATION_LABELS: Record<string, string> = { baseUrl: "API base URL", accountNumber: "Account / shipper number", clientId: "Client ID", apiKey: "API key", clientSecret: "Client secret", username: "Username", password: "Password", authHeaderName: "Auth header name" };
 
 function IntegrationsPage() {
-  const [selectedIntegration, setSelectedIntegration] = useState<string | null>(null);
-  const [credentials, setCredentials] = useState<Record<string, string>>({});
-  const [saved, setSaved] = useState(false);
-
-  const handleSave = () => {
-    // In production this would save to the backend
-    toast.success("Integration credentials saved. Our team will verify the connection within 24 hours.");
-    setSaved(true);
-  };
-
-  const selected = INTEGRATIONS.find((i) => i.id === selectedIntegration);
-
-  return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-xl font-bold">Inventory Integrations</h2>
-        <p className="text-muted-foreground text-sm mt-1">
-          Connect your inventory system to automatically sync stock levels, pricing, and orders.
-        </p>
-      </div>
-
-      {!selectedIntegration ? (
-        <div className="grid gap-4 sm:grid-cols-2">
-          {INTEGRATIONS.map((integration) => (
-            <Card
-              key={integration.id}
-              className="cursor-pointer hover:border-primary/50 transition-colors"
-              onClick={() => { setSelectedIntegration(integration.id); setSaved(false); setCredentials({}); }}
-            >
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h3 className="font-semibold">{integration.name}</h3>
-                    <p className="text-sm text-muted-foreground mt-1">{integration.description}</p>
-                  </div>
-                  {integration.popular && <Badge variant="secondary">Popular</Badge>}
-                </div>
-                <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
-                  <Link2 className="h-3 w-3" />
-                  {integration.fields.length} credentials required
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      ) : (
-        <div className="max-w-lg space-y-4">
-          <Button variant="ghost" size="sm" onClick={() => setSelectedIntegration(null)}>
-            <ArrowLeft className="h-4 w-4 mr-2" /> Back to integrations
-          </Button>
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">{selected?.name}</CardTitle>
-              <p className="text-sm text-muted-foreground">{selected?.description}</p>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {selected?.fields.map((field) => (
-                <div key={field} className="space-y-1">
-                  <Label>{field}</Label>
-                  <Input
-                    type="password"
-                    placeholder={`Enter ${field}`}
-                    value={credentials[field] || ""}
-                    onChange={(e) => setCredentials({ ...credentials, [field]: e.target.value })}
-                  />
-                </div>
-              ))}
-              {saved ? (
-                <div className="flex items-center gap-2 text-sm text-green-600">
-                  <CheckCircle2 className="h-4 w-4" />
-                  Credentials saved. Connection verification pending.
-                </div>
-              ) : (
-                <Button onClick={handleSave} className="w-full">
-                  Save & Verify Connection
-                </Button>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-4">
-              <h4 className="font-medium text-sm mb-2">How it works</h4>
-              <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside">
-                <li>Enter your API credentials above</li>
-                <li>Our team verifies the connection within 24 hours</li>
-                <li>Once verified, inventory syncs automatically every hour</li>
-                <li>Orders are routed directly to your system</li>
-              </ol>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-    </div>
-  );
+  const adminDistId = useAdminDistributorId();
+  const integrations = trpc.distributorPortal.listIntegrations.useQuery(adminDistId ? { distributorId: adminDistId } : undefined);
+  const save = trpc.distributorPortal.saveIntegration.useMutation({ onSuccess: () => { toast.success("Integration settings saved"); void integrations.refetch(); setSelected(null); }, onError: (error) => toast.error(error.message) });
+  const [selected, setSelected] = useState<typeof INTEGRATIONS[number] | null>(null);
+  const [values, setValues] = useState<Record<string, string>>({});
+  const existing = selected ? integrations.data?.find((item) => item.integrationType === selected.type && item.provider === selected.id) : undefined;
+  const open = (item: typeof INTEGRATIONS[number]) => { const row = integrations.data?.find((entry) => entry.integrationType === item.type && entry.provider === item.id); setSelected(item); setValues({ id: row ? String(row.id) : "", baseUrl: row?.baseUrl ?? "", accountNumber: row?.accountNumber ?? "", clientId: row?.clientId ?? "", authHeaderName: row?.authHeaderName ?? "", environment: row?.environment ?? "production", isEnabled: row?.isEnabled ? "true" : "false" }); };
+  const saveSelected = () => { if (!selected) return; const payload: Record<string, unknown> = { ...(adminDistId ? { distributorId: adminDistId } : {}), ...(values.id ? { id: Number(values.id) } : {}), integrationType: selected.type, provider: selected.id, displayName: selected.name, baseUrl: values.baseUrl || null, accountNumber: values.accountNumber || null, clientId: values.clientId || null, authHeaderName: values.authHeaderName || null, environment: values.environment === "sandbox" ? "sandbox" : "production", isEnabled: values.isEnabled === "true" }; for (const field of ["apiKey", "clientSecret", "password", "username"] as const) if (values[field]?.trim()) payload[field] = values[field]; save.mutate(payload as any); };
+  return <div className="space-y-6"><div><h2 className="text-xl font-bold">Inventory &amp; Shipping Integrations</h2><p className="mt-1 text-sm text-muted-foreground">Every distributor, including Pelican, can connect inventory systems and supply shipper account details for live rates. Secrets are encrypted on the server and shown only as configured/not configured.</p></div>{!selected ? <><div><h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Inventory / ERP</h3><div className="grid gap-4 sm:grid-cols-2">{INTEGRATIONS.filter((item) => item.type === "inventory").map((item) => { const row = integrations.data?.find((entry) => entry.integrationType === item.type && entry.provider === item.id); return <Card key={item.id} className="cursor-pointer hover:border-primary/50" onClick={() => open(item)}><CardContent className="p-5"><div className="flex items-start justify-between gap-3"><div><h3 className="font-semibold">{item.name}</h3><p className="mt-1 text-sm text-muted-foreground">{item.description}</p></div><Badge variant={row?.isEnabled ? "default" : "outline"}>{row?.isEnabled ? "Enabled" : "Not configured"}</Badge></div><p className="mt-3 text-xs text-muted-foreground"><Link2 className="mr-1 inline h-3 w-3" />{row?.hasApiKey || row?.hasClientSecret ? "Credentials saved securely" : "Add credentials"}</p></CardContent></Card>; })}</div></div><div><h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Shipping / live rates</h3><div className="grid gap-4 sm:grid-cols-2">{INTEGRATIONS.filter((item) => item.type === "shipping").map((item) => { const row = integrations.data?.find((entry) => entry.integrationType === item.type && entry.provider === item.id); return <Card key={item.id} className="cursor-pointer hover:border-primary/50" onClick={() => open(item)}><CardContent className="p-5"><div className="flex items-start justify-between gap-3"><div><h3 className="font-semibold">{item.name}</h3><p className="mt-1 text-sm text-muted-foreground">{item.description}</p></div><Badge variant={row?.isEnabled ? "default" : "outline"}>{row?.isEnabled ? "Enabled" : "Not configured"}</Badge></div><p className="mt-3 text-xs text-muted-foreground">{row?.accountNumber ? `Account ${row.accountNumber}` : "Add shipper account details"}</p></CardContent></Card>; })}</div></div></> : <Card className="max-w-2xl"><CardHeader><Button variant="ghost" size="sm" className="w-fit" onClick={() => setSelected(null)}><ArrowLeft className="mr-2 h-4 w-4" />Back to integrations</Button><CardTitle>{selected.name}</CardTitle><CardDescription>{selected.description}</CardDescription></CardHeader><CardContent className="space-y-4">{selected.fields.map((field) => <div key={field} className="space-y-1"><Label>{INTEGRATION_LABELS[field] ?? field}</Label><Input type={["apiKey", "clientSecret", "password"].includes(field) ? "password" : "text"} placeholder={existing && ["apiKey", "clientSecret", "password"].includes(field) ? "Leave blank to keep the saved value" : `Enter ${INTEGRATION_LABELS[field] ?? field}`} value={values[field] ?? ""} onChange={(event) => setValues((current) => ({ ...current, [field]: event.target.value }))} /></div>)}<div className="grid gap-4 sm:grid-cols-2"><div className="space-y-1"><Label>Environment</Label><Select value={values.environment ?? "production"} onValueChange={(value) => setValues((current) => ({ ...current, environment: value }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="sandbox">Sandbox / test</SelectItem><SelectItem value="production">Production</SelectItem></SelectContent></Select></div><div className="flex items-end gap-2 pb-1"><Switch checked={values.isEnabled === "true"} onCheckedChange={(checked) => setValues((current) => ({ ...current, isEnabled: String(checked) }))} /><Label>Enable connection</Label></div></div><div className="rounded-md border border-amber-200 bg-amber-50/60 p-3 text-xs text-amber-950">Credentials are encrypted before storage. Cabinet Dealz will not display or export secret values.</div><Button className="w-full" onClick={saveSelected} disabled={save.isPending}>{save.isPending ? "Saving…" : "Save integration settings"}</Button></CardContent></Card>}</div>;
 }
 
 // ─── Payments Page ───────────────────────────────────────────────────────────
