@@ -2853,8 +2853,33 @@ function VendorStyleOriginsEditor({ style, warehouseZips, open, onClose, onSaved
   </Dialog>;
 }
 
+function AdminWarehouseTemplateCard() {
+  const template = trpc.distributorPortal.warehouseTemplate.useQuery();
+  const save = trpc.distributorPortal.saveWarehouseTemplate.useMutation({
+    onSuccess: (result) => { setZips(result.warehouseTemplateZips); toast.success("Warehouse template saved for new distributor accounts"); void template.refetch(); },
+    onError: (error) => toast.error(error.message),
+  });
+  const [zips, setZips] = useState<string[]>([]);
+  const [newZip, setNewZip] = useState("");
+  useEffect(() => { setZips(template.data?.warehouseTemplateZips ?? []); }, [template.data?.warehouseTemplateZips]);
+  const addZip = () => {
+    if (!/^\d{5}$/.test(newZip)) { toast.error("Enter a five-digit warehouse ZIP."); return; }
+    if (!zips.includes(newZip)) setZips((current) => [...current, newZip]);
+    setNewZip("");
+  };
+  return <Card data-testid="admin-warehouse-template" className="border-indigo-200 bg-indigo-50/40">
+    <CardHeader className="pb-3"><CardTitle className="text-base">Shared warehouse template</CardTitle><CardDescription>These verified origins are copied only when a new distributor account is created. Existing accounts are not changed; a vendor can still override its own origins.</CardDescription></CardHeader>
+    <CardContent className="space-y-3">
+      <div className="flex gap-2"><Input value={newZip} onChange={(event) => setNewZip(event.target.value.replace(/\D/g, "").slice(0, 5))} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); addZip(); } }} inputMode="numeric" maxLength={5} placeholder="5-digit warehouse ZIP" /><Button type="button" variant="outline" onClick={addZip}><Plus className="mr-1 h-4 w-4" />Add</Button></div>
+      <div className="flex min-h-8 flex-wrap gap-2">{zips.length === 0 ? <span className="text-sm text-muted-foreground">No shared origins configured.</span> : zips.map((zip) => <Badge key={zip} variant="secondary" className="gap-1 py-1 pl-2.5 pr-1">{zip}<button type="button" onClick={() => setZips((current) => current.filter((item) => item !== zip))} aria-label={`Remove template warehouse ZIP ${zip}`}><X className="h-3.5 w-3.5" /></button></Badge>)}</div>
+      <Button onClick={() => save.mutate({ warehouseTemplateZips: zips })} disabled={save.isPending || template.isLoading}>{save.isPending ? "Saving…" : "Save shared template"}</Button>
+    </CardContent>
+  </Card>;
+}
+
 function VendorShippingPage() {
   const adminDistId = useAdminDistributorId();
+	  const { user } = useAuth();
 	  const [editingShipping, setEditingShipping] = useState(false);
   const [editingStyleOrigins, setEditingStyleOrigins] = useState<VendorShippingStyle | null>(null);
   const shipping = trpc.distributorPortal.shippingOverview.useQuery(
@@ -2914,7 +2939,7 @@ function VendorShippingPage() {
 	        <span className="font-semibold">Vendor-controlled shipping.</span> Select <span className="font-semibold">Edit shipping &amp; warehouses</span> above to save your warehouse origins, lead time, freight rule, ZIP rates, delivery notes, and local-pickup settings. Every cabinet style inherits these same warehouse origins unless you explicitly assign a different subset, so new catalog styles use the same locations automatically.
 	      </div>
 
-	      <Card data-testid="vendor-carrier-connections" className="border-violet-200 bg-violet-50/40">
+      <Card data-testid="vendor-carrier-connections" className="border-violet-200 bg-violet-50/40">
 	        <CardHeader className="pb-3">
 	          <CardTitle className="text-base">Inventory and carrier connections</CardTitle>
 	          <CardDescription>These account connections are attached to {line.name}. Configure them once; the warehouse origins above remain the default for every new cabinet style.</CardDescription>
@@ -2931,6 +2956,8 @@ function VendorShippingPage() {
           })}
         </CardContent>
       </Card>
+
+      {user?.role === "admin" && <AdminWarehouseTemplateCard />}
 
 	      <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
         <Card>
@@ -4076,14 +4103,51 @@ const INTEGRATION_LABELS: Record<string, string> = { baseUrl: "API base URL", ac
 
 function IntegrationsPage() {
   const adminDistId = useAdminDistributorId();
+  const utils = trpc.useUtils();
   const integrations = trpc.distributorPortal.listIntegrations.useQuery(adminDistId ? { distributorId: adminDistId } : undefined);
-  const save = trpc.distributorPortal.saveIntegration.useMutation({ onSuccess: () => { toast.success("Integration settings saved"); void integrations.refetch(); setSelected(null); }, onError: (error) => toast.error(error.message) });
   const [selected, setSelected] = useState<typeof INTEGRATIONS[number] | null>(null);
   const [values, setValues] = useState<Record<string, string>>({});
   const existing = selected ? integrations.data?.find((item) => item.integrationType === selected.type && item.provider === selected.id) : undefined;
-  const open = (item: typeof INTEGRATIONS[number]) => { const row = integrations.data?.find((entry) => entry.integrationType === item.type && entry.provider === item.id); setSelected(item); setValues({ id: row ? String(row.id) : "", baseUrl: row?.baseUrl ?? "", accountNumber: row?.accountNumber ?? "", clientId: row?.clientId ?? "", authHeaderName: row?.authHeaderName ?? "", environment: row?.environment ?? "production", isEnabled: row?.isEnabled ? "true" : "false" }); };
-  const saveSelected = () => { if (!selected) return; const payload: Record<string, unknown> = { ...(adminDistId ? { distributorId: adminDistId } : {}), ...(values.id ? { id: Number(values.id) } : {}), integrationType: selected.type, provider: selected.id, displayName: selected.name, baseUrl: values.baseUrl || null, accountNumber: values.accountNumber || null, clientId: values.clientId || null, authHeaderName: values.authHeaderName || null, environment: values.environment === "sandbox" ? "sandbox" : "production", isEnabled: values.isEnabled === "true" }; for (const field of ["apiKey", "clientSecret", "password", "username"] as const) if (values[field]?.trim()) payload[field] = values[field]; save.mutate(payload as any); };
-	  return <div className="space-y-6"><div><h2 className="text-xl font-bold">Inventory &amp; Shipping Integrations</h2><p className="mt-1 text-sm text-muted-foreground">Every distributor, including Pelican, can connect inventory systems and supply shipper account details for live rates. Secrets are encrypted on the server and shown only as configured/not configured.</p></div>{!selected ? <><div><h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Inventory / ERP</h3><div className="grid gap-4 sm:grid-cols-2">{INTEGRATIONS.filter((item) => item.type === "inventory").map((item) => { const row = integrations.data?.find((entry) => entry.integrationType === item.type && entry.provider === item.id); return <Card key={item.id} className="cursor-pointer hover:border-primary/50" onClick={() => open(item)}><CardContent className="p-5"><div className="flex items-start justify-between gap-3"><div><h3 className="font-semibold">{item.name}</h3><p className="mt-1 text-sm text-muted-foreground">{item.description}</p></div><Badge variant={row?.isEnabled ? "default" : "outline"}>{row?.isEnabled ? "Enabled" : "Not configured"}</Badge></div><p className="mt-3 text-xs text-muted-foreground"><Link2 className="mr-1 inline h-3 w-3" />{row?.hasApiKey || row?.hasClientSecret ? "Credentials saved securely" : "Add credentials"}</p></CardContent></Card>; })}</div></div><div><h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Shipping / live rates</h3><div className="grid gap-4 sm:grid-cols-2">{INTEGRATIONS.filter((item) => item.type === "shipping").map((item) => { const row = integrations.data?.find((entry) => entry.integrationType === item.type && entry.provider === item.id); return <Card key={item.id} className="cursor-pointer hover:border-primary/50" onClick={() => open(item)}><CardContent className="p-5"><div className="flex items-start justify-between gap-3"><div><h3 className="font-semibold">{item.name}</h3><p className="mt-1 text-sm text-muted-foreground">{item.description}</p></div><Badge variant={row?.isEnabled ? "default" : "outline"}>{row?.isEnabled ? "Enabled" : "Not configured"}</Badge></div><p className="mt-3 text-xs text-muted-foreground">{row?.accountNumber ? `Account ${row.accountNumber}` : "Add shipper account details"}</p></CardContent></Card>; })}</div></div></> : <Card className="max-w-2xl"><CardHeader><Button variant="ghost" size="sm" className="w-fit" onClick={() => setSelected(null)}><ArrowLeft className="mr-2 h-4 w-4" />Back to integrations</Button><CardTitle>{selected.name}</CardTitle><CardDescription>{selected.description}</CardDescription></CardHeader><CardContent className="space-y-4">{selected.fields.map((field) => { const label = selected.id === "netsuite" ? ({ accountNumber: "NetSuite account ID", clientId: "Consumer key", apiKey: "API key (optional)", clientSecret: "Consumer secret", username: "Token ID", password: "Token secret" } as Record<string, string>)[field] : INTEGRATION_LABELS[field] ?? field; return <div key={field} className="space-y-1"><Label>{label}</Label><Input type={["apiKey", "clientSecret", "password"].includes(field) ? "password" : "text"} placeholder={existing && ["apiKey", "clientSecret", "password"].includes(field) ? "Leave blank to keep the saved value" : `Enter ${label}`} value={values[field] ?? ""} onChange={(event) => setValues((current) => ({ ...current, [field]: event.target.value }))} /></div>; })}<div className="grid gap-4 sm:grid-cols-2"><div className="space-y-1"><Label>Environment</Label><Select value={values.environment ?? "production"} onValueChange={(value) => setValues((current) => ({ ...current, environment: value }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="sandbox">Sandbox / test</SelectItem><SelectItem value="production">Production</SelectItem></SelectContent></Select></div><div className="flex items-end gap-2 pb-1"><Switch checked={values.isEnabled === "true"} onCheckedChange={(checked) => setValues((current) => ({ ...current, isEnabled: String(checked) }))} /><Label>Enable connection</Label></div></div><div className="rounded-md border border-amber-200 bg-amber-50/60 p-3 text-xs text-amber-950">Credentials are encrypted before storage. Cabinet Dealz will not display or export secret values.</div><Button className="w-full" onClick={saveSelected} disabled={save.isPending}>{save.isPending ? "Saving…" : "Save integration settings"}</Button></CardContent></Card>}</div>;
+  const history = trpc.distributorPortal.integrationHistory.useQuery(
+    existing?.id ? { ...(adminDistId ? { distributorId: adminDistId } : {}), integrationId: existing.id, limit: 10 } : undefined,
+    { enabled: Boolean(existing?.id) },
+  );
+  const save = trpc.distributorPortal.saveIntegration.useMutation({
+    onSuccess: () => { toast.success("Integration settings saved"); void integrations.refetch(); setSelected(null); },
+    onError: (error) => toast.error(error.message),
+  });
+  const testConnection = trpc.distributorPortal.testIntegrationConnection.useMutation({
+    onSuccess: (result) => { if (result.ok) toast.success(result.message); else toast.error(result.message); void integrations.refetch(); void utils.distributorPortal.integrationHistory.invalidate(); },
+    onError: (error) => toast.error(error.message),
+  });
+  const open = (item: typeof INTEGRATIONS[number]) => {
+    const row = integrations.data?.find((entry) => entry.integrationType === item.type && entry.provider === item.id);
+    setSelected(item);
+    setValues({ id: row ? String(row.id) : "", baseUrl: row?.baseUrl ?? "", accountNumber: row?.accountNumber ?? "", clientId: row?.clientId ?? "", authHeaderName: row?.authHeaderName ?? "", environment: row?.environment ?? "production", isEnabled: row?.isEnabled ? "true" : "false" });
+  };
+  const saveSelected = () => {
+    if (!selected) return;
+    const payload: Record<string, unknown> = { ...(adminDistId ? { distributorId: adminDistId } : {}), ...(values.id ? { id: Number(values.id) } : {}), integrationType: selected.type, provider: selected.id, displayName: selected.name, baseUrl: values.baseUrl || null, accountNumber: values.accountNumber || null, clientId: values.clientId || null, authHeaderName: values.authHeaderName || null, environment: values.environment === "sandbox" ? "sandbox" : "production", isEnabled: values.isEnabled === "true" };
+    for (const field of ["apiKey", "clientSecret", "password", "username"] as const) if (values[field]?.trim()) payload[field] = values[field];
+    save.mutate(payload as any);
+  };
+  return <div className="space-y-6">
+    <div><h2 className="text-xl font-bold">Inventory &amp; Shipping Integrations</h2><p className="mt-1 text-sm text-muted-foreground">Every distributor, including Pelican, can connect inventory systems and supply shipper account details for live rates. Secrets are encrypted on the server and shown only as configured/not configured.</p></div>
+    {!selected ? <>
+      <div><h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Inventory / ERP</h3><div className="grid gap-4 sm:grid-cols-2">{INTEGRATIONS.filter((item) => item.type === "inventory").map((item) => { const row = integrations.data?.find((entry) => entry.integrationType === item.type && entry.provider === item.id); return <Card key={item.id} className="cursor-pointer hover:border-primary/50" onClick={() => open(item)}><CardContent className="p-5"><div className="flex items-start justify-between gap-3"><div><h3 className="font-semibold">{item.name}</h3><p className="mt-1 text-sm text-muted-foreground">{item.description}</p></div><Badge variant={row?.isEnabled ? "default" : "outline"}>{row?.isEnabled ? "Enabled" : "Not configured"}</Badge></div><p className="mt-3 text-xs text-muted-foreground"><Link2 className="mr-1 inline h-3 w-3" />{row?.hasApiKey || row?.hasClientSecret ? "Credentials saved securely" : "Add credentials"}</p></CardContent></Card>; })}</div></div>
+      <div><h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Shipping / live rates</h3><div className="grid gap-4 sm:grid-cols-2">{INTEGRATIONS.filter((item) => item.type === "shipping").map((item) => { const row = integrations.data?.find((entry) => entry.integrationType === item.type && entry.provider === item.id); return <Card key={item.id} className="cursor-pointer hover:border-primary/50" onClick={() => open(item)}><CardContent className="p-5"><div className="flex items-start justify-between gap-3"><div><h3 className="font-semibold">{item.name}</h3><p className="mt-1 text-sm text-muted-foreground">{item.description}</p></div><Badge variant={row?.isEnabled ? "default" : "outline"}>{row?.isEnabled ? "Enabled" : "Not configured"}</Badge></div><p className="mt-3 text-xs text-muted-foreground">{row?.accountNumber ? `Account ${row.accountNumber}` : "Add shipper account details"}</p></CardContent></Card>; })}</div></div>
+    </> : <Card className="max-w-2xl">
+      <CardHeader><Button variant="ghost" size="sm" className="w-fit" onClick={() => setSelected(null)}><ArrowLeft className="mr-2 h-4 w-4" />Back to integrations</Button><CardTitle>{selected.name}</CardTitle><CardDescription>{selected.description}</CardDescription></CardHeader>
+      <CardContent className="space-y-4">
+        {selected.fields.map((field) => { const label = selected.id === "netsuite" ? ({ accountNumber: "NetSuite account ID", clientId: "Consumer key", apiKey: "API key (optional)", clientSecret: "Consumer secret", username: "Token ID", password: "Token secret" } as Record<string, string>)[field] : INTEGRATION_LABELS[field] ?? field; return <div key={field} className="space-y-1"><Label>{label}</Label><Input type={["apiKey", "clientSecret", "password"].includes(field) ? "password" : "text"} placeholder={existing && ["apiKey", "clientSecret", "password"].includes(field) ? "Leave blank to keep the saved value" : `Enter ${label}`} value={values[field] ?? ""} onChange={(event) => setValues((current) => ({ ...current, [field]: event.target.value }))} /></div>; })}
+        <div className="grid gap-4 sm:grid-cols-2"><div className="space-y-1"><Label>Environment</Label><Select value={values.environment ?? "production"} onValueChange={(value) => setValues((current) => ({ ...current, environment: value }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="sandbox">Sandbox / test</SelectItem><SelectItem value="production">Production</SelectItem></SelectContent></Select></div><div className="flex items-end gap-2 pb-1"><Switch checked={values.isEnabled === "true"} onCheckedChange={(checked) => setValues((current) => ({ ...current, isEnabled: String(checked) }))} /><Label>Enable connection</Label></div></div>
+        <div className="rounded-md border border-amber-200 bg-amber-50/60 p-3 text-xs text-amber-950">Credentials are encrypted before storage. Cabinet Dealz will not display or export secret values.</div>
+        {existing?.lastError && <div className="rounded-md border border-red-200 bg-red-50 p-3 text-xs text-red-800"><span className="font-semibold">Last test error:</span> {existing.lastError}</div>}
+        <div className="flex flex-col gap-2 sm:flex-row"><Button className="flex-1" onClick={saveSelected} disabled={save.isPending}>{save.isPending ? "Saving…" : "Save integration settings"}</Button><Button variant="outline" className="flex-1" onClick={() => testConnection.mutate({ ...(adminDistId ? { distributorId: adminDistId } : {}), integrationId: existing?.id ?? 0 })} disabled={!existing?.id || testConnection.isPending}>{testConnection.isPending ? "Testing…" : "Test connection"}</Button></div>
+        {existing?.id && <div className="rounded-md border bg-muted/30 p-3"><div className="flex items-center justify-between gap-2"><p className="text-sm font-semibold">Recent connection attempts</p>{existing.lastVerifiedAt && <span className="text-xs text-muted-foreground">Last passed {new Date(existing.lastVerifiedAt).toLocaleString()}</span>}</div>{history.isLoading ? <p className="mt-2 text-xs text-muted-foreground">Loading history…</p> : history.data?.length ? <div className="mt-2 space-y-2">{history.data.map((attempt) => <div key={attempt.id} className="flex items-start justify-between gap-3 text-xs"><div><Badge variant={attempt.status === "success" ? "default" : "destructive"}>{attempt.status}</Badge><span className="ml-2 text-muted-foreground">{attempt.message}</span></div><span className="shrink-0 text-muted-foreground">{new Date(attempt.createdAt).toLocaleString()} · {attempt.responseMs ?? "—"} ms</span></div>)}</div> : <p className="mt-2 text-xs text-muted-foreground">No connection tests recorded yet.</p>}</div>}
+      </CardContent>
+    </Card>}
+  </div>;
 }
 
 // ─── Payments Page ───────────────────────────────────────────────────────────

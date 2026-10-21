@@ -20,10 +20,15 @@ import {
 	  aiServiceRequests,
 	  skuMasterAliases,
 	  distributorIntegrations,
+	  distributorIntegrationEvents,
+	  shippingSettings,
 	} from "../../drizzle/schema";
 import { storagePut } from "../storage";
 import { encryptDistributorSecret } from "../lib/distributorIntegrationCrypto";
+import { decryptDistributorSecret } from "../lib/distributorIntegrationCrypto";
 import { generateImage } from "../_core/imageGeneration";
+import { upsTestConnection } from "../_core/ups";
+import { fedexTestConnection } from "../_core/fedex";
 import { normalizeCode } from "../../shared/cabinetCodeMatch";
 import { matchVendorCabinetBySku, hasVendorPrice, buildUnmatchedPlatformSku } from "../vendorProductSubmission";
 import {
@@ -433,9 +438,96 @@ export const distributorPortalRouter = router({
         await db.update(distributorIntegrations).set({ ...shared, ...secretPatch } as any).where(eq(distributorIntegrations.id, existing[0].id));
         return { ok: true, id: existing[0].id };
       }
-      const result = await db.insert(distributorIntegrations).values({ ...shared, apiKeyEncrypted: secretPatch.apiKeyEncrypted ?? null, clientSecretEncrypted: secretPatch.clientSecretEncrypted ?? null, passwordEncrypted: secretPatch.passwordEncrypted ?? null });
-      return { ok: true, id: Number((result as { insertId?: number }).insertId ?? 0) };
+	      const result = await db.insert(distributorIntegrations).values({ ...shared, apiKeyEncrypted: secretPatch.apiKeyEncrypted ?? null, clientSecretEncrypted: secretPatch.clientSecretEncrypted ?? null, passwordEncrypted: secretPatch.passwordEncrypted ?? null });
+	      return { ok: true, id: Number((result as { insertId?: number }).insertId ?? 0) };
+	    }),
+
+	  /** Return redacted connection-test history for one owned integration. */
+	  integrationHistory: distributorProcedure
+	    .input(z.object({ distributorId: z.number().optional(), integrationId: z.number().int().positive().optional(), limit: z.number().int().min(1).max(50).default(20) }).optional())
+	    .query(async ({ ctx, input }) => {
+	      const db = await getDb();
+	      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+	      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input?.distributorId);
+	      const conditions = [eq(distributorIntegrationEvents.distributorId, lineId)];
+	      if (input?.integrationId != null) conditions.push(eq(distributorIntegrationEvents.integrationId, input.integrationId));
+	      return db.select({
+	        id: distributorIntegrationEvents.id,
+	        integrationId: distributorIntegrationEvents.integrationId,
+	        eventType: distributorIntegrationEvents.eventType,
+	        status: distributorIntegrationEvents.status,
+	        message: distributorIntegrationEvents.message,
+	        responseMs: distributorIntegrationEvents.responseMs,
+	        createdAt: distributorIntegrationEvents.createdAt,
+	      }).from(distributorIntegrationEvents).where(and(...conditions)).orderBy(desc(distributorIntegrationEvents.createdAt)).limit(input?.limit ?? 20);
+	    }),
+
+	  /** Test an owned distributor connection without returning any saved secret. */
+	  testIntegrationConnection: distributorProcedure
+	    .input(z.object({ distributorId: z.number().optional(), integrationId: z.number().int().positive() }))
+	    .mutation(async ({ ctx, input }) => {
+	      const db = await getDb();
+	      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+	      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId);
+	      const [integration] = await db.select().from(distributorIntegrations).where(and(eq(distributorIntegrations.id, input.integrationId), eq(distributorIntegrations.distributorId, lineId))).limit(1);
+	      if (!integration) throw new TRPCError({ code: "NOT_FOUND", message: "Integration not found." });
+      const startedAt = Date.now();
+      let result: { ok: boolean; error?: string };
+      try {
+        if (integration.provider === "ups") {
+          result = await upsTestConnection({
+            clientId: integration.clientId ?? "",
+            clientSecret: decryptDistributorSecret(integration.clientSecretEncrypted) ?? "",
+            accountNumber: integration.accountNumber ?? "",
+            environment: integration.environment,
+          });
+        } else if (integration.provider === "fedex") {
+          result = await fedexTestConnection({
+            clientId: integration.clientId ?? "",
+            clientSecret: decryptDistributorSecret(integration.clientSecretEncrypted) ?? "",
+            accountNumber: integration.accountNumber ?? "",
+            environment: integration.environment,
+          });
+        } else if (!integration.baseUrl) {
+          result = { ok: false, error: "Add an API base URL before testing this connection." };
+        } else {
+          const headers: Record<string, string> = {};
+          const apiKey = decryptDistributorSecret(integration.apiKeyEncrypted);
+          const authHeader = integration.authHeaderName?.trim() || "Authorization";
+          if (apiKey) headers[authHeader] = authHeader === "Authorization" ? `Bearer ${apiKey}` : apiKey;
+          const response = await fetch(integration.baseUrl, { method: "HEAD", headers, signal: AbortSignal.timeout(15_000) });
+          result = response.ok ? { ok: true } : { ok: false, error: `Endpoint returned HTTP ${response.status}.` };
+        }
+      } catch (error) {
+        result = { ok: false, error: error instanceof Error ? error.message : "Connection test failed." };
+      }
+      const responseMs = Date.now() - startedAt;
+      const message = result.ok ? "Connection test passed." : (result.error ?? "Connection test failed.");
+      await db.insert(distributorIntegrationEvents).values({ integrationId: integration.id, distributorId: lineId, eventType: "connection_test", status: result.ok ? "success" : "failure", message, responseMs });
+      await db.update(distributorIntegrations).set({ lastVerifiedAt: result.ok ? new Date() : integration.lastVerifiedAt, lastError: result.ok ? null : message }).where(eq(distributorIntegrations.id, integration.id));
+      return { ok: result.ok, message, responseMs } as const;
     }),
+
+	  /** Read the admin-managed warehouse origins copied to newly created lines. */
+	  warehouseTemplate: adminProcedure.query(async () => {
+	    const db = await getDb();
+	    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+	    const [row] = await db.select({ warehouseTemplateZips: shippingSettings.warehouseTemplateZips }).from(shippingSettings).limit(1);
+	    return { warehouseTemplateZips: row?.warehouseTemplateZips ?? [] };
+	  }),
+
+	  /** Save verified warehouse origins used only for future distributor creation. */
+	  saveWarehouseTemplate: adminProcedure
+	    .input(z.object({ warehouseTemplateZips: z.array(z.string().trim().regex(/^\d{5}$/, "Each warehouse ZIP must be exactly 5 digits")).max(12) }))
+	    .mutation(async ({ input }) => {
+	      const db = await getDb();
+	      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+	      const warehouseTemplateZips = Array.from(new Set(input.warehouseTemplateZips.map((zip) => zip.trim())));
+	      const [existing] = await db.select({ id: shippingSettings.id }).from(shippingSettings).limit(1);
+	      if (existing) await db.update(shippingSettings).set({ warehouseTemplateZips }).where(eq(shippingSettings.id, existing.id));
+	      else await db.insert(shippingSettings).values({ warehouseTemplateZips });
+	      return { ok: true, warehouseTemplateZips } as const;
+	    }),
 
 	  /**
    * Supplier-owned details on the approved vendor record. Supply-line identity,

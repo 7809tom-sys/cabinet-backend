@@ -769,6 +769,27 @@ export const distributorIntegrations = mysqlTable(
 export type DistributorIntegration = typeof distributorIntegrations.$inferSelect;
 export type InsertDistributorIntegration = typeof distributorIntegrations.$inferInsert;
 
+export const distributorIntegrationEvents = mysqlTable(
+  "distributor_integration_events",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    integrationId: int("integrationId").notNull(),
+    distributorId: int("distributorId").notNull(),
+    eventType: varchar("eventType", { length: 32 }).notNull(),
+    status: varchar("status", { length: 16 }).notNull(),
+    message: varchar("message", { length: 512 }),
+    responseMs: int("responseMs"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  (t) => ({
+    integrationIndex: index("distributor_integration_events_integration_idx").on(t.integrationId, t.createdAt),
+    distributorIndex: index("distributor_integration_events_distributor_idx").on(t.distributorId, t.createdAt),
+  }),
+);
+
+export type DistributorIntegrationEvent = typeof distributorIntegrationEvents.$inferSelect;
+export type InsertDistributorIntegrationEvent = typeof distributorIntegrationEvents.$inferInsert;
+
 // ─── Distributor SKU Mapping ───────────────────────────────────────────────────
 
 export const distributorSkus = mysqlTable("distributor_skus", {
@@ -1923,6 +1944,9 @@ export const shippingSettings = mysqlTable("shipping_settings", {
   id: int("id").autoincrement().primaryKey(),
   enabled: boolean("enabled").default(true).notNull(),
   originZip: varchar("originZip", { length: 16 }).default("").notNull(),
+  // Admin-managed origin template copied to newly created distributor lines.
+  // It is intentionally empty until verified warehouse ZIPs are entered.
+  warehouseTemplateZips: json("warehouseTemplateZips").$type<string[]>(),
   // Base rate model. "per_cwt" = $ per 100 lbs (hundredweight) per zone;
   // "flat" = a flat $ per zone regardless of weight.
   rateModel: mysqlEnum("rateModel", ["per_cwt", "flat"]).default("per_cwt").notNull(),

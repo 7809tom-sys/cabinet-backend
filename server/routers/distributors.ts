@@ -4,7 +4,7 @@ import * as XLSX from "xlsx";
 import { TRPCError } from "@trpc/server";
 import { adminProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
-import { distributors, cabinets, cabinetAliases, cabinetDistributorEligibility, distributorSkus, doorStyles, categoryAliases } from "../../drizzle/schema";
+import { distributors, cabinets, cabinetAliases, cabinetDistributorEligibility, distributorSkus, doorStyles, categoryAliases, shippingSettings } from "../../drizzle/schema";
 import {
   parseDistributorCsv,
   validateImport,
@@ -1006,19 +1006,27 @@ export const distributorImportRouter = router({
 
   // ─── Quick-create helpers ──────────────────────────────────────────────────
   addDistributor: adminProcedure
-    .input(z.object({ name: z.string(), brandName: z.string().optional() }))
-    .mutation(async ({ input }) => {
-      const db = await getDb();
-      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
-      const code = input.name.toUpperCase().replace(/[^A-Z0-9]+/g, "").slice(0, 8);
-      const [result] = await db.insert(distributors).values({
-        name: input.name,
-        code,
-        initials: code.slice(0, 2),
-        brandName: input.brandName ?? input.name,
-        costMultiplier: "0.30",
-        baseMultiplier: "0.30",
-      });
+	    .input(z.object({ name: z.string(), brandName: z.string().optional() }))
+	    .mutation(async ({ input }) => {
+	      const db = await getDb();
+	      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+	      const code = input.name.toUpperCase().replace(/[^A-Z0-9]+/g, "").slice(0, 8);
+	      const [shippingTemplate] = await db
+	        .select({ warehouseTemplateZips: shippingSettings.warehouseTemplateZips })
+	        .from(shippingSettings)
+	        .limit(1);
+	      const warehouseZips = Array.isArray(shippingTemplate?.warehouseTemplateZips) && shippingTemplate.warehouseTemplateZips.length > 0
+	        ? Array.from(new Set(shippingTemplate.warehouseTemplateZips.map((zip) => String(zip).trim()).filter((zip) => /^\d{5}$/.test(zip))))
+	        : null;
+	      const [result] = await db.insert(distributors).values({
+	        name: input.name,
+	        code,
+	        initials: code.slice(0, 2),
+	        brandName: input.brandName ?? input.name,
+	        costMultiplier: "0.30",
+	        baseMultiplier: "0.30",
+	        warehouseZips,
+	      });
       return { id: (result as any).insertId as number, name: input.name, brandName: input.brandName ?? input.name, ok: true };
     }),
 

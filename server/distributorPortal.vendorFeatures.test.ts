@@ -35,6 +35,15 @@ describe("distributor vendor portal catalog and integration contracts", () => {
     expect(portal).toContain("UPS / parcel");
     expect(portal).toContain("FedEx / parcel");
     expect(portal).toContain("new catalog styles use the same locations automatically");
+    expect(router).toContain("integrationHistory: distributorProcedure");
+    expect(router).toContain("testIntegrationConnection: distributorProcedure");
+    expect(router).toContain("distributorIntegrationEvents");
+    expect(portal).toContain("Test connection");
+    expect(portal).toContain("Recent connection attempts");
+    expect(schema).toContain('export const distributorIntegrationEvents');
+    expect(router).toContain("warehouseTemplate: adminProcedure");
+    expect(router).toContain("saveWarehouseTemplate: adminProcedure");
+    expect(portal).toContain("Shared warehouse template");
   });
 
   it("retains source photos and records normalization status", () => {
