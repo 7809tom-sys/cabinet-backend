@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import * as THREE from "three";
 import { canSyncThreeDOrderToCart, constrainedThreeDWallHeight, exactFittedFillerInches, filteredThreeDCatalogItems, hybridPlanUnderlayModel, resolvedPlacedCabinetDoorProfile, resolvedPlacedCabinetDoorSampleUrl, resolvedPlacedCabinetFinish, resolvedThreeDWallHeights, shouldShowThreeDCatalog, THREE_D_EMBEDDED_TOOLBAR_CLASS, THREE_D_WORKSPACE_ACTIONS, threeDCabinetHitFromObject, threeDDecorativeEndSides, threeDDrawerZoneHeight, threeDFillerMeasurementNoticeEntries, threeDFittedFillerWidthText, threeDFrontDatumSnapIndicators, threeDHasVerifiedDoorLayout, threeDOrderLineForSelectedCabinet, threeDPointerSelectsCabinet, threeDPreviewFadeAllowed, threeDSelectedCabinetDescription, threeDSelectedCabinetDockClass, threeDSelectionFromPlaced, threeDStructuralFinish, threeDTallPantryDoorsPerRow, threeDTemporaryPreviewCounterText, threeDTouchTapOpensWindow, threeDUpperCabinetWallMinimums, threeDUsesAuthoritativePlanScene, threeDUsesCatalogFrontVisual, threeDWallClearanceText, threeDWallFitGuideText, threeDWallSideForEdge, threeDWallSideForPolygonEdge, updatedThreeDWallHeights } from "./InteractiveRoom3D";
-import { addCabinet, addPotFillerFixture, addSinkFixture, addThreeDPeninsulaCountertops, addWallOpening, cornerDrawerFrontLayout, describedOvenSpecification, diagonalCornerFootprintVertices, diagonalCornerFrontWidth, dimensions, doorProfileKind, existingCabinetTransform, existingCabinetSku, freestandingRangeHeightProfile, hasPersistedTwoDScene, isEqualHeightTwoDrawerBase, lCornerCarcassParts, openingTransform, potFillerWallMountTransform, quoteMaterialDetails, rangeCooktopLayout, rangeHoodFrontGeometry, rangeHoodGeometry, rangeHoodSceneStatus, rangeOvenFrontLayout, resolvedCatalogFinish, resolvedPlacedCabinetFrontVisual, resolvedThreeDCountertopFinish, resolvedThreeDDoorProfile, resolvedThreeDDoorSampleUrl, resolvedThreeDDrawerRows, resolvedThreeDFaceLayout, resolvedThreeDOvenLayout, resolvedThreeDSpecialtyProfile, savedRangeHoodTransform, sceneCabinetColor, shouldRenderCountertopOverSceneItem, shouldRenderPlacedDesign, shouldRenderSavedSceneCabinet, sinkFaucetTransform, sinkFixtureTransform, singleOvenTowerAssembly, threeDApplianceFrontVisualUrl, threeDBlindCornerFrontLayout, threeDCabinetFrontVisualUrl, threeDCameraDistanceLimits, threeDCountertopDepthIn, threeDDoorMaterialFallback, threeDFaceMaterialColor, threeDMaterialStatusText, threeDPhotoRenderDoorReferenceStatus, threeDPeninsulaCountertopGeometry, threeDPlacedWall, threeDPlanSyncText, threeDRoomFacingRotation, threeDSceneInputDiagnostics, threeDSceneRevisionKey, threeDSceneVisibilityContract, threeDShakerFramePose, threeDShakerRailThickness, threeDUsesDoorSampleTexture, threeDUsesExactDoorSampleMaterial, threeDUsesPhysicalShakerRails, threeDVisibleMaterialMode, triangleCornerFootprintVertices, triangleCornerFrontPose, triangleCornerFrontWidth, THREE_D_DRAWER_REVEAL_DEPTH, THREE_D_EXPORT_SIZE, THREE_D_ROOM_CONTEXT_DEFAULT, THREE_D_WALL_DEPTH_WRITE, THREE_D_WALL_OPACITY, type InteractiveRoomScene } from "./InteractiveRoom3D";
+import { addCabinet, addPotFillerFixture, addSinkFixture, addThreeDPeninsulaCountertops, addWallOpening, cornerDrawerFrontLayout, describedOvenSpecification, diagonalCornerFootprintVertices, diagonalCornerFrontWidth, dimensions, doorProfileKind, existingCabinetTransform, existingCabinetSku, freestandingRangeHeightProfile, hasPersistedTwoDScene, isEnclosedWallMicrowaveCabinet, isEqualHeightTwoDrawerBase, lCornerCarcassParts, openingTransform, potFillerWallMountTransform, quoteMaterialDetails, rangeCooktopLayout, rangeHoodFrontGeometry, rangeHoodGeometry, rangeHoodSceneStatus, rangeOvenFrontLayout, resolvedCatalogFinish, resolvedPlacedCabinetFrontVisual, resolvedThreeDCountertopFinish, resolvedThreeDDoorProfile, resolvedThreeDDoorSampleUrl, resolvedThreeDDrawerRows, resolvedThreeDFaceLayout, resolvedThreeDOvenLayout, resolvedThreeDSpecialtyProfile, savedRangeHoodTransform, sceneCabinetColor, shouldRenderCountertopOverSceneItem, shouldRenderPlacedDesign, shouldRenderSavedSceneCabinet, sinkFaucetTransform, sinkFixtureTransform, singleOvenTowerAssembly, threeDApplianceFrontVisualUrl, threeDBlindCornerFrontLayout, threeDCabinetFrontVisualUrl, threeDCameraDistanceLimits, threeDCountertopDepthIn, threeDDoorMaterialFallback, threeDFaceMaterialColor, threeDMaterialStatusText, threeDPhotoRenderDoorReferenceStatus, threeDPeninsulaCountertopGeometry, threeDPlacedWall, threeDPlanSyncText, threeDRoomFacingRotation, threeDSceneInputDiagnostics, threeDSceneRevisionKey, threeDSceneVisibilityContract, threeDShakerFramePose, threeDShakerRailThickness, threeDUsesDoorSampleTexture, threeDUsesExactDoorSampleMaterial, threeDUsesPhysicalShakerRails, threeDVisibleMaterialMode, triangleCornerFootprintVertices, triangleCornerFrontPose, triangleCornerFrontWidth, THREE_D_DRAWER_REVEAL_DEPTH, THREE_D_EXPORT_SIZE, THREE_D_ROOM_CONTEXT_DEFAULT, THREE_D_WALL_DEPTH_WRITE, THREE_D_WALL_OPACITY, type InteractiveRoomScene } from "./InteractiveRoom3D";
 import { addFurniture, addIslandZone, furnitureTransform, islandZoneTransform, ponyWallTransform } from "./InteractiveRoom3D";
 import { threeDFurnitureHitFromIntersections, threeDFurnitureHitFromObject } from "./InteractiveRoom3D";
 import { threeDDesignParitySnapshot, threeDExactPlanGeometryLock } from "./InteractiveRoom3D";
@@ -8710,7 +8710,7 @@ describe("interactive 3D room scene helpers", () => {
     }
   });
 
-  it("renders MW3042 as two upper doors with a visible bottom opening instead of dropping the cabinet or using its catalog diagram", () => {
+  it("renders MW3042 with two upper doors and its measured bottom opening around a modeled microwave instead of a catalog diagram", () => {
     const root = new THREE.Group();
     addCabinet(root, {
       distributorSkuId: 2613279, cabinetId: 9390053, masterCode: "MW3042", description: '30" Microwave Wall Cabinet', placementType: "wall",
@@ -8719,13 +8719,71 @@ describe("interactive 3D room scene helpers", () => {
     } as never, null, {}, 144, 120, "#8a9ba8", "#f8f8f6");
     const openings: THREE.Object3D[] = [];
     const doors: THREE.Object3D[] = [];
+    const microwaveFronts: THREE.Object3D[] = [];
+    const microwaveGlass: THREE.Object3D[] = [];
+    const microwaveControls: THREE.Object3D[] = [];
+    const microwaveHandles: THREE.Object3D[] = [];
+    const catalogVisuals: THREE.Object3D[] = [];
     root.traverse((node) => {
       if (node.userData.configuredOpening) openings.push(node);
       if (node.userData.cabinetFront && !node.userData.cabinetDrawerFront) doors.push(node);
+      if (node.userData.wallMicrowaveFront) microwaveFronts.push(node);
+      if (node.userData.wallMicrowaveGlass) microwaveGlass.push(node);
+      if (node.userData.wallMicrowaveControlBand) microwaveControls.push(node);
+      if (node.userData.wallMicrowaveHandle) microwaveHandles.push(node);
+      if (node.userData.authoritativeCabinetFrontVisual) catalogVisuals.push(node);
     });
     expect(openings).toHaveLength(1);
     expect(doors).toHaveLength(2);
     expect(openings[0]!.position.y).toBeLessThan(doors[0]!.position.y);
+    expect(microwaveFronts).toHaveLength(1);
+    expect(microwaveGlass).toHaveLength(1);
+    expect(microwaveControls).toHaveLength(1);
+    expect(microwaveHandles).toHaveLength(1);
+    expect(catalogVisuals).toHaveLength(0);
+    expect(microwaveFronts[0]!.userData).toMatchObject({
+      openingWidthIn: openings[0]!.userData.openingWidthIn,
+      openingHeightIn: openings[0]!.userData.openingHeightIn,
+      openingCenterYIn: openings[0]!.position.y / (1 / 12),
+      seatedInsideConfiguredOpening: true,
+    });
+    expect(threeDCabinetFrontVisualUrl({
+      masterCode: "MW3042",
+      description: '30" Microwave Wall Cabinet',
+      placementType: "wall",
+      numberOfDoors: 2,
+      openingType: "bottom",
+      catalogImageUrl: "https://example.com/mw3042-diagram.webp",
+    })).toBeNull();
+    expect(threeDCabinetFrontVisualUrl({
+      masterCode: "B24",
+      placementType: "base",
+      catalogImageUrl: "https://example.com/b24-diagram.webp",
+    })).toBe("https://example.com/b24-diagram.webp");
+    expect(isEnclosedWallMicrowaveCabinet({
+      masterCode: "MW3030",
+      placementType: "wall",
+      numberOfDoors: 2,
+      openingType: "bottom",
+    })).toBe(true);
+    expect(isEnclosedWallMicrowaveCabinet({
+      masterCode: "WMS3018",
+      placementType: "wall",
+      numberOfDoors: 0,
+      openingType: "bottom",
+    })).toBe(false);
+    expect(isEnclosedWallMicrowaveCabinet({
+      masterCode: "MW-30",
+      placementType: "appliance",
+      numberOfDoors: 0,
+      openingType: "bottom",
+    })).toBe(false);
+    expect(isEnclosedWallMicrowaveCabinet({
+      masterCode: "MO3030",
+      placementType: "wall",
+      numberOfDoors: 2,
+      openingType: "bottom",
+    })).toBe(false);
   });
 
   it("normalizes legacy range and refrigerator base records into appliance meshes so the saved cooktop and fridge face cannot disappear", () => {

@@ -2368,12 +2368,36 @@ export function threeDApplianceFrontVisualUrl(sku: Pick<SceneSku, "masterCode" |
   return applianceAppearanceImage(sku.masterCode, sku.catalogImageUrl ?? null);
 }
 
+type EnclosedWallMicrowaveCandidate = Pick<SceneSku, "masterCode" | "placementType"> & Partial<Pick<SceneSku, "description" | "numberOfDoors" | "openingType">>;
+
+/**
+ * The MW3030/MW3036/MW3042 family is an enclosed wall cabinet with two upper
+ * doors and a lower microwave bay. It is neither a standalone MW appliance nor
+ * the separate open WMS wall-microwave kit, so it needs a constructed appliance
+ * face only inside its existing Cabinet Config opening envelope.
+ */
+export function isEnclosedWallMicrowaveCabinet(sku: EnclosedWallMicrowaveCandidate): boolean {
+  if ((sku.placementType ?? "").trim().toLowerCase() !== "wall") return false;
+  if ((sku.openingType ?? "").trim().toLowerCase() !== "bottom") return false;
+  if (Number(sku.numberOfDoors ?? 0) < 1) return false;
+
+  const code = (sku.masterCode ?? "").replace(/[^a-z0-9]/gi, "").toUpperCase();
+  const description = (sku.description ?? "").toLowerCase();
+  const isEnclosedWallMicrowaveCode = /^MW\d{4}$/.test(code) && !code.startsWith("WMS");
+  const isExplicitWallMicrowaveDescription = /(?:microwave\s+wall\s+cabinet|wall\s+microwave\s+cabinet)/.test(description);
+  return isEnclosedWallMicrowaveCode || isExplicitWallMicrowaveDescription;
+}
+
 /** A supplied Cabinet Config product visual is authoritative for a cabinet front. */
-export function threeDCabinetFrontVisualUrl(sku: Pick<SceneSku, "masterCode" | "placementType" | "catalogImageUrl">): string | null {
+export function threeDCabinetFrontVisualUrl(sku: EnclosedWallMicrowaveCandidate & Pick<SceneSku, "catalogImageUrl">): string | null {
   if ((sku.placementType ?? "").toLowerCase() === "appliance") return null;
   // The existing BEC24 source image is a quarter-octagon front. It must not
   // cover the two physical, coplanar doors of the owner-approved square end.
   if (isSquareDoubleDoorBaseEnd(sku)) return null;
+  // The actual enclosed wall-microwave family receives a modeled stainless
+  // appliance face inside its configured bay. Its cabinet-card diagram is not
+  // an appliance finish and must never cover the upper doors or microwave face.
+  if (isEnclosedWallMicrowaveCabinet(sku)) return null;
   return sku.catalogImageUrl?.trim() || null;
 }
 
@@ -5948,14 +5972,93 @@ export function addCabinet(
       : sku.openingType === "top"
         ? bodyHeight / 2 - 0.04 - openingHeight / 2
         : 0;
-    opening.position.set(0, openingCenterY, 0.006);
-    opening.userData = {
-      configuredOpening: true,
-      openingType: sku.openingType,
-      openingWidthIn: openingWidth / INCH,
-      openingHeightIn: openingHeight / INCH,
-    };
-    frontGroup.add(opening);
+    const isWallMicrowave = isEnclosedWallMicrowaveCabinet(sku);
+    if (!isWallMicrowave) {
+      opening.position.set(0, openingCenterY, 0.006);
+      opening.userData = {
+        configuredOpening: true,
+        openingType: sku.openingType,
+        openingWidthIn: openingWidth / INCH,
+        openingHeightIn: openingHeight / INCH,
+      };
+      frontGroup.add(opening);
+    } else {
+      // The source record owns the cabinet and microwave-bay envelope. Add only
+      // an unbranded appliance face within that exact opening—not a substitute
+      // cabinet, catalog image, or guessed manufacturer-specific dimensions.
+      const microwaveHeight = Math.max(0.16, openingHeight - 0.03);
+      const stainlessMaterial = new THREE.MeshPhysicalMaterial({
+        color: "#8d969a",
+        metalness: 0.86,
+        roughness: 0.27,
+        clearcoat: 0.12,
+        clearcoatRoughness: 0.32,
+      });
+      const darkGlassMaterial = new THREE.MeshPhysicalMaterial({
+        color: "#11171c",
+        metalness: 0.42,
+        roughness: 0.16,
+        clearcoat: 0.34,
+        clearcoatRoughness: 0.16,
+      });
+      const trimMaterial = new THREE.MeshStandardMaterial({ color: "#313a40", roughness: 0.24, metalness: 0.78 });
+      const faceDepth = 0.064;
+      const face = new THREE.Mesh(new THREE.BoxGeometry(openingWidth, microwaveHeight, faceDepth), stainlessMaterial);
+      face.position.set(0, openingCenterY, 0.012);
+      face.userData = {
+        configuredOpening: true,
+        wallMicrowaveFront: true,
+        microwaveFaceKind: "unbranded-stainless",
+        openingType: sku.openingType,
+        openingWidthIn: openingWidth / INCH,
+        openingHeightIn: openingHeight / INCH,
+        openingCenterYIn: openingCenterY / INCH,
+        seatedInsideConfiguredOpening: true,
+      };
+      frontGroup.add(face);
+
+      const inset = Math.min(0.075, Math.max(0.035, Math.min(openingWidth, microwaveHeight) * 0.075));
+      const controlBandWidth = Math.min(Math.max(0.14, openingWidth * 0.16), Math.max(0.14, openingWidth * 0.26));
+      const glassWidth = Math.max(0.12, openingWidth - inset * 2 - controlBandWidth - 0.018);
+      const glassHeight = Math.max(0.1, microwaveHeight - inset * 2);
+      const glassX = -openingWidth / 2 + inset + glassWidth / 2;
+      const controlX = openingWidth / 2 - inset - controlBandWidth / 2;
+      const glass = new THREE.Mesh(new THREE.BoxGeometry(glassWidth, glassHeight, 0.018), darkGlassMaterial);
+      glass.position.set(glassX, openingCenterY, faceDepth / 2 + 0.024);
+      glass.userData = {
+        wallMicrowaveGlass: true,
+        openingWidthIn: openingWidth / INCH,
+        openingHeightIn: openingHeight / INCH,
+        seatedInsideConfiguredOpening: true,
+      };
+      frontGroup.add(glass);
+
+      const controlBand = new THREE.Mesh(new THREE.BoxGeometry(controlBandWidth, glassHeight, 0.024), stainlessMaterial);
+      controlBand.position.set(controlX, openingCenterY, faceDepth / 2 + 0.027);
+      controlBand.userData = { wallMicrowaveControlBand: true, seatedInsideConfiguredOpening: true };
+      frontGroup.add(controlBand);
+      const display = new THREE.Mesh(
+        new THREE.BoxGeometry(controlBandWidth * 0.62, Math.min(0.05, glassHeight * 0.16), 0.018),
+        darkGlassMaterial,
+      );
+      display.position.set(controlX, openingCenterY + glassHeight * 0.27, faceDepth / 2 + 0.047);
+      display.userData = { wallMicrowaveDisplay: true, seatedInsideConfiguredOpening: true };
+      frontGroup.add(display);
+      for (let index = 0; index < 3; index++) {
+        const control = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.014, 16), trimMaterial);
+        control.rotation.x = Math.PI / 2;
+        control.position.set(controlX, openingCenterY + glassHeight * (0.02 - index * 0.2), faceDepth / 2 + 0.05);
+        control.userData = { wallMicrowaveControl: true, controlIndex: index, seatedInsideConfiguredOpening: true };
+        frontGroup.add(control);
+      }
+      const handle = new THREE.Mesh(
+        new THREE.BoxGeometry(Math.min(glassWidth * 0.58, openingWidth * 0.46), 0.032, 0.058),
+        trimMaterial,
+      );
+      handle.position.set(glassX, openingCenterY + glassHeight * 0.28, faceDepth / 2 + 0.065);
+      handle.userData = { wallMicrowaveHandle: true, handleOrientation: "horizontal", seatedInsideConfiguredOpening: true };
+      frontGroup.add(handle);
+    }
   }
   }
   }
