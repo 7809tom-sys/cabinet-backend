@@ -23,6 +23,7 @@ import {
 	} from "../../drizzle/schema";
 import { storagePut } from "../storage";
 import { encryptDistributorSecret } from "../lib/distributorIntegrationCrypto";
+import { generateImage } from "../_core/imageGeneration";
 import { normalizeCode } from "../../shared/cabinetCodeMatch";
 import { matchVendorCabinetBySku, hasVendorPrice, buildUnmatchedPlatformSku } from "../vendorProductSubmission";
 import {
@@ -2021,16 +2022,23 @@ export const distributorPortalRouter = router({
       // Upload to S3
       const buffer = Buffer.from(input.imageBase64, "base64");
       const ext = input.fileName.split(".").pop() || "jpg";
-      const key = `vendor-products/${lineId}/${input.skuId}.${ext}`;
-      const { url } = await storagePut(key, buffer, input.contentType);
-
-      // Update SKU
-      await db
-        .update(distributorSkus)
-        .set({ imageUrl: url })
-        .where(eq(distributorSkus.id, input.skuId));
-
-      return { skuId: input.skuId, imageUrl: url };
+      const key = `vendor-products-source/${lineId}/${input.skuId}.${ext}`;
+      const source = await storagePut(key, buffer, input.contentType);
+      let imageUrl = source.url;
+      let imageRerenderStatus: "completed" | "failed" = "failed";
+      try {
+        const normalized = await generateImage({
+          model: "MODEL_GPT_IMAGE_2",
+          quality: "medium",
+          originalImages: [{ b64Json: input.imageBase64, mimeType: input.contentType }],
+          prompt: "Create clean professional product catalog art from this vendor cabinet photo. Preserve the exact cabinet design, proportions, door count, finish color, hardware, and camera angle. Remove people, rooms, labels, price sheets, watermarks, clutter, and background distractions. Use a neutral light studio background and realistic even lighting. Do not invent or add any cabinets or accessories.",
+        });
+        if (normalized.url) { imageUrl = normalized.url; imageRerenderStatus = "completed"; }
+      } catch (error) {
+        console.warn(`[DistributorPortal] Image normalization failed for SKU ${input.skuId}:`, error instanceof Error ? error.message : error);
+      }
+      await db.update(distributorSkus).set({ imageUrl, sourceImageUrl: source.url, imageRerenderStatus, imageRerenderedAt: imageRerenderStatus === "completed" ? new Date() : null }).where(eq(distributorSkus.id, input.skuId));
+      return { skuId: input.skuId, imageUrl, sourceImageUrl: source.url, imageRerenderStatus };
     }),
 
   /** Records the source information needed before a supplier-only cabinet item can be published. */
