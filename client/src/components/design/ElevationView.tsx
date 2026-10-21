@@ -2,15 +2,16 @@ import { doorOpeningAppearance } from "@/lib/doorOpeningAppearance";
 import {
   PlacedCabinet, RoomData, STD, elevationBox, WallOpening,
   FinishColors, DEFAULT_FINISH_COLORS, CROWN_HEIGHT_IN, TOE_KICK_HEIGHT_IN, BATTEN_WIDTH_IN, LIGHT_RAIL_HEIGHT_IN,
-  type DoorPanelKind, type WallSide, cabinetWall,
+  type DoorPanelKind, type WallSide, cabinetWall, blindCornerDoorSide,
   countertopMaterial, roomCeiling, bearsCountertop, isBaseHeightAppliance, isSinkBaseCabinet, isFarmerSinkBase, isFillerItem, fillerWidthRange, formatEighthInches,
   wallCeiling, wallCeilingIsSloped, wallLength, wallRunOffset, wallRunSpan, wallRunFrame, wallPlacementAt,
   backsplashMaterial, isStacker, isBridgeOverRange, resolveSwing,
   isRangeOrOven, wallCabinetTopLine, isBlindCorner, placedFootprint, crownEligibleCabinets, isLightRailEligibleCabinet, usesRaisedFloorWallDoorPull,
-	  flooringMaterial, normalizeRefrigeratorBayUppers, applianceAppearanceImage, applianceElevationPresentation, rangeVisualAppearance, resolveCabinetHardwarePosition, isWd18CountertopDrawerCabinet, wd18CountertopFaceLayout,
+	  flooringMaterial, normalizeInstalledFillersToAdjacentCabinets, normalizeRefrigeratorBayUppers, applianceAppearanceImage, applianceElevationPresentation, rangeVisualAppearance, resolveCabinetHardwarePosition, isWd18CountertopDrawerCabinet, wd18CountertopFaceLayout,
 	  isGlassDoorCabinet, glassDoorShelfCount, kitchenCrestGenericOpenEndShelfCount,
 } from "@/lib/design";
 import { crownTopRuns, formatCrownTop } from "@/lib/crownTopRuns";
+import { threeDBacksplashSupportSpans } from "./InteractiveRoom3D";
 import {
   type HardwareStyleId,
   hardwareStyle as resolveHardwareStyle,
@@ -321,9 +322,12 @@ export function ElevationView({
 
   // Normalize the refrigerator bay at render time too. A legacy plan can stay
   // live in local React state through an HMR refresh or a direct elevation view
-  // before DesignTool's restore normalizer runs; rendering the same shared rule
-  // prevents its refrigerator upper from visibly collapsing onto the appliance.
-  const elevationCabinets = normalizeRefrigeratorBayUppers(cabinets, room);
+  // before DesignTool's restore normalizer runs. Repair its cap-filler owner as
+  // well, so a stale floor-height filler cannot render beside the bridge.
+  const elevationCabinets = normalizeInstalledFillersToAdjacentCabinets(
+    normalizeRefrigeratorBayUppers(cabinets, room),
+    room,
+  );
 
   // Only show cabinets that actually sit on the wall being viewed, so other
   // walls' cabinets don't bleed into this elevation.
@@ -542,7 +546,14 @@ export function ElevationView({
     // is on the left. If its end is near planSpan (wall end), the corner is on
     // the right. This drives the door flip so the door faces the exposed side.
     const isBlind = p.cornerType === "blind-corner" || isBlindCorner(p.masterCode, p.description);
-    const blindLeft = isBlind ? (isWallBlindCornerCabinet(p) || posAlong <= 2) : true;
+    // The shared physical rule (the one that sets the saved door swing) decides first: a blind base is
+    // seated at its 3-6 in blind pull, so "within 2 in of the wall start" misses a corner seated at 6 in
+    // and drew the hidden panel on the exposed side. It returns null in the middle of a wall, where the
+    // legacy near-start test keeps its exact behavior.
+    const physicalDoorSide = isBlind && !seam && !isWallBlindCornerCabinet(p) ? blindCornerDoorSide(p, room) : null;
+    const blindLeft = isBlind
+      ? (isWallBlindCornerCabinet(p) || (physicalDoorSide ? physicalDoorSide === "right" : posAlong <= 2))
+      : true;
     const canDrag = !seam && !moveLocked && !!onMove && !isAppliance;
 
     const installedFillerWidth = isFillerItem(p) ? Math.min(Math.abs(Number(p.width)), Math.abs(Number(p.depth))) : null;
@@ -681,25 +692,42 @@ export function ElevationView({
               style={{ zIndex: 3 }}
             />
           )}
-          {!isAppliance && cabType !== "range-hood-front" && hw.id !== "none" && (
-            <HardwareOverlay
-              doors={displayCounts.doors}
-              drawers={displayCounts.drawers}
-              doorPiece={hw.doorPiece}
-              drawerPiece={hw.drawerPiece}
-              accent={hardwareAccent}
-              hardwarePosition={resolveCabinetHardwarePosition(p)}
-              raisedDoorPullOnRail={usesRaisedFloorWallDoorPull(p)}
-              swing={resolveSwing(p)}
-              isWall={isWall}
-              faceWidthIn={sizeAlong}
-              frameStileIn={cabFrameMetrics?.stileInches}
-              frameRailIn={cabFrameMetrics?.railInches}
-              cabinetHeightIn={height}
-              doorBandStartPct={farmhouseFace ? farmhouseFace.apronZonePct : undefined}
-              pantryLayout={pantryDrawerFrontLayout({ ...p, placementType: p.placement, graphicType: customProfile, numberOfDoors: displayCounts.doors, numberOfDrawers: displayCounts.drawers }, height)}
-            />
-          )}
+          {!isAppliance && cabType !== "range-hood-front" && hw.id !== "none" && (() => {
+            const overlay = (faceWidthIn: number) => (
+              <HardwareOverlay
+                doors={displayCounts.doors}
+                drawers={displayCounts.drawers}
+                doorPiece={hw.doorPiece}
+                drawerPiece={hw.drawerPiece}
+                accent={hardwareAccent}
+                hardwarePosition={resolveCabinetHardwarePosition(p)}
+                raisedDoorPullOnRail={usesRaisedFloorWallDoorPull(p)}
+                swing={resolveSwing(p)}
+                isWall={isWall}
+                faceWidthIn={faceWidthIn}
+                frameStileIn={cabFrameMetrics?.stileInches}
+                frameRailIn={cabFrameMetrics?.railInches}
+                cabinetHeightIn={height}
+                doorBandStartPct={farmhouseFace ? farmhouseFace.apronZonePct : undefined}
+                pantryLayout={pantryDrawerFrontLayout({ ...p, placementType: p.placement, graphicType: customProfile, numberOfDoors: displayCounts.doors, numberOfDrawers: displayCounts.drawers }, height)}
+              />
+            );
+            // A blind corner has one operating door: the exposed 60% of its face. The other 40% is the
+            // hidden blind panel in the room corner. Hardware measured on the whole face landed on that
+            // panel, so the overlay is confined to the same visible-door box DoorFront draws.
+            if (cabType === "blind-corner") {
+              return (
+                <div
+                  data-blind-door-hardware={blindLeft ? "left" : "right"}
+                  className="absolute top-0 bottom-0 pointer-events-none"
+                  style={blindLeft ? { right: 0, width: "60%" } : { left: 0, width: "60%" }}
+                >
+                  {overlay(sizeAlong * 0.6)}
+                </div>
+              );
+            }
+            return overlay(sizeAlong);
+          })()}
           {/* Appliance-specific detail overlays */}
           {!applianceVisualUrl && isAppliance && /^FRIDGE-/i.test(p.masterCode ?? "") && (
             <>
@@ -1327,26 +1355,19 @@ export function ElevationView({
           // or the full wall-cabinet top line if no wall cab sits above.
           const BACKSPLASH_RANGE_TOP = wallCabinetTopLine(room); // 84" on 8ft ceiling
 
-          // Backsplash follows cabinet runs only — spans behind base cabinets
-          // and appliances (ranges/ovens) that have countertops, not the full wall.
-          const cabinetRuns: { start: number; end: number }[] = sorted
-            .filter((p) => (p.placement === "base" || p.placement === "appliance") && p.cabinetId !== 0)
-            .map((p) => {
-              const sA = wallRunSpan(p, side, room);
-              const pA = wallRunOffset(p, side, room);
-              return { start: pA, end: pA + sA };
-            })
-            .sort((a, b) => a.start - b.start);
-          // Merge overlapping/adjacent runs into contiguous spans
-          const runs: { start: number; end: number }[] = [];
-          for (const r of cabinetRuns) {
-            const last = runs[runs.length - 1];
-            if (last && r.start <= last.end + 0.5) {
-              last.end = Math.max(last.end, r.end);
-            } else {
-              runs.push({ ...r });
-            }
-          }
+	          // A selected backsplash exists only behind a real countertop/range
+	          // support on this solid wall. Use the same base/filler/dishwasher
+	          // support spans as 3D so an open wall, peninsula room-side, or bare
+	          // floor can never receive a floating field of tile.
+	          const runs = elevationCabinets
+	            .flatMap((cabinet) => threeDBacksplashSupportSpans(cabinet, side as WallSide, room))
+	            .sort((left, right) => left.start - right.start)
+	            .reduce<{ start: number; end: number }[]>((merged, run) => {
+	              const previous = merged[merged.length - 1];
+	              if (previous && run.start <= previous.end + 0.01) previous.end = Math.max(previous.end, run.end);
+	              else merged.push({ ...run });
+	              return merged;
+	            }, []);
 
           // Identify range positions on this wall for the taller stretch zone.
           const rangeSpans = sorted
@@ -1496,10 +1517,12 @@ export function ElevationView({
           }
           return (
             <>
-              {segments.map((seg, i) => (
-                <div
-                  key={`bs${i}`}
-                  className="absolute pointer-events-none"
+	              {segments.map((seg, i) => (
+	                <div
+	                  key={`bs${i}`}
+	                  data-testid="elevation-backsplash-segment"
+	                  data-backsplash-field-coverage="supported"
+	                  className="absolute pointer-events-none"
                   style={{
                     left: seg.left,
                     width: seg.width,

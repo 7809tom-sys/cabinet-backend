@@ -38,6 +38,7 @@
   .designer-top-toolbar:not([data-tablet-workspace="true"]) [data-testid="primary-floor-plan-3d-switch"] button,
   .designer-top-toolbar:not([data-tablet-workspace="true"]) [data-testid="designer-handles-control"],
   .designer-top-toolbar:not([data-tablet-workspace="true"]) [data-testid="designer-real-hardware-trigger"],
+  .designer-top-toolbar:not([data-tablet-workspace="true"]) [data-testid="designer-pelican-trigger"],
   .designer-top-toolbar:not([data-tablet-workspace="true"]) .designer-toolbar-window-controls {
     min-height: var(--designer-toolbar-control-height);
     height: var(--designer-toolbar-control-height);
@@ -110,6 +111,10 @@
     padding-block: 2px;
     overflow-x: auto;
     scrollbar-width: none;
+    /* This rail scrolls sideways. Without a positioned ancestor, the
+       absolutely positioned screen-reader-only labels inside its buttons
+       escape the clip and widen the whole page when buttons are added. */
+    position: relative;
   }
 
   .designer-top-toolbar:not([data-tablet-workspace="true"])::-webkit-scrollbar {

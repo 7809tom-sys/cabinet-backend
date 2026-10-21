@@ -85,6 +85,8 @@ import { adjustedDesignUnitPrice, buildDesignCabinetCartLines, buildDesignPrevie
 import { combinedFillerNote, fillerCutSourceFor, isCombinedSmallFiller } from "@/lib/fillerBilling";
 import { activeCatalogPricingIdsByMasterCode, currentCatalogPricingCabinetId } from "@/lib/designPricingIdentity";
 import { catalogFillerForGap, catalogFillerPricingId, fittedCatalogFillerDescription, isCatalogFiller, type CatalogFillerCandidate } from "@/lib/catalogFiller";
+import { attachedFillerNeedsReview, attachedFillerPlanForCandidate, type AttachedFillerChoice } from "@/lib/cabinetAttachedFillers";
+import { buildAttachedFillerPlacement, supportsAttachedFillerChoice } from "@/lib/cabinetAttachedFillerPlacement";
 import { selectedPeninsulaCabinetSequencePlan, selectedPeninsulaCabinetTotalIn, wizardEligibleBaseCabinets, type PeninsulaWizardCabinet } from "@/lib/peninsulaWizardPlan";
 import { swapStandardSinkBaseForFarmSink, matchingFarmSinkBase } from "@/lib/farmSinkBaseSwap";
 import { editablePeninsulaWizard, peninsulaWizardAssemblyRunIds, type PeninsulaWizardEditDraft } from "@/lib/peninsulaWizardEdit";
@@ -133,11 +135,11 @@ import {
   COUNTERTOP_MATERIALS, DEFAULT_COUNTERTOP_MATERIAL_ID, countertopMaterial,
   EDGE_PROFILES, DEFAULT_EDGE_PROFILE_ID, edgeProfile,
 	  type PlanAnnotation, type CabinetWallDragPreview, makeAnnotation,
-  makeSink, makeSinkForCabinet, makeDefaultSinkForCabinet, normalizeSinkFixturesToBases, potFillerMountedRange, isRangeOrCooktop, sinkPlanDimensions, SINK_PRESETS, type PotFillerFixture, type SinkFixture, type SinkType,
+	  makeSink, makeSinkForCabinet, makeDefaultSinkForCabinet, nonApronSinkDeckPlacement, normalizeSinkFixturesToBases, potFillerMountedRange, isRangeOrCooktop, sinkPlanDimensions, SINK_PRESETS, type PotFillerFixture, type SinkFixture, type SinkType,
   snapToWall, snapPosition, nextFreeSpotOnWall, mountedMicrowaveOverRangeSpot, overRangeMicrowaveAttachment,
   clampCabinetsToRoom, clampOpeningsToRoom, clampIslandToRoom, clampRoomInches,
   WALL_LABELS, doorPanelKind,
-		  freeSegmentsOnWall, magneticAvailableWallStart, nearestAvailableWallStart, cabinetWallMovePreview, firstCollisionFreeWallPlacement, roundToEighth, syncWallRunOffsets, backfillLegacyWallRuns, wallRunFrame, wallRunAlongAtPoint, nearestWallRunAtPoint, clampCabinetToRoom, wallPlacementAt, wallPlacementAtUnbounded, wallLength, wallRunOffset, wallRunSpan, cabinetWall, cabinetPlacementCollisionDetail, explainPeninsulaSeatFailure, kneeDrawerWallPlacement, isCustomRoomWall, firstCollisionFreeCustomWallPlacement, continuousWallApplianceSnapInfo, peninsulaRunById, peninsulaRootRunId, peninsulaRunAssemblyLocked, peninsulaCountertopPonyWallBarOverhang, peninsulaCountertopRaisedBarEnabled, peninsulaCountertopRaisedBarOverhang, peninsulaCountertopSeatingOverhang, peninsulaCountertopWaterfallEnd, peninsulaRunOffsetAtPoint, peninsulaRunMaxLength, normalizeLegacyPeninsulaCabinets, firstCollisionFreePeninsulaPlacement, bestFitCatalogOption, removePeninsulaRun,
+		  freeSegmentsOnWall, magneticAvailableWallStart, nearestAvailableWallStart, cabinetWallMovePreview, firstCollisionFreeWallPlacement, resolveBaseBlindCornerFillerSnap, roundToEighth, syncWallRunOffsets, backfillLegacyWallRuns, wallRunFrame, wallRunAlongAtPoint, nearestWallRunAtPoint, clampCabinetToRoom, wallPlacementAt, wallPlacementAtUnbounded, wallLength, wallRunOffset, wallRunSpan, cabinetWall, cabinetPlacementCollisionDetail, explainPeninsulaSeatFailure, kneeDrawerWallPlacement, isCustomRoomWall, firstCollisionFreeCustomWallPlacement, continuousWallApplianceSnapInfo, peninsulaRunById, peninsulaRootRunId, peninsulaRunAssemblyLocked, peninsulaCountertopPonyWallBarOverhang, peninsulaCountertopRaisedBarEnabled, peninsulaCountertopRaisedBarOverhang, peninsulaCountertopSeatingOverhang, peninsulaCountertopWaterfallEnd, peninsulaRunOffsetAtPoint, peninsulaRunMaxLength, normalizeLegacyPeninsulaCabinets, firstCollisionFreePeninsulaPlacement, bestFitCatalogOption, removePeninsulaRun,
 	  formatEighthInches, formatInches, type WallGap, wallGaps, wallGapFitPreview, wallGapFreehandPreview, nearestRectRoomWallAtPoint, gapFillCandidatesByWidth, nextSmartGapPreviewIndex, withTemporarySmartGapPreview, isRangeHoodPlacement,
   rangeOvenClearanceViolations, RANGE_CLEARANCE_FILLER_IN,
 	  wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN, baseOpeningOverlaps,
@@ -178,7 +180,9 @@ import { CabinetHandlesControl, DEFAULT_DESIGNER_HARDWARE_STYLE_ID } from "@/com
 import { HardwareCatalogPicker } from "@/components/design/HardwareCatalogPicker";
 import { isPanelPaletteItem } from "./designToolPanels";
 import { normalizePaletteSearch, matchesPaletteSearch } from "@/lib/paletteSearch";
-import { adjacentDishwasherCenterIn, anchorAlongStartIn, autoBuildStraightBaseCatalog, canRunFourAnchorAutoBuild, isAutoBuildStraightSinkBaseCandidate, planFourAnchorAutoBuild, subtractAnchorRunReservations, wallLabelToEngineWallId, type FourAnchorInputs } from "@/lib/fourAnchorAutoBuild";
+import { adjacentDishwasherCenterIn, anchorAlongStartIn, autoBuildStraightBaseCatalog, buildFourAnchorWallGuides, canRunFourAnchorAutoBuild, isAutoBuildStraightSinkBaseCandidate, makeFourAnchorSixWallTrainingRoom, pickFourAnchorSinkBase, planFourAnchorAutoBuild, subtractAnchorRunReservations, wallLabelToEngineWallId, type FourAnchorInputs, type FourAnchorOriginCorner, type FourAnchorRunDirection } from "@/lib/fourAnchorAutoBuild";
+import { fourAnchorSinkWindow, windowOverlapsReservation } from "@/lib/fourAnchorSinkWindow";
+import { fourAnchorRangeHood, fourAnchorRangeNeedsVentilation } from "@/lib/fourAnchorRangeHood";
 import { autoBuildCornerCatalog, fourAnchorCornerSlotPoint, fourAnchorCornerSlots, isFourAnchorBlindCornerOption, type AutoBuildCornerCandidate, type FourAnchorCornerChoice, type FourAnchorCornerSlot } from "@/lib/fourAnchorCornerStage";
 import { buildMandatoryFourAnchorRefrigeratorBay } from "@/lib/fourAnchorRefrigeratorBay";
 import { buildFourAnchorWallCabinets, type FourAnchorUpperCorner } from "@/lib/fourAnchorWallCabinets";
@@ -199,6 +203,7 @@ import { MasterTracRod3D, MasterTracRodElevation } from "@/components/design/Mas
 import { defaultTowerConfig, isMasterTracCornerBoard, planMasterTracTower, towerCleatReferenceItems, towerConceptReferenceSubtotal, towerConceptStorageReferenceItems, towerConfigFromPlacements, towerCornerReferenceItems, towerRodHardwareTakeoff, type MasterTracTowerConfig } from "@/lib/masterTracTower";
 import { canCommitPlanStyleSwitchWithoutReview, planStyleReviewCandidates } from "@/lib/planStyleSwitch";
 import { autoFillSpan, makeFiller, type FillMode } from "@/lib/autofill";
+import { fillFourAnchorLowerSeams, planFourAnchorBaseSegment } from "@/lib/fourAnchorSeamFillers";
 import { resolveTierPrice } from "@shared/pricingTier";
 import { normalizeDesignPricingTier, type DesignPricingTier } from "@/lib/designPricingTier";
 import { AIChatBox, type Message as AIMessage } from "@/components/AIChatBox";
@@ -210,7 +215,7 @@ import { CornerView, type CornerId } from "@/components/design/CornerView";
 import { IslandElevationView } from "@/components/design/IslandElevationView";
 import { CsvImportDialog } from "@/components/design/CsvImportDialog";
 import { PlanImageImportDialog, type ReviewedPlan } from "@/components/design/PlanImageImportDialog";
-import { FourAnchorAutoBuildDialog } from "@/components/design/FourAnchorAutoBuildDialog";
+import { FourAnchorAutoBuildDialog, type FourAnchorSubmitResult } from "@/components/design/FourAnchorAutoBuildDialog";
 import { FourAnchorCornerSelectionDialog } from "@/components/design/FourAnchorCornerSelectionDialog";
 import { findClosestPlanCabinet } from "@/lib/planImportMapper";
 import { EmailGate, type LeadContact } from "@/components/design/EmailGate";
@@ -218,6 +223,8 @@ import { OptionalContactNudge } from "@/components/design/OptionalContactNudge";
 import { DesignDeliveryDialog } from "@/components/design/DesignDeliveryDialog";
 import { DesignActions, type BuildSheetRow } from "@/components/design/DesignActions";
 import { DesignMaterialsListDialog } from "@/components/design/DesignMaterialsListDialog";
+import { DraggableOverlayDialog } from "@/components/ui/DraggableOverlayDialog";
+import { PopupDragGrip } from "@/components/ui/PopupDragGrip";
 import { summarizeMissingPrices, missingPriceBannerText } from "@/lib/designMissingPrice";
 import { DesignMissingPricePopover, type MissingPriceAlternative } from "@/components/design/DesignMissingPricePopover";
 import { buildMaterialsListRows, type MaterialsListSupplement } from "@/lib/designMaterialsList";
@@ -237,6 +244,12 @@ import { CountertopQuoteDialog } from "@/components/design/CountertopQuoteDialog
 import { SurfacesPickerDialog, type SelectedSurface } from "@/components/design/SurfacesPickerDialog";
 import { FlooringAccessorySuggestionsDialog } from "@/components/design/FlooringAccessorySuggestionsDialog";
 import { RecommendedSurfaces, type RecommendedRole } from "@/components/design/RecommendedSurfaces";
+
+// These customer-facing catalog tabs open as concise category headings. Search
+// and a deliberate height filter still reveal their matching item cards.
+const COLLAPSIBLE_CATALOG_TABS = new Set<HeightFilterPaletteType>([
+  "base", "corner", "wall", "tall", "appliance", "accessory", "panel",
+]);
 import {
   takeSurfaceHandoff,
   activeCountertopForScope,
@@ -268,6 +281,10 @@ import { DoorDrawerDiagram } from "@/components/design/DoorDrawerDiagram";
 // PhotorealPreview removed — replaced by deterministic preview modes
 import type { PhotorealSceneInput } from "@/components/design/PhotorealPreview";
 import { FarmhouseSinkSelectionGuide, PelicanCountertopPicker, PelicanFaucetPicker, PelicanSinkPicker, type RecItem } from "@/components/design/PelicanProductPickers";
+import { PelicanConfigurationCard } from "@/components/design/PelicanConfigurationCard";
+import { groupPelicanConfigurations } from "@shared/pelicanConfigurationGrouping";
+/** The sink-base chooser records one sink at a time, so no card starts out as already selected. */
+const noSelectedPelicanIds: ReadonlySet<number> = new Set<number>();
 
 
 import { buildSurfaceCartLines } from "@/lib/surfaceCartLines";
@@ -759,6 +776,23 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     resolvedWallTarget?: { wallId: WallSide; wallOffset: number; peninsulaSide?: PeninsulaCabinetSide };
     pullText: string;
   } | null>(null);
+  const [attachedFillerPrompt, setAttachedFillerPrompt] = useState<{
+    cabinet: DesignCabinet;
+    x?: number;
+    y?: number;
+    forceAccessory: boolean;
+    rotation: number;
+    strictDropTarget: boolean;
+    targetCabinetUid?: string | null;
+    targetIslandFace?: IslandFace | null;
+    forceBackDepthAdjustment: boolean;
+    resolvedWallTarget?: { wallId: WallSide; wallOffset: number; peninsulaSide?: PeninsulaCabinetSide };
+    blindPullOverride?: number;
+    leftText: string;
+    rightText: string;
+    leftAllowed: boolean;
+    rightAllowed: boolean;
+  } | null>(null);
   useEffect(() => {
     setSmallGapFillerCustomWidth(smallGapFillerPrompt?.remaining ?? null);
     setSmallGapFillerPreviewMode(smallGapFillerPrompt ? automaticSmallGapFillerMode(smallGapFillerPrompt) : null);
@@ -801,6 +835,15 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	    candidates: GlassStackerBulkPlacementCandidate[];
 	  } | null>(null);
 	  const [materialsListOpen, setMaterialsListOpen] = useState(false);
+	  const [materialsListInitialConflictsOnly, setMaterialsListInitialConflictsOnly] = useState(false);
+	  // Manufacturer construction details remain available on demand instead of
+	  // consuming the cart sidebar's limited working space.
+	  const [catalogSpecificationsOpen, setCatalogSpecificationsOpen] = useState(false);
+	  const [catalogSpecificationsItem, setCatalogSpecificationsItem] = useState<DesignCabinet | null>(null);
+	  const openCatalogSpecificationsFor = useCallback((cabinet: DesignCabinet) => {
+	    setCatalogSpecificationsItem(cabinet);
+	    setCatalogSpecificationsOpen(true);
+	  }, []);
 
   // Last line of defense for legacy designs and any future placement path that
   // bypasses an explicit add/move helper. Saved order remains authoritative, so
@@ -943,6 +986,20 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	  }, [islandFace, islandPlacementMode]);
   const [islandAttributesOpen, setIslandAttributesOpen] = useState(false);
   const [fourAnchorAutoBuildOpen, setFourAnchorAutoBuildOpen] = useState(false);
+  const [fourAnchorWallGuideSelection, setFourAnchorWallGuideSelection] = useState<{ originCorner: FourAnchorOriginCorner; runDirection: FourAnchorRunDirection } | null>(null);
+	const fourAnchorWallGuides = useMemo(() => {
+	  if (!fourAnchorAutoBuildOpen || !fourAnchorWallGuideSelection) return [];
+	  return buildFourAnchorWallGuides(room, fourAnchorWallGuideSelection.originCorner, fourAnchorWallGuideSelection.runDirection);
+	}, [fourAnchorAutoBuildOpen, fourAnchorWallGuideSelection, room]);
+	const openFourAnchorAutoBuild = useCallback(() => {
+	  // The colored numbered wall guide is meaningful only in the 2D Floor Plan.
+	  // This does not modify the plan; it simply opens the guided admin workflow.
+	  setViewMode("plan");
+	  setFourAnchorAutoBuildOpen(true);
+	}, []);
+	useEffect(() => {
+	  if (!fourAnchorAutoBuildOpen) setFourAnchorWallGuideSelection(null);
+	}, [fourAnchorAutoBuildOpen]);
   const [fourAnchorCornerStage, setFourAnchorCornerStage] = useState<{
     input: FourAnchorInputs;
     anchors: Record<string, PlacedCabinet>;
@@ -955,7 +1012,11 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     refrigeratorReservation: { wall: string; start: number; end: number } | null;
     slots: FourAnchorCornerSlot[];
     cornerOptions: AutoBuildCornerCandidate[];
+    /** The over-sink window the measured build creates when a window center was entered. */
+    sinkWindow: WallOpening | null;
   } | null>(null);
+  // After a measured build, a range with nothing above it asks what goes there.
+  const [fourAnchorRangeVentPrompt, setFourAnchorRangeVentPrompt] = useState<{ rangeUid: string } | null>(null);
   const [islandSeatingOverhangPrompt, setIslandSeatingOverhangPrompt] = useState<{
     cabinetCode: string;
     face: IslandFace;
@@ -1023,14 +1084,15 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         room,
       ));
   }, [placed, openings, room, setPlaced]);
-  // Trim toggles rendered in elevation + added to the BOM. Toe kick, crown,
-  // light rail, and batten AUTO-APPLY based on their physical layout rules.
+  // Trim toggles rendered in elevation + added to the BOM. A fresh drawing
+  // begins with its required toe kick selected; all other trim remains opt-in
+  // until its physical layout rule or the customer selects it.
   // An arched valance is decorative and must be deliberately selected—having a
   // window beside wall cabinets is not proof that one belongs in the plan or
   // invoice. trimOverride remembers an explicit user choice so automation never
   // fights the user.
   const [crown, setCrown] = useState(false);
-  const [toeKick, setToeKick] = useState(false);
+  const [toeKick, setToeKick] = useState(true);
   const [batten, setBatten] = useState(false);
   const [lightRail, setLightRail] = useState(false);
   const [valance, setValance] = useState(false);
@@ -1195,6 +1257,13 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     setBacksplashEnabled(true);
     toast.success(`${item.name} is now the final backsplash material`);
   }, []);
+  // Toolbar "Pelican" entry: the same full Surfaces & Fixtures catalog as the
+  // lower-right rail button, placed beside the hardware picker so Pelican
+  // products are as easy to find as cabinet hardware.
+  const openPelicanCatalog = () => {
+    setBathroomCatalogMode(roomType === "bathroom" && paletteType === "surfaces" ? "surfaces" : "fixtures");
+    setSurfacesOpen(true);
+  };
   // Recommended-surface picker (Surfaces palette tab): toggle the exact Pelican
   // product in selectedSurfaces (so it hits the cart + satisfies the 3D View
   // gate), and for flooring/backsplash/countertop ALSO drive the built-in 2D
@@ -1822,6 +1891,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   const [towerDialog, setTowerDialog] = useState<{ config: MasterTracTowerConfig; wall: WallSide; startIn: number; editGroupId: string | null } | null>(null);
   const towerCommitInProgressRef = useRef(false);
   const [paletteType, setPaletteType] = useState<HeightFilterPaletteType>("base");
+  const [catalogCollapseRequest, setCatalogCollapseRequest] = useState<HeightFilterPaletteType | null>("base");
   const [paletteHeightByType, setPaletteHeightByType] = useState<Partial<Record<HeightFilterPaletteType, number | null>>>({});
   const [furniture, setFurniture] = useState<PlacedFurniture[]>([]);
   useEffect(() => {
@@ -2058,8 +2128,10 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   // leaves every physical collision and opening-clearance check in force.
   const [automaticSnapping, setAutomaticSnapping] = useState(true);
   const [showPeninsulaCornerSnapFeedback, setShowPeninsulaCornerSnapFeedback] = useState(() => {
-    if (typeof window === "undefined") return true;
-    return window.localStorage.getItem(PENINSULA_CORNER_SNAP_FEEDBACK_PREFERENCE) !== "false";
+    if (typeof window === "undefined") return false;
+    // The dropdown starts with no optional feedback selected. Preserve a
+    // customer’s own prior opt-in, but never treat a missing preference as one.
+    return window.localStorage.getItem(PENINSULA_CORNER_SNAP_FEEDBACK_PREFERENCE) === "true";
   });
   useEffect(() => {
     window.localStorage.setItem(
@@ -2079,6 +2151,10 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       .filter((g) => !["Panels (Hang)", "Panels (Floor)", "Shelves"].includes(g.category))
       .map((g) => `closetparts:${g.category}`),
   ));
+  const selectCatalogPaletteTab = useCallback((tab: HeightFilterPaletteType) => {
+    setPaletteType(tab);
+    if (COLLAPSIBLE_CATALOG_TABS.has(tab)) setCatalogCollapseRequest(tab);
+  }, []);
   const toggleGroup = useCallback((key: string) => {
     setCollapsedGroups((prev) => {
       const next = new Set(prev);
@@ -3083,17 +3159,23 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     // The SB size selector is a straight sink base on the chosen wall—not a
     // CSB/DCSB corner sink box sharing the same nominal width.
     const straightBaseCatalog = autoBuildStraightBaseCatalog(pool);
-    const sinkBaseSource = pool.find((item) => isAutoBuildStraightSinkBaseCandidate(item)
-      && Math.abs(dim(item.width, 0) - sinkBaseWidth) < 0.1);
+    // A kitchen defaults to the REGULAR sink base; the farmhouse (apron-front) base is built only on request.
+    const sinkBaseKind = input.sinkBaseKind ?? "regular";
+    const sinkBaseSource = pickFourAnchorSinkBase(pool, sinkBaseWidth, sinkBaseKind);
     if (!sinkBaseSource) {
-      return fail(`No source-priced SB${sinkBaseWidth} sink base is available for the selected line. Choose a door style with a priced sink base, then try again.`);
+      return fail(sinkBaseKind === "farmhouse"
+        ? `No source-priced ${sinkBaseWidth}″ farmhouse sink base is available for the selected line. Choose the regular sink base or another door style, then try again.`
+        : `No source-priced SB${sinkBaseWidth} sink base is available for the selected line. Choose a door style with a priced sink base, then try again.`);
     }
     const applianceByKind: Record<string, DesignCabinet | undefined> = {
       stove: appliancePalette.find((item) => item.masterCode === "RANGE-30"),
       dishwasher: appliancePalette.find((item) => item.masterCode === "DW-24"),
       refrigerator: appliancePalette.find((item) => item.masterCode === "FRIDGE-36"),
     };
-    if (Object.values(applianceByKind).some((item) => !item)) {
+    const requestedApplianceKinds = result.plan.anchors
+      .filter((anchor) => anchor.kind !== "sink")
+      .map((anchor) => anchor.kind);
+    if (requestedApplianceKinds.some((kind) => !applianceByKind[kind])) {
       return fail("The kitchen appliance palette is still loading. Wait for the source-priced cabinet catalog, then try again.");
     }
     const baseSource = straightBaseCatalog
@@ -3105,7 +3187,8 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     const fridgeParts = refrigeratorSurroundCatalog as
       | { deepAbove?: DesignCabinet[]; endPanels?: DesignCabinet[] }
       | undefined;
-    if (!fridgeParts?.deepAbove?.length || !fridgeParts.endPanels?.length) {
+    const refrigeratorRequested = result.plan.anchors.some((anchor) => anchor.kind === "refrigerator");
+    if (refrigeratorRequested && (!fridgeParts?.deepAbove?.length || !fridgeParts.endPanels?.length)) {
       return fail("The selected line’s source-priced 36-inch refrigerator cabinet and two end panels are still loading or unavailable. The measured build was not changed.");
     }
 
@@ -3181,26 +3264,28 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     }
     const refrigerator = anchorsByKind.get("refrigerator");
     let refrigeratorReservation: { wall: string; start: number; end: number } | null = null;
-    if (!refrigerator) return fail("The required 36-inch refrigerator anchor was not created. The measured build was not changed.");
-    const refrigeratorBay = buildMandatoryFourAnchorRefrigeratorBay({
-      refrigerator,
-      room,
-      caps: fridgeParts.deepAbove,
-      endPanels: fridgeParts.endPanels,
-      styleId: styleIdRef.current ?? null,
-      makeUid,
-    });
-    if (!refrigeratorBay.ok) return fail(refrigeratorBay.message);
-    const fittedBay = fitExplicitRefrigeratorOptionPlacements(working, refrigeratorBay.additions, refrigerator.uid, room);
-    if (Math.abs(fittedBay.shiftIn) > COLLISION_EPSILON_IN) {
-      return fail("The measured refrigerator bay does not have room for its two panels and matching cabinet above. Adjust the refrigerator center measurement; Four-anchor will not move it.");
+    if (refrigerator) {
+      const refrigeratorBay = buildMandatoryFourAnchorRefrigeratorBay({
+        refrigerator,
+        room,
+        caps: fridgeParts?.deepAbove ?? [],
+        endPanels: fridgeParts?.endPanels ?? [],
+        styleId: styleIdRef.current ?? null,
+        makeUid,
+        wallCabinetHeightIn: input.wallCabinetHeightIn ?? 30,
+      });
+      if (!refrigeratorBay.ok) return fail(refrigeratorBay.message);
+      const fittedBay = fitExplicitRefrigeratorOptionPlacements(working, refrigeratorBay.additions, refrigerator.uid, room);
+      if (Math.abs(fittedBay.shiftIn) > COLLISION_EPSILON_IN) {
+        return fail("The measured refrigerator bay does not have room for its two panels and matching cabinet above. Adjust the refrigerator center measurement; Four-anchor will not move it.");
+      }
+      const committedBay = appendRefrigeratorEnclosurePlacements(fittedBay.existing, fittedBay.additions, refrigerator.uid, room);
+      if (committedBay.rejected.length > 0) {
+        return fail("The measured refrigerator bay overlaps an anchor, opening, or wall end. Adjust the refrigerator center measurement; Four-anchor will not add a filler or move it.");
+      }
+      working = committedBay.placed;
+      refrigeratorReservation = refrigeratorBay.reservation;
     }
-    const committedBay = appendRefrigeratorEnclosurePlacements(fittedBay.existing, fittedBay.additions, refrigerator.uid, room);
-    if (committedBay.rejected.length > 0) {
-      return fail("The measured refrigerator bay overlaps an anchor, opening, or wall end. Adjust the refrigerator center measurement; Four-anchor will not add a filler or move the refrigerator.");
-    }
-    working = committedBay.placed;
-    refrigeratorReservation = refrigeratorBay.reservation;
     const sinkBase = anchorsByKind.get("sink");
     if (sinkBase) {
       const defaultSinkType: SinkType = isFarmSinkBasePaletteItem(sinkBase)
@@ -3209,6 +3294,22 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       const defaultSink = makeDefaultSinkForCabinet(sinkBase, room, defaultSinkType);
       setSinks([defaultSink]);
       setSelectedSinkUid(defaultSink.uid);
+    }
+    // A measured window center creates the real window above the sink, as wide as
+    // the sink base. Upper cabinets never go over it and stop 3 inches short of it.
+    let sinkWindow: WallOpening | null = null;
+    if (input.sinkWindowCenter && sinkBase) {
+      const proposedWindow = fourAnchorSinkWindow({ sink: sinkBase, room, uid: makeUid() });
+      const touchesOpening = openings.some((opening) => opening.side === proposedWindow.side
+        && opening.offset < proposedWindow.offset + proposedWindow.width - COLLISION_EPSILON_IN
+        && opening.offset + opening.width > proposedWindow.offset + COLLISION_EPSILON_IN);
+      if (windowOverlapsReservation(proposedWindow, refrigeratorReservation)) {
+        toast.warning("The sink window was not created: with its required 3-inch clearance it would run into the refrigerator’s cabinet above. Move the window center or the refrigerator, then build again.", { duration: 15000 });
+      } else if (touchesOpening) {
+        toast.warning("The sink window was not created because it would overlap an existing door or window on that wall.", { duration: 15000 });
+      } else {
+        sinkWindow = proposedWindow;
+      }
     }
     placedRef.current = working;
     setPlaced(working);
@@ -3234,6 +3335,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       refrigeratorReservation,
       slots,
       cornerOptions,
+      sinkWindow,
     });
     setViewMode("plan");
     setSelectedUid(null);
@@ -3258,6 +3360,10 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     if (!stage) return fail("The measured appliance stage is no longer active. Start the Four-anchor build again from an empty plan.");
 
     let working = [...stage.anchorPlaced];
+    // The sink window is part of the room for every remaining stage.
+    const stageOpenings = stage.sinkWindow && !openings.some((opening) => opening.uid === stage.sinkWindow!.uid)
+      ? [...openings, stage.sinkWindow]
+      : openings;
     const selectedWalls = [...stage.selectedWalls];
     let selectedCornerCount = 0;
     const upperCorners: FourAnchorUpperCorner[] = [];
@@ -3286,7 +3392,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       const seated = seatFourAnchorCorner({
         source: sourceCatalog, slotLabel: slot.label, target,
         cornerWallIds: [firstWall.engineWallId, secondWall.engineWallId],
-        working, room, openings,
+        working, room, openings: stageOpenings,
         blindPullIn: choice.blindPullIn ?? source.pullMax ?? 6,
         isBlindOption: isFourAnchorBlindCornerOption(source),
         catalogFillers, makeUid, styleId: styleIdRef.current ?? null,
@@ -3300,13 +3406,23 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     }
 
     const surrounding: PlacedCabinet[] = [];
+    const rangeNeighborNotes: string[] = [];
     for (const wallId of selectedWalls) {
-      const rawSegments = freeSegmentsOnWall(wallId, room, working, openings, 9, 0, "base", false, undefined, footprintDepth(stage.baseSource));
+      const rawSegments = freeSegmentsOnWall(wallId, room, working, stageOpenings, 9, 0, "base", false, undefined, footprintDepth(stage.baseSource));
       const reservations = [
         ...(stage.refrigeratorReservation?.wall === wallId ? [{ start: stage.refrigeratorReservation.start, end: stage.refrigeratorReservation.end }] : []),
       ];
       for (const segment of subtractAnchorRunReservations(rawSegments, reservations)) {
-        const fill = autoFillSpan(segment.length, "kitchen", stage.straightBaseCatalog, { strategy: "largest-first" });
+        // A range always has a real cabinet at least 15 inches wide beside it: the widest box
+        // of the run goes against the range, never a 9- or 12-inch stub.
+        const beside = (edge: "start" | "end") => working.some((other) => other.placement === "appliance"
+          && isRangeOrOven(other.masterCode, other.description) && cabinetWall(other, room) === wallId
+          && Math.abs((edge === "start" ? wallRunOffset(other, wallId, room) + wallRunSpan(other, wallId, room) - segment.start
+            : segment.start + segment.length - wallRunOffset(other, wallId, room))) <= 0.05);
+        const fill = planFourAnchorBaseSegment({
+          length: segment.length, catalog: stage.straightBaseCatalog, rangeAtStart: beside("start"), rangeAtEnd: beside("end"),
+        });
+        if (fill.note) rangeNeighborNotes.push(fill.note);
         let along = segment.start;
         for (const item of fill.items) {
           const catalogFillerCandidate = item.isFiller ? catalogFillerForGap(stage.pool, item.width, "base") : null;
@@ -3331,19 +3447,32 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       }
     }
 
+    // No gap is left anywhere: every opening between the measured anchors, panels, corner
+    // cabinets and runs (and the 3-inch seam a range leaves beside its corner) takes real
+    // catalog filler before the wall boxes are matched to the finished lower runs.
+    const seamResult = fillFourAnchorLowerSeams({
+      placed: working, room, openings: stageOpenings, fillers: catalogFillers, makeUid,
+      styleId: styleIdRef.current ?? null, corners: upperCorners.map((entry) => entry.point),
+    });
+    working = seamResult.placed;
     // Wall boxes are last. Match the completed lower projections, retaining
     // selected-line SKUs, height and opening clearances without moving anchors.
     const upperResult = buildFourAnchorWallCabinets({
-      placed: working, room, openings, catalog: stage.wallPool,
+      placed: working, room, openings: stageOpenings, catalog: stage.wallPool,
       wallCabinetHeightIn: stage.input.wallCabinetHeightIn ?? 30,
-      styleId: styleIdRef.current ?? null, makeUid, corners: upperCorners, catalogFillers,
+      styleId: styleIdRef.current ?? null, makeUid, corners: upperCorners, catalogFillers, closeSeams: true,
     });
     working = upperResult.placed;
     placedRef.current = working;
     setPlaced(working);
+    if (stage.sinkWindow) {
+      const windowToCommit = stage.sinkWindow;
+      setOpenings((previous) => (previous.some((opening) => opening.uid === windowToCommit.uid) ? previous : [...previous, windowToCommit]));
+    }
     setFourAnchorCornerStage(null);
     setViewMode("threeD");
-    toast.success(`Placed ${selectedCornerCount} selected corners, ${surrounding.length} regular base-run pieces, and ${upperResult.additions.length} aligned wall cabinets.`);
+    toast.success(`Placed ${selectedCornerCount} selected corners, ${surrounding.length} regular base-run pieces, ${seamResult.additions.length} filler pieces closing every gap, and ${upperResult.additions.length} aligned wall cabinets and fillers.`);
+    for (const note of [...seamResult.notes, ...rangeNeighborNotes]) toast.info(note, { duration: 15000 });
     for (const move of applianceMoves) {
       toast.info(`Moved the ${move.label} ${formatInches(move.shiftIn)} away from the corner to fit the required corner cabinet. Its measured center is now ${formatInches(move.centerAlongIn)} along the wall.`, { duration: 12000 });
     }
@@ -3352,8 +3481,15 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       toast.info(`This cabinet line sells its ${requestedUpperIn}″ class as ${formatInches(upperResult.heightUsedIn)} wall cabinets, so those exact source SKUs were used.`);
     }
     if (upperResult.skipped.length) toast.info(`Upper review: ${upperResult.skipped.join(" ")}`, { duration: 15000 });
+    if (stage.sinkWindow) {
+      toast.info(`A ${formatInches(stage.sinkWindow.width)} window was placed above the sink as entered; no wall cabinet goes over it.`);
+    }
+    // A range with nothing above it asks what belongs there: hood, bridge + microwave, or nothing.
+    const bareRange = working.find((item) => item.placement === "appliance" && isRangeOrOven(item.masterCode, item.description)
+      && fourAnchorRangeNeedsVentilation(working, item));
+    if (bareRange) setFourAnchorRangeVentPrompt({ rangeUid: bareRange.uid });
     return { ok: true as const };
-  }, [catalogFillers, fourAnchorCornerStage, openings, room, setPlaced]);
+  }, [catalogFillers, fourAnchorCornerStage, openings, room, setPlaced, setOpenings]);
 
   const cancelFourAnchorCornerStage = useCallback(() => {
     // The staged build is transactional. Cancelling this required choice leaves
@@ -3631,6 +3767,18 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         items,
       })));
   }, [heightFilteredPalette, paletteType, paletteSearch, closetGroups, masterTracFinish, isCornerBase, t]);
+
+  useEffect(() => {
+    if (catalogCollapseRequest !== paletteType || !COLLAPSIBLE_CATALOG_TABS.has(paletteType)) return;
+    const groupKeys = groupedPalette.map((group) => `${paletteType}:${group.label}`);
+    if (groupKeys.length === 0) return;
+    setCollapsedGroups((current) => {
+      const next = new Set(current);
+      groupKeys.forEach((key) => next.add(key));
+      return next;
+    });
+    setCatalogCollapseRequest(null);
+  }, [catalogCollapseRequest, groupedPalette, paletteType]);
 
   // Pricing for placed cabinets (appliances carry cabinetId 0 and are unpriced).
   const placedCabinetIds = useMemo(
@@ -4238,8 +4386,9 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       // Per-cabinet door/hardware attribute notes (from the right-click dialog).
       const attrNotes: string[] = [];
       if (p.noDoor) attrNotes.push("No door (open unit)");
-      if ((p.handleSide === "left" || p.handleSide === "right") && !p.noDoor)
-        attrNotes.push(`Handle ${p.handleSide}`);
+	      if ((p.handleSide === "left" || p.handleSide === "right") && !p.noDoor)
+	        attrNotes.push(`Handle ${p.handleSide}`);
+	      if (p.fillerNeedsReview) attrNotes.push("REVIEW: attached filler is now on an exposed end");
       const attrNote = attrNotes.join(", ");
       // Per-cabinet color (two-tone aware) for the export, mirroring the on-screen
       // line items. Included in the dedup key so different colors stay separate.
@@ -5573,6 +5722,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     toast.success(`Attached ${turn}° ${direction} return created. Select it to place cabinets or edit its length.`);
   }, [layoutLocked, room]);
   const hasConflicts = conflictUids.size > 0;
+  const firstConflictUid = useMemo(() => Array.from(conflictUids)[0] ?? null, [conflictUids]);
   const preSavePlanReview = useMemo(
     () => buildPreSavePlanReview({ room, placed, openings, island, catalogFillers, conflictUids }),
     [catalogFillers, conflictUids, island, openings, placed, room],
@@ -5793,6 +5943,14 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     defaultDistributorName: lockedDistributorId != null ? distributorNameById.get(lockedDistributorId) ?? null : null,
     defaultStyleName: activeStyleName,
   }), [activeStyleName, buildRows, cartableLines, distributorNameById, lockedDistributorId, materialsListSupplements, selectedPlanSurfaces]);
+  // The Materials button repeats the same exact affected-placement count used by
+  // the canvas notice and the conflict-only Materials filter. It is advisory;
+  // existing cart and secure-order safeguards remain authoritative.
+  const materialsConflictCount = conflictUids.size;
+  const openMaterialsList = (initialConflictsOnly = false) => {
+    setMaterialsListInitialConflictsOnly(initialConflictsOnly);
+    setMaterialsListOpen(true);
+  };
 
   // ─── Placement actions ──────────────────────────────────────────────────────
 
@@ -5825,7 +5983,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   }, [openings, room]);
 
   const addCabinet = useCallback(
-    (c: DesignCabinet, x?: number, y?: number, forceAccessory = false, rotation = 0, strictDropTarget = false, targetCabinetUid?: string | null, targetIslandFace?: IslandFace | null, forceBackDepthAdjustment = false, resolvedWallTarget?: { wallId: WallSide; wallOffset: number; peninsulaSide?: PeninsulaCabinetSide }, blindPullOverride?: number) => {
+    (c: DesignCabinet, x?: number, y?: number, forceAccessory = false, rotation = 0, strictDropTarget = false, targetCabinetUid?: string | null, targetIslandFace?: IslandFace | null, forceBackDepthAdjustment = false, resolvedWallTarget?: { wallId: WallSide; wallOffset: number; peninsulaSide?: PeninsulaCabinetSide }, blindPullOverride?: number, attachedFillerChoice?: AttachedFillerChoice) => {
       // A configured blind base's pull is an installation choice, not a hidden default.
       // Ask before committing the BBC or its mandatory linked filler;
       // Cancel therefore leaves the plan exactly as it was.
@@ -6589,8 +6747,24 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       // microwave intentionally projects over its range, so retain the exact
       // wall/run center calculated above instead of allowing snapPosition to
       // push it beside the range and invalidate the mounted-pair exception.
-      const mountedRange = otrRangeUid ? normalizedPrevious.find((cabinet) => cabinet.uid === otrRangeUid) : undefined;
-      if (mountedRange) {
+	      const mountedRange = otrRangeUid ? normalizedPrevious.find((cabinet) => cabinet.uid === otrRangeUid) : undefined;
+	      // BBC seam recovery happens only after its selected pull has been
+	      // applied. It aligns the full physical BBC body to an actual adjacent
+	      // F342 seam, including strict 2D/3D drops, but never reduces that pull
+	      // or permits a cabinet through a nominal-only 36-inch opening.
+	      const blindCornerFillerSnap = automaticSnapping && !requestedIslandFace && isBaseBlindCorner(finalCab)
+	        ? resolveBaseBlindCornerFillerSnap(finalCab, room, normalizedPrevious, openings)
+	        : null;
+	      if (blindCornerFillerSnap) {
+	        const snappedBlind = { ...finalCab, ...blindCornerFillerSnap };
+	        if (!cabinetPlacementCollisionDetail(snappedBlind, normalizedPrevious, room)) {
+	          const moved = Math.abs(snappedBlind.x - finalCab.x) > COLLISION_EPSILON_IN
+	            || Math.abs(snappedBlind.y - finalCab.y) > COLLISION_EPSILON_IN;
+	          finalCab = snappedBlind;
+	          if (moved) toast.success(`${finalCab.masterCode} snapped flush to the adjacent filler while keeping its selected ${formatInches(Number(finalCab.blindPull) || 0)} pull.`);
+	        }
+	      }
+	      if (mountedRange) {
         const mountedSpot = mountedMicrowaveOverRangeSpot(finalCab, mountedRange, room);
         finalCab = { ...finalCab, ...mountedSpot, mountBottom: otrMountBottom ?? finalCab.mountBottom };
 	      } else if (automaticSnapping && !requestedIslandFace && !strictDropTarget && !preserveResolvedPlacement && !peninsulaRunById(room, finalCab.wallId)) {
@@ -6699,7 +6873,66 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	        return;
 	      }
 
-	      let committedRun = normalizedRun;
+      if (
+        attachedFillerChoice === undefined
+        && !requestedIslandFace
+        && !isFillerAccessory
+        && (!isAccessory || (isFlatPanel && accPlacement === "tall"))
+        && !isBaseBlindCorner(finalCab)
+        && supportsAttachedFillerChoice({ ...c, placement: finalCab.placement })
+      ) {
+        const attachment = attachedFillerPlanForCandidate(finalCab, normalizedPrevious, room);
+        if (attachment && (attachment.leftAllowed || attachment.rightAllowed)) {
+          isAddingRef.current = false;
+          setAttachedFillerPrompt({
+            cabinet: c,
+            x,
+            y,
+            forceAccessory,
+            rotation,
+            strictDropTarget,
+            targetCabinetUid,
+            targetIslandFace,
+            forceBackDepthAdjustment,
+            resolvedWallTarget,
+            blindPullOverride,
+            leftText: "",
+            rightText: "",
+            leftAllowed: attachment.leftAllowed,
+            rightAllowed: attachment.rightAllowed,
+          });
+          setMobilePanel(null);
+          return;
+        }
+      }
+
+      if (attachedFillerChoice && (attachedFillerChoice.leftIn > 0 || attachedFillerChoice.rightIn > 0)) {
+        const attachment = buildAttachedFillerPlacement({
+          cabinet: finalCab,
+          placed: normalizedPrevious,
+          room,
+          choice: attachedFillerChoice,
+          catalogFillers,
+          makeUid,
+          styleId: styleIdRef.current ?? null,
+        });
+        if (!attachment.ok) {
+          setPlacementWarning(attachment.reason);
+          toast.error(attachment.reason);
+          return;
+        }
+        const seated = appendCollisionFreePlacements(normalizedPrevious, [attachment.cabinet, ...attachment.fillers], room);
+        if (seated.rejected.length > 0 || !seated.placed.some((item) => item.uid === attachment.cabinet.uid)) {
+          const message = `${finalCab.masterCode} and its selected filler${attachment.fillers.length === 1 ? "" : "s"} cannot fit at that exact zero-overlap position. The design was not changed.`;
+          setPlacementWarning(message);
+          toast.error(message);
+          return;
+        }
+        finalCab = attachment.cabinet;
+        normalizedRun = seated.placed;
+      }
+
+      let committedRun = normalizedRun;
 	      if (!requestedIslandFace && requiresConfiguredBlindCornerFiller(finalCab)) {
 	        const required = buildRequiredBlindCornerFiller(
 	          finalCab,
@@ -6930,9 +7163,9 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 		        setIslandSeatingOverhangPrompt({ cabinetCode: finalCab.masterCode, face: requestedIslandFace });
 		        setCountertop(true);
 		      }
-		      if (!requestedIslandFace && !isAccessory && !isBaseBlindCorner(finalCab) && (finalCab.placement !== "appliance" || isRangeOrOven(finalCab.masterCode))) {
-		        queueSmallGapFillerOpportunity(committedRun, finalCab.uid);
-		      } else setSmallGapFillerPrompt(null);
+	      if (!requestedIslandFace && !isAccessory && !isBaseBlindCorner(finalCab) && attachedFillerChoice === undefined && (finalCab.placement !== "appliance" || isRangeOrOven(finalCab.masterCode))) {
+	        queueSmallGapFillerOpportunity(committedRun, finalCab.uid);
+	      } else setSmallGapFillerPrompt(null);
 
 	      // Farmhouse bases use the visible side-panel guide so an apron-front sink
 	      // is never mistaken for an ordinary sink-base selection. Standard bases
@@ -7162,7 +7395,36 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	      ? `${bridge.masterCode} was added above the existing ${microwave.masterCode}.`
 	      : `${bridge.masterCode} and ${microwave.masterCode} were centered above ${range.masterCode}.`);
 	  }, [appliancePalette, rangeCompanionPrompt, room]);
-	  const addWscSpiceStackUpper = useCallback((cabinetId: number) => {
+	  // Four-anchor leaves a range with nothing above it and asks what belongs there.
+  const addFourAnchorRangeHood = useCallback(() => {
+    const prompt = fourAnchorRangeVentPrompt;
+    setFourAnchorRangeVentPrompt(null);
+    if (!prompt) return;
+    const range = placedRef.current.find((cabinet) => cabinet.uid === prompt.rangeUid);
+    if (!range) { toast.error("The range changed before the hood was added. Nothing was added."); return; }
+    const built = fourAnchorRangeHood({ range, room, palette: appliancePalette, uid: makeUid() });
+    if (!built.ok) { toast.error(built.message); return; }
+    const resolution = appendCollisionFreePlacements(placedRef.current, [built.hood], room);
+    if (resolution.rejected.length > 0 || !resolution.placed.some((item) => item.uid === built.hood.uid)) {
+      toast.error("The hood needs a clear upper-wall span above this range. Existing cabinets were left unchanged.");
+      return;
+    }
+    placedRef.current = resolution.placed;
+    setPlaced(() => resolution.placed);
+    setSelectedUid(built.hood.uid);
+    toast.success(`${built.hood.masterCode} was centered above ${range.masterCode}.`);
+  }, [appliancePalette, fourAnchorRangeVentPrompt, room]);
+  const offerFourAnchorBridgeAndMicrowave = useCallback(() => {
+    const prompt = fourAnchorRangeVentPrompt;
+    setFourAnchorRangeVentPrompt(null);
+    if (!prompt) return;
+    const range = placedRef.current.find((cabinet) => cabinet.uid === prompt.rangeUid);
+    if (!range) { toast.error("The range changed before the bridge cabinet was offered. Nothing was added."); return; }
+    const proposal = rangeCompanionProposal(range, room, wallCabPoolRef.current, appliancePalette, wallCabHeightRef.current);
+    if (!proposal) { toast.error("A matching selected-line bridge cabinet and microwave are not available for this range."); return; }
+    setRangeCompanionPrompt({ rangeUid: range.uid, proposal, microwaveAlreadyPlaced: false });
+  }, [appliancePalette, fourAnchorRangeVentPrompt, room]);
+  const addWscSpiceStackUpper = useCallback((cabinetId: number) => {
 	    const prompt = spiceStackPrompt;
 	    if (!prompt) return;
 	    const spice = placedRef.current.find((cabinet) => cabinet.uid === prompt.spiceUid);
@@ -7913,11 +8175,14 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	          } : {}),
 	        };
 	      })();
-    const peers = workingPlaced.filter((item) => item.uid !== cabinet.uid);
-    if (hasCollision(movedCabinet, peers)) {
-      toast.error("The cabinet cannot move to that filler position without overlapping another item.");
-      return;
-    }
+	    const peers = workingPlaced.filter((item) => item.uid !== cabinet.uid);
+	    // This must match normal placement and batch insertion. A 2DB24 can butt
+	    // a measured diagonal corner's actual run edge even when their rotated
+	    // screen envelopes overlap; room-aware collision still rejects real bodies.
+	    if (cabinetPlacementCollisionDetail(movedCabinet, peers, room)) {
+	      toast.error("The cabinet cannot move to that filler position without overlapping another item.");
+	      return;
+	    }
 
 		  const fillerGroupId = cutOpportunity.replacingFillerGroupId ?? `filler-group-${makeUid()}`;
 		  const fallbackDepth = dim(fillerDef.depth, cutOpportunity.layer === "wall" ? STD.WALL_DEPTH : STD.BASE_DEPTH);
@@ -7981,7 +8246,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	      ? islandFacePlacement(fillerPiece, island, cutOpportunity.islandFace, piece.start)
         : fillerPiece;
     });
-    const result = appendSmallGapFillerPlacement(workingPlaced, movedCabinet, pieces);
+	    const result = appendSmallGapFillerPlacement(workingPlaced, movedCabinet, pieces, room);
     if (result.rejected.length > 0 || result.placed.length !== workingPlaced.length + pieces.length) {
       toast.error("The filler could not be seated at exact zero overlap. The design was not changed.");
       return;
@@ -8138,7 +8403,10 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   const { data: sinkBaseProducts } = trpc.surfaces.recommended.useQuery(
     // Fetch a broader set only while the sink-base dialog is open so verified
     // compatible products can be prioritized without altering catalog ranking.
-    { role: bathroomSinkDialog ? "vanity-sink" : "sink", limit: 24 },
+    // The whole role is requested (server cap 200): Pelican sells each gauge and
+    // corner radius as its own SKU, and the dialog folds them into one card per
+    // model after the exact-SKU compatibility and fit filters below.
+    { role: bathroomSinkDialog ? "vanity-sink" : "sink", limit: 200 },
     { enabled: !!sinkBaseDialog || selectedFarmSinkBaseForGuide }
   );
   // Fetch every source-priced, source-measured faucet supported by this
@@ -9288,6 +9556,37 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     setIsland((prev) => clampIslandToRoom(prev, next));
   }, []);
 
+  /**
+   * An admin-only blank room for reading the Wall 1–6 guide before a measured
+   * build. This intentionally refuses rather than clears any user-owned scene
+   * state, so the training sample cannot overwrite a customer layout.
+   */
+  const loadFourAnchorSixWallTrainingRoom = useCallback((): FourAnchorSubmitResult => {
+    const populated = placed.length > 0
+      || openings.length > 0
+      || sinks.length > 0
+      || potFillers.length > 0
+      || furniture.length > 0
+      || ponyWalls.length > 0
+      || annotations.length > 0
+      || island != null
+      || (room.peninsulaRuns?.length ?? 0) > 0;
+    if (!isAdmin || roomType !== "kitchen" || layoutLocked) {
+      return { ok: false, message: "The six-wall training room is available only to an unlocked admin kitchen Designer." };
+    }
+    if (populated) {
+      return { ok: false, message: "A training room can only be loaded into an empty Designer. Save or start a new design; no current items were changed." };
+    }
+    const trainingRoom = makeFourAnchorSixWallTrainingRoom();
+    applyRoom(trainingRoom);
+    setActiveWall("four-anchor-training-wall-1" as WallSide);
+    setPlacementTarget("wall");
+    setViewMode("plan");
+    setFourAnchorWallGuideSelection({ originCorner: "left", runDirection: "right" });
+    toast.success("Six-wall training room loaded. Hover a colored wall number to see where its center measurement begins.");
+    return { ok: true };
+  }, [annotations.length, applyRoom, furniture.length, isAdmin, island, layoutLocked, openings.length, ponyWalls.length, potFillers.length, room.peninsulaRuns, roomType, setPlacementTarget, sinks.length, placed.length]);
+
   const applyBathroomStarterTemplate = useCallback(() => {
     const existingItems = placed.length + openings.length + sinks.length + furniture.length + ponyWalls.length + annotations.length + (island ? 1 : 0);
     if (layoutLocked) {
@@ -9968,9 +10267,15 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       (current, uid) => removePlacedCabinetWithRequiredBlindCornerFiller(current, uid),
       committed,
     );
-    if (removeSharedFillerGroups && fillerGroups.size > 0) {
-      next = next.filter((cabinet) => !cabinet.fillerPieceGroupId || !fillerGroups.has(cabinet.fillerPieceGroupId));
-    }
+	    if (removeSharedFillerGroups && fillerGroups.size > 0) {
+	      next = next.filter((cabinet) => !cabinet.fillerPieceGroupId || !fillerGroups.has(cabinet.fillerPieceGroupId));
+	    }
+	    // Optional attached fillers are never silently deleted when a later cabinet
+	    // edit exposes their outside edge. Keep the purchased stock in the design
+	    // and flag it for the installer/customer to review in Attributes and Parts.
+	    next = next.map((cabinet) => cabinet.fillerAttachmentSide
+	      ? { ...cabinet, fillerNeedsReview: attachedFillerNeedsReview(cabinet, next, room) }
+	      : cabinet);
 		    const nextIsland = island
 		      ? synchronizeIslandCountertopFootprint(island, committed, next)
       : null;
@@ -9986,7 +10291,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     setAlternateWallRecommendation(null);
     setAlternateIslandFaceRecommendation(null);
     setSmallGapFillerPrompt(null);
-  }, [deleteAttachedSinkFixtures, island]);
+	  }, [deleteAttachedSinkFixtures, island, room]);
 
 	  const removeCabinetAndReleaseVoid = useCallback((uid: string) => {
 	    removeCabinetsAndReleaseVoid([uid]);
@@ -10312,6 +10617,41 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	    },
 	    []
 	  );
+	  const applyAttachedCabinetFillers = useCallback((uid: string, choice: AttachedFillerChoice) => {
+	    const owner = placedRef.current.find((item) => item.uid === uid);
+	    if (!owner || !supportsAttachedFillerChoice(owner)) return;
+	    if (owner.locked) {
+	      toast.info(`${owner.masterCode} is locked — unlock it before changing attached fillers.`);
+	      return;
+	    }
+	    const withoutAttached = placedRef.current.filter((item) => item.uid !== uid && !(item.fillerForCabinetUid === uid && item.fillerAttachmentSide));
+	    const built = buildAttachedFillerPlacement({
+	      cabinet: owner,
+	      placed: withoutAttached,
+	      room,
+	      choice,
+	      catalogFillers,
+	      makeUid,
+	      styleId: owner.styleId ?? styleIdRef.current ?? null,
+	    });
+	    if (!built.ok) {
+	      setPlacementWarning(built.reason);
+	      toast.error(built.reason);
+	      return;
+	    }
+	    const committed = appendCollisionFreePlacements(withoutAttached, [built.cabinet, ...built.fillers], room);
+	    if (committed.rejected.length > 0 || !committed.placed.some((item) => item.uid === uid)) {
+	      const message = `${owner.masterCode} cannot apply those attached fillers without a physical overlap. The design was not changed.`;
+	      setPlacementWarning(message);
+	      toast.error(message);
+	      return;
+	    }
+	    placedRef.current = committed.placed;
+	    setPlaced(committed.placed);
+	    setPlacementWarning(null);
+	    setSelectedUid(uid);
+	    toast.success(built.fillers.length ? `${owner.masterCode} attached filler${built.fillers.length === 1 ? "" : "s"} updated.` : `${owner.masterCode} attached fillers removed.`);
+	  }, [catalogFillers, room]);
 	  const toggleCabinetLock = useCallback((uid: string) => {
 	    setPlaced((prev) => prev.map((p) => {
 	      if (p.uid !== uid) return p;
@@ -10370,6 +10710,21 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	      requiredClearanceIn: placement.clearanceIn,
 	      startGapIn: Math.max(0, start),
 	      endGapIn: Math.max(0, length - end),
+	    };
+	  }, [attrUid, placed, room]);
+	  const attrAttachedFillerOptions = useMemo(() => {
+	    const owner = attrUid ? placed.find((item) => item.uid === attrUid) : null;
+	    if (!owner || owner.islandFace || !supportsAttachedFillerChoice(owner) || isBaseBlindCorner(owner)) return null;
+	    const attached = placed.filter((item) => item.fillerForCabinetUid === owner.uid && item.fillerAttachmentSide);
+	    const withoutAttached = placed.filter((item) => item.uid !== owner.uid && !(item.fillerForCabinetUid === owner.uid && item.fillerAttachmentSide));
+	    const plan = attachedFillerPlanForCandidate(owner, withoutAttached, room);
+	    if (!plan || (!plan.leftAllowed && !plan.rightAllowed && attached.length === 0)) return null;
+	    return {
+	      leftAllowed: plan.leftAllowed,
+	      rightAllowed: plan.rightAllowed,
+	      leftIn: attached.find((item) => item.fillerAttachmentSide === "left")?.width ?? 0,
+	      rightIn: attached.find((item) => item.fillerAttachmentSide === "right")?.width ?? 0,
+	      needsReview: attached.some((item) => item.fillerNeedsReview),
 	    };
 	  }, [attrUid, placed, room]);
 	  const [fillerAttrUid, setFillerAttrUid] = useState<string | null>(null);
@@ -12357,7 +12712,8 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     setPendingRangeTopType(null);
     setBuiltinRunArmed(false);
     setCrown(false);
-    setToeKick(false);
+    // Toe kick is the sole automatic selection on a completely new drawing.
+    setToeKick(true);
     setBatten(false);
     setLightRail(false);
     setCountertop(false);
@@ -12376,6 +12732,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     setLayoutLocked(false);
     setLockedWalls(new Set());
     setCollapsedGroups(new Set());
+    setCatalogCollapseRequest(COLLAPSIBLE_CATALOG_TABS.has(paletteType) ? paletteType : null);
     setCollapsedSheet(new Set());
     setTouchedSheet(new Set());
     setCustomPlacementMode(false);
@@ -12895,6 +13252,26 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
           affiliateSlug={affiliateSlug}
           compact={isTabletWorkspace}
         />
+        {roomType !== "closet" && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            data-testid="designer-pelican-trigger"
+            aria-label="Select Pelican surfaces and fixtures"
+            title={selectedSurfaces.length > 0
+              ? `Pelican surfaces & fixtures (${selectedSurfaces.length} in this design)`
+              : "Choose Pelican quartz, flooring, tile, sinks, faucets and bath fixtures: one card per model with a finish dropdown, like the hardware picker"}
+            onClick={openPelicanCatalog}
+            className="min-h-8 shrink-0 gap-1.5 border-[#a87f33] text-[#7a5c24] hover:bg-[#a87f33]/10"
+          >
+            <Waves className="h-3.5 w-3.5 shrink-0" />
+            <span className="designer-toolbar-pelican-label">Pelican</span>
+            {selectedSurfaces.length > 0 && (
+              <span className="rounded-full bg-[#a87f33] px-1.5 text-[10px] font-bold leading-4 text-white" aria-hidden="true">{selectedSurfaces.length}</span>
+            )}
+          </Button>
+        )}
         <label className="designer-toolbar-window-controls hidden items-center gap-1.5 rounded-md border border-border bg-background px-2 text-xs font-medium text-foreground lg:flex" title="Choose the visual scene shown through windows">
           <span className="text-muted-foreground">Window</span>
           <select
@@ -12980,7 +13357,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
             variant="outline"
             size="sm"
             className="hidden lg:inline-flex shrink-0 border-[#d4a75a] text-[#765416] hover:bg-[#fff8e8]"
-            onClick={() => setFourAnchorAutoBuildOpen(true)}
+	            onClick={openFourAnchorAutoBuild}
             disabled={placed.length > 0 || layoutLocked}
             data-testid="admin-four-anchor-auto-build"
             title={placed.length > 0 ? "Start this admin build from an empty Designer" : "Build a measured kitchen from four fixed fixture anchors"}
@@ -12989,17 +13366,19 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
             <Ruler className="mr-1.5 h-3.5 w-3.5" /> Four anchors
           </Button>
         )}
-        <Button
-          variant="outline"
-          size="sm"
-          className={`${isCompactWorkspace ? "hidden" : "hidden lg:inline-flex"} shrink-0`}
-          disabled={materialsListRows.length === 0}
-          onClick={() => setMaterialsListOpen(true)}
-          title="View, print, or export complete materials & parts list"
-          aria-label="Materials & Parts"
-        >
-          <FileText className="mr-1.5 h-3.5 w-3.5" /> <span className="designer-toolbar-full-label">Materials &amp; Parts</span><span aria-hidden="true" className="designer-toolbar-short-label">Materials</span>
-        </Button>
+        <div className={`${isCompactWorkspace ? "hidden" : "hidden lg:flex"} shrink-0 items-center gap-1`}>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={materialsListRows.length === 0}
+            onClick={() => openMaterialsList()}
+            title="View, print, or export complete materials & parts list"
+            aria-label="Materials & Parts"
+          >
+            <FileText className="mr-1.5 h-3.5 w-3.5" /> <span className="designer-toolbar-full-label">Materials &amp; Parts</span><span aria-hidden="true" className="designer-toolbar-short-label">Materials</span>
+          </Button>
+          <MaterialsConflictShortcut count={materialsConflictCount} disabled={materialsListRows.length === 0} onOpenConflicts={() => openMaterialsList(true)} />
+        </div>
         <Button
           variant={isCompactWorkspace ? "default" : "outline"}
           size="sm"
@@ -13032,18 +13411,20 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                 </Button>
               </div>
             )}
-            <Button
-              variant="outline"
-              size="sm"
-              data-testid="compact-workspace-materials-trigger"
-              className={`${isTabletWorkspace ? "hidden" : "hidden lg:inline-flex"} shrink-0`}
-              disabled={materialsListRows.length === 0}
-              onClick={() => setMaterialsListOpen(true)}
-              title="View every cabinet, material, fixture, and part in this design"
-              aria-label="Materials & Parts"
-            >
-              <FileText className="mr-1.5 h-3.5 w-3.5" /> <span className="designer-toolbar-full-label">{isTabletWorkspace ? "Materials" : <>Materials &amp; Parts</>}</span><span aria-hidden="true" className="designer-toolbar-short-label">Materials</span>
-            </Button>
+            <div className={`${isTabletWorkspace ? "hidden" : "hidden lg:flex"} shrink-0 items-center gap-1`}>
+              <Button
+                variant="outline"
+                size="sm"
+                data-testid="compact-workspace-materials-trigger"
+                disabled={materialsListRows.length === 0}
+                onClick={() => openMaterialsList()}
+                title="View every cabinet, material, fixture, and part in this design"
+                aria-label="Materials & Parts"
+              >
+                <FileText className="mr-1.5 h-3.5 w-3.5" /> <span className="designer-toolbar-full-label">Materials &amp; Parts</span><span aria-hidden="true" className="designer-toolbar-short-label">Materials</span>
+              </Button>
+              <MaterialsConflictShortcut count={materialsConflictCount} disabled={materialsListRows.length === 0} onOpenConflicts={() => openMaterialsList(true)} />
+            </div>
             <Button
               variant="outline"
               size="sm"
@@ -13449,10 +13830,13 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                         }}
                       />
                     </div>
-                    <button disabled={materialsListRows.length === 0} onClick={() => { setMoreSheetOpen(false); setMaterialsListOpen(true); }} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted disabled:opacity-50 transition-colors">
-                      <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
-                      <span className="flex-1 text-left">Materials &amp; Parts</span>
-                    </button>
+                    <div className="flex items-center gap-1 rounded-lg hover:bg-muted transition-colors">
+                      <button data-testid="tablet-more-materials-trigger" disabled={materialsListRows.length === 0} onClick={() => { setMoreSheetOpen(false); openMaterialsList(); }} title="View every cabinet, material, fixture, and part in this design" className="flex min-w-0 flex-1 items-center gap-3 rounded-lg px-3 py-2.5 text-sm disabled:opacity-50">
+                        <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <span className="flex-1 text-left">Materials &amp; Parts</span>
+                      </button>
+                      <MaterialsConflictShortcut count={materialsConflictCount} disabled={materialsListRows.length === 0} onOpenConflicts={() => { setMoreSheetOpen(false); openMaterialsList(true); }} className="mr-2" />
+                    </div>
                     <button onClick={() => { setMoreSheetOpen(false); setPaletteType("surfaces"); setMobilePanel("catalog"); }} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted transition-colors">
                       <Waves className="h-4 w-4 text-muted-foreground shrink-0" />
                       <span className="flex-1 text-left">Surfaces — flooring, countertops, backsplash, sinks</span>
@@ -13524,6 +13908,22 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	                    <span className="flex-1 text-left">Peninsula Wizard</span>
 	                    <Badge variant="secondary" className="text-[10px]">fast layout</Badge>
 	                  </button>
+                  {isAdmin && (
+                    <button
+                      data-testid="more-sheet-four-anchors"
+                      disabled={placed.length > 0 || layoutLocked}
+	                      onClick={() => { setMoreSheetOpen(false); setTimeout(openFourAnchorAutoBuild, 120); }}
+                      title={placed.length > 0 ? "Start this admin build from an empty Designer" : "Build a measured kitchen from four fixed fixture anchors"}
+                      className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted disabled:opacity-50 transition-colors"
+                    >
+                      <Ruler className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <span className="flex-1 text-left">
+                        Four anchors
+                        {placed.length > 0 && <span className="block text-[11px] font-normal text-muted-foreground">Needs an empty plan</span>}
+                      </span>
+                      <Badge variant="secondary" className="text-[10px]">admin</Badge>
+                    </button>
+                  )}
 	                  <button disabled={layoutLocked} onClick={autoFillActiveWall} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted disabled:opacity-50 transition-colors">
                     <Wand2 className="h-4 w-4 text-muted-foreground shrink-0" />
                     <span className="flex-1 text-left">{t("dt_sh_autofill_active")}</span>
@@ -13734,13 +14134,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                         {missingPriceBannerText(missingPriceSummary.count)} These cabinets stay in the Cart and need a current price before an order can be submitted.
                       </div>
                     )}
-                    {hasConflicts && (
-                      <div className="mb-1.5 flex items-start gap-1.5 rounded border border-red-300 bg-red-50 px-2 py-1.5 text-[10px] text-red-700">
-                        <span className="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-red-600" />
-                        {t("dt_sh_order_conflicts", { n: conflictUids.size, s: conflictUids.size > 1 ? "s" : "" })}
-                      </div>
-                    )}
-                    <div className="max-h-40 overflow-y-auto rounded-lg border border-border">
+	                    <div className="max-h-40 overflow-y-auto rounded-lg border border-border">
                       <ul className="divide-y divide-border">
                         {cartableLines.map((line, index) => (
                           <li key={`${line.masterCode}-${line.styleId}-${line.qtyNote ?? "line"}-${index}`} className="flex items-center justify-between gap-2 px-3 py-1.5 text-[11px]">
@@ -15376,7 +15770,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                   key={tab}
                   data-testid={`catalog-tab-${tab}`}
                   aria-pressed={paletteType === tab}
-                  onClick={() => { setPaletteType(tab); if (tab === "closetparts" && !placedRef.current.length) setViewMode("plan"); }}
+                  onClick={() => { selectCatalogPaletteTab(tab); if (tab === "closetparts" && !placedRef.current.length) setViewMode("plan"); }}
                   className={`shrink-0 whitespace-nowrap px-2.5 lg:px-1 lg:flex-1 py-1.5 rounded-md text-[11px] font-medium capitalize transition-colors ${
                     paletteType === tab ? "bg-[#1a2744] text-white" : "text-muted-foreground hover:text-foreground"
                   }`}
@@ -15813,34 +16207,51 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                     if (paletteType === "accessory" || paletteType === "panel") {
                       if (!isPlaceableAccessory(c)) return null;
                       return (
-                        <button
-                          type="button"
+                        <div
                           key={c.masterCode}
                           data-testid={paletteType === "panel" ? `panel-catalog-item-${c.masterCode}` : undefined}
                           draggable
                           onDragStart={(event) => { dragDataRef.current = c; setCatalogDragPreview(c); const item = interactive3dCatalogItems.find((candidate) => Number(candidate.id) === Number(c.id) && candidate.category === "Accessory"); if (item) { event.dataTransfer.effectAllowed = "copy"; event.dataTransfer.setData("text/plain", threeDLeftCatalogDragPayload(item.category, item.id)); } }}
                           onDragEnd={() => { dragDataRef.current = null; setCatalogDragPreview(null); }}
-                          onClick={() => addCabinet(c)}
-                          className="w-full text-left p-2 rounded-lg border border-border hover:border-primary/50 hover:bg-muted/50 transition-colors group flex items-center gap-2"
+                          className="group flex w-full items-center gap-1.5 rounded-lg border border-border p-2 transition-colors hover:border-primary/50 hover:bg-muted/50"
                         >
-                          <div className="h-9 w-9 flex items-center justify-center shrink-0">
-                            <CabinetImage cabinet={c} className="h-full w-auto max-w-full" />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="font-mono text-xs font-semibold text-foreground truncate">{c.masterCode}</div>
-                            <div className="text-[10px] text-muted-foreground truncate">{c.description}</div>
-                            {(() => {
-                              const dimensions = resolvedDesignCabinetDimensions(c);
-                              return dimensions.width > 0 && dimensions.height > 0 && dimensions.depth > 0 ? (
-                                <div data-testid={`panel-catalog-dimensions-${c.masterCode}`} className="text-[9px] text-muted-foreground">
-                                  {formatCatalogInchValue(dimensions.width)}″ W × {formatCatalogInchValue(dimensions.height)}″ H × {formatCatalogInchValue(dimensions.depth)}″ D
-                                </div>
-                              ) : null;
-                            })()}
-                            <div className="text-[9px] font-medium text-primary/70">{t("dt_pl_click_drag_place")}</div>
-                          </div>
-                          <Plus className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary shrink-0" />
-                        </button>
+                          <button
+                            type="button"
+                            onClick={() => addCabinet(c)}
+                            className="flex min-w-0 flex-1 items-center gap-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                            aria-label={`Place ${c.displayMasterCode ?? c.masterCode}`}
+                          >
+                            <div className="h-9 w-9 flex items-center justify-center shrink-0">
+                              <CabinetImage cabinet={c} className="h-full w-auto max-w-full" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="font-mono text-xs font-semibold text-foreground truncate">{c.displayMasterCode ?? c.masterCode}</div>
+                              <div className="text-[10px] text-muted-foreground truncate">{c.description}</div>
+                              {(() => {
+                                const dimensions = resolvedDesignCabinetDimensions(c);
+                                return dimensions.width > 0 && dimensions.height > 0 && dimensions.depth > 0 ? (
+                                  <div data-testid={`panel-catalog-dimensions-${c.masterCode}`} className="text-[9px] text-muted-foreground">
+                                    {formatCatalogInchValue(dimensions.width)}″ W × {formatCatalogInchValue(dimensions.height)}″ H × {formatCatalogInchValue(dimensions.depth)}″ D
+                                  </div>
+                                ) : null;
+                              })()}
+                              <div className="text-[9px] font-medium text-primary/70">{t("dt_pl_click_drag_place")}</div>
+                            </div>
+                            <Plus className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary shrink-0" />
+                          </button>
+                          <Tooltip><TooltipTrigger asChild>
+                            <button
+                              type="button"
+                              data-testid={`catalog-noncabinet-card-specs-${c.masterCode}`}
+                              aria-label={`View specifications for ${c.displayMasterCode ?? c.masterCode}`}
+                              title="View this catalog item’s specifications"
+                              onClick={(event) => { event.stopPropagation(); openCatalogSpecificationsFor(c); }}
+                              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded border border-[#b98d3e]/60 bg-white text-[#634b20] transition hover:bg-[#fff4d8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a2744] active:scale-95"
+                            >
+                              <FileText className="h-3.5 w-3.5" aria-hidden />
+                            </button>
+                          </TooltipTrigger><TooltipContent>View specifications</TooltipContent></Tooltip>
+                        </div>
                       );
                     }
 	                    const placementDetail = cabinetPlacementHoverDetail(c);
@@ -15855,25 +16266,29 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	                      ? "Layout model — appliance price is not included in the design total."
 	                      : null;
 	                    return (
-		                    <button
+		                    <div
 		                      key={`${c.masterCode}:${c.catalogImageUrl ?? c.id}`}
                       draggable
                       onDragStart={(event) => { dragDataRef.current = c; setCatalogDragPreview(c); const item = interactive3dCatalogItems.find((candidate) => Number(candidate.id) === Number(c.id) && candidate.category === "Cabinet"); if (item) { event.dataTransfer.effectAllowed = "copy"; event.dataTransfer.setData("text/plain", threeDLeftCatalogDragPayload(item.category, item.id)); } }}
                       onDragEnd={() => { dragDataRef.current = null; setCatalogDragPreview(null); }}
-                      onClick={() => addCabinet(c)}
-	                      className="w-full text-left p-2 rounded-lg border border-border hover:border-primary/50 hover:bg-muted/50 transition-colors group flex items-center gap-2"
+	                      className="group flex w-full items-center gap-1.5 rounded-lg border border-border p-2 transition-colors hover:border-primary/50 hover:bg-muted/50"
 	                      title={placementDetailText}
 	                      data-testid={placementDetail ? `cabinet-placement-detail-${c.masterCode}` : undefined}
-	                      aria-label={placementDetailText ?? undefined}
                     >
-                      <div className="h-9 w-9 flex items-center justify-center shrink-0">
-                        <CabinetImage cabinet={c} className="h-full w-auto max-w-full" />
-                      </div>
-	                      <div className="min-w-0 flex-1">
-	                        <div className="font-mono text-xs font-semibold text-foreground truncate">{c.displayMasterCode ?? c.masterCode}</div>
-	                        <div className="text-[10px] text-muted-foreground truncate">{isSquareDoubleDoorBaseEnd(c) ? BEC24_DISPLAY_NAME : c.description}</div>
-                        <GlassPolicyBadge masterCode={c.masterCode} glassIncluded={c.glassIncluded} className="mt-0.5" />
-                        {(() => {
+                      <button
+                        type="button"
+                        onClick={() => addCabinet(c)}
+                        className="flex min-w-0 flex-1 items-center gap-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                        aria-label={placementDetailText ?? `Place ${c.displayMasterCode ?? c.masterCode}`}
+                      >
+                        <div className="h-9 w-9 shrink-0 flex items-center justify-center">
+                          <CabinetImage cabinet={c} className="h-full w-auto max-w-full" />
+                        </div>
+	                        <div className="min-w-0 flex-1">
+	                          <div className="font-mono text-xs font-semibold text-foreground truncate">{c.displayMasterCode ?? c.masterCode}</div>
+	                          <div className="text-[10px] text-muted-foreground truncate">{isSquareDoubleDoorBaseEnd(c) ? BEC24_DISPLAY_NAME : c.description}</div>
+                          <GlassPolicyBadge masterCode={c.masterCode} glassIncluded={c.glassIncluded} className="mt-0.5" />
+                          {(() => {
                           // A base-family box (Base/Vanity tab, or a corner BASE
                           // cabinet inside the unified Corner tab) is always the
                           // standard 34.5" tall; wall/tall/corner-wall boxes use
@@ -15889,32 +16304,60 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	                          return (
 	                            <div className="text-[10px] text-muted-foreground">{widthVal}"W × {hVal}{showH ? "\"H" : ""}</div>
 	                          );
-	                        })()}
-	                        {placementDetail && (
-	                          <div className="mt-0.5 text-[9px] font-medium leading-snug text-emerald-700">
-	                            Hover for dimensions &amp; flush-seam clearance
-	                          </div>
-	                        )}
-	                        {appliancePriceNotice && (
-	                          <div
-	                            data-testid={`appliance-price-pending-${c.masterCode}`}
-	                            className="mt-0.5 text-[9px] font-medium leading-snug text-amber-700"
-	                          >
-	                            {appliancePriceNotice}
-	                          </div>
-	                        )}
-	                      </div>
-                      {paletteFinishSwatch && (
-                        <img
-                          src={paletteFinishSwatch}
-                          alt={activeStyleName ? `${activeStyleName} finish` : "selected finish"}
-                          title={activeStyleName ?? undefined}
-                          loading="lazy"
-                          className="h-7 w-7 rounded-sm object-cover border border-[#a07d4a]/40 shrink-0"
-                        />
-                      )}
-                      <Plus className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary shrink-0" />
-                    </button>
+	                          })()}
+	                          {placementDetail && (
+	                            <div className="mt-0.5 text-[9px] font-medium leading-snug text-emerald-700">
+	                              Hover for dimensions &amp; flush-seam clearance
+	                            </div>
+	                          )}
+	                          {appliancePriceNotice && (
+	                            <div
+	                              data-testid={`appliance-price-pending-${c.masterCode}`}
+	                              className="mt-0.5 text-[9px] font-medium leading-snug text-amber-700"
+	                            >
+	                              {appliancePriceNotice}
+	                            </div>
+	                          )}
+	                        </div>
+                        {paletteFinishSwatch && (
+                          <img
+                            src={paletteFinishSwatch}
+                            alt={activeStyleName ? `${activeStyleName} finish` : "selected finish"}
+                            title={activeStyleName ?? undefined}
+                            loading="lazy"
+                            className="h-7 w-7 rounded-sm object-cover border border-[#a07d4a]/40 shrink-0"
+                          />
+                        )}
+                        <Plus className="h-3.5 w-3.5 shrink-0 text-muted-foreground group-hover:text-primary" />
+                      </button>
+                      {paletteType === "appliance" && c.specImageUrl ? (
+                        <Tooltip><TooltipTrigger asChild>
+                          <button
+                            type="button"
+                            data-testid={`catalog-appliance-card-specs-${c.masterCode}`}
+                            aria-label={`View specifications for ${c.displayMasterCode ?? c.masterCode}`}
+                            title="View manufacturer specification sheet"
+                            onClick={(event) => { event.stopPropagation(); openCatalogSpecificationsFor(c); }}
+                            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded border border-[#b98d3e]/60 bg-white text-[#634b20] transition hover:bg-[#fff4d8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a2744] active:scale-95"
+                          >
+                            <FileText className="h-3.5 w-3.5" aria-hidden />
+                          </button>
+                        </TooltipTrigger><TooltipContent>View manufacturer specification sheet</TooltipContent></Tooltip>
+                      ) : paletteType !== "appliance" ? (
+                        <Tooltip><TooltipTrigger asChild>
+                          <button
+                            type="button"
+                            data-testid={`catalog-card-specs-${c.masterCode}`}
+                            aria-label={`View specifications for ${c.displayMasterCode ?? c.masterCode}`}
+                            title="View this catalog item’s specifications"
+                            onClick={(event) => { event.stopPropagation(); openCatalogSpecificationsFor(c); }}
+                            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded border border-[#b98d3e]/60 bg-white text-[#634b20] transition hover:bg-[#fff4d8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a2744] active:scale-95"
+                          >
+                            <FileText className="h-3.5 w-3.5" aria-hidden />
+                          </button>
+                        </TooltipTrigger><TooltipContent>View specifications</TooltipContent></Tooltip>
+                      ) : null}
+                    </div>
                     );
                   })}</div>}
                 </div>
@@ -15990,6 +16433,28 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	                onAccept={(alternative) => acceptMissingPriceAlternative(missingPricePopoverTarget.uid, alternative)}
 	                onDismiss={() => setDismissedMissingPricePopoverUid(missingPricePopoverTarget.uid)}
 	              />
+	            </div>
+	          )}
+	          {hasConflicts && firstConflictUid && (
+	            <div
+	              data-testid="design-conflict-canvas-notice"
+	              role="status"
+	              aria-live="polite"
+	              className="absolute bottom-20 left-1/2 z-40 flex w-[min(34rem,calc(100%-1.5rem))] -translate-x-1/2 items-center gap-2 rounded-xl border border-red-300 bg-red-50/95 px-3 py-2 text-xs text-red-950 shadow-lg backdrop-blur lg:bottom-3"
+	            >
+	              <TriangleAlert aria-hidden="true" className="h-4 w-4 shrink-0 text-red-700" />
+	              <p className="min-w-0 flex-1 leading-snug">
+	                <strong>{conflictUids.size} placement{conflictUids.size === 1 ? " needs" : "s need"} attention.</strong>{" "}
+	                It remains in your Cart, but must be corrected before secure ordering.
+	              </p>
+	              <button
+	                type="button"
+	                aria-label="Review conflict on Floor Plan"
+	                onClick={() => { setViewMode("plan"); selectCabinet(firstConflictUid); }}
+	                className="shrink-0 rounded-md border border-red-300 bg-white px-2 py-1 text-[11px] font-bold text-red-800 transition hover:bg-red-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-700 active:scale-95"
+	              >
+	                Review
+	              </button>
 	            </div>
 	          )}
 	          {placementWarning && (
@@ -16187,6 +16652,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	          {viewMode === "plan" && (
 	            <PlanCanvas onPreviewGap={previewSmartGap}
 	              room={room}
+	              fourAnchorWallGuides={fourAnchorWallGuides}
 	              catalogDragCabinet={catalogDragPreview}
 	              fillerGapPreview={smallGapFillerPlanPreview}
 	              automaticSnapping={automaticSnapping}
@@ -16476,6 +16942,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	              <div className="flex-1 min-h-0 border-b border-border">
 	                <PlanCanvas onPreviewGap={previewSmartGap}
 	                  room={room}
+	                  fourAnchorWallGuides={fourAnchorWallGuides}
 	                  catalogDragCabinet={catalogDragPreview}
 	                  fillerGapPreview={smallGapFillerPlanPreview}
 	                  automaticSnapping={automaticSnapping}
@@ -17274,23 +17741,20 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
             </Popover>
           </div>
 
-          {activeStyle && (activeStyle.boxConstruction || activeStyle.doorPanelType || activeStyle.drawerConstruction || activeStyle.hardware || activeStyle.profileNotes) && (
-            <div className="mx-3 mt-2 rounded-md border border-[#d8c7a1] bg-[#fffaf0] px-2.5 py-2 text-[10px] leading-snug text-[#49381a]" data-testid="catalog-style-specifications">
-              <div className="mb-1 flex items-center justify-between gap-2">
-                <span className="font-semibold uppercase tracking-wide">Catalog specifications</span>
-                <span className="text-[9px] text-[#806a42]">Auto-filled from manufacturer sheets</span>
-              </div>
-              <div className="grid grid-cols-1 gap-x-3 gap-y-0.5 sm:grid-cols-2">
-                {activeStyle.boxConstruction && <span><b>Box:</b> {activeStyle.boxConstruction}</span>}
-                {activeStyle.doorPanelType && <span><b>Front:</b> {activeStyle.doorPanelType}</span>}
-                {activeStyle.drawerConstruction && <span><b>Drawers:</b> {activeStyle.drawerConstruction}</span>}
-                {activeStyle.hardware && <span><b>Hardware:</b> {activeStyle.hardware}</span>}
-                {activeStyle.finishSheen && <span><b>Sheen:</b> {activeStyle.finishSheen}</span>}
-              </div>
-              {activeStyle.profileNotes && <p className="mt-1 text-[#806a42]">{activeStyle.profileNotes}</p>}
-              <p className="mt-1 font-medium text-[#49381a]">Cabinet width, height, and depth remain SKU-specific and are shown on each catalog card.</p>
-            </div>
-          )}
+	          {activeStyle && (activeStyle.boxConstruction || activeStyle.doorPanelType || activeStyle.drawerConstruction || activeStyle.hardware || activeStyle.profileNotes) && (
+	            <div className="mx-3 mt-2 flex items-center justify-between gap-2 rounded-md border border-[#d8c7a1] bg-[#fffaf0] px-2.5 py-1.5 text-[10px] text-[#49381a]" data-testid="catalog-style-specifications">
+	              <span className="min-w-0 truncate font-medium">Manufacturer construction details are available for {activeStyleName ?? "this cabinet style"}.</span>
+	              <button
+	                type="button"
+	                data-testid="catalog-style-specifications-trigger"
+	                aria-label="Open catalog specifications"
+	                onClick={() => { setCatalogSpecificationsItem(null); setCatalogSpecificationsOpen(true); }}
+	                className="inline-flex shrink-0 items-center gap-1 rounded border border-[#b98d3e]/60 bg-white px-2 py-1 text-[10px] font-semibold text-[#634b20] transition hover:bg-[#fff4d8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a2744] active:scale-95"
+	              >
+	                <FileText className="h-3.5 w-3.5" /> Specs
+	              </button>
+	            </div>
+	          )}
           {/* Door style & pricing picker: collapses into an accordion once a door
               style is chosen so it stops dominating the panel (esp. on mobile).
               The header summarizes the active style + tier when collapsed. The
@@ -17833,46 +18297,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                 </span>
               </div>
             )}
-            {hasConflicts && (
-              <div className="mb-2 flex items-start gap-2 rounded-md border border-red-300 bg-red-50 p-2 text-[11px] text-red-700">
-                <span className="mt-0.5 inline-block h-2 w-2 shrink-0 rounded-full bg-red-600" />
-                <span>
-                  <strong>{conflictUids.size} item{conflictUids.size > 1 ? "s" : ""} in conflict.</strong>{" "}
-
-                  {rangeClearanceUids.size > 0
-                    ? `A range/oven in the corner needs a ${RANGE_CLEARANCE_FILLER_IN}" filler beside it so the range handle clears the cabinet handle — add one with the Filler tool. `
-                    : ""}
-                  {wallOpeningUids.size > 0
-                    ? `A wall cabinet is within ${WALL_OPENING_CLEARANCE_IN}" of a door or window — wall cabinets must stay at least ${WALL_OPENING_CLEARANCE_IN}" away from openings. `
-                    : ""}
-                  {/* Missing spec is no longer a blocking conflict — defaults are applied */}
-                  {blindOutOfRangeCount > 0
-                    ? `${blindOutOfRangeCount} blind corner cabinet${blindOutOfRangeCount > 1 ? "s" : ""} ${blindOutOfRangeCount > 1 ? "are" : "is"} pulled outside the manufacturer's min/max range. `
-                    : ""}
-                  {ceilingViolationUids.size > 0
-                    ? (() => {
-                      const fmt = (inches: number) => { const c = inchesToFeetInches(inches); return c.inches === 0 ? `${c.feet}'` : `${c.feet}'${c.inches}"`; };
-                      const count = ceilingViolationUids.size;
-                      // A short drawn wall (half / pony wall) caps its cabinets below the room ceiling.
-                      const shortWallTop = Array.from(ceilingViolationUids)
-                        .map((uid) => placed.find((cabinet) => cabinet.uid === uid))
-                        .map((cabinet) => (cabinet ? wallTopLimit(room, cabinetWall(cabinet, room)) : roomCeiling(room)))
-                        .find((top) => top < roomCeiling(room) - 0.001);
-                      return shortWallTop != null
-                        ? `${count} cabinet${count > 1 ? "s stand" : " stands"} above the top of its ${fmt(shortWallTop)} half wall — lower it, pick a shorter box, or raise that wall (up to the ${fmt(roomCeiling(room))} ceiling). `
-                        : `${count} cabinet${count > 1 ? "s are" : " is"} taller than the ${fmt(roomCeiling(room))} ceiling — pick a shorter box or raise the ceiling height. `;
-                    })()
-                    : ""}
-                  {cornerBaseViolationUids.size > 0
-                    ? `${cornerBaseViolationUids.size} standard base cabinet${cornerBaseViolationUids.size > 1 ? "s are" : " is"} placed at a doorway corner — select an ER36 or BER36 Easy Reach corner cabinet for that opening. `
-                    : ""}
-                  {applianceConflictUids.size > 0
-                    ? "An appliance running into a cabinet must be fixed before ordering."
-                    : "A cabinet or filler spacing conflict must be corrected before ordering. Small BBC fillers up to 3\" are permitted at the required return."}
-                </span>
-              </div>
-            )}
-		            {paletteType !== "closetparts" && <section data-testid="design-finish-selection-summary" aria-label="Current cabinet colors and countertop materials" className="mb-3 border-y border-[#d9c196]/70 py-3">
+	            {paletteType !== "closetparts" && <section data-testid="design-finish-selection-summary" aria-label="Current cabinet colors and countertop materials" className="mb-3 border-y border-[#d9c196]/70 py-3">
 	              <div className="mb-2 flex items-center justify-between gap-2">
 	                <h3 className="text-xs font-semibold uppercase tracking-[0.12em] text-[#1a2744]">Current selections</h3>
 	                <span className="text-[10px] text-muted-foreground">Wall runs and island</span>
@@ -18282,12 +18707,16 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	              disabled={measureMode}
 	              onClick={openMobileAttributes}
 	            />
-	            <MobileBarButton
-	              icon={<FileText className="h-5 w-5" />}
-	              label="Materials"
-	              disabled={materialsListRows.length === 0}
-	              onClick={() => setMaterialsListOpen(true)}
-	            />
+	            <div className="relative h-full w-16 min-w-16 shrink-0">
+	              <MobileBarButton
+	                icon={<FileText className="h-5 w-5" />}
+	                label="Materials"
+	                ariaLabel="Materials"
+	                disabled={materialsListRows.length === 0}
+	                onClick={() => openMaterialsList()}
+	              />
+	              <MaterialsConflictShortcut count={materialsConflictCount} disabled={materialsListRows.length === 0} onOpenConflicts={() => openMaterialsList(true)} className="absolute right-0.5 top-1 h-8 min-w-8 px-1 text-[10px]" />
+	            </div>
 	            <MobileBarButton
 	              icon={<Undo2 className="h-5 w-5" />}
               label="Undo"
@@ -18418,8 +18847,11 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	        <FourAnchorAutoBuildDialog
 	          open={fourAnchorAutoBuildOpen}
 	          onOpenChange={setFourAnchorAutoBuildOpen}
+	          onWallGuideChange={setFourAnchorWallGuideSelection}
+	          onLoadSixWallTrainingRoom={loadFourAnchorSixWallTrainingRoom}
 	          onBuild={buildFourAnchorAutoLayout}
 	          catalogLoading={autoFillCabinetsLoading || wallCabPoolLoading}
+	          wallCount={Math.min(6, Math.max(1, room.customWalls?.length ?? 4))}
 	        />
 	      )}
 	      {isAdmin && fourAnchorCornerStage && (
@@ -18662,6 +19094,8 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	        wallPosition={cabinetWallPosition}
 	        onSetWallOffset={setCabinetWallOffset}
 	        cornerClearance={cabinetCornerClearance}
+	        attachedFillerOptions={attrAttachedFillerOptions}
+	        onApplyAttachedFillers={applyAttachedCabinetFillers}
 	        onResetSize={() => { resetWidth(); resetHeight(); resetDepth(); }}
         onSetSwing={setSwingFor}
         onSetNoDoor={setNoDoorFor}
@@ -18942,19 +19376,30 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
             toast.error(`${pelicanSinkBaseKind(sinkProduct) === "farmhouse" ? "Farmhouse/apron-front" : "Standard"} sinks do not fit this ${targetBaseKind === "farmhouse" ? "farmhouse/apron-front" : "standard"} sink base.`);
             return;
           }
-          if (!cab || !verifiedPelicanSinkFitsCabinet(verifiedProfile, cabinetWidth)) {
-            toast.error(`${verifiedProfile.name} requires a sink base at least ${verifiedProfile.minimumCabinetWidthIn}" wide.`);
-            setPendingSinkProduct(null);
-            setRangeTopStep("sink");
-            return;
-          }
-          const verifiedDimensions = { width: verifiedProfile.exteriorWidthIn, depth: verifiedProfile.exteriorDepthIn };
-          const autoSink = cab
-            ? makeSinkForCabinet(verifiedProfile.sinkType, cab, room, verifiedDimensions)
-            : makeSink(verifiedProfile.sinkType, 0, 0, activeWall, verifiedDimensions);
+	          if (!cab || !verifiedPelicanSinkFitsCabinet(verifiedProfile, cabinetWidth)) {
+	            toast.error(`${verifiedProfile.name} requires a sink base at least ${verifiedProfile.minimumCabinetWidthIn}" wide.`);
+	            setPendingSinkProduct(null);
+	            setRangeTopStep("sink");
+	            return;
+	          }
+	          const verifiedDimensions = { width: verifiedProfile.exteriorWidthIn, depth: verifiedProfile.exteriorDepthIn };
+	          // Part 1: a deck-mounted faucet must sit behind—not in—the selected
+	          // non-apron sink. Farmhouse/apron and wall-mounted fixtures retain
+	          // their existing dedicated installation paths.
+	          const deckPlacement = cab && !isBathroomVanity && verifiedProfile.sinkType !== "farmhouse" && !isWallMountedFaucet
+	            ? nonApronSinkDeckPlacement(cab, room, verifiedDimensions)
+	            : null;
+	          if (faucetProduct && deckPlacement?.applies && !deckPlacement.faucetCanFit) {
+	            toast.error(`${verifiedProfile.name} does not leave the required rear countertop deck for a faucet. ${deckPlacement.reason ?? "Choose a shallower sink or a different installation."}`);
+	            return;
+	          }
+	          const autoSink = cab
+	            ? makeSinkForCabinet(verifiedProfile.sinkType, cab, room, verifiedDimensions)
+	            : makeSink(verifiedProfile.sinkType, 0, 0, activeWall, verifiedDimensions);
           const sinkWithFaucet: SinkFixture = {
-            ...autoSink,
-            faucet: Boolean(faucetProduct),
+	            ...autoSink,
+	            faucet: Boolean(faucetProduct),
+	            faucetDeckConflict: faucetProduct ? autoSink.faucetDeckConflict : undefined,
             pelicanProductId: sinkProduct?.id,
             pelicanProductName: sinkProduct?.name,
             pelicanProductImage: sinkProduct?.imageUrl ?? undefined,
@@ -19013,14 +19458,20 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
           toast.success(faucetProduct ? `${isBathroomVanity ? "Vanity sink" : "Sink"} & ${isBathroomVanity ? "vanity faucet" : "faucet"} added` : `${isBathroomVanity ? "Vanity sink" : "Sink"} added`);
         };
         return (
-          <div className="fixed inset-0 z-[300] flex items-center justify-center" role="dialog" aria-modal="true">
-            <div className="absolute inset-0 bg-black/60 pointer-events-auto" onClick={() => { setSinkBaseDialog(null); setRangeTopStep("choose"); setPendingRangeTopType(null); }} />
-            <div className="relative bg-card rounded-2xl shadow-2xl border border-border p-6 w-[400px] max-w-[95vw] flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-200" style={{ maxHeight: "90vh", overflowY: "auto" }}>
+          <DraggableOverlayDialog
+            onBackdropClick={() => { setSinkBaseDialog(null); setRangeTopStep("choose"); setPendingRangeTopType(null); }}
+            overlayClassName="bg-black/60 pointer-events-auto"
+            contentClassName="bg-card rounded-2xl shadow-2xl border border-border p-6 w-[400px] max-w-[95vw] flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-200"
+            contentStyle={{ maxHeight: "90vh", overflowY: "auto" }}
+          >
               {rangeTopStep === "choose" && (
                 <>
-                  <div>
-                    <h2 className="text-lg font-semibold text-foreground">{isBathroomVanity ? "Choose a vanity sink" : "What goes on top?"}</h2>
-                    <p className="text-sm text-muted-foreground mt-1">{isBathroomVanity ? "Choose a Pelican porcelain vanity sink and matching vanity faucet." : "Choose what will be installed on this sink base cabinet."}</p>
+                  <div className="flex items-start gap-1.5">
+                    <PopupDragGrip className="mt-0.5" />
+                    <div>
+                      <h2 className="text-lg font-semibold text-foreground">{isBathroomVanity ? "Choose a vanity sink" : "What goes on top?"}</h2>
+                      <p className="text-sm text-muted-foreground mt-1">{isBathroomVanity ? "Choose a Pelican porcelain vanity sink and matching vanity faucet." : "Choose what will be installed on this sink base cabinet."}</p>
+                    </div>
                   </div>
                   <div className={`grid gap-3 ${isBathroomVanity ? "grid-cols-1" : "grid-cols-2"}`}>
                     {!isBathroomVanity && <button
@@ -19053,6 +19504,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
               {rangeTopStep === "sink" && (
                 <>
                   <div className="flex items-center gap-2">
+                    <PopupDragGrip />
                     <button className="text-muted-foreground hover:text-foreground transition-colors" onClick={() => setRangeTopStep("choose")}>
                       <ChevronRight className="h-4 w-4 rotate-180" />
                     </button>
@@ -19063,16 +19515,14 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                     <button className="w-full text-xs text-muted-foreground border border-dashed rounded-lg py-3" onClick={() => { setPendingSinkProduct(null); setRangeTopStep("faucet"); }}>Continue without a sink product</button>
                   ) : (
                     <div className="grid grid-cols-2 gap-2">
-                      {filteredSinks.slice(0, 6).map(p => (
-                        <button key={p.id} className="overflow-hidden rounded-lg border border-border hover:border-[#a87f33] text-left transition-colors" onClick={() => { setPendingSinkProduct(p); setRangeTopStep("faucet"); }}>
-                          <div className="aspect-[4/3] w-full bg-muted">
-                            {p.imageUrl ? <img src={p.imageUrl} alt={p.name} className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center"><Droplets className="h-5 w-5 text-muted-foreground/40" /></div>}
-                          </div>
-                          <div className="p-1.5">
-                            <div className="line-clamp-2 text-[11px] font-semibold leading-snug">{p.name}</div>
-                            {p.sellPrice != null && <div className="text-[11px] font-bold text-[#1a2744] dark:text-foreground">${p.sellPrice.toFixed(2)}</div>}
-                          </div>
-                        </button>
+                      {groupPelicanConfigurations(filteredSinks).map((configuration) => (
+                        <PelicanConfigurationCard
+                          key={configuration.key}
+                          configuration={configuration}
+                          selectedIds={noSelectedPelicanIds}
+                          onUse={(item) => { setPendingSinkProduct(item as typeof filteredSinks[0]); setRangeTopStep("faucet"); }}
+                          testIdPrefix="sink-dialog-card"
+                        />
                       ))}
                     </div>
                   )}
@@ -19082,6 +19532,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
               {rangeTopStep === "faucet" && (
                 <>
                   <div className="flex items-center gap-2">
+                    <PopupDragGrip />
                     <button className="text-muted-foreground hover:text-foreground transition-colors" onClick={() => setRangeTopStep("sink")}>
                       <ChevronRight className="h-4 w-4 rotate-180" />
                     </button>
@@ -19131,6 +19582,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
               {rangeTopStep === "range-type" && (
                 <>
                   <div className="flex items-center gap-2">
+                    <PopupDragGrip />
                     <button className="text-muted-foreground hover:text-foreground transition-colors" onClick={() => setRangeTopStep("choose")}>
                       <ChevronRight className="h-4 w-4 rotate-180" />
                     </button>
@@ -19169,6 +19621,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                 return (
                 <>
                   <div className="flex items-center gap-2">
+                    <PopupDragGrip />
                     <button className="text-muted-foreground hover:text-foreground transition-colors" onClick={() => setRangeTopStep("range-type")}>
                       <ChevronRight className="h-4 w-4 rotate-180" />
                     </button>
@@ -19238,16 +19691,13 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
               >
                 Skip for now
               </button>
-            </div>
-          </div>
+          </DraggableOverlayDialog>
         );
       })()}
       {/* Oven Type Dialog: opens when an oven tall cabinet (O-code) is placed */}
       {ovenDialog && (
-        <div className="fixed inset-0 z-[300] flex items-center justify-center" role="dialog" aria-modal="true">
-          <div className="absolute inset-0 bg-black/50" />
-          <div className="relative bg-card rounded-2xl shadow-2xl border border-border p-6 w-[340px] max-w-[90vw] flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-200">
-            <h2 className="text-lg font-semibold text-foreground">Oven Cabinet Type</h2>
+        <DraggableOverlayDialog contentClassName="bg-card rounded-2xl shadow-2xl border border-border p-6 w-[340px] max-w-[90vw] flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-200">
+            <h2 className="flex items-center gap-1.5 text-lg font-semibold text-foreground"><PopupDragGrip />Oven Cabinet Type</h2>
             <p className="text-sm text-muted-foreground">Is this going to be a single oven or a double oven?</p>
             <div className="grid grid-cols-2 gap-3">
               <button
@@ -19289,8 +19739,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
             >
               Skip for now
             </button>
-          </div>
-        </div>
+        </DraggableOverlayDialog>
       )}
 
       {/* AI Design Consultant slide-in panel */}
@@ -19572,7 +20021,22 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	        </DialogContent>
 	      </Dialog>
 
-	      <AlertDialog open={rangeCompanionPrompt != null} onOpenChange={(open) => { if (!open) setRangeCompanionPrompt(null); }}>
+	      <AlertDialog open={fourAnchorRangeVentPrompt != null} onOpenChange={(open) => { if (!open) setFourAnchorRangeVentPrompt(null); }}>
+        <AlertDialogContent className="max-w-md" data-testid="four-anchor-range-ventilation-dialog">
+          <AlertDialogHeader>
+            <AlertDialogTitle>What goes above the range?</AlertDialogTitle>
+            <AlertDialogDescription>
+              The measured build left the wall above the range open. Choose a range hood, or a bridge cabinet with an over-range microwave. Nothing else on the plan is moved.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="sm:flex-col sm:space-x-0 gap-2">
+            <AlertDialogAction onClick={addFourAnchorRangeHood} data-testid="four-anchor-range-hood">Add a range hood</AlertDialogAction>
+            <AlertDialogAction onClick={offerFourAnchorBridgeAndMicrowave} data-testid="four-anchor-range-bridge">Add a bridge cabinet and microwave</AlertDialogAction>
+            <AlertDialogCancel data-testid="four-anchor-range-leave-open">Leave it open</AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <AlertDialog open={rangeCompanionPrompt != null} onOpenChange={(open) => { if (!open) setRangeCompanionPrompt(null); }}>
 	        <AlertDialogContent className="max-w-md">
 	          <AlertDialogHeader>
 	            <AlertDialogTitle>Add microwave and bridge over range</AlertDialogTitle>
@@ -19706,6 +20170,66 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	          })()}
 	        </DialogContent>
 	      </Dialog>
+
+          <Dialog open={!!attachedFillerPrompt} onOpenChange={(open) => { if (!open) setAttachedFillerPrompt(null); }}>
+            <DialogContent data-testid="attached-filler-choice-dialog" className="max-w-lg">
+              {attachedFillerPrompt && (() => {
+                const parseCut = (text: string) => {
+                  const value = Number(text);
+                  return Number.isFinite(value) && value > 0 ? Math.min(6, Math.max(0.125, Math.round(value * 8) / 8)) : 0;
+                };
+                const leftIn = parseCut(attachedFillerPrompt.leftText);
+                const rightIn = parseCut(attachedFillerPrompt.rightText);
+                const place = (choice: AttachedFillerChoice) => {
+                  const prompt = attachedFillerPrompt;
+                  setAttachedFillerPrompt(null);
+                  addCabinet(
+                    prompt.cabinet,
+                    prompt.x,
+                    prompt.y,
+                    prompt.forceAccessory,
+                    prompt.rotation,
+                    prompt.strictDropTarget,
+                    prompt.targetCabinetUid,
+                    prompt.targetIslandFace,
+                    prompt.forceBackDepthAdjustment,
+                    prompt.resolvedWallTarget,
+                    prompt.blindPullOverride,
+                    choice,
+                  );
+                };
+                return <>
+                  <DialogHeader>
+                    <DialogTitle>Choose attached fillers</DialogTitle>
+                    <DialogDescription>
+                      Choose optional ⅛″–6″ fillers before placing {attachedFillerPrompt.cabinet.masterCode}. Only the sides that meet a real wall or adjoining cabinet are offered. Each installed strip uses existing CabinetDealz filler stock and its authorized price.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-3">
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950">
+                      <strong>No filler</strong> is the default. A strip of 3″ or less is field-cut from its companion stock board; no short filler SKU or price is invented.
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {attachedFillerPrompt.leftAllowed && <label className="grid gap-1 text-sm font-medium">Filler LEFT (inches)
+                        <Input data-testid="attached-filler-left-input" aria-label="Left attached filler size in inches" type="number" inputMode="decimal" min="0.125" max="6" step="0.125" placeholder="No filler" value={attachedFillerPrompt.leftText} onChange={(event) => setAttachedFillerPrompt((current) => current ? { ...current, leftText: event.target.value } : current)} />
+                      </label>}
+                      {attachedFillerPrompt.rightAllowed && <label className="grid gap-1 text-sm font-medium">Filler RIGHT (inches)
+                        <Input data-testid="attached-filler-right-input" aria-label="Right attached filler size in inches" type="number" inputMode="decimal" min="0.125" max="6" step="0.125" placeholder="No filler" value={attachedFillerPrompt.rightText} onChange={(event) => setAttachedFillerPrompt((current) => current ? { ...current, rightText: event.target.value } : current)} />
+                      </label>}
+                    </div>
+                    <p className="text-xs text-muted-foreground">Selected: {leftIn > 0 ? `left ${formatEighthInches(leftIn)}` : "no left filler"}{leftIn > 0 && rightIn > 0 ? " · " : ""}{rightIn > 0 ? `right ${formatEighthInches(rightIn)}` : leftIn > 0 ? "" : " · no right filler"}.</p>
+                  </div>
+                  <DialogFooter className="flex-wrap gap-2 sm:justify-between">
+                    <Button type="button" variant="outline" onClick={() => setAttachedFillerPrompt(null)}>Cancel placement</Button>
+                    <div className="flex flex-wrap gap-2">
+                      <Button type="button" variant="outline" data-testid="attached-filler-no-filler" onClick={() => place({ leftIn: 0, rightIn: 0 })}>No filler</Button>
+                      <Button type="button" data-testid="attached-filler-place" onClick={() => place({ leftIn, rightIn })}>Place cabinet{leftIn > 0 || rightIn > 0 ? " with fillers" : ""}</Button>
+                    </div>
+                  </DialogFooter>
+                </>;
+              })()}
+            </DialogContent>
+          </Dialog>
 
 	      <Dialog
 	        open={!!blindCornerFillerPrompt}
@@ -20321,9 +20845,13 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         </DialogContent>
 	      </Dialog>
 
-		      <DesignMaterialsListDialog
+	      <DesignMaterialsListDialog
 	        open={materialsListOpen}
-	        onOpenChange={setMaterialsListOpen}
+	        onOpenChange={(open) => {
+	          setMaterialsListOpen(open);
+	          if (!open) setMaterialsListInitialConflictsOnly(false);
+	        }}
+	        initialConflictsOnly={materialsListInitialConflictsOnly}
 	        rows={materialsListRows}
 	        roomLabel={`${room.width}" × ${room.depth}"`}
 	        styleName={activeStyleName}
@@ -20331,6 +20859,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	        onAddPricedItemsToCart={() => void addAllToCart()}
 	        missingPriceUids={missingPriceUids}
 	        missingPriceCount={missingPriceSummary.count}
+	        conflictUids={conflictUids}
 	        pricedCartItemCount={cartableLines.reduce((count, line) => count + line.qty, 0)}
 	        onRemovePlacedItems={(uids) => {
 	          const sources = new Set(uids);
@@ -20339,6 +20868,54 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	          toast.success("Design item removed from Materials & Parts.");
 	        }}
 	      />
+
+	      <Dialog open={catalogSpecificationsOpen} onOpenChange={(open) => { if (!open) setCatalogSpecificationsItem(null); setCatalogSpecificationsOpen(open); }}>
+	        <DialogContent data-testid="catalog-style-specifications-dialog" className="max-w-lg">
+	          <DialogHeader>
+	            <DialogTitle>Catalog specifications{catalogSpecificationsItem ? ` · ${catalogSpecificationsItem.displayMasterCode ?? catalogSpecificationsItem.masterCode}` : activeStyleName ? ` · ${activeStyleName}` : ""}</DialogTitle>
+	            <DialogDescription>Auto-filled from manufacturer sheets</DialogDescription>
+	          </DialogHeader>
+	          {catalogSpecificationsItem && (() => {
+	            const dimensions = resolvedDesignCabinetDimensions(catalogSpecificationsItem);
+	            const cabinetCode = catalogSpecificationsItem.displayMasterCode ?? catalogSpecificationsItem.masterCode;
+	            return <div data-testid="catalog-card-specifications" className="rounded-lg border border-[#d8c7a1] bg-[#fffaf0] p-4 text-sm leading-relaxed text-[#49381a]">
+	              <div className="flex items-start gap-3">
+	                <CabinetImage cabinet={catalogSpecificationsItem} className="h-16 w-16 shrink-0 rounded border border-[#d8c7a1] object-contain bg-white" />
+	                <div className="min-w-0">
+	                  <p className="font-mono text-base font-bold">{cabinetCode}</p>
+	                  <p className="text-sm">{isSquareDoubleDoorBaseEnd(catalogSpecificationsItem) ? BEC24_DISPLAY_NAME : catalogSpecificationsItem.description}</p>
+	                  <p className="mt-1 text-xs text-[#806a42]">{catalogSpecificationsItem.category ?? "Catalog item"}{catalogSpecificationsItem.subCategory ? ` · ${catalogSpecificationsItem.subCategory}` : ""}</p>
+	                </div>
+	              </div>
+	              <dl className="mt-4 grid grid-cols-2 gap-x-5 gap-y-2 border-t border-[#d8c7a1] pt-3 text-xs">
+	                <div><dt className="font-semibold">Nominal size</dt><dd>{formatCatalogInchValue(dimensions.width)}″ W × {formatCatalogInchValue(dimensions.height)}″ H × {formatCatalogInchValue(dimensions.depth)}″ D</dd></div>
+	                <div><dt className="font-semibold">Placement</dt><dd className="capitalize">{catalogSpecificationsItem.placement}</dd></div>
+	                {catalogSpecificationsItem.numberOfDoors != null && <div><dt className="font-semibold">Doors</dt><dd>{catalogSpecificationsItem.numberOfDoors}</dd></div>}
+	                {catalogSpecificationsItem.numberOfDrawers != null && <div><dt className="font-semibold">Drawers</dt><dd>{catalogSpecificationsItem.numberOfDrawers}</dd></div>}
+	                {catalogSpecificationsItem.constructionMethod && <div><dt className="font-semibold">Construction</dt><dd>{catalogSpecificationsItem.constructionMethod}</dd></div>}
+	                {catalogSpecificationsItem.layoutSpec && <div><dt className="font-semibold">Configuration</dt><dd>{catalogSpecificationsItem.layoutSpec}</dd></div>}
+	              </dl>
+	              {catalogSpecificationsItem.specImageUrl && <a className="mt-4 inline-flex font-semibold text-[#634b20] underline underline-offset-2" href={catalogSpecificationsItem.specImageUrl} target="_blank" rel="noreferrer">Open manufacturer specification sheet</a>}
+	            </div>;
+	          })()}
+	          {activeStyle && (
+	            <div className="rounded-lg border border-[#d8c7a1] bg-[#fffaf0] p-4 text-sm leading-relaxed text-[#49381a]">
+	              <div className="grid gap-x-5 gap-y-3 sm:grid-cols-2">
+	                {activeStyle.boxConstruction && <p><b>Box:</b> {activeStyle.boxConstruction}</p>}
+	                {activeStyle.doorPanelType && <p><b>Front:</b> {activeStyle.doorPanelType}</p>}
+	                {activeStyle.drawerConstruction && <p><b>Drawers:</b> {activeStyle.drawerConstruction}</p>}
+	                {activeStyle.hardware && <p><b>Hardware:</b> {activeStyle.hardware}</p>}
+	                {activeStyle.finishSheen && <p><b>Sheen:</b> {activeStyle.finishSheen}</p>}
+	              </div>
+	              {activeStyle.profileNotes && <p className="mt-4 border-t border-[#d8c7a1] pt-3 text-[#806a42]">{activeStyle.profileNotes}</p>}
+	              <p className="mt-4 border-t border-[#d8c7a1] pt-3 font-medium text-[#49381a]">Cabinet width, height, and depth remain SKU-specific and are shown on each catalog card.</p>
+	            </div>
+	          )}
+	          <DialogFooter>
+	            <Button type="button" variant="outline" onClick={() => setCatalogSpecificationsOpen(false)}>Close</Button>
+	          </DialogFooter>
+	        </DialogContent>
+	      </Dialog>
 
 	      {/* Rename design dialog (opened from mobile save success toast) */}
       <Dialog open={renameDialogOpen} onOpenChange={setRenameDialogOpen}>
@@ -20467,9 +21044,39 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   );
 }
 
+function MaterialsConflictShortcut({
+  count,
+  disabled,
+  onOpenConflicts,
+  className,
+}: {
+  count: number;
+  disabled?: boolean;
+  onOpenConflicts: () => void;
+  className?: string;
+}) {
+  if (count <= 0) return null;
+  const conflictLabel = `${count} placement conflict${count === 1 ? "" : "s"}`;
+  return (
+    <button
+      type="button"
+      data-testid="materials-conflict-count-badge"
+      data-materials-conflict-badge="true"
+      disabled={disabled}
+      aria-label={`Open Materials & Parts with ${conflictLabel} only`}
+      aria-haspopup="dialog"
+      title={`Open Materials & Parts with ${conflictLabel} only`}
+      onClick={onOpenConflicts}
+      className={cn("inline-flex h-7 min-w-7 shrink-0 items-center justify-center rounded-full bg-red-600 px-1 text-[9px] font-extrabold leading-none text-white shadow-sm transition hover:bg-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a2744] focus-visible:ring-offset-1 active:scale-95 disabled:opacity-40", className)}
+    >
+      {count}
+    </button>
+  );
+}
+
 // ─── Mobile bottom-bar button ───────────────────────────────────────────────
 function MobileBarButton({
-  icon, label, onClick, disabled, danger, badge, active, testId,
+  icon, label, onClick, disabled, danger, badge, badgeTestId, active, testId, ariaLabel,
 }: {
   icon: React.ReactNode;
   label: string;
@@ -20477,13 +21084,17 @@ function MobileBarButton({
   disabled?: boolean;
   danger?: boolean;
   badge?: number;
+  badgeTestId?: string;
   active?: boolean;
 	  testId?: string;
+  ariaLabel?: string;
 }) {
   return (
     <button
       type="button"
 	      data-testid={testId}
+      aria-label={ariaLabel}
+      title={ariaLabel}
       disabled={disabled}
       onClick={onClick}
       className={`relative flex h-full w-16 min-w-16 shrink-0 flex-col items-center justify-center gap-0.5 text-[10px] font-medium transition-colors active:scale-95 disabled:opacity-40 ${
@@ -20493,7 +21104,7 @@ function MobileBarButton({
       <span className="relative">
         {icon}
         {badge != null && (
-          <span className="absolute -right-2 -top-1.5 min-w-4 h-4 px-1 rounded-full bg-[#1a2744] text-white text-[9px] font-bold flex items-center justify-center">
+          <span data-testid={badgeTestId} className="absolute -right-2 -top-1.5 min-w-4 h-4 px-1 rounded-full bg-red-600 text-white text-[9px] font-bold flex items-center justify-center">
             {badge}
           </span>
         )}

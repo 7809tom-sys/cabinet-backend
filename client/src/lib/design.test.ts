@@ -20,12 +20,12 @@ import {
 	  freeSegmentsOnWall, magneticAvailableWallStart, nearestAvailableWallStart, firstCollisionFreeWallPlacement, wallPlacementAt, wallRunOffset, wallGapFitPreview, wallGaps, paletteActiveWallPlacement, kneeDrawerWallPlacement, refrigeratorAdjacentOpeningPlacement, nextAvailableRoomCornerPlacement, customWallTrueCornerPlacement, adjoiningWallRunMountBottom, selectedSinkBaseWallPlacement, sinkBaseWindowPlacement, selectedLowerCabinetWallPlacement, matchingLowerCabinetWallPlacement, continuousWallApplianceSnapInfo,
   rangeOvenClearanceViolations, RANGE_CLEARANCE_FILLER_IN, autoPlaceRangeFillers,
   wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN, bridgeMountBottomAboveWindow, overSinkWindowStart, overSinkWallMountBottom, overSinkWindowClearanceMeasure, overSinkWindowClearanceBlocked, normalizeOverSinkWallMounts, OVER_SINK_WALL_MOUNT_BOTTOM,
-  blindCornerSpecViolations, blindCornerViolations, blindPullRange, blindCornerPullPlacement,
+	  blindCornerSpecViolations, blindCornerViolations, blindPullRange, blindCornerPullPlacement, resolveBaseBlindCornerFillerSnap,
 	  blindCornerAutoFiller, blindCornerRearCountertopExtensionIn,
 			  isStacker, glassStackerParentPlacement, glassStackerFrontFlushSpot, glassStackerFrontSnapTarget, normalizeGlassStackersToParentFronts, isWd18CountertopDrawerCabinet, wd18CountertopFaceLayout, normalizeWd18CountertopMounts, normalizeStandardWallMounts,
   isDiagonalCorner, footprintDepth,
   isLCornerCabinet, cornerLegRatioForPlaced, placedCornerGeometryKind, placedFootprint, normalizeLCornerDepths,
-  baseOpeningOverlaps, blocksFloorRun, missingCornerBaseViolations,
+	  baseOpeningOverlaps, blocksFloorRun, missingCornerBaseViolations, isWindowBelowCountertop, windowVerticallyOverlapsCabinet,
   snapPosition, snapCabinetSeamOverlap, CABINET_CONFLICT_LOCK_IN, orientToWall, hasCollision, collisionReason, cabinetPlacementCollisionDetail, wallCabinetPlacementReason, removeOverlappingPlacements, shouldBlockPlacementCollision, isHoodOverRangePair,
   resolveSwing, cycleSwing, swingLabel, swingText, hasDoorSwing, type DoorSwing,
   isCustomWidth, isCustomHeight, isCustomDepth, isCustomSize, customSizeNote, customSizeFee, CUSTOM_SIZE_FEE, dimLabel,
@@ -3667,11 +3667,32 @@ describe("blind corner pull spec", () => {
     expect(blindCornerViolations([blind, legacyFiller])).not.toContain(blind.uid);
     expect(cabinetPlacementCollisionDetail({ ...legacyFiller, width: 4 }, [blind], { width: 144, depth: 120 })).not.toBeNull();
   });
-  it("does not turn the allowed legacy BBC/F342 seam into the exact-position rejection message", () => {
-    const blind = cab({ uid: "bbc-owner", masterCode: "BBC36", description: "Blind Corner Base", placement: "base", x: 0, y: 0, width: 36, depth: 24, height: 34.5 });
-    const legacyFiller = cab({ uid: "legacy-f342", masterCode: "F342", description: '3" Filler', category: "Filler", subCategory: "Filler", placement: "base", x: 0, y: 23.75, width: 3, depth: 24, height: 34.5, rotation: 90 });
-    expect(wallCabinetPlacementReason(blind, { width: 144, depth: 120 }, [legacyFiller], [])).toBeNull();
-  });
+	  it("does not turn the allowed legacy BBC/F342 seam into the exact-position rejection message", () => {
+	    const blind = cab({ uid: "bbc-owner", masterCode: "BBC36", description: "Blind Corner Base", placement: "base", x: 0, y: 0, width: 36, depth: 24, height: 34.5 });
+	    const legacyFiller = cab({ uid: "legacy-f342", masterCode: "F342", description: '3" Filler', category: "Filler", subCategory: "Filler", placement: "base", x: 0, y: 23.75, width: 3, depth: 24, height: 34.5, rotation: 90 });
+	    expect(wallCabinetPlacementReason(blind, { width: 144, depth: 120 }, [legacyFiller], [])).toBeNull();
+	  });
+
+	  it("snaps a BBC36 to an adjacent F342 seam only when the selected pull leaves a full physical body span", () => {
+	    const room: RoomData = { width: 144, depth: 120 };
+	    const blind = cab({
+	      uid: "bbc-snap", masterCode: "BBC36", description: "Blind Corner Base", placement: "base",
+	      x: 0, y: 0, width: 36, depth: 24, height: 34.5, rotation: 0,
+	      wallId: "top", wallOffset: 0, blindPull: 3,
+	    });
+	    const correctlySpacedFiller = cab({
+	      uid: "f342-at-39", masterCode: "F342", description: '3" Filler', category: "Filler", subCategory: "Filler",
+	      placement: "base", x: 39, y: 0, width: 3, depth: 24, height: 34.5, rotation: 0, wallId: "top", wallOffset: 39,
+	    });
+	    expect(resolveBaseBlindCornerFillerSnap(blind, room, [correctlySpacedFiller], [])).toMatchObject({
+	      x: 3, y: 0, rotation: 0, wallId: "top", wallOffset: 3,
+	    });
+
+	    const nominalOnlyOpening = { ...correctlySpacedFiller, uid: "f342-at-36", x: 36, wallOffset: 36 };
+	    // A BBC body is 36 inches and must also retain its chosen three-inch pull;
+	    // a 0–36 nominal gap is not silently treated as a valid 3–39 body span.
+	    expect(resolveBaseBlindCornerFillerSnap(blind, room, [nominalOnlyOpening], [])).toBeNull();
+	  });
 });
 
 describe("blindCornerAutoFiller — auto 3in filler opposite the pull", () => {
@@ -5253,5 +5274,49 @@ describe("filler conflict ownership", () => {
       x: 0, y: 23, width: 6, depth: 24, height: 34.5, rotation: 90,
     });
     expect(blindCornerViolations([blind, filler]).has(blind.uid)).toBe(false);
+  });
+});
+
+describe("window sill-to-top clearance", () => {
+  const room = { width: 144, depth: 120, ceilingHeight: 96 } as RoomData;
+  const raisedWindow = {
+    uid: "over-sink-window", kind: "window", label: 'Over-Sink Window 30"',
+    side: "top", offset: 54.25, width: 36, height: 48, sill: 44,
+  } as WallOpening;
+
+  it("keeps a base cabinet below a 44-inch sill while blocking upper, tall, and hood envelopes in the window zone", () => {
+    const base = {
+      uid: "base-under-window", masterCode: "B24", description: "24 inch Base Cabinet",
+      placement: "base", x: 54.25, y: 0, width: 24, depth: 24, height: 34.5, rotation: 0,
+    } as PlacedCabinet;
+    const wall = {
+      uid: "wall-through-window", masterCode: "W3030", description: "30 inch Wall Cabinet",
+      placement: "wall", x: 54.25, y: 0, width: 30, depth: 12, height: 30, rotation: 0, mountBottom: 54,
+    } as PlacedCabinet;
+    const tall = {
+      uid: "tall-through-window", masterCode: "P2496", description: "Tall Pantry",
+      placement: "tall", x: 54.25, y: 0, width: 24, depth: 24, height: 84, rotation: 0,
+    } as PlacedCabinet;
+    const hood = {
+      uid: "hood-through-window", masterCode: "HOOD-30", description: "30 inch Range Hood",
+      placement: "appliance", x: 54.25, y: 0, width: 30, depth: 18, height: 18, rotation: 0, mountBottom: 66,
+    } as PlacedCabinet;
+
+    expect(windowVerticallyOverlapsCabinet(base, raisedWindow, room)).toBe(false);
+    expect(windowVerticallyOverlapsCabinet(wall, raisedWindow, room)).toBe(true);
+    expect(windowVerticallyOverlapsCabinet(tall, raisedWindow, room)).toBe(true);
+    expect(windowVerticallyOverlapsCabinet(hood, raisedWindow, room)).toBe(true);
+    expect(baseOpeningOverlaps([base], [raisedWindow], room)).toEqual(new Set());
+  });
+
+  it("flags a window below the finished countertop and blocks the affected base run", () => {
+    const lowWindow = { ...raisedWindow, uid: "low-window", sill: 30 };
+    const base = {
+      uid: "base-at-low-window", masterCode: "B24", description: "24 inch Base Cabinet",
+      placement: "base", x: 54.25, y: 0, width: 24, depth: 24, height: 34.5, rotation: 0,
+    } as PlacedCabinet;
+
+    expect(isWindowBelowCountertop(lowWindow)).toBe(true);
+    expect(baseOpeningOverlaps([base], [lowWindow], room)).toEqual(new Set([base.uid]));
   });
 });

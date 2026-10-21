@@ -28,4 +28,10 @@ describe("Designer visual faucet selection", () => {
     expect(source).toContain("requiresProjectSpecificMountHeight");
     expect(source).toContain("Enter the documented wall-mount datum above the finished countertop");
   });
+
+  it("blocks a deck-mounted faucet when the selected non-apron sink leaves too little rear countertop deck", () => {
+    expect(source).toContain("nonApronSinkDeckPlacement(cab, room, verifiedDimensions)");
+    expect(source).toContain("!deckPlacement.faucetCanFit");
+    expect(source).toContain("does not leave the required rear countertop deck for a faucet");
+  });
 });

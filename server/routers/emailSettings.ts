@@ -191,6 +191,10 @@ export const emailSettingsRouter = router({
         onNewProApplication: z.string().max(1024),
         onNewConsultation: z.string().max(1024),
         onNewAffiliate: z.string().max(1024),
+        onCrmDesignHelp: z.string().max(1024),
+        onCrmShippingHelp: z.string().max(1024),
+        notifyOnCrmDesignHelp: z.boolean(),
+        notifyOnCrmShippingHelp: z.boolean(),
         enabled: z.boolean(),
       })
     )

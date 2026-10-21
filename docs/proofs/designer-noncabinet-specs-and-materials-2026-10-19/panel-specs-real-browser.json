@@ -1,0 +1,54 @@
+[
+  {
+    "at": "2026-10-19T23:30:06.335Z",
+    "kind": "navigation",
+    "url": "https://3000-iiiccrm83w0u12z611siq-33db4eec.us1.manus.computer/design"
+  },
+  {
+    "at": "2026-10-19T23:30:06.465Z",
+    "kind": "console",
+    "type": "debug",
+    "text": "[vite] connecting..."
+  },
+  {
+    "at": "2026-10-19T23:30:06.468Z",
+    "kind": "console",
+    "type": "debug",
+    "text": "[Manus] Debug collector initialized (no rrweb, UI events only)"
+  },
+  {
+    "at": "2026-10-19T23:30:06.510Z",
+    "kind": "console",
+    "type": "debug",
+    "text": "[vite] connected."
+  },
+  {
+    "at": "2026-10-19T23:30:06.956Z",
+    "kind": "console",
+    "type": "info",
+    "text": "%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold"
+  },
+  {
+    "at": "2026-10-19T23:30:39.462Z",
+    "kind": "console",
+    "type": "warning",
+    "text": "THREE.WebGLShadowMap: PCFSoftShadowMap has been deprecated. Using PCFShadowMap instead."
+  },
+  {
+    "at": "2026-10-19T23:30:46.639Z",
+    "kind": "console",
+    "type": "warning",
+    "text": "THREE.WebGLShadowMap: PCFSoftShadowMap has been deprecated. Using PCFShadowMap instead."
+  },
+  {
+    "at": "2026-10-19T23:31:00.971Z",
+    "kind": "result",
+    "url": "https://3000-iiiccrm83w0u12z611siq-33db4eec.us1.manus.computer/design",
+    "specsId": "catalog-noncabinet-card-specs-BDEP",
+    "ariaLabel": "View specifications for BDEP",
+    "materialsBadgesBefore": 0,
+    "materialsBadgesAfter": 0,
+    "dialogText": "Catalog specifications · BDEPAuto-filled from manufacturer sheetsBDEPBase Decorative End Panel — 23½\" × 29\" × ¾\"Panels · Base Decorative End PanelNominal size23½″ W × 29″ H × 0.75″ DPlacementaccessoryDoors0Drawers0Open manufacturer specification sheetBox: 1/2 in. plywood; matching exterior; UV-coated natural interiorFront: Five-piece solid wood with MDF center panelDrawers: Solid-wood dovetail drawer box, 3 1/8 in. deepHardware: Undermount full-extension soft-close glides; six-way soft-close hingesCabinet width, height, and depth remain SKU-specific and are shown on each catalog card.CloseClose",
+    "pageClosed": false
+  }
+]

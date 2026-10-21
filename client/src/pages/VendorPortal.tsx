@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Package, Palette, Star, ClipboardList, Upload,
   Eye, EyeOff, Search, DollarSign, ImageIcon, Check, X, AlertTriangle, Loader2,
 	  PlusCircle, Plus, ArrowLeft, ArrowUp, ArrowDown, GripVertical, Truck, MapPin, FileSpreadsheet, Download, BarChart3, Pencil, Trash2, RotateCcw,
-	  Sparkles, Clock, CheckCircle2, Send, Link2, CreditCard, FileText, ExternalLink, Ruler,
+	  Sparkles, Clock, CheckCircle2, Send, Link2, CreditCard, FileText, ExternalLink, Ruler, PackageCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,6 +29,9 @@ import { toast } from "sonner";
 import { Label } from "@/components/ui/label";
 import { csvEscape } from "@shared/inventoryForecast";
 import { VendorOtherProducts } from "@/components/vendor/VendorOtherProducts";
+import { VendorFulfillmentQueue } from "@/components/vendor/VendorFulfillmentQueue";
+import { VendorCodeUpload } from "@/components/vendor/VendorCodeUpload";
+import { PelicanShippingProfilesPanel } from "@/components/admin/ShippingAdmin";
 import { designerFrameCompliance } from "@/lib/doorFrameMetrics";
 import { US_CABINET_DEPOT_AVAILABILITY_SOURCES, US_CABINET_DEPOT_WAREHOUSES } from "@/lib/vendorWarehouseNetwork";
 
@@ -75,7 +78,7 @@ async function readSupplierPdfAsBase64(file: File): Promise<string> {
 }
 
 // ─── Sub-pages ────────────────────────────────────────────────────────────────
-type VendorPage = "overview" | "supplier-profile" | "catalog" | "other-products" | "styles" | "featured-styles" | "shipping" | "picks" | "orders" | "promotions" | "gallery" | "analytics" | "ai-services" | "integrations" | "payments";
+type VendorPage = "overview" | "supplier-profile" | "catalog" | "other-products" | "styles" | "featured-styles" | "shipping" | "picks" | "orders" | "fulfillment" | "promotions" | "gallery" | "analytics" | "ai-services" | "integrations" | "payments";
 
 const NAV_ITEMS: { id: VendorPage; label: string; icon: typeof LayoutDashboard }[] = [
   { id: "overview", label: "Overview", icon: LayoutDashboard },
@@ -90,16 +93,22 @@ const NAV_ITEMS: { id: VendorPage; label: string; icon: typeof LayoutDashboard }
   { id: "gallery", label: "Gallery", icon: ImageIcon },
   { id: "analytics", label: "Analytics", icon: BarChart3 },
   { id: "orders", label: "Orders", icon: ClipboardList },
+  { id: "fulfillment", label: "Fulfillment", icon: PackageCheck },
   { id: "ai-services", label: "AI Services", icon: Sparkles },
   { id: "integrations", label: "Integrations", icon: Link2 },
   { id: "payments", label: "Payments", icon: CreditCard },
 ];
 
+// Pelican has no cabinet supply line, so its portal is limited to the pages that
+// apply to surfaces and fixtures.
+const PELICAN_NAV_IDS: ReadonlySet<VendorPage> = new Set<VendorPage>(["overview", "supplier-profile", "catalog", "shipping", "fulfillment"]);
 // ─── Pelican Vendor Catalog Page ─────────────────────────────────────────────
 function PelicanVendorCatalogPage({ initialCategory }: { initialCategory?: string } = {}) {
   const utils = trpc.useUtils();
   const [category, setCategory] = useState<string>(initialCategory ?? ALL);
   const [search, setSearch] = useState("");
+  const [editingProduct, setEditingProduct] = useState<any | null>(null);
+  const [draft, setDraft] = useState({ name: "", description: "", imageUrl: "", yourCost: "", retailPrice: "" });
   const input = useMemo(
     () => ({
       category: category === ALL ? undefined : (category as any),
@@ -122,6 +131,29 @@ function PelicanVendorCatalogPage({ initialCategory }: { initialCategory?: strin
     onSuccess: () => utils.pelican.adminList.invalidate(),
     onError: (e) => toast.error(e.message || "Failed to update"),
   });
+  const updateProduct = trpc.pelican.updateProduct.useMutation({
+    onSuccess: () => { void utils.pelican.adminList.invalidate(); setEditingProduct(null); toast.success("Pelican item saved."); },
+    onError: (e) => toast.error(e.message || "Failed to save Pelican item"),
+  });
+
+  const openEditor = (item: any) => {
+    setEditingProduct(item);
+    setDraft({ name: item.name ?? "", description: item.description ?? "", imageUrl: item.imageUrl ?? "", yourCost: item.yourCost == null ? "" : String(item.yourCost), retailPrice: item.retailPrice == null ? "" : String(item.retailPrice) });
+  };
+  const parseMoney = (value: string, label: string): number | null | undefined => {
+    if (!value.trim()) return null;
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed) || parsed < 0) { toast.error(`${label} must be a non-negative number.`); return undefined; }
+    return Math.round(parsed * 100) / 100;
+  };
+  const saveEditor = () => {
+    if (!editingProduct) return;
+    const yourCost = parseMoney(draft.yourCost, "Our cost");
+    const retailPrice = parseMoney(draft.retailPrice, "Retail price");
+    if (yourCost === undefined || retailPrice === undefined) return;
+    if (draft.imageUrl.trim() && !/^https?:\/\//i.test(draft.imageUrl.trim())) { toast.error("Image URL must start with http:// or https://."); return; }
+    updateProduct.mutate({ id: editingProduct.id, name: draft.name.trim(), description: draft.description.trim(), imageUrl: draft.imageUrl.trim() || null, yourCost, retailPrice });
+  };
 
   const categories = useMemo(() => {
     const cats = new Set<string>();
@@ -181,6 +213,7 @@ function PelicanVendorCatalogPage({ initialCategory }: { initialCategory?: strin
                 <TableHead className="text-center">Designer</TableHead>
                 <TableHead className="text-center">Featured</TableHead>
                 <TableHead className="text-right">Sq ft/Box</TableHead>
+                <TableHead className="text-right">Edit</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -238,12 +271,63 @@ function PelicanVendorCatalogPage({ initialCategory }: { initialCategory?: strin
                         ? <span className="text-muted-foreground text-xs">{it.size}</span>
                         : <span className="text-muted-foreground">—</span>}
                   </TableCell>
+                  <TableCell className="text-right">
+                    <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={() => openEditor(it)}>
+                      <Pencil className="h-3.5 w-3.5" /> Edit
+                    </Button>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
         </div>
       )}
+      <Dialog open={Boolean(editingProduct)} onOpenChange={(open) => !open && setEditingProduct(null)}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Edit Pelican item</DialogTitle>
+            <p className="text-sm text-muted-foreground">{editingProduct?.pelicanCode} · Changes apply to the shared catalog and Designer.</p>
+          </DialogHeader>
+          <div className="grid gap-4 py-2">
+            <div className="grid gap-2 sm:grid-cols-[128px_1fr] sm:items-start">
+              <div className="flex h-32 w-32 items-center justify-center overflow-hidden rounded-lg border bg-muted">
+                {draft.imageUrl ? <img src={draft.imageUrl} alt="Preview" className="h-full w-full object-contain" /> : <ImageIcon className="h-6 w-6 text-muted-foreground" />}
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="pelican-edit-image">Image URL</Label>
+                <Input id="pelican-edit-image" value={draft.imageUrl} placeholder="https://…" onChange={(e) => setDraft((d) => ({ ...d, imageUrl: e.target.value }))} />
+                <p className="text-xs text-muted-foreground">Paste the approved product image URL. Leave blank to remove it.</p>
+              </div>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="pelican-edit-name">Product name</Label>
+              <Input id="pelican-edit-name" value={draft.name} onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))} />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="pelican-edit-description">Description</Label>
+              <Textarea id="pelican-edit-description" rows={5} value={draft.description} onChange={(e) => setDraft((d) => ({ ...d, description: e.target.value }))} />
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-2">
+                <Label htmlFor="pelican-edit-cost">Our cost</Label>
+                <Input id="pelican-edit-cost" inputMode="decimal" placeholder="0.00" value={draft.yourCost} onChange={(e) => setDraft((d) => ({ ...d, yourCost: e.target.value }))} />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="pelican-edit-retail">Selling price / retail</Label>
+                <Input id="pelican-edit-retail" inputMode="decimal" placeholder="Leave blank to use category markup" value={draft.retailPrice} onChange={(e) => setDraft((d) => ({ ...d, retailPrice: e.target.value }))} />
+                <p className="text-xs text-muted-foreground">Blank uses the existing category markup calculation.</p>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingProduct(null)}>Cancel</Button>
+            <Button onClick={saveEditor} disabled={updateProduct.isPending || !draft.name.trim()}>
+              {updateProduct.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Save item
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -958,6 +1042,7 @@ function CatalogPage() {
   const [editingOnHand, setEditingOnHand] = useState<{ skuId: number; value: string } | null>(null);
   const [showNewProduct, setShowNewProduct] = useState(false);
   const [showCsvUpload, setShowCsvUpload] = useState(false);
+  const [showCodeUpload, setShowCodeUpload] = useState(false);
   const catalogInput = useMemo(
     () => ({
       ...(adminDistId ? { distributorId: adminDistId } : {}),
@@ -1050,6 +1135,10 @@ function CatalogPage() {
         <h2 className="text-xl font-bold">My Catalog</h2>
         <Badge variant="outline">{catalog.data?.total ?? 0} products</Badge>
         <div className="flex gap-2 ml-auto">
+          <Button size="sm" onClick={() => setShowCodeUpload(!showCodeUpload)}>
+            <Upload className="h-4 w-4 mr-2" />
+            Upload by code
+          </Button>
           <Button variant="outline" size="sm" onClick={() => setShowCsvUpload(!showCsvUpload)}>
             <FileSpreadsheet className="h-4 w-4 mr-2" />
             Spreadsheet Upload
@@ -1061,6 +1150,7 @@ function CatalogPage() {
         </div>
       </div>
 
+      {showCodeUpload && <VendorCodeUpload distributorId={adminDistId} onDone={() => setCatalogPage(0)} />}
       {showCsvUpload && <CsvUploadSection />}
       <CatalogTransferTools />
 
@@ -4262,14 +4352,26 @@ export default function VendorPortal() {
 
   // Fetch distributors list for admin selector
   const isAdmin = user?.role === "admin";
+  // An approved Pelican vendor has no supply line, but it does own catalog,
+  // shipping and fulfillment. Identity comes from the server, which resolves it
+  // from the approved vendor record's source key, never from a display name.
+  const fulfillmentScopes = trpc.vendorFulfillment.scopes.useQuery(
+    {
+      approvedVendorLineId: isAdmin ? adminApprovedVendorLineId ?? undefined : undefined,
+      distributorId: isAdmin ? adminDistributorId ?? undefined : undefined,
+    },
+    { enabled: Boolean(user) && (isAdmin === true || user?.role === "distributor") },
+  );
+  const isPelicanVendor = (fulfillmentScopes.data ?? []).some((option) => option.scope === "pelican");
   const supplierProfileOnly = Boolean(
-    (isAdmin && adminApprovedVendorLineId != null && adminDistributorId == null)
+    !isPelicanVendor
+    && ((isAdmin && adminApprovedVendorLineId != null && adminDistributorId == null)
     || (!isAdmin
       && user?.role === "distributor"
       && user.distributorId == null
-      && user.approvedVendorLineId != null)
+      && user.approvedVendorLineId != null))
   );
-  const distList = trpc.distributors.list.useQuery(undefined, { enabled: isAdmin === true });
+  const distList = trpc.distributors.list.useQuery(undefined, { enabled: isAdmin === true || user?.role === "distributor" });
   const approvedVendors = trpc.vendors.list.useQuery(undefined, { enabled: isAdmin === true });
 
   useEffect(() => {
@@ -4365,7 +4467,8 @@ export default function VendorPortal() {
   return (
     <VendorPortalDashboard
       user={user}
-      page={supplierProfileOnly ? "supplier-profile" : page}
+      page={supplierProfileOnly ? "supplier-profile" : isPelicanVendor && !PELICAN_NAV_IDS.has(page) ? "overview" : page}
+      isPelicanVendor={isPelicanVendor}
       setPage={navigateToPage}
       isAdmin={isAdmin}
       adminDistributorId={adminDistributorId}
@@ -4453,9 +4556,11 @@ function VendorPortalDashboard({
   distList,
   approvedVendorList,
   supplierProfileOnly = false,
+  isPelicanVendor = false,
 }: {
   user: any;
   page: VendorPage;
+  isPelicanVendor?: boolean;
   setPage: (p: VendorPage) => void;
   isAdmin: boolean;
   adminDistributorId: number | null;
@@ -4465,13 +4570,16 @@ function VendorPortalDashboard({
   approvedVendorList: PortalApprovedVendorOption[];
   supplierProfileOnly?: boolean;
 }) {
-  const activeDistCode = isAdmin && adminDistributorId
-    ? (distList.find((d: any) => d.id === adminDistributorId)?.code ?? undefined)
+  const activeDistributorId = isAdmin ? adminDistributorId : user.distributorId;
+  const activeDistCode = activeDistributorId
+    ? (distList.find((d: any) => d.id === activeDistributorId)?.code ?? undefined)
     : undefined;
-  const isPelican = activeDistCode === PEL_DIST_CODE;
+  const isPelican = activeDistCode === PEL_DIST_CODE || isPelicanVendor;
   const portalItems = supplierProfileOnly
     ? NAV_ITEMS.filter((item) => item.id === "supplier-profile")
-    : NAV_ITEMS;
+    : isPelicanVendor
+      ? NAV_ITEMS.filter((item) => PELICAN_NAV_IDS.has(item.id))
+      : NAV_ITEMS;
   const [pelicanCategoryFilter, setPelicanCategoryFilter] = useState<string | undefined>(undefined);
 
   const handleNavigateToCatalog = useCallback((category?: string) => {
@@ -4557,12 +4665,18 @@ function VendorPortalDashboard({
 	        {page === "other-products" && <VendorOtherProducts distributorId={adminDistributorId ?? undefined} />}
 	        {page === "styles" && <DoorStylesPage />}
 	        {page === "featured-styles" && <VendorFeaturedStylesPage />}
-	        {page === "shipping" && <VendorShippingPage />}
+        {page === "shipping" && (isPelican ? <PelicanShippingProfilesPanel isAdmin={isAdmin} /> : <VendorShippingPage />)}
 	        {page === "picks" && <DesignToolPicksPage />}
         {page === "promotions" && <PromotionsPage />}
         {page === "gallery" && <GalleryPage />}
         {page === "analytics" && <VendorAnalyticsPage />}
         {page === "orders" && <OrdersPage />}
+        {page === "fulfillment" && (
+          <VendorFulfillmentQueue
+            approvedVendorLineId={isAdmin ? adminApprovedVendorLineId ?? undefined : undefined}
+            distributorId={isAdmin ? adminDistributorId ?? undefined : undefined}
+          />
+        )}
         {page === "ai-services" && <AICatalogServicesPage />}
         {page === "integrations" && <IntegrationsPage />}
         {page === "payments" && <PaymentsPage />}

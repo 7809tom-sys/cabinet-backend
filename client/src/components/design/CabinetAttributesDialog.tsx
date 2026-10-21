@@ -447,6 +447,65 @@ export interface CabinetAttributesDialogProps {
   onSetOvenType: (uid: string, ovenType: "single" | "double") => void;
   // Floor finish for a shallow wall cabinet used as a counter-height island face.
   onSetIslandWallBaseTreatment: (uid: string, treatment: IslandWallCabinetBaseTreatment) => void;
+  /** Optional regular-Designer attached-filler choices for this cabinet's current bounded run. */
+  attachedFillerOptions?: {
+    leftAllowed: boolean;
+    rightAllowed: boolean;
+    leftIn: number;
+    rightIn: number;
+    needsReview?: boolean;
+  } | null;
+  onApplyAttachedFillers?: (uid: string, choice: { leftIn: number; rightIn: number }) => void;
+}
+
+export function CabinetAttachedFillerControls({
+  value,
+  onApply,
+}: {
+  value: NonNullable<CabinetAttributesDialogProps["attachedFillerOptions"]>;
+  onApply: (choice: { leftIn: number; rightIn: number }) => void;
+}) {
+  const [leftText, setLeftText] = useState(String(value.leftIn || ""));
+  const [rightText, setRightText] = useState(String(value.rightIn || ""));
+  useEffect(() => {
+    setLeftText(String(value.leftIn || ""));
+    setRightText(String(value.rightIn || ""));
+  }, [value.leftIn, value.rightIn]);
+  const read = (text: string) => {
+    const amount = Number(text);
+    return Number.isFinite(amount) && amount > 0 ? Math.min(6, Math.max(0.125, Math.round(amount * 8) / 8)) : 0;
+  };
+  const leftIn = read(leftText);
+  const rightIn = read(rightText);
+  return (
+    <section className="space-y-2 rounded-lg border border-amber-200 bg-amber-50/50 p-3" data-testid="cabinet-attached-filler-controls">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <h4 className="text-sm font-semibold text-amber-950">Attached fillers</h4>
+          <p className="text-[11px] text-amber-900/80">Choose ⅛″–6″ installed cuts only where this cabinet meets a wall or another cabinet. Short cuts use real CabinetDealz filler stock.</p>
+        </div>
+        {value.needsReview && <Badge className="border border-destructive/30 bg-destructive/10 text-destructive hover:bg-destructive/10">Review exposed filler</Badge>}
+      </div>
+      {!value.leftAllowed && !value.rightAllowed ? (
+        <p className="rounded border border-amber-200 bg-white/80 px-2.5 py-2 text-xs text-amber-950">No attached filler is available because both visible ends are exposed.</p>
+      ) : (
+        <>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {value.leftAllowed && <label className="grid gap-1 text-xs font-semibold text-amber-950">Left filler (in.)
+              <Input aria-label="Left attached filler size in inches" type="number" inputMode="decimal" min="0.125" max="6" step="0.125" value={leftText} placeholder="None" onChange={(event) => setLeftText(event.target.value)} />
+            </label>}
+            {value.rightAllowed && <label className="grid gap-1 text-xs font-semibold text-amber-950">Right filler (in.)
+              <Input aria-label="Right attached filler size in inches" type="number" inputMode="decimal" min="0.125" max="6" step="0.125" value={rightText} placeholder="None" onChange={(event) => setRightText(event.target.value)} />
+            </label>}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" size="sm" onClick={() => onApply({ leftIn, rightIn })}>Update attached fillers</Button>
+            {(value.leftIn > 0 || value.rightIn > 0) && <Button type="button" size="sm" variant="outline" onClick={() => onApply({ leftIn: 0, rightIn: 0 })}>Remove attached fillers</Button>}
+          </div>
+        </>
+      )}
+    </section>
+  );
 }
 
 // Right-click attributes editor for a single placed cabinet (email item 1):
@@ -495,6 +554,8 @@ export function CabinetAttributesDialog({
   savingMasterConfig,
   onSetOvenType,
   onSetIslandWallBaseTreatment,
+  attachedFillerOptions,
+  onApplyAttachedFillers,
 }: CabinetAttributesDialogProps) {
 	  const { t } = useLanguage();
   const isMobile = useIsMobile();
@@ -616,10 +677,16 @@ export function CabinetAttributesDialog({
               </a>
             )}
           </SheetHeader>
-          <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4 space-y-4">
-            <div className="rounded-lg border border-border p-4 bg-muted/20 text-sm text-center text-muted-foreground">
-              Please use a tablet or desktop computer to access full cabinet attributes.
-            </div>
+	          <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4 space-y-4">
+	            {attachedFillerOptions && onApplyAttachedFillers && (
+	              <CabinetAttachedFillerControls
+	                value={attachedFillerOptions}
+	                onApply={(choice) => onApplyAttachedFillers(uid, choice)}
+	              />
+	            )}
+	            <div className="rounded-lg border border-border p-4 bg-muted/20 text-sm text-center text-muted-foreground">
+	              Please use a tablet or desktop computer to access full cabinet attributes.
+	            </div>
           </div>
           <div className="border-t p-4">
             <Button type="button" className="w-full" onClick={() => onOpenChange(false)}>
@@ -741,6 +808,13 @@ export function CabinetAttributesDialog({
 	              />
 	            </section>
 	          )}
+
+            {attachedFillerOptions && onApplyAttachedFillers && (
+              <CabinetAttachedFillerControls
+                value={attachedFillerOptions}
+                onApply={(choice) => onApplyAttachedFillers(uid, choice)}
+              />
+            )}
 
 	          <section className="space-y-3 border-t border-border pt-3" data-testid="cabinet-attributes-door-hardware">
             <h4 className="text-sm font-semibold">{t("dt_ca_door_hardware")}</h4>

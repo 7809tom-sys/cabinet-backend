@@ -1,15 +1,17 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { FOUR_ANCHOR_WALL_LABELS } from "@/lib/fourAnchorAutoBuild";
 import type {
   DishwasherSide,
   FourAnchorInputs,
   FourAnchorLayoutType,
   FourAnchorOriginCorner,
   FourAnchorRunDirection,
+  FourAnchorSinkBaseKind,
   WallLabel,
 } from "@/lib/fourAnchorAutoBuild";
 
@@ -20,6 +22,12 @@ type Props = {
   onBuild: (input: FourAnchorInputs) => FourAnchorSubmitResult;
   /** The selected line's source-priced base catalog is still arriving. */
   catalogLoading?: boolean;
+  /** Actual room-wall count, capped by the shared six-wall input contract. */
+  wallCount?: number;
+  /** Visual-only Floor Plan guide; receives the same datum choices as anchor measurements. */
+  onWallGuideChange?: (selection: { originCorner: FourAnchorOriginCorner; runDirection: FourAnchorRunDirection }) => void;
+  /** Replaces only an empty admin Designer room with the blank six-wall training shell. */
+  onLoadSixWallTrainingRoom?: () => FourAnchorSubmitResult;
 };
 type PointField = "sink" | "stove" | "dishwasher" | "refrigerator";
 type SinkBaseWidth = 30 | 33 | 36 | 42;
@@ -38,10 +46,15 @@ const wallSelectionLabels: Record<PointField, string> = {
   dishwasher: "Dishwasher — place on wall when using an exact center",
   refrigerator: "Refrigerator — place on wall",
 };
-const wallLabels: WallLabel[] = ["Wall 1", "Wall 2", "Wall 3", "Wall 4"];
+const applianceFields = ["stove", "dishwasher", "refrigerator"] as const;
+const omissionLabels: Record<(typeof applianceFields)[number], string> = {
+  stove: "Do not add Range / stove",
+  dishwasher: "Do not add Dishwasher",
+  refrigerator: "Do not add Refrigerator",
+};
 type FieldValue = { wallLabel: WallLabel; centerOffsetIn: string };
 
-export function FourAnchorAutoBuildDialog({ open, onOpenChange, onBuild, catalogLoading = false }: Props) {
+export function FourAnchorAutoBuildDialog({ open, onOpenChange, onBuild, catalogLoading = false, wallCount = 4, onWallGuideChange, onLoadSixWallTrainingRoom }: Props) {
   const [layoutType, setLayoutType] = useState<FourAnchorLayoutType>("single-wall");
   const [originCorner, setOriginCorner] = useState<FourAnchorOriginCorner>("left");
   const [runDirection, setRunDirection] = useState<FourAnchorRunDirection>("right");
@@ -51,17 +64,36 @@ export function FourAnchorAutoBuildDialog({ open, onOpenChange, onBuild, catalog
     dishwasher: { wallLabel: "Wall 1", centerOffsetIn: "" },
     refrigerator: { wallLabel: "Wall 1", centerOffsetIn: "84" },
   });
+  const [omitted, setOmitted] = useState<Record<(typeof applianceFields)[number], boolean>>({
+    stove: false,
+    dishwasher: false,
+    refrigerator: false,
+  });
   const [sinkBaseWidth, setSinkBaseWidth] = useState<SinkBaseWidth>(36);
+  const [sinkBaseKind, setSinkBaseKind] = useState<FourAnchorSinkBaseKind>("regular");
   const [wallCabinetHeight, setWallCabinetHeight] = useState<WallCabinetHeight>(30);
   const [dishwasherSide, setDishwasherSide] = useState<DishwasherSide>("right");
   const refrigeratorWidth: RefrigeratorWidth = 36;
   const [windowCenter, setWindowCenter] = useState("");
   const [submitError, setSubmitError] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (open) onWallGuideChange?.({ originCorner, runDirection });
+  }, [open, onWallGuideChange, originCorner, runDirection]);
+
   const setValue = (field: PointField, patch: Partial<FieldValue>) => setValues((current) => ({
     ...current,
     [field]: { ...current[field], ...patch },
   }));
+  const availableWallLabels = FOUR_ANCHOR_WALL_LABELS.slice(0, Math.max(1, Math.min(FOUR_ANCHOR_WALL_LABELS.length, wallCount)));
+  const selectWallOrOmit = (field: PointField, value: string) => {
+    if (field !== "sink" && value === `omit-${field}`) {
+      setOmitted((current) => ({ ...current, [field]: true }));
+      return;
+    }
+    setValue(field, { wallLabel: value as WallLabel });
+    if (field !== "sink") setOmitted((current) => ({ ...current, [field]: false }));
+  };
   const measurement = (field: PointField) => ({
     wallLabel: values[field].wallLabel,
     centerOffsetIn: Number(values[field].centerOffsetIn),
@@ -77,10 +109,12 @@ export function FourAnchorAutoBuildDialog({ open, onOpenChange, onBuild, catalog
       wallCabinetHeightIn: wallCabinetHeight,
       sink: measurement("sink"),
       sinkBaseWidthIn: sinkBaseWidth,
-      stove: measurement("stove"),
-      dishwasher: optionalMeasurement("dishwasher"),
+      sinkBaseKind,
+      stove: omitted.stove ? null : measurement("stove"),
+      dishwasher: omitted.dishwasher ? null : optionalMeasurement("dishwasher"),
+      skipDishwasher: omitted.dishwasher,
       dishwasherSide,
-      refrigerator: measurement("refrigerator"),
+      refrigerator: omitted.refrigerator ? null : measurement("refrigerator"),
       refrigeratorWidthIn: refrigeratorWidth,
       refrigeratorPanels: "both",
       refrigeratorEnclosure: "cabinet-above",
@@ -92,20 +126,34 @@ export function FourAnchorAutoBuildDialog({ open, onOpenChange, onBuild, catalog
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] w-[calc(100vw-2rem)] sm:max-w-2xl overflow-y-auto overflow-x-hidden" data-testid="four-anchor-auto-build-dialog">
-        <DialogHeader>
-          <DialogTitle>Admin · Four-anchor auto-build</DialogTitle>
-          <DialogDescription>
-            Choose the layout and datum first. Every measured anchor uses its own Wall 1–4 selector and a center measurement from that wall’s starting corner.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="grid gap-4">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <div className="space-y-1.5">
-              <Label>Layout type</Label>
-              <Select value={layoutType} onValueChange={(value) => setLayoutType(value as FourAnchorLayoutType)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+    <Dialog open={open} onOpenChange={onOpenChange} modal={false}>
+      <DialogContent hideOverlay className="max-h-[90vh] w-[calc(100vw-2rem)] sm:max-w-2xl 2xl:!left-auto 2xl:!right-4 2xl:!w-[28rem] 2xl:!translate-x-0 overflow-y-auto overflow-x-hidden" data-testid="four-anchor-auto-build-dialog">
+	        <DialogHeader>
+	          <DialogTitle>Admin · Four-anchor auto-build</DialogTitle>
+	          <DialogDescription>
+	            Choose the layout and datum first. Every measured anchor uses its own selector from up to six actual room walls and a center measurement from that wall’s starting corner.
+	          </DialogDescription>
+	        </DialogHeader>
+	        <div className="grid gap-4">
+	          {onLoadSixWallTrainingRoom && (
+	            <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-sky-200 bg-sky-50/70 p-3">
+	              <div className="min-w-0 text-xs leading-relaxed text-slate-700">
+	                <p className="font-semibold text-slate-900">Staff training room</p>
+	                <p>Load a blank L-shaped room with six numbered physical walls. This does not build a kitchen.</p>
+	              </div>
+	              <Button type="button" variant="outline" size="sm" className="shrink-0 border-sky-300 bg-white text-sky-900 hover:bg-sky-100" onClick={() => {
+	                const result = onLoadSixWallTrainingRoom();
+	                if (!result.ok) setSubmitError(result.message);
+	              }} data-testid="four-anchor-load-six-wall-training-room">
+	                Load six-wall training room
+	              </Button>
+	            </div>
+	          )}
+	          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+	            <div className="space-y-1.5">
+	              <Label>Layout type</Label>
+	              <Select value={layoutType} onValueChange={(value) => setLayoutType(value as FourAnchorLayoutType)}>
+	                <SelectTrigger aria-label="Layout type"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="single-wall">Single wall</SelectItem>
                   <SelectItem value="galley">Galley</SelectItem>
@@ -114,24 +162,29 @@ export function FourAnchorAutoBuildDialog({ open, onOpenChange, onBuild, catalog
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1.5">
-              <Label>Starting corner</Label>
-              <Select value={originCorner} onValueChange={(value) => setOriginCorner(value as FourAnchorOriginCorner)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+	            <div className="space-y-1.5">
+	              <Label>Starting corner</Label>
+	              <Select value={originCorner} onValueChange={(value) => setOriginCorner(value as FourAnchorOriginCorner)}>
+	                <SelectTrigger aria-label="Starting corner"><SelectValue /></SelectTrigger>
                 <SelectContent><SelectItem value="left">Left corner</SelectItem><SelectItem value="right">Right corner</SelectItem></SelectContent>
               </Select>
             </div>
-            <div className="space-y-1.5">
-              <Label>Run direction</Label>
-              <Select value={runDirection} onValueChange={(value) => setRunDirection(value as FourAnchorRunDirection)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+	            <div className="space-y-1.5">
+	              <Label>Run direction</Label>
+	              <Select value={runDirection} onValueChange={(value) => setRunDirection(value as FourAnchorRunDirection)}>
+	                <SelectTrigger aria-label="Run direction"><SelectValue /></SelectTrigger>
                 <SelectContent><SelectItem value="right">To the right</SelectItem><SelectItem value="left">To the left</SelectItem></SelectContent>
               </Select>
             </div>
-          </div>
+	          </div>
 
-          <div className="rounded-lg border bg-muted/20 p-3 text-xs text-muted-foreground">
-            Choose Wall 1–4 for each appliance. The measurement is that item’s center from the selected wall’s labeled starting corner; raw X/Y floor coordinates are never used.
+              <div data-testid="four-anchor-floor-plan-wall-key" className="rounded-lg border border-sky-200 bg-sky-50/70 p-3 text-xs text-slate-700">
+                <p className="font-semibold text-slate-900">Colored Wall 1–6 markers are shown on the Floor Plan</p>
+                <p className="mt-1 leading-relaxed">Each number follows this starting corner and direction. The matching small dot marks the corner where that wall’s center measurements begin.</p>
+              </div>
+
+	          <div className="rounded-lg border bg-muted/20 p-3 text-xs text-muted-foreground">
+            Choose from up to six real room walls for each appliance. The measurement is that item’s center from the selected wall’s labeled starting corner; raw X/Y floor coordinates are never used. The sink base remains required; choose Do not add for a range, dishwasher, or refrigerator you do not want in this build.
           </div>
           <div className="rounded-lg border bg-muted/20 p-3 text-sm" data-testid="four-anchor-build-order">
             <p className="font-semibold">Build order</p>
@@ -160,9 +213,12 @@ export function FourAnchorAutoBuildDialog({ open, onOpenChange, onBuild, catalog
             {(Object.keys(labels) as PointField[]).map((field) => (
               <div key={field} className="grid min-w-0 grid-cols-1 sm:grid-cols-[minmax(0,1fr)_8rem_minmax(0,11rem)] items-center gap-2">
                 <Label htmlFor={`four-anchor-${field}-center`}>{labels[field]}</Label>
-                <Select value={values[field].wallLabel} onValueChange={(value) => setValue(field, { wallLabel: value as WallLabel })}>
+                <Select value={field !== "sink" && omitted[field] ? `omit-${field}` : values[field].wallLabel} onValueChange={(value) => selectWallOrOmit(field, value)}>
                   <SelectTrigger className="w-full min-w-0" aria-label={wallSelectionLabels[field]}><SelectValue /></SelectTrigger>
-                  <SelectContent>{wallLabels.map((wall) => <SelectItem key={wall} value={wall}>{wall}</SelectItem>)}</SelectContent>
+                  <SelectContent>
+                    {field !== "sink" && <SelectItem value={`omit-${field}`}>{omissionLabels[field]}</SelectItem>}
+                    {availableWallLabels.map((wall) => <SelectItem key={wall} value={wall}>{wall}</SelectItem>)}
+                  </SelectContent>
                 </Select>
                 <Input
                   className="min-w-0 w-full"
@@ -173,6 +229,7 @@ export function FourAnchorAutoBuildDialog({ open, onOpenChange, onBuild, catalog
                   placeholder={field === "dishwasher" ? "Leave blank for sink side" : undefined}
                   value={values[field].centerOffsetIn}
                   onChange={(event) => setValue(field, { centerOffsetIn: event.target.value })}
+                  disabled={field !== "sink" && omitted[field]}
                   aria-label={`${labels[field]} center from selected wall start in inches`}
                 />
               </div>
@@ -189,29 +246,43 @@ export function FourAnchorAutoBuildDialog({ open, onOpenChange, onBuild, catalog
               <p className="text-xs text-muted-foreground">Builds the selected, source-priced sink base—not a generic sink appliance.</p>
             </div>
             <div className="space-y-1.5">
+              <Label htmlFor="four-anchor-sink-base-kind">Sink base style</Label>
+              <Select value={sinkBaseKind} onValueChange={(value) => setSinkBaseKind(value as FourAnchorSinkBaseKind)}>
+                <SelectTrigger id="four-anchor-sink-base-kind" aria-label="Sink base style"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="regular">Regular sink base (default)</SelectItem>
+                  <SelectItem value="farmhouse">Farmhouse (apron-front) sink base</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">A regular sink base is used unless you choose farmhouse here.</p>
+            </div>
+            <div className="space-y-1.5">
               <Label htmlFor="four-anchor-dishwasher-side">Dishwasher position</Label>
-              <Select value={dishwasherSide} onValueChange={(value) => setDishwasherSide(value as DishwasherSide)}>
+              <Select value={dishwasherSide} onValueChange={(value) => setDishwasherSide(value as DishwasherSide)} disabled={omitted.dishwasher}>
                 <SelectTrigger id="four-anchor-dishwasher-side" aria-label="Dishwasher position"><SelectValue /></SelectTrigger>
                 <SelectContent><SelectItem value="left">Left of sink</SelectItem><SelectItem value="right">Right of sink</SelectItem></SelectContent>
               </Select>
-              <p className="text-xs text-muted-foreground">Used when the optional exact dishwasher center is blank. An exact center takes precedence.</p>
+              <p className="text-xs text-muted-foreground">{omitted.dishwasher ? "No dishwasher will be added." : "Used when the optional exact dishwasher center is blank. An exact center takes precedence."}</p>
             </div>
           </div>
 
-          <div className="rounded-lg border p-3" data-testid="four-anchor-refrigerator-options">
-            <div className="space-y-1.5">
-              <Label>Refrigerator bay</Label>
-              <p className="text-sm font-medium">36″ refrigerator · Two source-priced side panels · Matching source-priced 36″ cabinet above</p>
-              <p className="text-xs text-muted-foreground">Four-anchor creates this complete refrigerator bay before filling surrounding runs. A refrigerator bay never uses a filler.</p>
-            </div>
-          </div>
-
-          {layoutType !== "galley" && (
-            <div className="space-y-1.5">
-              <Label htmlFor="four-anchor-window-center">Optional window center from the selected sink wall’s starting corner (in.)</Label>
-              <Input id="four-anchor-window-center" type="number" min="0" step="0.125" placeholder="Leave blank when not applicable" value={windowCenter} onChange={(event) => setWindowCenter(event.target.value)} />
+          {!omitted.refrigerator && (
+            <div className="rounded-lg border p-3" data-testid="four-anchor-refrigerator-options">
+              <div className="space-y-1.5">
+                <Label>Refrigerator bay</Label>
+                <p className="text-sm font-medium">36″ refrigerator · Two source-priced side panels · Matching source-priced 36″ cabinet above</p>
+                <p className="text-xs text-muted-foreground">Four-anchor creates this complete refrigerator bay before filling surrounding runs. A refrigerator bay never uses a filler.</p>
+              </div>
             </div>
           )}
+
+          <div className="space-y-1.5">
+            <Label htmlFor="four-anchor-window-center">Window above the sink: center from the sink wall’s starting corner (in.)</Label>
+            <Input id="four-anchor-window-center" type="number" min="0" step="0.125" placeholder="Leave blank when there is no window" value={windowCenter} onChange={(event) => setWindowCenter(event.target.value)} />
+            <p className="text-xs text-muted-foreground" data-testid="four-anchor-window-help">
+              The sink is centered on this measurement and a window as wide as the sink base is placed above it. No wall cabinet goes above the sink, and the next cabinets start 3 inches past the window. Leave blank for nothing above the sink.
+            </p>
+          </div>
           {submitError && (
             <div role="alert" data-testid="four-anchor-build-error" className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
               {submitError}

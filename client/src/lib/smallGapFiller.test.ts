@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildDesignCabinetCartLines, buildDesignPreviewPricingLines } from "@/lib/designCartLines";
-import { DEFAULT_ROOM, adjacentCabinetForFiller, cabinetWallDragPreview, elevationBox, matchInstalledFillerToCabinet, normalizeInstalledFillersToAdjacentCabinets, wallCabinetFitMeasure, wallPlacementAt, type IslandFace, type IslandZone, type PlacedCabinet, type RoomData, type WallOpening } from "@/lib/design";
+import { DEFAULT_ROOM, adjacentCabinetForFiller, cabinetPlacementCollisionDetail, cabinetWallDragPreview, elevationBox, hasCollision, matchInstalledFillerToCabinet, nextAvailableRoomCornerPlacement, normalizeInstalledFillersToAdjacentCabinets, wallCabinetFitMeasure, wallLength, wallPlacementAt, type IslandFace, type IslandZone, type PlacedCabinet, type RoomData, type WallOpening } from "@/lib/design";
 import { islandFacePlacement } from "@/lib/islandScene";
 import {
 	appendSmallGapFillerPlacement,
@@ -320,6 +320,129 @@ const cabinet: PlacedCabinet = {
 	    });
 	    expect(elevationBox(normalized[1]!, DEFAULT_ROOM)).toEqual({ bottom: 0, height: 70 });
 	  });
+
+	  it("repairs a legacy refrigerator-cap filler to the bridge instead of stretching it from the floor", () => {
+		    const refrigerator: PlacedCabinet = {
+		      ...cabinet,
+		      uid: "fridge-with-legacy-cap-filler",
+		      masterCode: "FRIDGE-36",
+		      description: "36 inch refrigerator",
+		      placement: "appliance",
+		      x: 20,
+		      width: 36,
+		      depth: 30,
+		      height: 70,
+		      mountBottom: 0,
+		    };
+		    const bridge: PlacedCabinet = {
+		      ...cabinet,
+		      uid: "refrigerator-bridge",
+		      masterCode: "WR3612",
+		      description: "Refrigerator cabinet above",
+		      placement: "wall",
+		      x: 20,
+		      width: 36,
+		      depth: 24,
+		      height: 12,
+		      mountBottom: 72,
+		      refrigeratorAssemblyId: refrigerator.uid,
+		      refrigeratorAssemblyRole: "bridge",
+		    };
+		    // A previously saved cap filler can retain its old base layer and no
+		    // explicit bridge owner. Its refrigerator role remains authoritative.
+		    const legacyCapFiller: PlacedCabinet = {
+		      ...cabinet,
+		      uid: "legacy-bridge-left-filler",
+		      masterCode: "F342",
+		      description: "Filler — cut to 1/2 inch",
+		      category: "Filler",
+		      subCategory: "Filler",
+		      placement: "base",
+		      x: 19.5,
+		      width: 0.5,
+		      depth: 24,
+		      height: 70,
+		      mountBottom: 0,
+		      refrigeratorAssemblyId: refrigerator.uid,
+		      refrigeratorAssemblyRole: "bridge-left-filler",
+		    };
+
+		    const normalized = normalizeInstalledFillersToAdjacentCabinets(
+		      [refrigerator, bridge, legacyCapFiller],
+		      DEFAULT_ROOM,
+		    );
+
+		    expect(normalized[2]).toMatchObject({
+		      placement: "wall",
+		      depth: 24,
+		      height: 12,
+		      mountBottom: 72,
+		      fillerForCabinetUid: bridge.uid,
+		      fillerMatchesFullOwnerEnvelope: false,
+		    });
+		    expect(elevationBox(normalized[2]!, DEFAULT_ROOM)).toEqual({ bottom: 72, height: 12 });
+		  });
+
+		  it("keeps a legacy cap filler linked to its refrigerator bridge at the bridge envelope even before assembly roles were stored", () => {
+		    const refrigerator: PlacedCabinet = {
+		      ...cabinet,
+		      uid: "legacy-fridge",
+		      masterCode: "FRIDGE-36",
+		      description: "36 inch refrigerator",
+		      placement: "appliance",
+		      x: 20,
+		      width: 36,
+		      depth: 30,
+		      height: 70,
+		      mountBottom: 0,
+		    };
+		    const bridge: PlacedCabinet = {
+		      ...cabinet,
+		      uid: "legacy-refrigerator-bridge",
+		      masterCode: "WR3612",
+		      description: "Refrigerator cabinet above",
+		      placement: "wall",
+		      x: 20,
+		      width: 36,
+		      depth: 24,
+		      height: 12,
+		      mountBottom: 72,
+		      refrigeratorAssemblyId: refrigerator.uid,
+		      refrigeratorAssemblyRole: "bridge",
+		    };
+		    // This saved record predates refrigeratorAssemblyRole on cap fillers but
+		    // still stores the authoritative bridge UID chosen by the user.
+		    const legacyCapFiller: PlacedCabinet = {
+		      ...cabinet,
+		      uid: "legacy-cap-filler-by-bridge-uid",
+		      masterCode: "F342",
+		      description: "Filler — cut to 1/2 inch",
+		      category: "Filler",
+		      subCategory: "Filler",
+		      placement: "base",
+		      x: 19.5,
+		      width: 0.5,
+		      depth: 24,
+		      height: 70,
+		      mountBottom: 0,
+		      fillerForCabinetUid: bridge.uid,
+		    };
+
+		    const normalized = normalizeInstalledFillersToAdjacentCabinets(
+		      [refrigerator, bridge, legacyCapFiller],
+		      DEFAULT_ROOM,
+		    );
+
+		    expect(normalized[2]).toMatchObject({
+		      placement: "wall",
+		      depth: 24,
+		      height: 12,
+		      mountBottom: 72,
+		      fillerForCabinetUid: bridge.uid,
+		      fillerMatchesFullOwnerEnvelope: false,
+		    });
+		    expect(elevationBox(normalized[2]!, DEFAULT_ROOM)).toEqual({ bottom: 72, height: 12 });
+		  });
 
 	  it("repairs a legacy wall filler from the exact cabinet touching its edge", () => {
 	    const owner: PlacedCabinet = {
@@ -807,6 +930,105 @@ const cabinet: PlacedCabinet = {
 	    expect(moved.wallOffset).toBe(0.625);
 	    expect(result.rejected).toEqual([]);
 	    expect(result.placed.map((item) => item.uid)).toEqual([moved.uid, filler.uid]);
+	  });
+
+	  it("commits a 2DB24's exact 1¼-inch filler beside a measured diagonal ERB36 edge", () => {
+	    const diagonalRoom: RoomData = {
+	      width: 180,
+	      depth: 180,
+	      ceilingHeight: 96,
+	      openWallPath: true,
+	      vertices: [
+	        { id: "a", x: 0, y: 0 },
+	        { id: "corner", x: 100, y: 100 },
+	        { id: "b", x: 50, y: 150 },
+	      ],
+	      customWalls: [
+	        { id: "first", startVertexId: "a", endVertexId: "corner", lockedAngle: 45 },
+	        { id: "second", startVertexId: "corner", endVertexId: "b", lockedAngle: 45 },
+	      ],
+	    };
+	    const erbSeed: PlacedCabinet = {
+	      ...cabinet,
+	      uid: "diagonal-erb36",
+	      masterCode: "ERB36",
+	      description: "Easy Reach Corner Base 36",
+	      width: 36,
+	      depth: 24,
+	    };
+	    const erbSpot = nextAvailableRoomCornerPlacement(erbSeed, "second", diagonalRoom, []);
+	    expect(erbSpot).not.toBeNull();
+	    const erb = { ...erbSeed, ...erbSpot!, wallId: erbSpot!.wallId, wallOffset: erbSpot!.wallOffset };
+	    const dbStart = wallLength("first", diagonalRoom) - 36 - 24 - 1.25;
+	    const dbSpot = wallPlacementAt(dbStart, 24, 24, "first", diagonalRoom);
+	    const drawerBase: PlacedCabinet = {
+	      ...cabinet,
+	      uid: "2db24-with-filler",
+	      masterCode: "2DB24",
+	      description: "24 inch Two Drawer Base",
+	      ...dbSpot,
+	      width: 24,
+	      nominalWidth: 24,
+	      depth: 24,
+	      nominalDepth: 24,
+	      wallId: dbSpot.wallId,
+	      wallOffset: dbSpot.wallOffset,
+	      numberOfDoors: 0,
+	      numberOfDrawers: 2,
+	    };
+	    const opportunity: SmallGapFillerOpportunity = {
+	      cabinetUid: drawerBase.uid,
+	      wall: "first",
+	      layer: "base",
+	      cabinetStart: dbStart,
+	      cabinetSpan: 24,
+	      openingStart: dbStart,
+	      openingLength: 25.25,
+	      remaining: 1.25,
+	    };
+	    const layout = smallGapFillerLayout(opportunity, "right");
+	    const fillerSegment = layout.pieces[0]!;
+	    const fillerSpot = wallPlacementAt(fillerSegment.start, fillerSegment.width, 24, "first", diagonalRoom);
+	    const filler: PlacedCabinet = {
+	      ...drawerBase,
+	      uid: "f342-cut-to-one-quarter",
+	      masterCode: "F342",
+	      description: '3 inch Filler — cut to 1¼ inch',
+	      category: "Filler",
+	      subCategory: "Filler",
+	      ...fillerSpot,
+	      width: fillerSegment.width,
+	      nominalWidth: 3,
+	      wallId: fillerSpot.wallId,
+	      wallOffset: fillerSpot.wallOffset,
+	      fillerPieceGroupId: "diagonal-2db24-filler",
+	      fillerBillingRole: "primary",
+	      fillerTotalWidth: 1.25,
+	      fillerForCabinetUid: drawerBase.uid,
+	    };
+
+	    // The render envelopes overlap across this diagonal vertex, but the
+	    // measured cabinet run and the filler both stop exactly at ERB36's edge.
+	    expect(hasCollision(drawerBase, [erb])).toBe(true);
+	    expect(hasCollision(filler, [erb])).toBe(true);
+	    expect(cabinetPlacementCollisionDetail(drawerBase, [erb], diagonalRoom)).toBeNull();
+	    expect(cabinetPlacementCollisionDetail(filler, [erb], diagonalRoom)).toBeNull();
+
+	    const result = appendSmallGapFillerPlacement([erb, drawerBase], drawerBase, [filler], diagonalRoom);
+	    expect(result.rejected).toEqual([]);
+	    expect(result.placed.map((item) => item.uid)).toEqual([erb.uid, drawerBase.uid, filler.uid]);
+
+	    const intrudingSpot = wallPlacementAt(wallLength("first", diagonalRoom) - 36 - 0.5, 1.25, 24, "first", diagonalRoom);
+	    const intrudingFiller = {
+	      ...filler,
+	      uid: "f342-intrudes-on-erb36",
+	      ...intrudingSpot,
+	      wallId: intrudingSpot.wallId,
+	      wallOffset: intrudingSpot.wallOffset,
+	    };
+	    expect(cabinetPlacementCollisionDetail(intrudingFiller, [erb], diagonalRoom)?.cabinet.uid).toBe(erb.uid);
+	    expect(appendSmallGapFillerPlacement([erb, drawerBase], drawerBase, [intrudingFiller], diagonalRoom).rejected)
+	      .toEqual([intrudingFiller]);
 	  });
 
 	  it("removes both physical halves as one purchased filler group", () => {

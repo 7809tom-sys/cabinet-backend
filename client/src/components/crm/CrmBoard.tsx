@@ -31,6 +31,7 @@ import {
 import { CRM_CUSTOMER_LIST_TEMPLATE, crmCustomerFileReadProgress, parseCrmCustomerListCsv, type CrmCustomerImportRow, type CrmCustomerImportSkippedRow } from "@shared/crmCustomerListImport";
 import { affiliateCardColor, type CrmAffiliateBrand } from "@/lib/crmAffiliateBrand";
 import { MASTER_AFFILIATE_FILTER_ALL, masterAffiliateFilterId } from "@/lib/crmMasterFilter";
+import { filterDealsByHelpType, type CrmHelpFilter } from "@/lib/crmHelpFilter";
 import { crmQuickInvoiceTotal, openCrmQuickInvoicePdf, type CrmQuickInvoiceBrand, type CrmQuickInvoiceLine } from "@/lib/crmQuickInvoice";
 
 type Lang = CrmLanguage;
@@ -78,6 +79,8 @@ interface DealRow {
   updatedAt: string | Date;
   affiliateId?: number | null;
   needsHelpClosing?: boolean;
+  needsHelpDesigning?: boolean;
+  needsHelpShipping?: boolean;
   laborEstimateId?: number | null;
 }
 
@@ -131,6 +134,7 @@ export function CrmBoard({ lang = "en", affiliateId }: { lang?: Lang; affiliateI
   const t = L(lang);
   const utils = trpc.useUtils();
   const [masterAffiliateFilter, setMasterAffiliateFilter] = useState(MASTER_AFFILIATE_FILTER_ALL);
+  const [helpFilter, setHelpFilter] = useState<CrmHelpFilter>("all");
   const masterAffiliateId = masterAffiliateFilterId(masterAffiliateFilter);
   const boardInput = affiliateId != null
     ? { affiliateId }
@@ -147,6 +151,7 @@ export function CrmBoard({ lang = "en", affiliateId }: { lang?: Lang; affiliateI
   const [mobileStage, setMobileStage] = useState<CrmStage>("new");
 
   const deals = (data?.deals ?? []) as DealRow[];
+  const filteredDeals = useMemo(() => filterDealsByHelpType(deals, helpFilter), [deals, helpFilter]);
   const affiliateNames = (data as any)?.affiliateNames as Record<number, string> | undefined;
   const affiliateBranding = (data as any)?.affiliateBranding as Record<number, CrmAffiliateBrand> | undefined;
   const isMasterView = (data as any)?.isMasterView === true;
@@ -159,16 +164,16 @@ export function CrmBoard({ lang = "en", affiliateId }: { lang?: Lang; affiliateI
     const map: Record<CrmStage, DealRow[]> = {
       new: [], contacted: [], qualified: [], image_review: [], quoted: [], won: [], lost: [],
     };
-    for (const d of deals) map[d.stage]?.push(d);
+    for (const d of filteredDeals) map[d.stage]?.push(d);
     return map;
-  }, [deals]);
+  }, [filteredDeals]);
 
   const openValue = useMemo(
-    () => deals.filter((d) => !isClosedStage(d.stage)).reduce((s, d) => s + Number(d.estimatedValue ?? 0), 0),
-    [deals],
+    () => filteredDeals.filter((d) => !isClosedStage(d.stage)).reduce((s, d) => s + Number(d.estimatedValue ?? 0), 0),
+    [filteredDeals],
   );
   const wonCount = byStage.won.length;
-  const openCount = deals.filter((d) => !isClosedStage(d.stage)).length;
+  const openCount = filteredDeals.filter((d) => !isClosedStage(d.stage)).length;
 
   const move = trpc.crm.moveStage.useMutation({
     onMutate: async (vars) => {
@@ -223,6 +228,16 @@ export function CrmBoard({ lang = "en", affiliateId }: { lang?: Lang; affiliateI
               </SelectContent>
             </Select>
           )}
+          <Select value={helpFilter} onValueChange={(value) => setHelpFilter(value as CrmHelpFilter)}>
+            <SelectTrigger className="w-[210px] bg-card" aria-label="Filter deals by help type">
+              <SelectValue placeholder="All help requests" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All help requests</SelectItem>
+              <SelectItem value="design">Needs Design Help</SelectItem>
+              <SelectItem value="shipping">Needs Shipping Cost Help</SelectItem>
+            </SelectContent>
+          </Select>
           <ImportLeadsDialog lang={lang} />
           <CustomerListImportDialog lang={lang} affiliateId={affiliateId} />
           <NewDealDialog lang={lang} affiliateId={affiliateId} />
@@ -377,6 +392,12 @@ function DealCard({ deal, lang, onOpen, affiliateName, affiliateBrand }: { deal:
       )}
       {deal.needsHelpClosing && (
         <div className="text-[10px] font-medium text-red-600 bg-red-50 rounded px-1.5 py-0.5 inline-block mb-1">Needs Help Closing</div>
+      )}
+      {deal.needsHelpDesigning && (
+        <div className="text-[10px] font-medium text-indigo-700 bg-indigo-50 rounded px-1.5 py-0.5 inline-block mb-1">Needs Help Designing</div>
+      )}
+      {deal.needsHelpShipping && (
+        <div className="text-[10px] font-medium text-amber-800 bg-amber-50 rounded px-1.5 py-0.5 inline-block mb-1">Needs Help Shipping Costs</div>
       )}
       {deal.source === "verified_plan_image_request" && (
         <div className="text-[10px] font-medium text-sky-800 bg-sky-50 rounded px-1.5 py-0.5 inline-flex items-center gap-1 mb-1"><Image className="h-3 w-3" />Manual AI image review</div>
@@ -862,17 +883,44 @@ function DealDrawer({ dealId, lang, onClose }: { dealId: number | null; lang: La
                 <Trash2 className="h-4 w-4 mr-1" />{lang === "es" ? "Eliminar trato" : "Delete deal"}
               </Button>
 
-              {/* Help closing toggle */}
-              <Button
-                variant={deal.needsHelpClosing ? "default" : "outline"}
-                className={deal.needsHelpClosing ? "bg-red-600 hover:bg-red-700 text-white" : "border-red-200 text-red-600 hover:bg-red-50"}
-                onClick={() => updateDeal.mutate({ id: deal.id, needsHelpClosing: !deal.needsHelpClosing })}
-                disabled={updateDeal.isPending}
-              >
-                {deal.needsHelpClosing
-                  ? (lang === "es" ? "Ayuda solicitada" : "Help Requested")
-                  : (lang === "es" ? "Solicitar ayuda para cerrar" : "Request Help Closing")}
-              </Button>
+              <div className="space-y-2" role="group" aria-label={lang === "es" ? "Tipos de ayuda necesarios" : "Help needed"}>
+                <p className="text-xs font-semibold text-muted-foreground">{lang === "es" ? "Ayuda necesaria" : "Help needed"}</p>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant={deal.needsHelpClosing ? "default" : "outline"}
+                    className={deal.needsHelpClosing ? "bg-red-600 hover:bg-red-700 text-white" : "border-red-200 text-red-600 hover:bg-red-50"}
+                    onClick={() => updateDeal.mutate({ id: deal.id, needsHelpClosing: !deal.needsHelpClosing })}
+                    disabled={updateDeal.isPending}
+                    aria-pressed={Boolean(deal.needsHelpClosing)}
+                  >
+                    {deal.needsHelpClosing
+                      ? (lang === "es" ? "Ayuda para cerrar solicitada" : "Closing Help Requested")
+                      : (lang === "es" ? "Solicitar ayuda para cerrar" : "Request Help Closing")}
+                  </Button>
+                  <Button
+                    variant={deal.needsHelpDesigning ? "default" : "outline"}
+                    className={deal.needsHelpDesigning ? "bg-indigo-600 hover:bg-indigo-700 text-white" : "border-indigo-200 text-indigo-700 hover:bg-indigo-50"}
+                    onClick={() => updateDeal.mutate({ id: deal.id, needsHelpDesigning: !deal.needsHelpDesigning })}
+                    disabled={updateDeal.isPending}
+                    aria-pressed={Boolean(deal.needsHelpDesigning)}
+                  >
+                    {deal.needsHelpDesigning
+                      ? (lang === "es" ? "Ayuda de diseño solicitada" : "Design Help Requested")
+                      : (lang === "es" ? "Solicitar ayuda de diseño" : "Request Design Help")}
+                  </Button>
+                  <Button
+                    variant={deal.needsHelpShipping ? "default" : "outline"}
+                    className={deal.needsHelpShipping ? "bg-amber-600 hover:bg-amber-700 text-white" : "border-amber-200 text-amber-800 hover:bg-amber-50"}
+                    onClick={() => updateDeal.mutate({ id: deal.id, needsHelpShipping: !deal.needsHelpShipping })}
+                    disabled={updateDeal.isPending}
+                    aria-pressed={Boolean(deal.needsHelpShipping)}
+                  >
+                    {deal.needsHelpShipping
+                      ? (lang === "es" ? "Ayuda de costos de envío solicitada" : "Shipping Cost Help Requested")
+                      : (lang === "es" ? "Solicitar ayuda de costos de envío" : "Request Shipping Cost Help")}
+                  </Button>
+                </div>
+              </div>
             </div>
           </>
         ) : (

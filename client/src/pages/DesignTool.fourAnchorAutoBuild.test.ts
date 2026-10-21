@@ -27,11 +27,35 @@ describe("admin four-anchor Designer wiring", () => {
   it("makes the wall choice and its measurement datum explicit for every appliance row", () => {
     expect(dialogSource).toContain("Place on wall");
     expect(dialogSource).toContain("Center from selected wall start (in.)");
-    expect(dialogSource).toContain("Choose Wall 1–4 for each appliance");
+    expect(dialogSource).toContain("Choose from up to six real room walls for each appliance");
     expect(dialogSource).toContain("Sink base — place on wall");
     expect(dialogSource).toContain("Refrigerator — place on wall");
     expect(dialogSource).not.toContain("RUN / X");
     expect(dialogSource).not.toContain("DEPTH / Y");
+  });
+
+  it("shows the same colored Wall 1–6 map on the Floor Plan only while Four-Anchor setup is open", () => {
+    expect(pageSource).toContain("buildFourAnchorWallGuides");
+    expect(pageSource).toContain("fourAnchorWallGuides");
+    expect(pageSource).toContain("onWallGuideChange");
+    expect(pageSource).toContain("setViewMode(\"plan\")");
+  });
+
+  it("keeps the six-wall sample room inside the admin-only empty-plan Four-Anchor workflow", () => {
+    expect(pageSource).toContain("makeFourAnchorSixWallTrainingRoom");
+    expect(pageSource).toContain("loadFourAnchorSixWallTrainingRoom");
+    expect(pageSource).toContain("onLoadSixWallTrainingRoom={loadFourAnchorSixWallTrainingRoom}");
+    expect(pageSource).toContain("A training room can only be loaded into an empty Designer");
+    expect(dialogSource).toContain("four-anchor-load-six-wall-training-room");
+  });
+
+  it("keeps the sink-base workflow required but allows an explicitly omitted range, dishwasher, or refrigerator without forcing a palette or refrigerator bay", () => {
+    expect(dialogSource).toContain("Do not add Range / stove");
+    expect(dialogSource).toContain("Do not add Dishwasher");
+    expect(dialogSource).toContain("Do not add Refrigerator");
+    expect(pageSource).toContain('const refrigeratorRequested = result.plan.anchors.some((anchor) => anchor.kind === "refrigerator")');
+    expect(pageSource).toContain("if (refrigeratorRequested && (!fridgeParts?.deepAbove?.length || !fridgeParts.endPanels?.length))");
+    expect(pageSource).toContain("if (refrigerator) {");
   });
 
   it("offers a left or right sink-adjacent dishwasher choice when no exact center is entered", () => {
@@ -42,7 +66,7 @@ describe("admin four-anchor Designer wiring", () => {
     expect(dialogSource).toContain("Optional exact dishwasher center");
   });
 
-  it("collects a selected sink base and documents the mandatory refrigerator enclosure instead of using generic floor appliances", () => {
+  it("collects a selected sink base and documents the selected refrigerator enclosure instead of using generic floor appliances", () => {
     expect(dialogSource).toContain("Sink base size");
     expect(dialogSource).toContain("SB{width}");
     expect(dialogSource).toContain("36″ refrigerator");
@@ -64,8 +88,14 @@ describe("admin four-anchor Designer wiring", () => {
 
   it("resolves the selected SB width only to a straight sink base and never fills a wall gap with a corner SKU", () => {
     expect(pageSource).toContain("const straightBaseCatalog = autoBuildStraightBaseCatalog(pool);");
-    expect(pageSource).toContain("isAutoBuildStraightSinkBaseCandidate(item)");
-    expect(pageSource).toContain('autoFillSpan(segment.length, "kitchen", stage.straightBaseCatalog, { strategy: "largest-first" })');
+    // The sink base is chosen by the shared picker: REGULAR by default (never the farmhouse apron-front base,
+    // a vanity or a corner sink box) and farmhouse only on an explicit request.
+    expect(pageSource).toContain("pickFourAnchorSinkBase(pool, sinkBaseWidth, sinkBaseKind)");
+    expect(pageSource).toContain('input.sinkBaseKind ?? "regular"');
+    // The largest-first fill now runs through the range-aware planner (which calls autoFillSpan with the same strategy and
+    // the same straight-base catalog) so a range always gets a 15-inch-or-wider cabinet on each side.
+    expect(pageSource).toContain("planFourAnchorBaseSegment({");
+    expect(pageSource).toContain("catalog: stage.straightBaseCatalog");
     expect(pageSource).not.toContain('autoFillSpan(segment.length, "kitchen", pool)');
   });
 
@@ -92,12 +122,16 @@ describe("admin four-anchor Designer wiring", () => {
   it("runs aligned source-priced wall cabinets only after required corners and regular base runs", () => {
     const completion = pageSource.slice(pageSource.indexOf("const completeFourAnchorAutoLayout"), pageSource.indexOf("const cancelFourAnchorCornerStage"));
     const corners = completion.indexOf("for (const slot of stage.slots)");
-    const bases = completion.indexOf("autoFillSpan(segment.length");
+    const bases = completion.indexOf("planFourAnchorBaseSegment({");
+    const seams = completion.indexOf("fillFourAnchorLowerSeams({");
     const walls = completion.indexOf("buildFourAnchorWallCabinets({");
     const commit = completion.indexOf("setPlaced(working)");
     expect(corners).toBeGreaterThanOrEqual(0);
     expect(bases).toBeGreaterThan(corners);
-    expect(walls).toBeGreaterThan(bases);
+    // Gap-closing filler comes after the base runs and before the wall boxes are matched to the finished lower runs.
+    expect(seams).toBeGreaterThan(bases);
+    expect(walls).toBeGreaterThan(seams);
+    expect(completion).toContain("closeSeams: true");
     expect(commit).toBeGreaterThan(walls);
     expect(completion).toContain("catalog: stage.wallPool");
     expect(completion).toContain("wallCabinetHeightIn: stage.input.wallCabinetHeightIn ?? 30");

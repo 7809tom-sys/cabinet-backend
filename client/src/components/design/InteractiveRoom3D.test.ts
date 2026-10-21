@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import * as THREE from "three";
-import { canSyncThreeDOrderToCart, constrainedThreeDWallHeight, exactFittedFillerInches, filteredThreeDCatalogItems, hybridPlanUnderlayModel, resolvedPlacedCabinetDoorProfile, resolvedPlacedCabinetDoorSampleUrl, resolvedPlacedCabinetFinish, resolvedThreeDWallHeights, shouldShowThreeDCatalog, THREE_D_EMBEDDED_TOOLBAR_CLASS, THREE_D_WORKSPACE_ACTIONS, threeDCabinetHitFromObject, threeDDecorativeEndSides, threeDDrawerZoneHeight, threeDFittedFillerWidthText, threeDFrontDatumSnapIndicators, threeDHasVerifiedDoorLayout, threeDOrderLineForSelectedCabinet, threeDPointerSelectsCabinet, threeDPreviewFadeAllowed, threeDSelectedCabinetDescription, threeDSelectedCabinetDockClass, threeDSelectionFromPlaced, threeDStructuralFinish, threeDTallPantryDoorsPerRow, threeDTemporaryPreviewCounterText, threeDTouchTapOpensWindow, threeDUpperCabinetWallMinimums, threeDUsesAuthoritativePlanScene, threeDUsesCatalogFrontVisual, threeDWallClearanceText, threeDWallFitGuideText, threeDWallSideForEdge, threeDWallSideForPolygonEdge, updatedThreeDWallHeights } from "./InteractiveRoom3D";
+import { canSyncThreeDOrderToCart, constrainedThreeDWallHeight, exactFittedFillerInches, filteredThreeDCatalogItems, hybridPlanUnderlayModel, resolvedPlacedCabinetDoorProfile, resolvedPlacedCabinetDoorSampleUrl, resolvedPlacedCabinetFinish, resolvedThreeDWallHeights, shouldShowThreeDCatalog, THREE_D_EMBEDDED_TOOLBAR_CLASS, THREE_D_WORKSPACE_ACTIONS, threeDCabinetHitFromObject, threeDDecorativeEndSides, threeDDrawerZoneHeight, threeDFillerMeasurementNoticeEntries, threeDFittedFillerWidthText, threeDFrontDatumSnapIndicators, threeDHasVerifiedDoorLayout, threeDOrderLineForSelectedCabinet, threeDPointerSelectsCabinet, threeDPreviewFadeAllowed, threeDSelectedCabinetDescription, threeDSelectedCabinetDockClass, threeDSelectionFromPlaced, threeDStructuralFinish, threeDTallPantryDoorsPerRow, threeDTemporaryPreviewCounterText, threeDTouchTapOpensWindow, threeDUpperCabinetWallMinimums, threeDUsesAuthoritativePlanScene, threeDUsesCatalogFrontVisual, threeDWallClearanceText, threeDWallFitGuideText, threeDWallSideForEdge, threeDWallSideForPolygonEdge, updatedThreeDWallHeights } from "./InteractiveRoom3D";
 import { addCabinet, addPotFillerFixture, addSinkFixture, addThreeDPeninsulaCountertops, addWallOpening, cornerDrawerFrontLayout, describedOvenSpecification, diagonalCornerFootprintVertices, diagonalCornerFrontWidth, dimensions, doorProfileKind, existingCabinetTransform, existingCabinetSku, freestandingRangeHeightProfile, hasPersistedTwoDScene, isEqualHeightTwoDrawerBase, lCornerCarcassParts, openingTransform, potFillerWallMountTransform, quoteMaterialDetails, rangeCooktopLayout, rangeHoodFrontGeometry, rangeHoodGeometry, rangeHoodSceneStatus, rangeOvenFrontLayout, resolvedCatalogFinish, resolvedPlacedCabinetFrontVisual, resolvedThreeDCountertopFinish, resolvedThreeDDoorProfile, resolvedThreeDDoorSampleUrl, resolvedThreeDDrawerRows, resolvedThreeDFaceLayout, resolvedThreeDOvenLayout, resolvedThreeDSpecialtyProfile, savedRangeHoodTransform, sceneCabinetColor, shouldRenderCountertopOverSceneItem, shouldRenderPlacedDesign, shouldRenderSavedSceneCabinet, sinkFaucetTransform, sinkFixtureTransform, singleOvenTowerAssembly, threeDApplianceFrontVisualUrl, threeDBlindCornerFrontLayout, threeDCabinetFrontVisualUrl, threeDCameraDistanceLimits, threeDCountertopDepthIn, threeDDoorMaterialFallback, threeDFaceMaterialColor, threeDMaterialStatusText, threeDPhotoRenderDoorReferenceStatus, threeDPeninsulaCountertopGeometry, threeDPlacedWall, threeDPlanSyncText, threeDRoomFacingRotation, threeDSceneInputDiagnostics, threeDSceneRevisionKey, threeDSceneVisibilityContract, threeDShakerFramePose, threeDShakerRailThickness, threeDUsesDoorSampleTexture, threeDUsesExactDoorSampleMaterial, threeDUsesPhysicalShakerRails, threeDVisibleMaterialMode, triangleCornerFootprintVertices, triangleCornerFrontPose, triangleCornerFrontWidth, THREE_D_DRAWER_REVEAL_DEPTH, THREE_D_EXPORT_SIZE, THREE_D_ROOM_CONTEXT_DEFAULT, THREE_D_WALL_DEPTH_WRITE, THREE_D_WALL_OPACITY, type InteractiveRoomScene } from "./InteractiveRoom3D";
 import { addFurniture, addIslandZone, furnitureTransform, islandZoneTransform, ponyWallTransform } from "./InteractiveRoom3D";
 import { threeDFurnitureHitFromIntersections, threeDFurnitureHitFromObject } from "./InteractiveRoom3D";
@@ -21,7 +21,7 @@ import { addThreeDMeasuredWallMiterCountertops, addThreeDStandardCountertops } f
 import { threeDMiteredRoomWallGeometry, threeDMiteredRoomWallOutlines } from "./InteractiveRoom3D";
 import { normalizedThreeDCabinetMoveIncrement, parsedThreeDCabinetMoveIncrement, THREE_D_MAX_MOVE_INCREMENT_IN, THREE_D_MIN_MOVE_INCREMENT_IN } from "./InteractiveRoom3D";
 import { addThreeDContinuousToeKicks, threeDContinuousToeKickSegments } from "./InteractiveRoom3D";
-import { COUNTERTOP_DEPTH_IN, DEFAULT_ROOM, STD, countertopRunFaceNormal, countertopSurfacePlanPolygon, countertopSurfaces, nextAvailableRoomCornerPlacement, peninsulaRunEndpoints, placedCornerGeometryKind, placedFootprint, wallPlacementAt } from "@/lib/design";
+import { COUNTERTOP_DEPTH_IN, DEFAULT_ROOM, STD, cornerLegRatioForPlaced, countertopRunFaceNormal, countertopSurfacePlanPolygon, countertopSurfaces, nextAvailableRoomCornerPlacement, peninsulaRunEndpoints, placedCornerGeometryKind, placedFootprint, wallPlacementAt } from "@/lib/design";
 import { AEF_PRINTED_GEOMETRY_MARKER } from "@shared/aefFramelessGeometry";
 import { ovenOpeningGeometry } from "@/lib/ovenOpening";
 import { addThreeDCrownMolding, applyThreeDStructuralFinishMaterials, threeDStructuralSampleTexture } from "./InteractiveRoom3D";
@@ -35,6 +35,33 @@ function addCabinetWithBarPulls(...args: Parameters<typeof addCabinet>) {
   withHardware[12] = { ...withHardware[12], hardwareStyleId: "bar-pull" };
   return addCabinet(...withHardware);
 }
+
+describe("standard sink faucet deck placement", () => {
+  it("places a deck-mounted faucet behind the rear sink rim rather than inside the bowl", () => {
+    const sink = {
+      uid: "rear-deck-sink",
+      type: "double" as const,
+      x: 24,
+      y: 2.5,
+      width: 33,
+      depth: 20,
+      sourceWidth: 33,
+      sourceDepth: 20,
+      wallSide: "top" as const,
+      faucet: true,
+      faucetRearDeckOffsetIn: 1.25,
+    };
+
+    const faucet = sinkFaucetTransform(sink);
+    const sinkCenter = sinkFixtureTransform(sink);
+
+    // At the top wall, negative Z is toward the rear deck/wall. The faucet
+    // must clear the 10-inch rear half of this 20-inch sink plus its 1¼-inch
+    // declared rear-deck offset.
+    expect(faucet.z).toBeCloseTo(sinkCenter.z - 11.25 / 12, 6);
+    expect(faucet.back.z).toBeCloseTo(-11.25 / 12, 6);
+  });
+});
 
 describe("customer manual AI render handoff", () => {
   it("sends only verified customer requests into manual review while retaining the administrator path", () => {
@@ -1605,9 +1632,9 @@ describe("interactive 3D room scene helpers", () => {
 	    }
 	  });
 
-		  it("bounds backsplash to countertop and wall-cabinet runs while keeping transforms on the owning wall", () => {
-	    const room = { width: 120, depth: 96, ceilingHeight: 96 } as RoomData;
-	    expect(threeDBacksplashSegments([], [], room)).toEqual([]);
+		  it("keeps support-only backsplash geometry for takeoff and countertop-upstand calculations", () => {
+		    const room = { width: 120, depth: 96, ceilingHeight: 96 } as RoomData;
+		    expect(threeDBacksplashSegments([], [], room)).toEqual([]);
 	    const bases = [
 	      { uid: "top-base", masterCode: "B-30", placement: "base", x: 12, y: 0, width: 30, depth: 24, height: 34.5, rotation: 0, islandFace: null },
 	      { uid: "left-base", masterCode: "B-24", placement: "base", x: 0, y: 24, width: 24, depth: 24, height: 34.5, rotation: 90, islandFace: null },
@@ -1618,6 +1645,23 @@ describe("interactive 3D room scene helpers", () => {
 		      { side: "left", start: 24, end: 48, bottom: 36, top: 54 },
 		    ]));
 		    expect(threeDBacksplashTransform(segments.find((segment) => segment.side === "left")!, room)).toMatchObject({ x: 0.07, z: 36, rotation: Math.PI / 2 });
+		  });
+
+		  it("keeps a legacy-width BBC36 backsplash on its real supported wall leg rather than painting open walls", () => {
+		    const room = { width: 120, depth: 96, ceilingHeight: 96 } as RoomData;
+		    const legacyBlind = {
+		      uid: "legacy-bbc-36", masterCode: "BBC36", description: "Blind Corner Base",
+		      placement: "base", x: 0, y: 0, width: 33, nominalWidth: 33, depth: 24,
+		      height: 34.5, rotation: 0, wallId: "top", wallOffset: 0, islandFace: null,
+		    } as PlacedCabinet;
+
+		    // The normalized 36-inch BBC body owns its actual top-wall support.
+		    expect(threeDBacksplashSupportSpans(legacyBlind, "top", room)).toEqual([{ start: 0, end: 36 }]);
+		    const segments = threeDBacksplashSegments([legacyBlind], [], room);
+		    expect(segments).toContainEqual({ side: "top", start: 0, end: 36, bottom: 36, top: 54 });
+		    expect(segments.some((segment) => segment.side === "top" && segment.end > 36)).toBe(false);
+		    expect(segments.some((segment) => segment.side === "left")).toBe(false);
+		    expect(threeDCountertopUpstandSegments([legacyBlind], [], room, 3)).toContainEqual({ side: "top", start: 0, end: 36, bottom: 36, top: 39 });
 		  });
 
 		  it("does not tile beyond separated countertop supports on the same wall", () => {
@@ -1669,17 +1713,17 @@ describe("interactive 3D room scene helpers", () => {
 
 	  it("clips the selected supported-run backsplash around a saved window without changing the opening or wall", () => {
 	    const room = { width: 120, depth: 96, ceilingHeight: 96 } as RoomData;
-	    const windowOpening = { uid: "window-1", kind: "window", label: "Window", side: "top", offset: 30, width: 30, height: 30, sill: 40 } as WallOpening;
+		    const windowOpening = { uid: "window-1", kind: "window", label: "Window", side: "top", offset: 30, width: 30, height: 30, sill: 44 } as WallOpening;
 	    const openingBefore = JSON.stringify(windowOpening);
 	    const base = { uid: "base-1", masterCode: "B-120", placement: "base", x: 0, y: 0, width: 120, depth: 24, height: 34.5, rotation: 0, islandFace: null } as PlacedCabinet;
 	    const segments = threeDBacksplashSegments([base], [windowOpening], room).filter((segment) => segment.side === "top");
 	    expect(JSON.stringify(windowOpening)).toBe(openingBefore);
 	    expect(segments).toEqual(expect.arrayContaining([
 	      { side: "top", start: 0, end: 30, bottom: 36, top: 54 },
-	      { side: "top", start: 30, end: 60, bottom: 36, top: 40 },
+		      { side: "top", start: 30, end: 60, bottom: 36, top: 44 },
 	      { side: "top", start: 60, end: 120, bottom: 36, top: 54 },
 	    ]));
-	    expect(segments.some((segment) => segment.start < 60 && segment.end > 30 && segment.top > 40)).toBe(false);
+		    expect(segments.some((segment) => segment.start < 60 && segment.end > 30 && segment.top > 44)).toBe(false);
 	  });
 
 	  it("extends a supported range backsplash continuously to the matching range-hood underside", () => {
@@ -1935,6 +1979,24 @@ describe("interactive 3D room scene helpers", () => {
       subCategory: "Base",
       width: 24,
     } as any)).toBeNull();
+  });
+
+  it("consolidates fitted filler cuts and maximums into one grouped notice without hiding an over-maximum warning", () => {
+    const entries = threeDFillerMeasurementNoticeEntries([
+      { uid: "of330-left", masterCode: "OF330", description: '3" Filler Overlay — cut to 1"', category: "Accessory", subCategory: "Filler", nominalWidth: 2.875, width: 1, depth: 24 },
+      { uid: "of330-right", masterCode: "OF330", description: '3" Filler Overlay — cut to 1"', category: "Accessory", subCategory: "Filler", nominalWidth: 2.875, width: 1, depth: 24 },
+      { uid: "of335-over", masterCode: "OF335", description: '3" Filler Overlay — cut to 3½"', category: "Accessory", subCategory: "Filler", nominalWidth: 2.875, width: 3.5, depth: 24 },
+    ] as any);
+
+    expect(entries).toEqual([
+      { masterCode: "OF330", installedWidth: 1, maximum: 2.875, over: false, quantity: 2 },
+      { masterCode: "OF335", installedWidth: 3.5, maximum: 2.875, over: true, quantity: 1 },
+    ]);
+
+    const source = readFileSync(new URL("./InteractiveRoom3D.tsx", import.meta.url), "utf8");
+    expect(source).toContain('data-testid="three-d-filler-notice"');
+    expect(source).not.toContain('data-testid="three-d-filler-measurement-labels"');
+    expect(source).not.toContain("Filler measurements</p>");
   });
 
   it("uses every selected cabinet finish on structural surfaces, including texture-backed styles", () => {
@@ -4309,6 +4371,86 @@ describe("interactive 3D room scene helpers", () => {
     expect(lShape.backLeg.width).toBe(36 / 12);
     expect(lShape.backLeg.depth).toBe(24 / 12);
     expect(lShape.backLeg.width - lShape.sideLeg.width).toBe(12 / 12);
+  });
+
+  it("renders each 33-inch base L-corner with its source-backed 24-inch legs while preserving the 36-inch datum", () => {
+    const fixtures = [
+      { masterCode: "ERB33", description: "33 inch Easy Reach Base Cabinet", side: 33 },
+      { masterCode: "BER33", description: "33 inch Base Easy Reach Corner Cabinet", side: 33 },
+      { masterCode: "LSB33", description: "33 inch Lazy Susan Base Cabinet", side: 33 },
+      { masterCode: "ERB36", description: "36 inch Easy Reach Base Cabinet", side: 36 },
+    ] as const;
+
+    for (const fixture of fixtures) {
+      const placed = {
+        uid: `${fixture.masterCode}-base-leg-depth`,
+        cabinetId: fixture.side,
+        masterCode: fixture.masterCode,
+        description: fixture.description,
+        placement: "base",
+        x: 0,
+        y: 0,
+        width: fixture.side,
+        depth: 24,
+        height: 34.5,
+        rotation: 0,
+        numberOfDoors: 2,
+        numberOfDrawers: 0,
+        cornerType: "l-shape",
+      } as never;
+      const expectedRatio = 24 / fixture.side;
+      expect(cornerLegRatioForPlaced(placed)).toBeCloseTo(expectedRatio, 12);
+
+      const root = new THREE.Group();
+      addCabinet(
+        root,
+        existingCabinetSku(placed),
+        null,
+        {},
+        144,
+        120,
+        "#d1ba8f",
+        "#ffffff",
+        { doorStyle: "Shaker", doorPanelType: null },
+        existingCabinetTransform(placed),
+      );
+
+      const carcassSpansIn: number[] = [];
+      const doors: THREE.Mesh[] = [];
+      const toeKicks: THREE.Mesh[] = [];
+      root.traverse((node) => {
+        if (node.userData.lCornerCarcass && node instanceof THREE.Mesh) {
+          const geometry = node.geometry as THREE.BoxGeometry;
+          carcassSpansIn.push(geometry.parameters.width * 12, geometry.parameters.depth * 12);
+        }
+        if (node.userData.lCornerDoor && node instanceof THREE.Mesh) doors.push(node);
+        if (node.userData.lCornerToeKick && node instanceof THREE.Mesh) toeKicks.push(node);
+      });
+
+      expect(carcassSpansIn.sort((left, right) => left - right)).toEqual([
+        fixture.side - 24,
+        24,
+        24,
+        fixture.side,
+      ]);
+      const backDoor = doors.find((door) => door.userData.lCornerDoor === "back-leg");
+      expect(backDoor).toBeDefined();
+      expect(backDoor!.position.z * 12).toBeCloseTo(24 - fixture.side / 2 + 0.36, 12);
+      const backToeKick = toeKicks.find((kick) => kick.userData.lCornerToeKickSide === "back-leg");
+      expect(backToeKick).toBeDefined();
+      expect(backToeKick!.position.z * 12).toBeCloseTo(24 - fixture.side / 2 - 3.12, 12);
+
+      const countertop = lCornerCountertopFootprintVertices(
+        fixture.side / 12,
+        fixture.side / 12,
+        expectedRatio,
+        1.5 / 12,
+      );
+      const finishedFrontIn = 24 - fixture.side / 2 + 1.5;
+      expect(countertop[2]!.z * 12).toBeCloseTo(finishedFrontIn, 12);
+      expect(countertop[3]!.x * 12).toBeCloseTo(finishedFrontIn, 12);
+      expect(countertop[3]!.z * 12).toBeCloseTo(finishedFrontIn, 12);
+    }
   });
 
   it("uses the LS36 36-by-36 L envelope for CDB36 while retaining CDB’s corner-drawer front", () => {

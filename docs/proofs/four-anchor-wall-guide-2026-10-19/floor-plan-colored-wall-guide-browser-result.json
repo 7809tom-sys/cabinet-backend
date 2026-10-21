@@ -1,0 +1,104 @@
+[
+  {
+    "at": "2026-10-19T21:50:22.837Z",
+    "kind": "navigation",
+    "url": "http://127.0.0.1:3000/design?qaFourAnchorWallGuide=1"
+  },
+  {
+    "at": "2026-10-19T21:50:22.991Z",
+    "kind": "console",
+    "type": "debug",
+    "text": "[vite] connecting..."
+  },
+  {
+    "at": "2026-10-19T21:50:22.994Z",
+    "kind": "console",
+    "type": "debug",
+    "text": "[Manus] Debug collector initialized (no rrweb, UI events only)"
+  },
+  {
+    "at": "2026-10-19T21:50:23.021Z",
+    "kind": "console",
+    "type": "debug",
+    "text": "[vite] connected."
+  },
+  {
+    "at": "2026-10-19T21:50:23.414Z",
+    "kind": "console",
+    "type": "info",
+    "text": "%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold"
+  },
+  {
+    "at": "2026-10-19T21:50:50.807Z",
+    "kind": "console",
+    "type": "warning",
+    "text": "THREE.WebGLShadowMap: PCFSoftShadowMap has been deprecated. Using PCFShadowMap instead."
+  },
+  {
+    "at": "2026-10-19T21:50:57.679Z",
+    "kind": "console",
+    "type": "warning",
+    "text": "THREE.WebGLShadowMap: PCFSoftShadowMap has been deprecated. Using PCFShadowMap instead."
+  },
+  {
+    "at": "2026-10-19T21:51:12.317Z",
+    "kind": "result",
+    "url": "http://127.0.0.1:3000/design?qaFourAnchorWallGuide=1",
+    "initial": [
+      {
+        "label": "Wall 1",
+        "color": "#2563eb",
+        "text": "1"
+      },
+      {
+        "label": "Wall 2",
+        "color": "#c2410c",
+        "text": "2"
+      },
+      {
+        "label": "Wall 3",
+        "color": "#047857",
+        "text": "3"
+      },
+      {
+        "label": "Wall 4",
+        "color": "#7c3aed",
+        "text": "4"
+      }
+    ],
+    "starts": [
+      "Wall 1",
+      "Wall 2",
+      "Wall 3",
+      "Wall 4"
+    ],
+    "reversed": [
+      {
+        "label": "Wall 1",
+        "color": "#2563eb",
+        "left": "398.4px",
+        "top": "44.2667px"
+      },
+      {
+        "label": "Wall 2",
+        "color": "#c2410c",
+        "left": "44.2667px",
+        "top": "332px"
+      },
+      {
+        "label": "Wall 3",
+        "color": "#047857",
+        "left": "398.4px",
+        "top": "619.733px"
+      },
+      {
+        "label": "Wall 4",
+        "color": "#7c3aed",
+        "left": "752.533px",
+        "top": "332px"
+      }
+    ],
+    "guideVisible": true,
+    "qaOnly": true
+  }
+]

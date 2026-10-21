@@ -1,7 +1,7 @@
 {
   "version": "5",
   "dialect": "mysql",
-  "id": "e2bb9b6a-3ae6-4829-a946-c29108f51bb5",
+  "id": "47b18660-8b21-47b4-9a0b-feeebfca907f",
   "prevId": "b6578a6e-f639-4018-b247-d8487abc6b89",
   "tables": {
     "admin_sticky_notes": {
@@ -4356,20 +4356,6 @@
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
-        },
-        "fileKey": {
-          "name": "fileKey",
-          "type": "varchar(512)",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "fileUrl": {
-          "name": "fileUrl",
-          "type": "varchar(512)",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
         }
       },
       "indexes": {},
@@ -7400,178 +7386,6 @@
           ]
         }
       },
-      "checkConstraint": {}
-    },
-    "distributor_integrations": {
-      "name": "distributor_integrations",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "int",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": true
-        },
-        "distributorId": {
-          "name": "distributorId",
-          "type": "int",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "integrationType": {
-          "name": "integrationType",
-          "type": "enum('inventory','shipping')",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "provider": {
-          "name": "provider",
-          "type": "varchar(64)",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "displayName": {
-          "name": "displayName",
-          "type": "varchar(128)",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "baseUrl": {
-          "name": "baseUrl",
-          "type": "varchar(512)",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "accountNumber": {
-          "name": "accountNumber",
-          "type": "varchar(128)",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "clientId": {
-          "name": "clientId",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "apiKeyEncrypted": {
-          "name": "apiKeyEncrypted",
-          "type": "varchar(2048)",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "clientSecretEncrypted": {
-          "name": "clientSecretEncrypted",
-          "type": "varchar(2048)",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "username": {
-          "name": "username",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "passwordEncrypted": {
-          "name": "passwordEncrypted",
-          "type": "varchar(2048)",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "authHeaderName": {
-          "name": "authHeaderName",
-          "type": "varchar(128)",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "environment": {
-          "name": "environment",
-          "type": "enum('sandbox','production')",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "'production'"
-        },
-        "isEnabled": {
-          "name": "isEnabled",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": false
-        },
-        "lastVerifiedAt": {
-          "name": "lastVerifiedAt",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "lastError": {
-          "name": "lastError",
-          "type": "varchar(512)",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "createdAt": {
-          "name": "createdAt",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "(now())"
-        },
-        "updatedAt": {
-          "name": "updatedAt",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "onUpdate": true,
-          "default": "(now())"
-        }
-      },
-      "indexes": {
-        "distributor_integrations_dist_type_provider_uq": {
-          "name": "distributor_integrations_dist_type_provider_uq",
-          "columns": [
-            "distributorId",
-            "integrationType",
-            "provider"
-          ],
-          "isUnique": true
-        },
-        "distributor_integrations_distributor_idx": {
-          "name": "distributor_integrations_distributor_idx",
-          "columns": [
-            "distributorId"
-          ],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {
-        "distributor_integrations_id": {
-          "name": "distributor_integrations_id",
-          "columns": [
-            "id"
-          ]
-        }
-      },
-      "uniqueConstraints": {},
       "checkConstraint": {}
     },
     "distributor_skus": {
@@ -12915,6 +12729,13 @@
           "notNull": true,
           "autoincrement": false,
           "default": "'public'"
+        },
+        "googleAnalyticsMeasurementId": {
+          "name": "googleAnalyticsMeasurementId",
+          "type": "varchar(32)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
         },
         "updatedAt": {
           "name": "updatedAt",

@@ -6,11 +6,11 @@ import {
   type FloorPlanDimensionAdjustment, type FloorPlanDimensionUnit,
 	  isCornerCabinet, isProtectedCornerCabinet, cornerClipPath, cornerLegRatioForPlaced, cornerRotationForPlaced, diagonalCornerClipPath, isDiagonalCorner, isAngledWallCabinet, formatEighthInches, formatInches, isBlindCorner, isTriangleCorner, triangleCornerClipPath,
 	  resolveSwing, resolveCabinetHardwarePosition,
-  WallOpening, clampOpening, FinishColors, DEFAULT_FINISH_COLORS,
+	  WallOpening, clampOpening, FinishColors, DEFAULT_FINISH_COLORS, isWindowBelowCountertop,
   clampRoomInches, inchesToFeetInches, WallSide, type PeninsulaRun, peninsulaRunEndpoints, peninsulaRunMaxLength, peninsulaRunHitAtPoint, peninsulaRunStartOffsetAtPoint, peninsulaRunAssemblyLocked, peninsulaRootRunId,
 	  cabinetWall, wallSpanMeasure, wallRunFrame, wallRunDistanceToPoint, peninsulaRunById, continuousWallApplianceSnapInfo, configuredRefrigeratorAssemblyMembers, customWallCabinetSide,
 	  countertopSurfaces, countertopMaterial, potFillerMountedRange, type CountertopSurface, type PotFillerFixture, type SinkFixture, SINK_PRESETS,
-  wallGaps, freeSegmentsOnWall, wallGapFitPreview, wallGapFreehandPreview, nearestRectRoomWallAtPoint, nearestWallRunAtPoint, cabinetWallMovePreview, refrigeratorMagneticSnapEnvelope, CABINET_CONFLICT_LOCK_IN, BLIND_CORNER_FILLER_WIDTH_IN, STD, resolvedDesignCabinetDimensions, cabinetPlacementHoverDetail, bestFitCatalogOption, smartGapCatalogOptions, smartGapRecommendation, type WallGap, type WallGapFitPreview,
+  wallGaps, freeSegmentsOnWall, wallGapFitPreview, wallGapFreehandPreview, nearestRectRoomWallAtPoint, nearestWallRunAtPoint, cabinetWallMovePreview, refrigeratorMagneticSnapEnvelope, CABINET_CONFLICT_LOCK_IN, BLIND_CORNER_FILLER_WIDTH_IN, STD, WALL_OPENING_CLEARANCE_IN, resolvedDesignCabinetDimensions, cabinetPlacementHoverDetail, bestFitCatalogOption, smartGapCatalogOptions, smartGapRecommendation, type WallGap, type WallGapFitPreview,
   type DesignCabinet,
   type PlacedFurniture, FURNITURE_CATALOG, furnitureFootprint,
   flooringMaterial,
@@ -30,6 +30,7 @@ import { miteredWallOutlinesFromInteriorFaces, ROOM_WALL_THICKNESS_IN } from "@/
 import { crownTopRuns, formatCrownTop } from "@/lib/crownTopRuns";
 import { verifiedPelicanBathroomFixtureProfile } from "@/lib/pelicanBathroomFixtureProfiles";
 import type { BathroomZoneOverlapWarning } from "@/lib/bathroomPlanning";
+import type { FourAnchorWallGuide } from "@/lib/fourAnchorAutoBuild";
 
 export type PlanCabinetRenderFrame = {
   lockedAngledRun: boolean;
@@ -191,6 +192,46 @@ export function formatFloorPlanDimension(inches: number, unitSystem: FloorPlanDi
   return formatSixteenthInches(inches);
 }
 
+export type FloorPlanAvailableCabinetSpan = {
+  side: WallSide;
+  layer: "base" | "wall";
+  start: number;
+  length: number;
+};
+
+/**
+ * Placement-aware red callouts for the Floor Plan. Their spans come from the
+ * exact free-segment source used by catalog placement, including opening,
+ * corner, tall-cabinet, and layer constraints. A displayed fit is never merely
+ * a visual gap in the drafting rail.
+ */
+export function floorPlanAvailableCabinetSpans(
+  room: RoomData,
+  cabinets: readonly PlacedCabinet[],
+  openings: readonly WallOpening[],
+  includeWallLayer: boolean,
+): FloorPlanAvailableCabinetSpan[] {
+  const spans: FloorPlanAvailableCabinetSpan[] = [];
+  const layers = includeWallLayer ? (["base", "wall"] as const) : (["base"] as const);
+  for (const frame of roomWallRunFrames(room).filter((candidate) => candidate.kind !== "peninsula")) {
+    for (const layer of layers) {
+      const openingClearance = layer === "wall" ? WALL_OPENING_CLEARANCE_IN : 0;
+      for (const segment of freeSegmentsOnWall(
+        frame.id as WallSide,
+        room,
+        [...cabinets],
+        [...openings],
+        0.125,
+        openingClearance,
+        layer,
+      )) {
+        spans.push({ side: frame.id as WallSide, layer, start: segment.start, length: segment.length });
+      }
+    }
+  }
+  return spans;
+}
+
 /** View-only Floor Plan zoom boundaries. Geometry, measurements, and saved cabinet coordinates stay in inches. */
 export const FLOOR_PLAN_ZOOM_MIN = 0.5;
 export const FLOOR_PLAN_ZOOM_MAX = 3;
@@ -287,6 +328,8 @@ export function planLazySusanTwoFrontPath(cabinet: PlacedCabinet): string | unde
 
 interface Props {
   room: RoomData;
+  /** Visual-only numbered wall aid, present only during Four-Anchor setup. */
+  fourAnchorWallGuides?: readonly FourAnchorWallGuide[];
   /** Catalog item currently being dragged over the 2D plan. */
   catalogDragCabinet?: DesignCabinet | null;
   cabinets: PlacedCabinet[];
@@ -460,7 +503,7 @@ function readableLabel(fillHex: string): { color: string; shadow: string; isDark
 }
 
 export function PlanCanvas({
-  room, catalogDragCabinet = null, cabinets, countertopGeometry, selectedUid, attributesTargetUid = null, onSelect, onMove, onDelete, onRotate, onUnlockCorner, onOpenAttributes, onDropNew, onDropToFloor,
+  room, fourAnchorWallGuides = [], catalogDragCabinet = null, cabinets, countertopGeometry, selectedUid, attributesTargetUid = null, onSelect, onMove, onDelete, onRotate, onUnlockCorner, onOpenAttributes, onDropNew, onDropToFloor,
   showWallLayer, showCrownTopBadges = false, onToggleWallLayer, measureMode = false, autoDimensions = false, onDimensionAdjustmentChange, showPeninsulaCornerSnapFeedback = true, island = null, onIslandChange, onIslandMove,
   islandDepthTransition = null,
   activeIslandFace = "front", onSelectIslandFace, onOpenIslandAttributes,
@@ -640,9 +683,12 @@ export function PlanCanvas({
     | null
   >(null);
   const onSinkPointerDown = (e: React.PointerEvent, s: SinkFixture) => {
-    if (!onMoveSink || layoutLocked) return;
     e.stopPropagation();
     onSelectSink?.(s.uid);
+    // A linked standard sink is deliberately positioned by the shared 3-inch
+    // setback policy. Keep it selectable, but do not offer a free drag that
+    // would put it back over the bowl/faucet deck geometry.
+    if (!onMoveSink || layoutLocked || (s.cabinetUid && s.frontSetbackIn != null && !s.apronFront)) return;
     sinkDrag.current = { uid: s.uid, startX: e.clientX, startY: e.clientY, origX: s.x, origY: s.y, w: s.width, d: s.depth };
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
   };
@@ -835,11 +881,28 @@ export function PlanCanvas({
   const roomPxW = room.width * ppi;
   const roomPxH = room.depth * ppi;
   const hasCustomWallShell = Boolean(room.vertices?.length && room.customWalls?.length);
+  // Four-Anchor labels are projected from the same physical wall frames used by
+  // anchor placement. They sit just inside the room, are not clickable, and are
+  // discarded as soon as setup closes; they never affect a room or wall record.
+  const positionedFourAnchorWallGuides = useMemo(() => fourAnchorWallGuides.flatMap((guide) => {
+    const frame = wallRunFrame(guide.engineWallId, room);
+    if (!frame || frame.kind === "peninsula") return [];
+    const middleAlong = (frame.runStart + frame.runEnd) / 2;
+    const start = guide.startCorner === "start" ? frame.start : frame.end;
+    const pointAt = (point: { x: number; y: number }, insetIn: number) => ({
+      left: (point.x + frame.inward.x * insetIn) * ppi,
+      top: (point.y + frame.inward.y * insetIn) * ppi,
+    });
+    return [{ guide, labelPosition: pointAt({
+      x: frame.start.x + frame.tangent.x * middleAlong,
+      y: frame.start.y + frame.tangent.y * middleAlong,
+    }, 8), startPosition: pointAt(start, 3) }];
+  }), [fourAnchorWallGuides, ppi, room]);
   // The measured segment is the finished room-facing wall surface shared by
   // cabinet placement, openings, dimensions and 3D. Build the wall thickness
   // outward from that face, so the plan cannot depict a cabinet buried halfway
   // inside a diagonal Wall Builder wall.
-  const customWallShellOutlines = hasCustomWallShell
+	  const customWallShellOutlines = hasCustomWallShell
     ? miteredWallOutlinesFromInteriorFaces(
         room.customWalls!.flatMap((wall) => {
           const start = room.vertices!.find((vertex) => vertex.id === wall.startVertexId);
@@ -854,7 +917,14 @@ export function PlanCanvas({
         ROOM_WALL_THICKNESS_IN,
         !room.openWallPath,
       )
-    : [];
+	    : [];
+	  // The Four-Anchor form docks at the right on wide screens. Move only this
+	  // rendered room viewport left while its numbered guide is active so its
+	  // right-side Wall 4–6 labels remain readable. Saved coordinates, panning,
+	  // cabinet transforms and all placement math remain inch-based and unchanged.
+	  const fourAnchorGuideDockOffsetPx = positionedFourAnchorWallGuides.length > 0
+	    ? Math.min(120, Math.max(48, roomPxW * 0.15))
+	    : 0;
   // The position editor stores every distance against a wall endpoint. Resolve
   // that endpoint here rather than using the graph rectangle: a Continuous Wall
   // Builder room may be diagonal or open, and its real start/end must be visible.
@@ -1257,11 +1327,6 @@ export function PlanCanvas({
     setHoverSnapWall(false);
   };
 
-  const xTicks: number[] = [];
-  for (let i = 0; i <= room.width; i += 12) xTicks.push(i);
-  const yTicks: number[] = [];
-  for (let i = 0; i <= room.depth; i += 12) yTicks.push(i);
-
   // Live drag tape-measure: while dragging a cabinet, bracket it along its wall
   // and show the clearance on BOTH sides (to the neighbor cabinet edge, else the
   // wall). Built in inches then scaled to px for the overlay.
@@ -1294,6 +1359,7 @@ export function PlanCanvas({
 	    if (requiredWidth <= capacity.largestOpenSpan + 0.01) return null;
 	    return { requiredWidth, remaining: capacity.largestOpenSpan, shortage: requiredWidth - capacity.largestOpenSpan };
 	  })();
+	  const lowSillWindows = openings.filter(isWindowBelowCountertop);
 
   // Compute the point-to-point tape in the same inch coordinate system used by
   // all placed cabinets, walls, openings, and clearances.
@@ -1367,8 +1433,19 @@ export function PlanCanvas({
 	        setCatalogDragFit(null);
 	        setCatalogDragFreehand(false);
       }}
-    >
-      {/* Live draw-room rectangle (container coordinates) */}
+	    >
+	      {lowSillWindows.length > 0 && (
+	        <div
+	          role="alert"
+	          data-testid="low-sill-window-conflict"
+	          className="pointer-events-none absolute left-3 top-3 z-[70] max-w-[min(28rem,calc(100%-1.5rem))] rounded-md border border-red-300 bg-red-50 px-3 py-2 text-xs font-medium text-red-800 shadow-sm"
+	        >
+	          {lowSillWindows.length === 1
+	            ? `${lowSillWindows[0].label || "Window"} sill is below the ${formatEighthInches(STD.COUNTERTOP_HEIGHT)} countertop height. Raise the sill or revise the base run.`
+	            : `${lowSillWindows.length} window sills are below the ${formatEighthInches(STD.COUNTERTOP_HEIGHT)} countertop height. Raise the sills or revise the base runs.`}
+	        </div>
+	      )}
+	      {/* Live draw-room rectangle (container coordinates) */}
       {drawMode && drawRect && (
         <div
           className="pointer-events-none absolute z-50 border-2 border-dashed border-[#d4a75a] bg-[#d4a75a]/10"
@@ -1384,13 +1461,14 @@ export function PlanCanvas({
         </div>
       )}
       <div
-        data-room
-        className="absolute shadow-inner"
+	        data-room
+	        data-four-anchor-guide-active={positionedFourAnchorWallGuides.length > 0 ? "true" : undefined}
+	        className="absolute shadow-inner"
         onPointerDownCapture={onRoomMeasurePointerDown}
         style={{
           width: roomPxW,
           height: roomPxH,
-          left: `calc(50% + ${floorPlanPan.x}px)`,
+	          left: `calc(50% + ${floorPlanPan.x - fourAnchorGuideDockOffsetPx}px)`,
           top: `calc(50% + ${floorPlanPan.y}px)`,
           transform: "translate(-50%, -50%)",
           border: "none",
@@ -1494,7 +1572,37 @@ export function PlanCanvas({
           })(),
         }}
       >
-        {openingReferencePoint && (
+	        {positionedFourAnchorWallGuides.length > 0 && (
+	          <div data-testid="four-anchor-wall-guide" className="pointer-events-none absolute inset-0 z-[28]" aria-label="Four-anchor wall guide">
+	            {positionedFourAnchorWallGuides.map(({ guide, labelPosition, startPosition }) => (
+	              <Fragment key={guide.label}>
+	                <span
+	                  data-testid="four-anchor-wall-guide-label"
+	                  data-wall-label={guide.label}
+	                  data-wall-color={guide.color}
+	                  aria-label={`${guide.label}. Measure from the matching colored dot.`}
+	                  title={`${guide.label} — measure from the matching colored dot.`}
+	                  tabIndex={0}
+	                  className="group pointer-events-auto absolute grid h-7 w-7 -translate-x-1/2 -translate-y-1/2 cursor-help place-items-center rounded-full border-2 border-white text-xs font-black text-white shadow-[0_1px_4px_rgba(15,23,42,0.45)] outline-none focus-visible:ring-2 focus-visible:ring-sky-950 focus-visible:ring-offset-2"
+	                  style={{ ...labelPosition, backgroundColor: guide.color }}
+	                >
+	                  {guide.label.replace("Wall ", "")}
+	                  <span data-testid="four-anchor-wall-guide-tooltip" role="tooltip" className="pointer-events-none absolute left-1/2 top-full z-50 mt-1 w-44 -translate-x-1/2 rounded bg-slate-950 px-2 py-1 text-center text-[10px] font-semibold leading-snug text-white opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100 group-focus:opacity-100">
+	                    {guide.label} — measure from the matching colored dot.
+	                  </span>
+	                </span>
+	                <span
+	                  data-testid="four-anchor-wall-guide-start"
+	                  data-wall-label={guide.label}
+	                  aria-label={`${guide.label} measurement start`}
+	                  className="absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white shadow-[0_1px_3px_rgba(15,23,42,0.55)]"
+	                  style={{ ...startPosition, backgroundColor: guide.color }}
+	                />
+	              </Fragment>
+	            ))}
+	          </div>
+	        )}
+	        {openingReferencePoint && (
           <div
             data-testid="window-measurement-reference-marker"
             aria-label={`${openingReferencePoint.label} measurement reference`}
@@ -1892,10 +2000,10 @@ export function PlanCanvas({
                       aria-label={`Drag Compass along ${wallLabel[side]} wall to set the peninsula split point`}
                       title="Drag toward the wall end for a 45° right turn or toward its start for a 45° left turn"
                       data-testid="on-wall-compass-drag-target"
-                      className="absolute z-20 grid h-12 w-12 touch-none place-items-center rounded-full border-2 border-[#a87f33] bg-white text-[#1a2744] shadow-md cursor-grab active:cursor-grabbing"
+                      className="absolute z-20 grid h-8 w-8 touch-none place-items-center rounded-md border-2 border-rose-700 bg-rose-700 text-white shadow-md cursor-grab active:cursor-grabbing"
                       style={horizontal
-                        ? { left: (compassStart - retainedWall.start) * ppi - 24, top: -16 }
-                        : { top: (compassStart - retainedWall.start) * ppi - 24, left: -16 }}
+                        ? { left: (compassStart - retainedWall.start) * ppi - 16, top: -9 }
+                        : { top: (compassStart - retainedWall.start) * ppi - 16, left: -9 }}
                       onPointerDown={(event) => onCompassPointerDown(event, side)}
                       onPointerMove={onCompassPointerMove}
                       onPointerUp={onCompassPointerUp}
@@ -1906,8 +2014,8 @@ export function PlanCanvas({
                       onFocus={() => setCompassPreviewVisible(true)}
                       onBlur={() => { if (!compassDrag.current) setCompassPreviewVisible(false); }}
                     >
-                      <Compass className="h-4 w-4" />
-                      <span className="absolute bottom-1 text-[8px] font-bold leading-none">45°</span>
+                      <Compass className="h-3.5 w-3.5" />
+                      <span className="absolute bottom-0.5 text-[7px] font-bold leading-none">45°</span>
                     </button>
                   )}
                 </>
@@ -1971,13 +2079,14 @@ export function PlanCanvas({
         {sinks.map((s) => {
           const isSel = s.uid === selectedSinkUid;
           const verticalWall = s.wallSide === "left" || s.wallSide === "right";
+          const isAttachedStandardSink = Boolean(s.cabinetUid && s.frontSetbackIn != null && !s.apronFront);
           return (
             <div
               key={s.uid}
               onPointerDown={(e) => onSinkPointerDown(e, s)}
               onPointerMove={onSinkPointerMove}
               onPointerUp={onSinkPointerUp}
-              className={`absolute z-[3] ${onMoveSink && !layoutLocked ? "cursor-move" : ""}`}
+              className={`absolute z-[3] ${onMoveSink && !layoutLocked && !isAttachedStandardSink ? "cursor-move" : ""}`}
 	              style={{
 	                left: s.x * ppi,
 	                top: s.y * ppi,
@@ -1986,7 +2095,9 @@ export function PlanCanvas({
 	                transform: s.planRotation ? `rotate(${s.planRotation}deg)` : undefined,
 	                transformOrigin: "50% 50%",
 	              }}
-              title={t("dt_pc_sink_drag", { name: s.pelicanProductName || SINK_PRESETS[s.type].name })}
+              title={isAttachedStandardSink
+                ? `${s.pelicanProductName || SINK_PRESETS[s.type].name} · centered with ${formatEighthInches(s.frontSetbackIn!)} front setback`
+                : t("dt_pc_sink_drag", { name: s.pelicanProductName || SINK_PRESETS[s.type].name })}
             >
               {/* basin */}
               <div
@@ -2008,6 +2119,11 @@ export function PlanCanvas({
                   : s.wallSide === "left" ? <div className="absolute left-[-5px] top-1/2 -translate-y-1/2" style={{ width: Math.max(4, 4 * ppi), height: Math.max(4, 3 * ppi), background: "#5b636b", borderRadius: 2 }} />
                     : s.wallSide === "right" ? <div className="absolute right-[-5px] top-1/2 -translate-y-1/2" style={{ width: Math.max(4, 4 * ppi), height: Math.max(4, 3 * ppi), background: "#5b636b", borderRadius: 2 }} />
                       : <div className="absolute left-1/2 -translate-x-1/2" style={{ top: -5, width: Math.max(4, 3 * ppi), height: Math.max(4, 4 * ppi), background: "#5b636b", borderRadius: 2 }} />
+              )}
+              {s.faucetDeckConflict === "shallow-countertop-deck" && (
+                <span data-testid={`sink-faucet-deck-conflict-${s.uid}`} role="alert" className="absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded bg-rose-700 px-1 py-0.5 text-[8px] font-bold text-white shadow">
+                  REAR DECK TOO SHALLOW
+                </span>
               )}
             </div>
           );
@@ -3173,6 +3289,7 @@ export function PlanCanvas({
           const wallFrames = roomWallRunFrames(room).filter((frame) => frame.kind !== "peninsula");
           const chains = floorPlanWallDimensionChains(room, cabinets)
             .filter((chain) => chain.layer === "base" || showWallLayer);
+          const availableCabinetSpans = floorPlanAvailableCabinetSpans(room, cabinets, openings, showWallLayer);
           const activeLayers = showWallLayer ? ["base", "wall"] as const : ["base"] as const;
           // 2020-style exterior drafting rails: every wall dimension lives
           // outside the drawing, with the detail chain nearest the wall and
@@ -3271,23 +3388,18 @@ export function PlanCanvas({
                 </g>;
               })}
 
-              {/* Exterior run lines: catalog cabinet widths and every leftover gap. */}
+              {/* Exterior run lines: installed catalog cabinet widths.  Free runs
+                  render below from the placement-aware span helper so a red fit
+                  label cannot accidentally describe an opening or blocked edge. */}
               {chains.flatMap((chain) => {
                 const frame = wallFrames.find((candidate) => candidate.id === chain.wallId);
                 if (!frame) return [];
                 const railOffsetIn = chain.layer === "wall" ? wallRailOffsetIn : baseRailOffsetIn;
                 const tick = tickVector(frame);
-                return chain.segments.map((segment, index) => {
+                return chain.segments.filter((segment) => segment.kind === "cabinet").map((segment, index) => {
                   const dimensionKey = `run:${chain.wallId}:${chain.layer}:${index}`;
                   const adjustment = adjustmentFor(dimensionKey);
-                  // A bare number on an empty stretch looks like a cabinet size.
-                  // Show which cabinet layer owns this physical clear span:
-                  // 12-inch uppers and 24-inch bases intentionally have
-                  // different 45-degree corner holds and therefore different
-                  // visible open lengths.
-                  const label = segment.kind === "gap"
-                    ? `Open ${formatDisplayDimension(segment.length)} — ${chain.layer === "wall" ? "Wall" : "Base"}`
-                    : formatDisplayDimension(segment.length);
+                  const label = formatDisplayDimension(segment.length);
                   const metrics = labelMetrics(label.length);
                   const start = railPoint(frame, segment.start, railOffsetIn, adjustment);
                   const end = railPoint(frame, segment.start + segment.length, railOffsetIn, adjustment);
@@ -3296,14 +3408,11 @@ export function PlanCanvas({
                   const wallEnd = wallPoint(frame, segment.start + segment.length);
                   const short = segment.length * ppi < 30;
                   const labelPoint = short ? railPoint(frame, segment.start + segment.length / 2, railOffsetIn + 4.5, adjustment) : middle;
-                  const color = segment.kind === "gap" ? "#b45309" : "#1a2744";
+                  const color = "#1a2744";
                   return <g
                     key={`floor-dimension-run-${chain.wallId}-${chain.layer}-${index}`}
                     data-testid={`floor-dimension-run-${chain.wallId}-${chain.layer}-${index}`}
                     data-dimension-key={dimensionKey}
-                    aria-label={segment.kind === "gap"
-                      ? `Open ${chain.layer === "wall" ? "wall" : "base"} span ${formatDisplayDimension(segment.length)}. Cabinet placement evaluates wall holds and collision separately. This label names the applicable layer.`
-                      : undefined}
                     className={onDimensionAdjustmentChange ? "pointer-events-auto cursor-grab active:cursor-grabbing" : undefined}
                     onPointerDown={(event) => beginDimensionLeaderDrag(event, dimensionKey, frame)}
                     onPointerMove={moveDimensionLeaderDrag}
@@ -3318,10 +3427,52 @@ export function PlanCanvas({
                     {short && <line x1={(start.x + end.x) / 2} y1={(start.y + end.y) / 2} x2={labelPoint.x} y2={labelPoint.y} stroke={color} strokeWidth={1} />}
                     <g transform={`translate(${labelPoint.x} ${labelPoint.y}) rotate(${labelAngle(frame)})`}>
                       <rect x={-metrics.width / 2} y={-metrics.height / 2} width={metrics.width} height={metrics.height} rx={3} fill="white" fillOpacity={0.94} />
-                      <text x={0} y={dimensionFontSize * 0.34} textAnchor="middle" fontSize={Math.max(8, dimensionFontSize - 1)} fontWeight={segment.kind === "gap" ? 700 : 500} fill={dimensionColor}>{label}</text>
+                      <text x={0} y={dimensionFontSize * 0.34} textAnchor="middle" fontSize={Math.max(8, dimensionFontSize - 1)} fontWeight={500} fill={dimensionColor}>{label}</text>
                     </g>
                   </g>;
                 });
+              })}
+              {/* Red cabinet-space labels use freeSegmentsOnWall—the same
+                  opening-aware source of truth used when a catalog item is
+                  actually placed.  They replace the older generic “Open” chips. */}
+              {availableCabinetSpans.map((gap, index) => {
+                const frame = wallFrames.find((candidate) => candidate.id === gap.side);
+                if (!frame) return null;
+                const railOffsetIn = gap.layer === "wall" ? wallRailOffsetIn : baseRailOffsetIn;
+                const dimensionKey = `available:${gap.side}:${gap.layer}:${index}`;
+                const adjustment = adjustmentFor(dimensionKey);
+                const label = `Fits up to ${formatDisplayDimension(gap.length)} — ${gap.layer === "wall" ? "Wall" : "Base"}`;
+                const metrics = labelMetrics(label.length);
+                const start = railPoint(frame, gap.start, railOffsetIn, adjustment);
+                const end = railPoint(frame, gap.start + gap.length, railOffsetIn, adjustment);
+                const middle = railPoint(frame, gap.start + gap.length / 2, railOffsetIn + labelOffsetIn, adjustment);
+                const wallStart = wallPoint(frame, gap.start);
+                const wallEnd = wallPoint(frame, gap.start + gap.length);
+                const short = gap.length * ppi < 30;
+                const labelPoint = short ? railPoint(frame, gap.start + gap.length / 2, railOffsetIn + 4.5, adjustment) : middle;
+                const color = "#dc2626";
+                return <g
+                  key={`floor-available-gap-${gap.side}-${gap.layer}-${index}`}
+                  data-testid={`floor-available-gap-${gap.side}-${gap.layer}-${index}`}
+                  data-dimension-key={dimensionKey}
+                  aria-label={`${gap.layer === "wall" ? "Wall" : "Base"} cabinet space: fits up to ${formatDisplayDimension(gap.length)}.`}
+                  className={onDimensionAdjustmentChange ? "pointer-events-auto cursor-grab active:cursor-grabbing" : undefined}
+                  onPointerDown={(event) => beginDimensionLeaderDrag(event, dimensionKey, frame)}
+                  onPointerMove={moveDimensionLeaderDrag}
+                  onPointerUp={endDimensionLeaderDrag}
+                  onPointerCancel={endDimensionLeaderDrag}
+                >
+                  <line x1={wallStart.x} y1={wallStart.y} x2={start.x} y2={start.y} stroke={color} strokeOpacity={0.6} strokeWidth={0.75} />
+                  <line x1={wallEnd.x} y1={wallEnd.y} x2={end.x} y2={end.y} stroke={color} strokeOpacity={0.6} strokeWidth={0.75} />
+                  <line x1={start.x} y1={start.y} x2={end.x} y2={end.y} stroke={color} strokeWidth={1.25} />
+                  <line x1={start.x - tickVector(frame).x} y1={start.y - tickVector(frame).y} x2={start.x + tickVector(frame).x} y2={start.y + tickVector(frame).y} stroke={color} strokeWidth={1.25} />
+                  <line x1={end.x - tickVector(frame).x} y1={end.y - tickVector(frame).y} x2={end.x + tickVector(frame).x} y2={end.y + tickVector(frame).y} stroke={color} strokeWidth={1.25} />
+                  {short && <line x1={(start.x + end.x) / 2} y1={(start.y + end.y) / 2} x2={labelPoint.x} y2={labelPoint.y} stroke={color} strokeWidth={1} />}
+                  <g transform={`translate(${labelPoint.x} ${labelPoint.y}) rotate(${labelAngle(frame)})`}>
+                    <rect x={-metrics.width / 2} y={-metrics.height / 2} width={metrics.width} height={metrics.height} rx={3} fill="#fff1f2" stroke="#fecdd3" />
+                    <text x={0} y={dimensionFontSize * 0.34} textAnchor="middle" fontSize={Math.max(8, dimensionFontSize - 1)} fontWeight={800} fill="#dc2626">{label}</text>
+                  </g>
+                </g>;
               })}
 
               {/* Door, window, and cased-opening width plus both wall-end dimensions. */}
@@ -3539,24 +3690,6 @@ export function PlanCanvas({
           );
         })}
 
-        {measurementBubblesVisible && xTicks.map((t) => (
-          <div
-            key={`x${t}`}
-            className="absolute top-0 text-[8px] text-muted-foreground/60"
-            style={{ left: t * ppi - 6, top: -16, ...measurementBubbleStyle }}
-          >
-            {t / 12}'
-          </div>
-        ))}
-        {measurementBubblesVisible && yTicks.map((t) => (
-          <div
-            key={`y${t}`}
-            className="absolute text-[8px] text-muted-foreground/60"
-            style={{ top: t * ppi - 4, left: -18, ...measurementBubbleStyle }}
-          >
-            {t / 12}'
-          </div>
-        ))}
       </div>
 
       {hoverSnap && (

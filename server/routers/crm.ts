@@ -9,6 +9,7 @@ import {
   crmDealDesigns,
   crmEmailLog,
   emailSettings,
+  notificationSettings,
   kitchenDesigns,
   threeDRoomShares,
   affiliates,
@@ -41,6 +42,12 @@ import { buildCrmInvoiceEmailHtml, createCrmInvoicePdf } from "../crmInvoicePdf"
 import { usableInvoicePrefill, verifiedFreightInvoicePrefill } from "../crmInvoicePrefill";
 import { groupedDesignInvoiceMaterials } from "../crmDesignInvoice";
 import { crmCustomerImportIdentities, prepareCrmCustomerImport } from "@shared/crmCustomerListImport";
+import { sendEmailViaSettings } from "../email";
+import {
+  newlyRequestedCrmHelpKinds,
+  recipientsForCrmHelpNotification,
+  type CrmHelpNotificationKind,
+} from "../lib/crmHelpNotifications";
 
 /**
  * Record a flat $400 commission when a deal owned by a sales rep transitions to
@@ -82,6 +89,44 @@ async function recordSalesCommissionOnWon(
     });
   } catch {
     // Unique violation under a race — another path already recorded it. Safe to ignore.
+  }
+}
+
+async function notifyCrmHelpTeam(
+  db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
+  deal: typeof crmDeals.$inferSelect,
+  kind: CrmHelpNotificationKind,
+): Promise<void> {
+  try {
+    const [notificationRows, emailRows] = await Promise.all([
+      db.select().from(notificationSettings).limit(1),
+      db.select().from(emailSettings).limit(1),
+    ]);
+    const settings = notificationRows[0];
+    const recipients = recipientsForCrmHelpNotification(settings, kind);
+    const email = emailRows[0];
+    if (!email || recipients.length === 0) return;
+
+    const requestLabel = kind === "design" ? "Design Help" : "Shipping Cost Help";
+    const customer = deal.contactName || deal.contactEmail || "Customer";
+    const text = [
+      `A CRM deal now needs ${requestLabel}.`,
+      `Deal: ${deal.title}`,
+      `Customer: ${customer}`,
+      `Deal ID: ${deal.id}`,
+      "",
+      "Open Administration → CRM to review the deal and respond.",
+    ].join("\n");
+    await sendEmailViaSettings(email, {
+      to: recipients[0]!,
+      cc: recipients.slice(1),
+      subject: `CRM: ${requestLabel} requested — ${deal.title}`,
+      text,
+      html: crmEmailBodyToHtml(text),
+    });
+  } catch (error) {
+    // A mail outage cannot prevent the help request itself from being saved.
+    console.error("[CRM] Help team notification failed", error);
   }
 }
 
@@ -198,6 +243,8 @@ const dealCoreInput = {
   nextFollowUpAt: z.number().int().nullable().optional(), // epoch ms
   notes: z.string().max(8000).nullable().optional(),
   needsHelpClosing: z.boolean().optional(),
+  needsHelpDesigning: z.boolean().optional(),
+  needsHelpShipping: z.boolean().optional(),
 };
 
 function sameCustomerEmail(left: string | null | undefined, right: string | null | undefined) {
@@ -716,6 +763,9 @@ export const crmRouter = router({
         source: "manual",
         nextFollowUpAt: input.nextFollowUpAt != null ? new Date(input.nextFollowUpAt) : null,
         notes: input.notes ?? null,
+        needsHelpClosing: input.needsHelpClosing ?? false,
+        needsHelpDesigning: input.needsHelpDesigning ?? false,
+        needsHelpShipping: input.needsHelpShipping ?? false,
         closedAt: isClosedStage(stage) ? new Date() : null,
       });
       const insertId = (res as unknown as [{ insertId: number }])[0].insertId;
@@ -742,12 +792,18 @@ export const crmRouter = router({
         patch.nextFollowUpAt = input.nextFollowUpAt != null ? new Date(input.nextFollowUpAt) : null;
       if (input.notes !== undefined) patch.notes = input.notes;
       if (input.needsHelpClosing !== undefined) patch.needsHelpClosing = input.needsHelpClosing;
+      if (input.needsHelpDesigning !== undefined) patch.needsHelpDesigning = input.needsHelpDesigning;
+      if (input.needsHelpShipping !== undefined) patch.needsHelpShipping = input.needsHelpShipping;
       if (input.stage !== undefined && input.stage !== deal.stage) {
         patch.stage = input.stage;
         patch.closedAt = isClosedStage(input.stage as CrmStage) ? new Date() : null;
       }
       if (Object.keys(patch).length > 0) {
         await db.update(crmDeals).set(patch).where(eq(crmDeals.id, deal.id));
+      }
+      const newlyRequestedHelpKinds = newlyRequestedCrmHelpKinds(deal, input);
+      for (const kind of newlyRequestedHelpKinds) {
+        await notifyCrmHelpTeam(db, deal, kind);
       }
       // Newly won → record the sales-rep commission (idempotent, sales reps only).
       if (input.stage === "won" && deal.stage !== "won") {

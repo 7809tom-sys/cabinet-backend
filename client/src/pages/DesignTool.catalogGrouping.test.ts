@@ -42,6 +42,16 @@ describe("DesignTool cabinet catalog organization", () => {
     expect(source).toContain("for (const c of heightFilteredPalette) buckets[baseSubGroup(c)].push(c)");
   });
 
+  it("returns each requested cabinet and part tab to its condensed category headings when selected", () => {
+    expect(source).toContain("const COLLAPSIBLE_CATALOG_TABS");
+    expect(source).toContain('"base", "corner", "wall", "tall", "appliance", "accessory", "panel"');
+    expect(source).toContain("const selectCatalogPaletteTab = useCallback((tab: HeightFilterPaletteType) => {");
+    expect(source).toContain("setCatalogCollapseRequest(tab)");
+    expect(source).toContain("catalogCollapseRequest !== paletteType");
+    expect(source).toContain("groupedPalette.map((group) => `${paletteType}:${group.label}`)");
+    expect(source).toContain("onClick={() => { selectCatalogPaletteTab(tab);");
+  });
+
   it("keeps cabinet selection height groups and item dimensions in inches", () => {
     const groupingStart = source.indexOf('if (paletteType === "wall")');
     const groupingEnd = source.indexOf('// The "Base" tab is organized by base TYPE', groupingStart);

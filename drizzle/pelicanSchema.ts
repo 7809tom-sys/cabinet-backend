@@ -24,6 +24,9 @@ export const pelicanProducts = mysqlTable("pelican_products", {
   priceTier3: decimal("priceTier3", { precision: 10, scale: 2 }),
   priceTier4: decimal("priceTier4", { precision: 10, scale: 2 }),
   msrp: decimal("msrp", { precision: 10, scale: 2 }),
+  // Optional administrator-set customer retail price. When absent, the
+  // category markup remains the pricing fallback.
+  retailPrice: decimal("retailPrice", { precision: 10, scale: 2 }),
   tiered: boolean("tiered").default(false).notNull(),
   yourCost: decimal("yourCost", { precision: 10, scale: 2 }),
   markupPercent: decimal("markupPercent", { precision: 6, scale: 4 }),

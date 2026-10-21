@@ -1,4 +1,5 @@
 import { Download, FileSpreadsheet, Printer, ShoppingCart, Trash2, TriangleAlert } from "lucide-react";
+import { useEffect, useState } from "react";
 import { missingPriceBannerText, missingPriceLineLabel } from "@/lib/designMissingPrice";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -26,6 +27,8 @@ export function DesignMaterialsListDialog({
   pricedCartItemCount = 0,
   missingPriceUids,
   missingPriceCount = 0,
+  conflictUids,
+  initialConflictsOnly = false,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -42,16 +45,28 @@ export function DesignMaterialsListDialog({
   /** Part 1: placed cabinet UIDs with no price on the active line. */
   missingPriceUids?: ReadonlySet<string>;
   missingPriceCount?: number;
+  /** Exact placed-item IDs currently flagged by the Designer conflict engine. */
+  conflictUids?: ReadonlySet<string>;
+  /** Launch intent only: normal Materials opens show all rows; the conflict badge opens affected rows. */
+  initialConflictsOnly?: boolean;
 }) {
+  const [showConflictsOnly, setShowConflictsOnly] = useState(initialConflictsOnly);
+  // This is deliberately an initialization, not a controlled filter: after a
+  // conflict-badge launch, the shopper can still select “Show all items”.
+  useEffect(() => {
+    setShowConflictsOnly(open ? initialConflictsOnly : false);
+  }, [initialConflictsOnly, open]);
   const rowMissingPrice = (row: MaterialsListRow) => (row.sourceUids ?? []).some((uid) => missingPriceUids?.has(uid));
+  const rowHasConflict = (row: MaterialsListRow) => (row.sourceUids ?? []).some((uid) => conflictUids?.has(uid));
+  const visibleRows = showConflictsOnly ? rows.filter(rowHasConflict) : rows;
   const title = `${brandName?.trim() || "Cabinet Dealz"} Materials & Parts List`;
-  const cabinetRows = rows.filter((row) => row.section === "cabinet");
-  const otherRows = rows.filter((row) => row.section === "other");
-  const unavailableCabinetCount = rows.filter((row) => row.priceStatus === "unavailable").length;
-  const quoteRequiredCount = rows.filter((row) => row.priceStatus === "quote_required").length;
+  const cabinetRows = visibleRows.filter((row) => row.section === "cabinet");
+  const otherRows = visibleRows.filter((row) => row.section === "other");
+  const unavailableCabinetCount = visibleRows.filter((row) => row.priceStatus === "unavailable").length;
+  const quoteRequiredCount = visibleRows.filter((row) => row.priceStatus === "quote_required").length;
 
   const downloadCsv = () => {
-    const csv = materialsListCsv(rows);
+    const csv = materialsListCsv(visibleRows);
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
@@ -61,7 +76,7 @@ export function DesignMaterialsListDialog({
     anchor.click();
     document.body.removeChild(anchor);
     URL.revokeObjectURL(url);
-    toast.success("Materials list exported", { description: `${rows.length} rows` });
+    toast.success("Materials list exported", { description: `${visibleRows.length} rows` });
   };
 
   const printList = () => {
@@ -72,7 +87,7 @@ export function DesignMaterialsListDialog({
     }
     preview.document.open();
     preview.document.write(materialsListPrintHtml({
-      rows,
+      rows: visibleRows,
       title,
       roomLabel,
       styleName,
@@ -147,6 +162,18 @@ export function DesignMaterialsListDialog({
             <div className="flex shrink-0 flex-wrap gap-2 pr-7 sm:pr-8">
               <Button
                 type="button"
+                variant={showConflictsOnly ? "default" : "outline"}
+                size="sm"
+                className="gap-1.5"
+                aria-pressed={showConflictsOnly}
+                disabled={!conflictUids?.size}
+                onClick={() => setShowConflictsOnly((current) => !current)}
+                title={showConflictsOnly ? "Show every material and part" : "Show only materials tied to an affected placement"}
+              >
+                <TriangleAlert className="h-4 w-4" /> {showConflictsOnly ? "Show all items" : "Conflicts only"}
+              </Button>
+              <Button
+                type="button"
                 size="sm"
                 className="gap-1.5 bg-[#a87f33] text-white hover:bg-[#8e6929]"
                 onClick={onAddPricedItemsToCart}
@@ -156,10 +183,10 @@ export function DesignMaterialsListDialog({
               >
                 <ShoppingCart className="h-4 w-4" /> Add priced items to cart{pricedCartItemCount > 0 ? ` (${pricedCartItemCount})` : ""}
               </Button>
-              <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={printList} disabled={rows.length === 0}>
+              <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={printList} disabled={visibleRows.length === 0}>
                 <Printer className="h-4 w-4" /> Print
               </Button>
-              <Button type="button" size="sm" className="gap-1.5 bg-[#1a2744] text-white hover:bg-[#27395f]" onClick={downloadCsv} disabled={rows.length === 0}>
+              <Button type="button" size="sm" className="gap-1.5 bg-[#1a2744] text-white hover:bg-[#27395f]" onClick={downloadCsv} disabled={visibleRows.length === 0}>
                 <Download className="h-4 w-4" /> Export CSV
               </Button>
             </div>
@@ -169,6 +196,11 @@ export function DesignMaterialsListDialog({
         <div className="min-h-0 flex-1 overflow-auto">
           {rows.length === 0 ? (
             <div className="flex min-h-[260px] items-center justify-center px-6 text-center text-sm text-muted-foreground">Add layout items before opening the materials list.</div>
+          ) : visibleRows.length === 0 ? (
+            <div data-testid="materials-conflicts-empty" className="flex min-h-[260px] flex-col items-center justify-center gap-3 px-6 text-center text-sm text-muted-foreground">
+              <p>No affected items are currently in the Materials &amp; Parts list.</p>
+              <Button type="button" variant="outline" size="sm" onClick={() => setShowConflictsOnly(false)}>Show all items</Button>
+            </div>
           ) : (
             <table className="min-w-[1270px] w-full border-collapse text-[11px]">
               <thead className="sticky top-0 z-10 bg-[#1a2744] text-white shadow-sm">
@@ -190,10 +222,11 @@ export function DesignMaterialsListDialog({
           <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
             <span className="text-slate-600">
               {cabinetRows.length} cabinet & part rows · {otherRows.length} other rows
+              {showConflictsOnly && <span className="font-semibold text-rose-700"> · conflict view · {visibleRows.length} of {rows.length} rows shown</span>}
               {unavailableCabinetCount > 0 && <span className="font-semibold text-rose-700"> · {unavailableCabinetCount} unavailable cabinet line{unavailableCabinetCount === 1 ? "" : "s"}</span>}
               {quoteRequiredCount > 0 && <span className="font-semibold text-amber-700"> · {quoteRequiredCount} quote-required line{quoteRequiredCount === 1 ? "" : "s"}</span>}
             </span>
-            <span className="text-sm font-bold text-[#1a2744]">Priced total: ${materialsListPricedTotal(rows).toFixed(2)}</span>
+            <span className="text-sm font-bold text-[#1a2744]">Priced total: ${materialsListPricedTotal(visibleRows).toFixed(2)}</span>
           </div>
           {(unavailableCabinetCount > 0 || quoteRequiredCount > 0) && (
             <p className="mt-1 text-[11px] text-slate-600">Quote-required and unavailable lines remain on this materials list and are not added to the cart.</p>

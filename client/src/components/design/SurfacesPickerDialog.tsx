@@ -31,10 +31,24 @@ import {
   type BathroomPaletteMode,
   type RecommendedRole,
 } from "./RecommendedSurfaces";
-import { hasVerifiedPelicanFixtureProfile } from "@/lib/pelicanFixtureProfiles";
+import {
+  hasVerifiedPelicanFixtureProfile,
+  verifiedPelicanFaucetProfile,
+  verifiedPelicanPotFillerProfile,
+  verifiedPelicanSinkProfile,
+} from "@/lib/pelicanFixtureProfiles";
 import { pelicanBathroomFixturePlacementText, verifiedPelicanBathroomFixtureProfile } from "@/lib/pelicanBathroomFixtureProfiles";
-import { Search, Plus, Check, Waves } from "lucide-react";
+import { Search, Plus, Check, FileText, Waves } from "lucide-react";
 import { usePreferredProducts } from "@/contexts/PreferredProductsContext";
+import {
+  groupPelicanConfigurations,
+  pelicanConfigurationStyles,
+  pelicanDisplayVariant,
+  pelicanSelectedSiblings,
+  pelicanUseLabel,
+  type PelicanConfiguration,
+} from "@shared/pelicanConfigurationGrouping";
+import { PelicanVariantSelect } from "./PelicanVariantSelect";
 import type { CountertopScope } from "@/lib/surfaceSelection";
 
 export type SelectedSurface = {
@@ -137,6 +151,19 @@ export function matchesCountertopSwatchFilter(
   return filter === "swatch-ready" ? swatchReady : !swatchReady;
 }
 
+/**
+ * Exposes a specification sheet only when this exact visible Pelican variant
+ * resolves through an existing verified fixture profile. Catalog product pages
+ * and shopper imagery deliberately do not qualify as technical sheets.
+ */
+export function verifiedSurfaceSpecificationUrl(item: Pick<SelectedSurface, "pelicanCode">): string | null {
+  return verifiedPelicanSinkProfile(item.pelicanCode)?.specificationUrl
+    ?? verifiedPelicanFaucetProfile(item.pelicanCode)?.specificationUrl
+    ?? verifiedPelicanPotFillerProfile(item.pelicanCode)?.specificationUrl
+    ?? verifiedPelicanBathroomFixtureProfile(item.pelicanCode)?.specificationUrl
+    ?? null;
+}
+
 export function SurfacesPickerDialog({
   open,
   onOpenChange,
@@ -200,6 +227,10 @@ export function SurfacesPickerDialog({
   const [countertopSwatchFilter, setCountertopSwatchFilter] = useState<CountertopSwatchFilter>("all");
   const [bathroomFinish, setBathroomFinish] = useState<BathroomFixtureFinishFilter>("all");
   const [bathroomSize, setBathroomSize] = useState<BathroomFixtureSizeFilter>("all");
+  const ALL_PELICAN_STYLES = "__all_pelican_styles__";
+  const [styleFilter, setStyleFilter] = useState<string>(ALL_PELICAN_STYLES);
+  /** Finish / size / drain side the shopper picked on each model card (exact catalog SKU id). */
+  const [chosenVariantIds, setChosenVariantIds] = useState<Record<string, number>>({});
   const { products: preferredProducts } = usePreferredProducts();
   const bathroomSections = bathroomPaletteMode === "fixtures"
     ? BATHROOM_FIXTURE_RECOMMENDED_SECTIONS
@@ -323,6 +354,19 @@ export function SurfacesPickerDialog({
       ? filterBathroomFixtureItems(compatible, bathroomFinish, bathroomSize)
       : compatible;
   }, [bathroomFinish, bathroomPaletteMode, bathroomSize, category, countertopSwatchFilter, debounced, isBathroom, items]);
+  // One card per model. Saved favorites stay one card per exact SKU so a favorite
+  // is never merged with siblings the shopper did not save.
+  const allConfigurations = useMemo<PelicanConfiguration<SelectedSurface>[]>(() => (
+    !isBathroom && category === "Preferred"
+      ? visibleItems.flatMap((item) => groupPelicanConfigurations([item]))
+      : groupPelicanConfigurations(visibleItems)
+  ), [category, isBathroom, visibleItems]);
+  const styleOptions = useMemo(() => pelicanConfigurationStyles(allConfigurations), [allConfigurations]);
+  const activeStyle = styleOptions.includes(styleFilter) ? styleFilter : ALL_PELICAN_STYLES;
+  const configurations = useMemo(
+    () => activeStyle === ALL_PELICAN_STYLES ? allConfigurations : allConfigurations.filter((entry) => entry.style === activeStyle),
+    [activeStyle, allConfigurations],
+  );
   const countertopSwatchCounts = useMemo(() => {
     const countertops = items.filter((item) => item.category === "Quartz Slabs (Countertops)");
     const ready = countertops.filter((item) => matchesCountertopSwatchFilter(item, "swatch-ready")).length;
@@ -392,6 +436,17 @@ export function SurfacesPickerDialog({
                 className="pl-9"
               />
             </div>
+            {styleOptions.length > 1 && (
+              <Select value={activeStyle} onValueChange={setStyleFilter}>
+                <SelectTrigger data-testid="pelican-style-filter" aria-label="Filter Pelican products by style" className="w-full sm:w-[210px]">
+                  <SelectValue placeholder="All styles" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL_PELICAN_STYLES}>All styles</SelectItem>
+                  {styleOptions.map((style) => <SelectItem key={style} value={style}>{style}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            )}
             {!isBathroom && category === "Quartz Slabs (Countertops)" && (
               <Select value={countertopSwatchFilter} onValueChange={(value) => setCountertopSwatchFilter(value as CountertopSwatchFilter)}>
                 <SelectTrigger data-testid="countertop-swatch-filter" aria-label="Filter countertop 3D material readiness" className="w-full sm:w-[244px]">
@@ -437,125 +492,133 @@ export function SurfacesPickerDialog({
               </>
             )}
           </div>
-          {!isBathroom && category === "Preferred" && (
-            <p className="text-[10px] leading-relaxed text-muted-foreground">Saved favorites remain in your catalog list. This Designer view shows only favorites that are active, priced, Designer-enabled, and verified for an exact material or fixture role.</p>
-          )}
-          {!isBathroom && category === "Sinks & Faucets" && (
-            <p className="text-[10px] leading-relaxed text-muted-foreground">Only fixtures with a source-verified 3D profile are shown here. Choose a sink and faucet through a compatible sink base to place their measured 3D models in the kitchen; adding an item here also retains it in the quote.</p>
-          )}
-          {((!isBathroom && category === "Tile & Mosaic") || (isBathroom && bathroomPaletteMode === "surfaces" && activeBathroomRole === "backsplash")) && (onBacksplashHeightModeChange || onCountertopBacksplashHeightChange) && (
-            <div className="grid gap-2 rounded-lg border border-[#a87f33]/30 bg-[#fffaf0] p-2.5 text-xs sm:grid-cols-2">
-              {!isBathroom && onBacksplashEnabledChange && (
-                <div data-testid="backsplash-enabled-control" className="sm:col-span-2 flex flex-col gap-1.5 rounded-md border border-[#a87f33]/20 bg-white/70 p-2 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="flex min-w-0 items-center gap-2">
-                    {selectedBacksplash ? (
-                      <div
-                        data-testid="backsplash-selected-swatch"
-                        className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded border border-[#a87f33]/35 bg-stone-100 shadow-inner"
-                        title={`Selected backsplash: ${selectedBacksplash.name}`}
-                        aria-label={`Selected backsplash preview: ${selectedBacksplash.name}`}
-                      >
-                        {selectedBacksplash.materialImageUrl || selectedBacksplash.imageUrl ? (
-                          <img
-                            src={selectedBacksplash.materialImageUrl || selectedBacksplash.imageUrl || undefined}
-                            alt=""
-                            className="h-full w-full object-cover"
-                          />
-                        ) : (
-                          <span aria-hidden className="h-5 w-5 rounded-sm border border-stone-400/60 bg-[repeating-linear-gradient(135deg,#d6d3d1_0_3px,#f5f5f4_3px_6px)]" />
-                        )}
-                      </div>
-                    ) : (
-                      <div data-testid="backsplash-selected-swatch-empty" aria-label="No backsplash selected" className="grid h-9 w-9 shrink-0 place-items-center rounded border border-dashed border-stone-400 bg-stone-50 text-[9px] font-semibold text-stone-500">Tile</div>
-                    )}
-                    <div className="min-w-0">
-                      <div className="text-[10px] font-semibold uppercase tracking-wide text-[#60491b]">Backsplash</div>
-                      <p className="text-[10px] leading-relaxed text-muted-foreground">{selectedBacksplash ? <><span className="font-medium text-foreground">{selectedBacksplash.name}</span> stays selected while Off removes it from this plan’s display and calculated surface/material amounts.</> : "Choose a wall tile to preview it here. Off removes a selected tile from this plan while keeping the choice ready to turn back on."}</p>
-                    </div>
-                  </div>
-                  <div className="flex shrink-0 gap-1.5" role="group" aria-label="Backsplash option">
-                    <Button type="button" size="sm" variant={backsplashEnabled ? "default" : "outline"} aria-pressed={backsplashEnabled} className="h-8 min-w-11 px-2 text-[11px]" onClick={() => onBacksplashEnabledChange(true)}>On</Button>
-                    <Button type="button" size="sm" variant={!backsplashEnabled ? "default" : "outline"} aria-pressed={!backsplashEnabled} className="h-8 min-w-11 px-2 text-[11px]" onClick={() => onBacksplashEnabledChange(false)}>Off</Button>
-                  </div>
-                </div>
-              )}
-              <div>
-                <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-[#60491b]">Wall tile coverage</div>
-                <div className="flex flex-wrap gap-1.5">
-                  <Button type="button" size="sm" variant={backsplashHeightMode === "standard" ? "default" : "outline"} className="h-7 px-2 text-[11px]" onClick={() => onBacksplashHeightModeChange?.("standard")}>Standard to uppers</Button>
-                  <Button type="button" size="sm" variant={backsplashHeightMode === "full-height" ? "default" : "outline"} className="h-7 px-2 text-[11px]" onClick={() => onBacksplashHeightModeChange?.("full-height")}>Full height to ceiling</Button>
-                </div>
-              </div>
-              <div>
-                <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-[#60491b]">Countertop rear upstand</div>
-                <div className="flex flex-wrap gap-1.5">
-                  {([0, 2.5, 3] as const).map((height) => (
-                    <Button key={height} type="button" size="sm" variant={countertopBacksplashHeightIn === height ? "default" : "outline"} className="h-7 px-2 text-[11px]" onClick={() => onCountertopBacksplashHeightChange?.(height)}>
-                      {height === 0 ? "None" : `${height}\" upstand`}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-              <p className="sm:col-span-2 text-[10px] leading-relaxed text-muted-foreground">12-inch wall tile is continuous only above countertop-supported cabinet and appliance runs. Standard ends at upper cabinets; a range continues to its hood. Full-height coverage increases material quantity and price.</p>
-            </div>
-          )}
-          {((!isBathroom && category === "Quartz Slabs (Countertops)") || (isBathroom && bathroomPaletteMode === "surfaces" && activeBathroomRole === "countertop")) && countertopPriceLines.length > 0 && (
-            <div data-testid="countertop-priced-coverage" className="rounded-lg border border-[#a87f33]/30 bg-[#fffaf0] p-2.5 text-xs">
-              <div className="mb-1 font-semibold text-[#60491b]">Measured countertop pricing</div>
-              <div className="space-y-1 text-muted-foreground">
-                {countertopPriceLines.map((line) => (
-                  <p key={`${line.name}:${line.qty}:${line.unitPrice ?? "pending"}`}>
-                    <span className="font-medium text-foreground">{line.name}</span>
-                    {line.qtyNote ? ` — ${line.qtyNote}` : ` — ${line.qty} ${line.qty === 1 ? "slab" : "slabs"}`}
-                    {line.unitPrice != null ? ` · ${formatPrice(line.unitPrice * line.qty)}` : " · pricing pending"}
-                  </p>
-                ))}
-              </div>
-              <p className="mt-1.5 text-[10px] leading-relaxed text-muted-foreground">The bar extension across a drywall pony wall is included in this measured coverage. Supplier pricing is per whole slab, so the total changes when that added coverage requires another slab.</p>
-            </div>
-          )}
-          {((!isBathroom && category === "Quartz Slabs (Countertops)") || (isBathroom && bathroomPaletteMode === "surfaces" && activeBathroomRole === "countertop")) && (
-            <p data-testid="countertop-selection-availability" className="text-[10px] leading-relaxed text-muted-foreground">All active, source-priced countertop products are available to select and quote. A product without an approved repeatable slab swatch remains accurately priced and is shown in 3D with the labeled neutral preview until its material swatch is supplied.</p>
-          )}
-          {isBathroom && bathroomPaletteMode === "fixtures" && selectedBathroomFixture && (
-            <section data-testid="selected-bathroom-fixture-preview" aria-label="Selected bathroom fixture preview" className="grid grid-cols-[5rem_minmax(0,1fr)] gap-3 rounded-xl border border-[var(--color-gold)]/45 bg-[#fffaf0] p-2.5">
-              <div className="flex aspect-square items-center justify-center overflow-hidden rounded-lg border border-[var(--color-gold)]/25 bg-white">
-                {selectedBathroomFixture.imageUrl ? (
-                  <img src={selectedBathroomFixture.imageUrl} alt={`${selectedBathroomFixture.name} selected preview`} className="h-full w-full object-contain" />
-                ) : (
-                  <Waves className="h-6 w-6 text-[var(--color-gold)]" aria-hidden="true" />
-                )}
-              </div>
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <p className="truncate text-xs font-semibold text-foreground">Selected fixture</p>
-                  <Badge variant="secondary" className="text-[10px]">{BATHROOM_FIXTURE_FINISH_CHIPS.find((chip) => chip.value === bathroomFixtureFinishFilter(selectedBathroomFixture))?.label ?? "Other"}</Badge>
-                </div>
-                <p className="mt-0.5 line-clamp-2 text-sm font-semibold leading-snug text-[var(--color-navy)]">{selectedBathroomFixture.name}</p>
-                <p className="mt-0.5 text-[11px] text-muted-foreground">{selectedBathroomFixture.size ?? "Source size on file"}{selectedBathroomFixture.pelicanCode ? ` · ${selectedBathroomFixture.pelicanCode}` : ""}</p>
-                <p className="mt-1 text-xs font-bold text-[var(--color-navy)]">{formatPrice(selectedBathroomFixture.sellPrice)}</p>
-              </div>
-            </section>
-          )}
         </div>
 
         {/* Grid */}
-        <ScrollArea className="flex-1">
+        <ScrollArea className="min-h-0 flex-1">
           <div className="px-6 py-4">
+            {/* Tall explanatory panels live inside the scroll area so a short window keeps
+                the tabs and search pinned and still has room to scroll to the cards. */}
+            <div data-testid="surfaces-scroll-panels" className="mb-4 flex flex-col gap-2 empty:hidden sm:gap-3">
+              {!isBathroom && category === "Preferred" && (
+                <p className="text-[10px] leading-relaxed text-muted-foreground">Saved favorites remain in your catalog list. This Designer view shows only favorites that are active, priced, Designer-enabled, and verified for an exact material or fixture role.</p>
+              )}
+              {!isBathroom && category === "Sinks & Faucets" && (
+                <p className="text-[10px] leading-relaxed text-muted-foreground">Only fixtures with a source-verified 3D profile are shown here. Choose a sink and faucet through a compatible sink base to place their measured 3D models in the kitchen; adding an item here also retains it in the quote.</p>
+              )}
+              {((!isBathroom && category === "Tile & Mosaic") || (isBathroom && bathroomPaletteMode === "surfaces" && activeBathroomRole === "backsplash")) && (onBacksplashHeightModeChange || onCountertopBacksplashHeightChange) && (
+                <div className="grid gap-2 rounded-lg border border-[#a87f33]/30 bg-[#fffaf0] p-2.5 text-xs sm:grid-cols-2">
+                  {!isBathroom && onBacksplashEnabledChange && (
+                    <div data-testid="backsplash-enabled-control" className="sm:col-span-2 flex flex-col gap-1.5 rounded-md border border-[#a87f33]/20 bg-white/70 p-2 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="flex min-w-0 items-center gap-2">
+                        {selectedBacksplash ? (
+                          <div
+                            data-testid="backsplash-selected-swatch"
+                            className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded border border-[#a87f33]/35 bg-stone-100 shadow-inner"
+                            title={`Selected backsplash: ${selectedBacksplash.name}`}
+                            aria-label={`Selected backsplash preview: ${selectedBacksplash.name}`}
+                          >
+                            {selectedBacksplash.materialImageUrl || selectedBacksplash.imageUrl ? (
+                              <img
+                                src={selectedBacksplash.materialImageUrl || selectedBacksplash.imageUrl || undefined}
+                                alt=""
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              <span aria-hidden className="h-5 w-5 rounded-sm border border-stone-400/60 bg-[repeating-linear-gradient(135deg,#d6d3d1_0_3px,#f5f5f4_3px_6px)]" />
+                            )}
+                          </div>
+                        ) : (
+                          <div data-testid="backsplash-selected-swatch-empty" aria-label="No backsplash selected" className="grid h-9 w-9 shrink-0 place-items-center rounded border border-dashed border-stone-400 bg-stone-50 text-[9px] font-semibold text-stone-500">Tile</div>
+                        )}
+                        <div className="min-w-0">
+                          <div className="text-[10px] font-semibold uppercase tracking-wide text-[#60491b]">Backsplash</div>
+                          <p className="text-[10px] leading-relaxed text-muted-foreground">{selectedBacksplash ? <><span className="font-medium text-foreground">{selectedBacksplash.name}</span> stays selected while Off removes it from this plan’s display and calculated surface/material amounts.</> : "Choose a wall tile to preview it here. Off removes a selected tile from this plan while keeping the choice ready to turn back on."}</p>
+                        </div>
+                      </div>
+                      <div className="flex shrink-0 gap-1.5" role="group" aria-label="Backsplash option">
+                        <Button type="button" size="sm" variant={backsplashEnabled ? "default" : "outline"} aria-pressed={backsplashEnabled} className="h-8 min-w-11 px-2 text-[11px]" onClick={() => onBacksplashEnabledChange(true)}>On</Button>
+                        <Button type="button" size="sm" variant={!backsplashEnabled ? "default" : "outline"} aria-pressed={!backsplashEnabled} className="h-8 min-w-11 px-2 text-[11px]" onClick={() => onBacksplashEnabledChange(false)}>Off</Button>
+                      </div>
+                    </div>
+                  )}
+                  <div>
+                    <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-[#60491b]">Wall tile coverage</div>
+                    <div className="flex flex-wrap gap-1.5">
+                      <Button type="button" size="sm" variant={backsplashHeightMode === "standard" ? "default" : "outline"} className="h-7 px-2 text-[11px]" onClick={() => onBacksplashHeightModeChange?.("standard")}>Standard to uppers</Button>
+                      <Button type="button" size="sm" variant={backsplashHeightMode === "full-height" ? "default" : "outline"} className="h-7 px-2 text-[11px]" onClick={() => onBacksplashHeightModeChange?.("full-height")}>Full height to ceiling</Button>
+                    </div>
+                  </div>
+                  <div>
+                    <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-[#60491b]">Countertop rear upstand</div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {([0, 2.5, 3] as const).map((height) => (
+                        <Button key={height} type="button" size="sm" variant={countertopBacksplashHeightIn === height ? "default" : "outline"} className="h-7 px-2 text-[11px]" onClick={() => onCountertopBacksplashHeightChange?.(height)}>
+                          {height === 0 ? "None" : `${height}\" upstand`}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                  <p className="sm:col-span-2 text-[10px] leading-relaxed text-muted-foreground">12-inch wall tile is continuous only above countertop-supported cabinet and appliance runs. Standard ends at upper cabinets; a range continues to its hood. Full-height coverage increases material quantity and price.</p>
+                </div>
+              )}
+              {((!isBathroom && category === "Quartz Slabs (Countertops)") || (isBathroom && bathroomPaletteMode === "surfaces" && activeBathroomRole === "countertop")) && countertopPriceLines.length > 0 && (
+                <div data-testid="countertop-priced-coverage" className="rounded-lg border border-[#a87f33]/30 bg-[#fffaf0] p-2.5 text-xs">
+                  <div className="mb-1 font-semibold text-[#60491b]">Measured countertop pricing</div>
+                  <div className="space-y-1 text-muted-foreground">
+                    {countertopPriceLines.map((line) => (
+                      <p key={`${line.name}:${line.qty}:${line.unitPrice ?? "pending"}`}>
+                        <span className="font-medium text-foreground">{line.name}</span>
+                        {line.qtyNote ? ` — ${line.qtyNote}` : ` — ${line.qty} ${line.qty === 1 ? "slab" : "slabs"}`}
+                        {line.unitPrice != null ? ` · ${formatPrice(line.unitPrice * line.qty)}` : " · pricing pending"}
+                      </p>
+                    ))}
+                  </div>
+                  <p className="mt-1.5 text-[10px] leading-relaxed text-muted-foreground">The bar extension across a drywall pony wall is included in this measured coverage. Supplier pricing is per whole slab, so the total changes when that added coverage requires another slab.</p>
+                </div>
+              )}
+              {((!isBathroom && category === "Quartz Slabs (Countertops)") || (isBathroom && bathroomPaletteMode === "surfaces" && activeBathroomRole === "countertop")) && (
+                <p data-testid="countertop-selection-availability" className="text-[10px] leading-relaxed text-muted-foreground">All active, source-priced countertop products are available to select and quote. A product without an approved repeatable slab swatch remains accurately priced and is shown in 3D with the labeled neutral preview until its material swatch is supplied.</p>
+              )}
+              {isBathroom && bathroomPaletteMode === "fixtures" && selectedBathroomFixture && (
+                <section data-testid="selected-bathroom-fixture-preview" aria-label="Selected bathroom fixture preview" className="grid grid-cols-[5rem_minmax(0,1fr)] gap-3 rounded-xl border border-[var(--color-gold)]/45 bg-[#fffaf0] p-2.5">
+                  <div className="flex aspect-square items-center justify-center overflow-hidden rounded-lg border border-[var(--color-gold)]/25 bg-white">
+                    {selectedBathroomFixture.imageUrl ? (
+                      <img src={selectedBathroomFixture.imageUrl} alt={`${selectedBathroomFixture.name} selected preview`} className="h-full w-full object-contain" />
+                    ) : (
+                      <Waves className="h-6 w-6 text-[var(--color-gold)]" aria-hidden="true" />
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <p className="truncate text-xs font-semibold text-foreground">Selected fixture</p>
+                      <Badge variant="secondary" className="text-[10px]">{BATHROOM_FIXTURE_FINISH_CHIPS.find((chip) => chip.value === bathroomFixtureFinishFilter(selectedBathroomFixture))?.label ?? "Other"}</Badge>
+                    </div>
+                    <p className="mt-0.5 line-clamp-2 text-sm font-semibold leading-snug text-[var(--color-navy)]">{selectedBathroomFixture.name}</p>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">{selectedBathroomFixture.size ?? "Source size on file"}{selectedBathroomFixture.pelicanCode ? ` · ${selectedBathroomFixture.pelicanCode}` : ""}</p>
+                    <p className="mt-1 text-xs font-bold text-[var(--color-navy)]">{formatPrice(selectedBathroomFixture.sellPrice)}</p>
+                  </div>
+                </section>
+              )}
+            </div>
             {paletteLoading ? (
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
                 {Array.from({ length: 6 }).map((_, i) => (
                   <Skeleton key={i} className="h-44 w-full rounded-lg" />
                 ))}
               </div>
-            ) : visibleItems.length === 0 ? (
+            ) : configurations.length === 0 ? (
               <div className="py-14 text-center text-sm text-muted-foreground">
                 {isBathroom ? "No source-priced bathroom fixtures match your search." : category === "Preferred" ? "No saved products currently meet the verified Designer gate." : `No ${category.toLowerCase()} items match your search.`}
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-                {visibleItems.map((p: any) => {
+                {configurations.map((configuration) => {
+                  const displayVariant = pelicanDisplayVariant(configuration, selectedIds, chosenVariantIds[configuration.key]);
+                  const p: any = displayVariant.item;
                   const isSel = selectedIds.has(p.id);
+                  const siblingSelected = isSel ? undefined : configuration.variants.find((entry) => selectedIds.has(entry.item.id));
+                  const hasVariants = configuration.variants.length > 1;
                   const gradient =
                     CATEGORY_GRADIENT[p.category] ?? "linear-gradient(135deg,#e5e7eb,#cbd5e1)";
                   const hasThreeDMaterialRole = /floor|tile|mosaic|backsplash|countertop|quartz|slab/i.test(`${p.category ?? ""} ${p.subCategory ?? ""}`);
@@ -579,18 +642,32 @@ export function SurfacesPickerDialog({
                   const bathroomFixtureProfile = isBathroom
                     ? verifiedPelicanBathroomFixtureProfile(item.pelicanCode)
                     : null;
+                  const specificationUrl = verifiedSurfaceSpecificationUrl(item);
+                  // One countertop, floor and wall tile are already replaced by choosing another;
+                  // everything else (sinks, faucets, fixtures) swaps a selected sibling finish
+                  // for the new one instead of adding a second copy of the same product.
+                  const replacesPrevious = p.category === "Quartz Slabs (Countertops)" || p.category === "Flooring" || p.category === "Tile & Mosaic";
+                  const choose = () => {
+                    if (!isSel && !replacesPrevious) {
+                      for (const sibling of pelicanSelectedSiblings(configuration, displayVariant, selectedIds)) {
+                        onToggle(sibling as SelectedSurface);
+                      }
+                    }
+                    onToggle(item);
+                  };
                   return (
                     <div
-                      key={p.id}
+                      key={configuration.key}
                       role="button"
                       tabIndex={0}
-                      aria-label={`${isSel ? "Remove" : "Select"} ${p.name}`}
+                      aria-label={`${isSel ? "Remove" : "Select"} ${configuration.label}${hasVariants ? ` — ${displayVariant.label}` : ""}`}
                       data-testid={`surface-card-${p.id}`}
-                      onClick={() => onToggle(item)}
+                      onClick={choose}
                       onKeyDown={(event) => {
+                        if (event.target !== event.currentTarget) return;
                         if (event.key === "Enter" || event.key === " ") {
                           event.preventDefault();
-                          onToggle(item);
+                          choose();
                         }
                       }}
                       className={`touch-manipulation cursor-pointer overflow-hidden rounded-lg border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-gold)] ${
@@ -599,7 +676,7 @@ export function SurfacesPickerDialog({
                     >
                       <div className="relative aspect-[4/3] w-full">
                         {p.imageUrl ? (
-                          <img src={p.imageUrl} alt={p.name} className="h-full w-full object-cover" />
+                          <img src={p.imageUrl} alt={`${configuration.label}${hasVariants ? ` in ${displayVariant.label}` : ""}`} className="h-full w-full object-cover" />
                         ) : (
                           <div
                             className="flex h-full w-full items-center justify-center"
@@ -612,11 +689,22 @@ export function SurfacesPickerDialog({
                         )}
                       </div>
                       <div className="space-y-1 p-2.5">
+                        <p className="truncate text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{configuration.eyebrow}</p>
                         <div className="line-clamp-2 min-h-[2.25rem] text-xs font-semibold leading-snug">
-                          {p.name}
+                          {configuration.label}
                         </div>
-                        {p.size && (
-                          <div className="text-[11px] text-muted-foreground">{p.size}</div>
+                        {hasVariants && (
+                          <PelicanVariantSelect
+                            configuration={configuration}
+                            value={displayVariant}
+                            onChange={(variantId) => setChosenVariantIds((current) => ({ ...current, [configuration.key]: variantId }))}
+                          />
+                        )}
+                        {(p.size || p.pelicanCode) && (
+                          <div className="truncate text-[11px] text-muted-foreground">{[p.size, p.pelicanCode].filter(Boolean).join(" · ")}</div>
+                        )}
+                        {siblingSelected && (
+                          <p data-testid={`surface-sibling-selected-${p.id}`} className="text-[10px] font-medium leading-snug text-[#8a6828]">In your design: {siblingSelected.label}</p>
                         )}
                         {hasThreeDMaterialRole && (
                           <p data-testid={`surface-material-readiness-${p.id}`} className={`text-[10px] font-medium leading-snug ${hasApprovedMaterialSwatch ? "text-emerald-700" : "text-amber-800"}`}>
@@ -649,7 +737,7 @@ export function SurfacesPickerDialog({
                             size="sm"
                             variant={isSel ? "secondary" : "default"}
                             className="h-7 gap-1 px-2 text-xs"
-                            onClick={(event) => { event.stopPropagation(); onToggle(item); }}
+                            onClick={(event) => { event.stopPropagation(); choose(); }}
                           >
                             {isSel ? (
                               <>
@@ -657,7 +745,7 @@ export function SurfacesPickerDialog({
                               </>
                             ) : (
                               <>
-                                <Plus className="h-3.5 w-3.5" /> Add
+                                <Plus className="h-3.5 w-3.5" /> {hasVariants ? pelicanUseLabel(configuration.optionLabel) : "Add"}
                               </>
                             )}
                           </Button>
@@ -673,6 +761,20 @@ export function SurfacesPickerDialog({
                           >
                             {bathroomFixtureProfile.kind === "floor-tub-filler" ? "Place floor-mounted tub filler" : bathroomFixtureProfile.planningOnly ? "Place visual planning envelope" : "Place in floor plan & 3D"}
                           </Button>
+                        )}
+                        {specificationUrl && (
+                          <a
+                            href={specificationUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            data-testid={`surface-card-specs-${p.id}`}
+                            aria-label={`View manufacturer specifications for ${configuration.label}`}
+                            title="View manufacturer specifications"
+                            onClick={(event) => event.stopPropagation()}
+                            className="inline-flex h-7 w-full items-center justify-center gap-1 rounded-md border border-[#b98d3e]/60 bg-white px-2 text-[11px] font-medium text-[#634b20] transition hover:bg-[#fff4d8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a2744] active:scale-95"
+                          >
+                            <FileText className="h-3.5 w-3.5" aria-hidden="true" /> Specs
+                          </a>
                         )}
                       </div>
                     </div>

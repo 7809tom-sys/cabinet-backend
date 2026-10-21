@@ -163,7 +163,7 @@ describe("Four-anchor wall stage end to end on the real frameless catalog", () =
     expect(total).toBeCloseTo(24 + 30 + 36, 3);
   });
 
-  it("puts a wall blind corner with its integrated filler at a base blind corner's vertex", () => {
+  it("puts a 12-inch wall cabinet in the room corner above a base blind corner", () => {
     const frameless = rows("540005", "base");
     const bbc = byCode(frameless, "BBC43/46FH");
     const base = seatFourAnchorCorner({
@@ -174,8 +174,8 @@ describe("Four-anchor wall stage end to end on the real frameless catalog", () =
     expect(base.ok).toBe(true);
     if (!base.ok) return;
     const result = build(base.placed, [{ base: base.corner, point: TOP_RIGHT }]);
-    const blind = result.additions.find((item) => isWallBlindCornerCabinet(item));
-    expect(blind, `skipped: ${result.skipped.join(" | ")}`).toBeDefined();
-    expect(blind!.width).toBeLessThanOrEqual(base.corner.width + 0.01);
+    const twelve = result.additions.find((item) => item.width === 12 && /^W12/.test(item.masterCode));
+    expect(twelve, `skipped: ${result.skipped.join(" | ")}`).toBeDefined();
+    expect(result.additions.some((item) => isWallBlindCornerCabinet(item))).toBe(false);
   });
 });

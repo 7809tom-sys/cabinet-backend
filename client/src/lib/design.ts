@@ -409,14 +409,30 @@ export function normalizeInstalledFillersToAdjacentCabinets(
   let changed = false;
   const next = placements.map((item) => {
     if (!isFillerItem(item) || item.integratedWallBlindFiller === true) return item;
-    const bridgeOwner = (item.refrigeratorAssemblyRole === "bridge-left-filler" || item.refrigeratorAssemblyRole === "bridge-right-filler")
+    const roleLinkedBridgeOwner = (item.refrigeratorAssemblyRole === "bridge-left-filler" || item.refrigeratorAssemblyRole === "bridge-right-filler")
       && item.refrigeratorAssemblyId
-      ? placements.find((candidate) => candidate.uid === item.refrigeratorAssemblyId
+      ? placements.find((candidate) => candidate.refrigeratorAssemblyId === item.refrigeratorAssemblyId
         && candidate.refrigeratorAssemblyRole === "bridge"
         && !isFillerItem(candidate)) ?? null
       : null;
+    // The durable cap-filler role was added after the original refrigerator
+    // enclosure picker. Those older saved fillers still carry the user's exact
+    // selected bridge UID. When that owner is a wall cabinet explicitly linked
+    // to a refrigerator, it is a cap filler—not a floor-to-fridge-side strip.
+    // Preserve that proven association before the refrigerator edge fallback.
+    const explicitBridgeOwner = item.fillerForCabinetUid
+      ? placements.find((candidate) => candidate.uid === item.fillerForCabinetUid
+        && candidate.placement === "wall"
+        && candidate.refrigeratorAssemblyId
+        && placements.some((refrigerator) => refrigerator.uid === candidate.refrigeratorAssemblyId && isRefrigerator(refrigerator))) ?? null
+      : null;
+    const bridgeOwner = roleLinkedBridgeOwner ?? explicitBridgeOwner;
     const refrigeratorOwner = refrigeratorAdjacentToFiller(item, placements, room);
-    const owner = refrigeratorOwner ?? bridgeOwner ?? adjacentCabinetForFiller(item, placements, room);
+    // A saved cap filler can predate its explicit bridge UID and still retain
+    // the refrigerator assembly role. That role is more specific than merely
+    // touching the refrigerator: it follows the cabinet above the fridge, not
+    // the refrigerator's floor-to-top side-filler envelope.
+    const owner = bridgeOwner ?? refrigeratorOwner ?? adjacentCabinetForFiller(item, placements, room);
     if (!owner) return item;
     // Front-miter pairs retain their deliberately shallow physical board and
     // measured plan footprint. Their vertical band still belongs exactly to
@@ -889,6 +905,10 @@ export interface PlacedCabinet {
   fillerPlacementMode?: "left" | "right" | "split" | null;
 	/** Cabinet whose measured opening owns this editable filler group. */
 	fillerForCabinetUid?: string | null;
+	/** Side of an optional regular-Designer cabinet that owns this attached filler. */
+	fillerAttachmentSide?: "left" | "right" | null;
+	/** Set when an attached filler loses its wall/cabinet termination after a later edit. */
+	fillerNeedsReview?: boolean | null;
 	/** Refrigerator-side fillers align to the appliance's complete bottom-to-top envelope. */
 	fillerMatchesFullOwnerEnvelope?: boolean | null;
 	/**
@@ -4862,7 +4882,7 @@ export function wallCabinetClearsWindow(
   const start = wallRunOffset(cabinet, side, room);
   const end = start + wallRunSpan(cabinet, side, room);
   const crossesWindow = start < opening.offset + opening.width - 0.01 && end > opening.offset + 0.01;
-  return crossesWindow && elevationBox(cabinet, room).bottom >= opening.sill + opening.height + clearance - 0.01;
+  return crossesWindow && !windowVerticallyOverlapsCabinet(cabinet, opening, room, clearance);
 }
 
 // Footprint rectangle (rotation-aware) for a placed item.
@@ -5934,6 +5954,31 @@ export type OpeningKind = "door" | "window" | "opening";
 // under a window). Used by base-overlap detection.
 export function blocksFloorRun(kind: OpeningKind): boolean {
   return kind === "door" || kind === "opening";
+}
+
+/**
+ * A window blocks a cabinet only where their real elevation envelopes overlap.
+ * Base cabinets and under-counter appliances remain usable below a raised sill;
+ * wall, tall, and hood/upper appliances remain blocked in the window zone.
+ * Doors and cased openings continue to use the separate floor-run rule above.
+ */
+export function windowVerticallyOverlapsCabinet(
+  cabinet: PlacedCabinet,
+  opening: WallOpening,
+  room: RoomData,
+  clearance = 0,
+): boolean {
+  if (opening.kind !== "window") return false;
+  const box = elevationBox(cabinet, room);
+  const openingBottom = opening.sill - clearance;
+  const openingTop = opening.sill + opening.height + clearance;
+  return box.bottom < openingTop - COLLISION_EPSILON_IN
+    && box.bottom + box.height > openingBottom + COLLISION_EPSILON_IN;
+}
+
+/** A window below the finished countertop must be corrected before base placement. */
+export function isWindowBelowCountertop(opening: WallOpening): boolean {
+  return opening.kind === "window" && opening.sill < STD.COUNTERTOP_HEIGHT - COLLISION_EPSILON_IN;
 }
 
 export interface OpeningDef {
@@ -7801,13 +7846,35 @@ export function fridgeCornerUpperDepth(): number {
   return FRIDGE_CORNER_UPPER_DEPTH_IN;
 }
 
+// A built-in OVEN CABINET (O338424, UOC3390, TOS2DB3084, TOD3094 ...) is a
+// 24"-deep tall cabinet with the oven inside a 24" opening: the oven door and
+// handle stay inside the box and can never reach a neighbor. It is a cabinet,
+// not a free-standing range, so the corner handle-clearance filler never
+// applies on either side of it (user rule, 2026-10-19). A "Range Base"
+// (RB2DB30 ...) is likewise just a base cabinet under a cooktop.
+export function isBuiltInOvenCabinet(p: {
+  masterCode?: string | null;
+  description?: string | null;
+  placement?: string | null;
+}): boolean {
+  if (p.placement === "appliance") return false;
+  const code = (p.masterCode || "").toUpperCase();
+  const desc = (p.description || "").toLowerCase();
+  if (/^(?:UOC|TOS|TOD|O3\d)/.test(code)) return true;
+  return /\boven\b/.test(desc) && (p.placement === "tall" || p.placement === "wall" || p.placement === "base");
+}
 export function rangeOvenClearanceViolations(
   placed: PlacedCabinet[],
   room: RoomData,
   fillerIn = RANGE_CLEARANCE_FILLER_IN
 ): Set<string> {
   const bad = new Set<string>();
-  const ranges = placed.filter((p) => isRangeOrOven(p.masterCode, p.description));
+  // Only a FREE-STANDING range/oven appliance has a protruding front handle that
+  // can strike a neighbor's handle. Cabinets that merely contain or sit under
+  // one (oven cabinets, range bases) are ordinary cabinets and never qualify.
+  const ranges = placed.filter(
+    (p) => p.placement === "appliance" && isRangeOrOven(p.masterCode, p.description) && !isBuiltInOvenCabinet(p)
+  );
   for (const range of ranges) {
     const side = cabinetWall(range, room);
     const horizontal = side === "top" || side === "bottom";
@@ -7825,6 +7892,9 @@ export function rangeOvenClearanceViolations(
       if (o.uid === range.uid) continue;
       if (o.placement !== "base" && o.placement !== "tall") continue;
       if (isRangeOrOven(o.masterCode, o.description)) continue;
+      // An oven cabinet beside a range never needs a filler (its oven door and
+      // handle stay inside the 24" opening).
+      if (isBuiltInOvenCabinet(o)) continue;
       // Skip a filler/scribe that is already doing its job.
       if (/\bfiller\b|\bscribe\b/i.test(`${o.masterCode} ${o.description}`)) continue;
       if (cabinetWall(o, room) !== side) continue;
@@ -8062,8 +8132,7 @@ export function baseOpeningOverlaps(
   room: RoomData
 ): Set<string> {
   const bad = new Set<string>();
-  const floorOpenings = openings.filter((o) => blocksFloorRun(o.kind));
-  if (floorOpenings.length === 0) return bad;
+
 	  for (const p of placed) {
 	    // Floor layer = base + appliance; tall spans the floor too.
 	    if (p.placement === "wall") continue;
@@ -8073,8 +8142,11 @@ export function baseOpeningOverlaps(
 	    const side = cabinetWall(p, room);
 	    const cStart = wallRunOffset(p, side, room);
 	    const cEnd = cStart + wallRunSpan(p, side, room);
-    for (const o of floorOpenings) {
+    for (const o of openings) {
       if (o.side !== side) continue;
+      const blocksFloorPlacement = blocksFloorRun(o.kind)
+        || windowVerticallyOverlapsCabinet(p, o, room);
+      if (!blocksFloorPlacement) continue;
       const oStart = o.offset;
       const oEnd = o.offset + o.width;
       // Any positive overlap along the run axis is a conflict.
@@ -8324,17 +8396,19 @@ export function freeSegmentsOnWall(
     blocked.push({ s: start, e: start + span });
   }
 
-  // Openings on this wall. A window only blocks the upper/wall-cabinet layer;
-  // a base, appliance, or tall run may pass under it. A door or cased opening
-  // blocks the floor layers as well. This deliberately matches
-  // baseOpeningOverlaps(), so a valid DW-24 opening does not first appear free
-  // in Plan and then disappear during the placement/collision step.
-  const openingBlocksLayer = (opening: WallOpening) =>
-    layer === "wall" || blocksFloorRun(opening.kind);
+  // Openings on this wall. A raised window blocks only a cabinet whose actual
+  // elevation reaches its sill-to-top zone. Doors and cased openings still
+  // block floor layers. Candidate-aware use keeps drag/drop and final placement
+  // collision validation in lockstep.
+  const openingBlocksLayer = (opening: WallOpening) => {
+    if (blocksFloorRun(opening.kind)) return true;
+    if (opening.kind !== "window") return false;
+    if (candidate) return windowVerticallyOverlapsCabinet(candidate, opening, room, openingClearance);
+    return layer === "wall" || layer === "tall" || isWindowBelowCountertop(opening);
+  };
   for (const o of openings) {
     if (o.side !== side) continue;
     if (!openingBlocksLayer(o)) continue;
-    if (candidate && wallCabinetClearsWindow(candidate, o, room, openingClearance)) continue;
     blocked.push({
       s: Math.max(wallStart, o.offset - openingClearance),
       e: Math.min(wallEnd, o.offset + o.width + openingClearance),
@@ -8507,6 +8581,86 @@ export function firstCollisionFreeWallPlacement(
     }
   }
   return null;
+}
+
+/**
+ * A base blind corner is set back from its room corner by the customer-selected
+ * 3–6 inch pull.  A normal 36-inch free-span lookup happens before that pull is
+ * applied, which can leave a BBC intersecting a small same-run F342 even though
+ * the next true seam is exactly pull + 36 inches from the corner.
+ *
+ * This is intentionally a narrow regular-Designer recovery, not a global
+ * snap rule: it only considers a floor-layer filler no wider than the real
+ * blind-corner clearance, preserves the already selected pull exactly, stays
+ * on its existing cardinal wall, and requires the entire post-pull cabinet body
+ * to fit one actual opening with zero physical collision.  The required
+ * perpendicular BBC filler remains the caller's existing atomic transaction.
+ */
+export function resolveBaseBlindCornerFillerSnap(
+  blind: PlacedCabinet,
+  room: RoomData,
+  placed: readonly PlacedCabinet[],
+  openings: WallOpening[],
+): { x: number; y: number; rotation: number; wallId?: string; wallOffset?: number } | null {
+  if (!isBaseBlindCorner(blind) || blind.islandFace) return null;
+  const side = (blind.wallId ?? cabinetWall(blind, room)) as WallSide;
+  const frame = wallRunFrame(side, room);
+  // Measured/peninsula run ownership is already handled by their dedicated
+  // placement engines.  Do not let this cabinet-specific recovery reinterpret
+  // their geometry or Continuous Wall Builder behavior.
+  if (!frame || frame.kind !== "cardinal") return null;
+  const pull = Number(blind.blindPull);
+  const range = blindPullRange(blind);
+  if (!range || !Number.isFinite(pull) || pull < range.min - COLLISION_EPSILON_IN || pull > range.max + COLLISION_EPSILON_IN) return null;
+  const bodySpan = wallRunSpan(blind, side, room);
+  const depth = Number(blind.depth) || STD.BASE_DEPTH;
+  if (bodySpan <= COLLISION_EPSILON_IN || depth <= COLLISION_EPSILON_IN) return null;
+
+  const currentStart = wallRunOffset(blind, side, room);
+  const wallSpan = wallLength(side, room);
+  const currentEnd = currentStart + bodySpan;
+  const cornerAtStart = currentStart <= wallSpan - currentEnd;
+  const expectedStart = cornerAtStart ? pull : wallSpan - bodySpan - pull;
+  const expectedEnd = expectedStart + bodySpan;
+  if (expectedStart < -COLLISION_EPSILON_IN || expectedEnd > wallSpan + COLLISION_EPSILON_IN) return null;
+
+  const ownRunFillerAtSeam = placed.some((item) => {
+    if (!isFillerItem(item) || item.islandFace || item.placement !== "base") return false;
+    if (cabinetWall(item, room) !== side) return false;
+    const fillerSpan = wallRunSpan(item, side, room);
+    if (fillerSpan <= COLLISION_EPSILON_IN || fillerSpan > BLIND_CORNER_FILLER_WIDTH_IN + COLLISION_EPSILON_IN) return false;
+    const fillerStart = wallRunOffset(item, side, room);
+    const fillerEnd = fillerStart + fillerSpan;
+    const seam = cornerAtStart ? fillerStart : fillerEnd;
+    return Math.abs(seam - (cornerAtStart ? expectedEnd : expectedStart)) <= COLLISION_EPSILON_IN;
+  });
+  if (!ownRunFillerAtSeam) return null;
+
+  const segmentContainsBody = freeSegmentsOnWall(
+    side,
+    room,
+    [...placed],
+    openings,
+    Math.min(bodySpan, 9),
+    0,
+    "base",
+    false,
+    blind,
+    depth,
+  ).some((segment) => (
+    segment.start <= expectedStart + COLLISION_EPSILON_IN
+    && segment.start + segment.length >= expectedEnd - COLLISION_EPSILON_IN
+  ));
+  if (!segmentContainsBody) return null;
+
+  const spot = wallPlacementAt(expectedStart, bodySpan, depth, side, room);
+  const candidate: PlacedCabinet = {
+    ...blind,
+    ...spot,
+    wallId: spot.wallId ?? side,
+    wallOffset: spot.wallOffset ?? expectedStart,
+  };
+	return cabinetPlacementCollisionDetail(candidate, [...placed], room) ? null : spot;
 }
 /** @deprecated One search serves every wall; kept for older call sites and tests. */
 export const firstCollisionFreeCustomWallPlacement = firstCollisionFreeWallPlacement;
@@ -13524,6 +13678,12 @@ export interface SinkFixture {
   /** Physical product dimensions before the plan footprint is rotated. */
   sourceWidth?: number;
   sourceDepth?: number;
+  /** Non-apron sink front setback from the finished countertop front. */
+  frontSetbackIn?: number;
+  /** Center of the usable rear countertop deck, measured from the sink rear. */
+  faucetRearDeckOffsetIn?: number;
+  /** Planning conflict when a deck-mounted faucet has no physical rear deck. */
+  faucetDeckConflict?: "shallow-countertop-deck";
   /** Pelican product ID (when selected from real inventory) */
   pelicanProductId?: number;
   /** Pelican product name for display */
@@ -13714,6 +13874,40 @@ export const SINK_PRESETS: Record<SinkType, { name: string; width: number; depth
   bar:       { name: "Bar / Prep Sink",  width: 15, depth: 15 },
 };
 
+/** Approved non-apron sink setback range from the finished countertop front. */
+export const NON_APRON_SINK_FRONT_SETBACK = {
+  minimumIn: 2.5,
+  defaultIn: 3,
+  maximumIn: 3.5,
+} as const;
+
+/**
+ * Published faucet profiles do not carry a countertop-hole/base-footprint
+ * datum. This documented Designer planning policy reserves a usable rear deck
+ * for their actual deck-mounted render, without claiming a source-specific
+ * installation clearance.
+ */
+export const MINIMUM_FAUCET_REAR_DECK_IN = 2.5;
+
+export type NonApronSinkDeckPlacement = {
+  applies: boolean;
+  ok: boolean;
+  x: number;
+  y: number;
+  planWidth: number;
+  planDepth: number;
+  frontSetbackIn: number;
+  rearDeckIn: number;
+  faucetCanFit: boolean;
+  faucetRearDeckOffsetIn?: number;
+  sinkFitsCountertop: boolean;
+  reason?: string;
+};
+
+const isCardinalSinkWall = (side: WallSide | undefined): side is "top" | "bottom" | "left" | "right" => (
+  side === "top" || side === "bottom" || side === "left" || side === "right"
+);
+
 export function sinkPlanDimensions(
   width: number,
   depth: number,
@@ -13722,6 +13916,96 @@ export function sinkPlanDimensions(
   return wallSide === "left" || wallSide === "right"
     ? { width: depth, depth: width }
     : { width, depth };
+}
+
+/**
+ * Places a standard, non-apron sink on an ordinary cardinal base run. Its long
+ * side stays parallel to the cabinet front; its front is three inches behind
+ * the finished countertop front by default; and the remaining rear deck is
+ * the only allowed deck-mounted faucet location. Part 1 intentionally leaves
+ * island, peninsula, angled/custom wall, apron-front, and countertop meshes
+ * untouched.
+ */
+export function nonApronSinkDeckPlacement(
+  cabinet: PlacedCabinet,
+  room: RoomData,
+  dimensions: { width: number; depth: number },
+  requestedFrontSetbackIn: number = NON_APRON_SINK_FRONT_SETBACK.defaultIn,
+): NonApronSinkDeckPlacement {
+  const side = cabinet.islandFace
+    ? ({ front: "top", back: "bottom", left: "right", right: "left" } as const)[cabinet.islandFace]
+    : cabinetWall(cabinet, room);
+  const plan = sinkPlanDimensions(dimensions.width, dimensions.depth, side);
+  const footprint = placedFootprint(cabinet);
+  const centeredX = Math.max(cabinet.x, Math.min(cabinet.x + footprint.w - plan.width, cabinet.x + footprint.w / 2 - plan.width / 2));
+  const centeredY = Math.max(cabinet.y, Math.min(cabinet.y + footprint.d - plan.depth, cabinet.y + footprint.d / 2 - plan.depth / 2));
+  const fallback: NonApronSinkDeckPlacement = {
+    applies: false,
+    ok: true,
+    x: centeredX,
+    y: centeredY,
+    planWidth: plan.width,
+    planDepth: plan.depth,
+    frontSetbackIn: requestedFrontSetbackIn,
+    rearDeckIn: 0,
+    faucetCanFit: true,
+    sinkFitsCountertop: true,
+  };
+  if (cabinet.islandFace || !isCardinalSinkWall(side)) return fallback;
+
+  const frontSetbackIn = Number.isFinite(requestedFrontSetbackIn)
+    ? requestedFrontSetbackIn
+    : NON_APRON_SINK_FRONT_SETBACK.defaultIn;
+  if (frontSetbackIn < NON_APRON_SINK_FRONT_SETBACK.minimumIn || frontSetbackIn > NON_APRON_SINK_FRONT_SETBACK.maximumIn) {
+    return {
+      ...fallback,
+      applies: true,
+      ok: false,
+      frontSetbackIn,
+      faucetCanFit: false,
+      sinkFitsCountertop: false,
+      reason: `Sink front setback must be between ${NON_APRON_SINK_FRONT_SETBACK.minimumIn}″ and ${NON_APRON_SINK_FRONT_SETBACK.maximumIn}″.`,
+    };
+  }
+
+  const countertopDepthIn = countertopDepthForCabinet(cabinet);
+  const rearDeckIn = countertopDepthIn - frontSetbackIn - dimensions.depth;
+  const sinkFitsCountertop = rearDeckIn >= -COLLISION_EPSILON_IN;
+  const faucetCanFit = rearDeckIn + COLLISION_EPSILON_IN >= MINIMUM_FAUCET_REAR_DECK_IN;
+  // Keep the deck-mounted base a tangible 1¼ inches behind the sink's rear
+  // edge when the approved deck minimum exists; do not visually drift it to
+  // the far rear edge on shallower/deeper sink models.
+  const faucetRearDeckOffsetIn = Math.max(0, Math.min(rearDeckIn / 2, 1.25));
+  let x = centeredX;
+  let y = centeredY;
+  if (side === "top") {
+    y = cabinet.y + footprint.d + (countertopDepthIn - footprint.d) - frontSetbackIn - plan.depth;
+  } else if (side === "bottom") {
+    y = cabinet.y - (countertopDepthIn - footprint.d) + frontSetbackIn;
+  } else if (side === "left") {
+    x = cabinet.x + footprint.w + (countertopDepthIn - footprint.w) - frontSetbackIn - plan.width;
+  } else {
+    x = cabinet.x - (countertopDepthIn - footprint.w) + frontSetbackIn;
+  }
+  const reason = !sinkFitsCountertop
+    ? `The selected sink is deeper than the finished countertop after its ${frontSetbackIn}″ front setback.`
+    : !faucetCanFit
+      ? `The selected sink leaves ${Math.max(0, rearDeckIn).toFixed(2)}″ of rear deck; a deck-mounted faucet requires ${MINIMUM_FAUCET_REAR_DECK_IN}″.`
+      : undefined;
+  return {
+    applies: true,
+    ok: sinkFitsCountertop,
+    x,
+    y,
+    planWidth: plan.width,
+    planDepth: plan.depth,
+    frontSetbackIn,
+    rearDeckIn: Math.max(0, rearDeckIn),
+    faucetCanFit,
+    faucetRearDeckOffsetIn,
+    sinkFitsCountertop,
+    reason,
+  };
 }
 
 export function makeSink(
@@ -13755,6 +14039,7 @@ export function makeSinkForCabinet(
 	  cabinet: PlacedCabinet,
 	  room: RoomData,
 	  dimensions?: { width: number; depth: number },
+	  options?: { frontSetbackIn?: number },
 ): SinkFixture {
 	  const side = cabinet.islandFace
 	    ? ({ front: "top", back: "bottom", left: "right", right: "left" } as const)[cabinet.islandFace]
@@ -13782,9 +14067,21 @@ export function makeSinkForCabinet(
         ? cabinet.y
         : centeredY
     : centeredY;
-	  const cardinalWall = side === "top" || side === "bottom" || side === "left" || side === "right";
+	  const deckPlacement = type === "farmhouse"
+	    ? null
+	    : nonApronSinkDeckPlacement(cabinet, room, { width: rawWidth, depth: rawDepth }, options?.frontSetbackIn);
+	  const cardinalWall = isCardinalSinkWall(side);
 	  const planRotation = cardinalWall ? 0 : ((Number(cabinet.rotation) % 360) + 360) % 360;
-	  return { ...makeSink(type, x, y, side, { width: rawWidth, depth: rawDepth }), cabinetUid: cabinet.uid, planRotation };
+	  return {
+	    ...makeSink(type, deckPlacement?.applies ? deckPlacement.x : x, deckPlacement?.applies ? deckPlacement.y : y, side, { width: rawWidth, depth: rawDepth }),
+	    cabinetUid: cabinet.uid,
+	    planRotation,
+	    ...(deckPlacement?.applies ? {
+	      frontSetbackIn: deckPlacement.frontSetbackIn,
+	      faucetRearDeckOffsetIn: deckPlacement.faucetRearDeckOffsetIn,
+	      ...(deckPlacement.faucetCanFit ? {} : { faucetDeckConflict: "shallow-countertop-deck" as const }),
+	    } : {}),
+	  };
 }
 
 /** Default visual-planning sink created with a required sink base. */
@@ -13809,14 +14106,22 @@ export function normalizeSinkFixturesToBases(
     if (!owner) return sink;
     const sourceWidth = sink.sourceWidth ?? sink.width;
     const sourceDepth = sink.sourceDepth ?? sink.depth;
-    const next = makeSinkForCabinet(sink.type, owner, room, { width: sourceWidth, depth: sourceDepth });
-    const same = sink.x === next.x && sink.y === next.y && sink.width === next.width && sink.depth === next.depth && sink.wallSide === next.wallSide && sink.planRotation === next.planRotation && sink.sourceWidth === next.sourceWidth && sink.sourceDepth === next.sourceDepth && sink.cabinetUid === next.cabinetUid;
+    const next = makeSinkForCabinet(
+      sink.type,
+      owner,
+      room,
+      { width: sourceWidth, depth: sourceDepth },
+      { frontSetbackIn: sink.frontSetbackIn },
+    );
+    const nextDeckConflict = sink.faucet ? next.faucetDeckConflict : undefined;
+    const same = sink.x === next.x && sink.y === next.y && sink.width === next.width && sink.depth === next.depth && sink.wallSide === next.wallSide && sink.planRotation === next.planRotation && sink.sourceWidth === next.sourceWidth && sink.sourceDepth === next.sourceDepth && sink.cabinetUid === next.cabinetUid && sink.frontSetbackIn === next.frontSetbackIn && sink.faucetRearDeckOffsetIn === next.faucetRearDeckOffsetIn && sink.faucetDeckConflict === nextDeckConflict;
     if (same) return sink;
     changed = true;
     return {
       ...next,
       uid: sink.uid,
       faucet: sink.faucet,
+      faucetDeckConflict: nextDeckConflict,
       pelicanProductId: sink.pelicanProductId,
       pelicanProductName: sink.pelicanProductName,
       pelicanProductImage: sink.pelicanProductImage,

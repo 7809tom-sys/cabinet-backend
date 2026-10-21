@@ -1,7 +1,8 @@
 import mysql from 'mysql2/promise';
-import { readFileSync } from 'fs';
+// Reads the connection string from the environment. Never hardcode credentials in this file.
+const dbUrl = process.env.DATABASE_URL;
+if (!dbUrl) { console.error('Set DATABASE_URL before running this script.'); process.exit(1); }
 
-const dbUrl = 'mysql://DvD55VJpkhp6SW2.root:1O1ay9q9HJrMk1Li5Zxn@gateway03.us-east-1.prod.aws.tidbcloud.com:4000/DQ7pUcbPFvKvFZ8JnyMs4M?ssl={"rejectUnauthorized":true}';
 
 const conn = await mysql.createConnection(dbUrl);
 

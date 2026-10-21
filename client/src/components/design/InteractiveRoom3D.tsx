@@ -14,7 +14,7 @@ import { ThreeDHandlesControl } from "./ThreeDHandlesControl";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { APPLIANCES, BLIND_CORNER_FILLER_WIDTH_IN, COUNTERTOP_DEPTH_IN, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, isBaseHeightAppliance, blindCornerRearCountertopExtensionIn, cabinetWall, cabinetWallDragPreview, cornerRotationForPlaced, countertopRunFaceNormal, countertopSurfacePlanPolygon, countertopSurfaces, crownBlockingCabinets, crownEligibleCabinets, customWallCabinetSide, drywallPonyWallAppearance, elevationBox, formatEighthInches, formatInches, glassDoorShelfCount, isAgainstWall, isBaseEndCornerCabinet, isCustomRoomWall, isFillerItem, fillerWidthRange, isGlassDoorCabinet, isMicrowaveOverRangePair, isRangeHoodPlacement, isRangeOrOven, isRefrigerator, isStacker, isWallRunDraggable, isWd18CountertopDrawerCabinet, kitchenCrestGenericOpenEndShelfCount, peninsulaCountertopPonyWallBackExtensionIn, peninsulaCountertopPonyWallBarOverhang, peninsulaCountertopSeatingOverhang, peninsulaCountertopWaterfallEnd, peninsulaLowerWorktopOppositeSideExtensionIn, peninsulaRunEndpoints, placedCornerGeometryKind, placedFootprint, ponyWallMiteredFootprint, ponyWallPlanFrame, potFillerMountedRange, rangeVisualAppearance, refrigeratorBayVerificationMetrics, resolveCabinetHardwarePosition, resolveSwing, roomWallAppearance, seatedWallRunFrame, wallRunFrame, selectedLowerCabinetWallPlacement, sinkPlanDimensions, usesRaisedFloorWallDoorPull, wallCabinetFitMeasure, wallGapFitPreview, wallGapFreehandPreview, wallGaps, wallPlacementAt, wallRunOffset, wallRunSpan, wallSpanMeasure, wd18CountertopFaceLayout, type CabinetWallDragPreview, type CountertopSurface, type IslandZone, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type PotFillerFixture, rotatedSize, type RoomData, type SinkFixture, type WallCabinetFitMeasure, type WallGapFitPreview, type WallOpening, type WallSide, type WallSpanMeasure, wallTopLimit, } from "@/lib/design";
+import { APPLIANCES, BLIND_CORNER_FILLER_WIDTH_IN, COUNTERTOP_DEPTH_IN, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, isBaseHeightAppliance, blindCornerRearCountertopExtensionIn, cabinetWall, cabinetWallDragPreview, cornerLegRatioForPlaced, cornerRotationForPlaced, countertopRunFaceNormal, countertopSurfacePlanPolygon, countertopSurfaces, crownBlockingCabinets, crownEligibleCabinets, customWallCabinetSide, drywallPonyWallAppearance, elevationBox, formatEighthInches, formatInches, glassDoorShelfCount, isAgainstWall, isBaseEndCornerCabinet, isCustomRoomWall, isFillerItem, fillerWidthRange, isGlassDoorCabinet, isMicrowaveOverRangePair, isRangeHoodPlacement, isRangeOrOven, isRefrigerator, isStacker, isWallRunDraggable, isWd18CountertopDrawerCabinet, kitchenCrestGenericOpenEndShelfCount, normalizeInstalledFillersToAdjacentCabinets, peninsulaCountertopPonyWallBackExtensionIn, peninsulaCountertopPonyWallBarOverhang, peninsulaCountertopSeatingOverhang, peninsulaCountertopWaterfallEnd, peninsulaLowerWorktopOppositeSideExtensionIn, peninsulaRunEndpoints, placedCornerGeometryKind, placedFootprint, ponyWallMiteredFootprint, ponyWallPlanFrame, potFillerMountedRange, rangeVisualAppearance, refrigeratorBayVerificationMetrics, resolveCabinetHardwarePosition, resolveSwing, roomWallAppearance, seatedWallRunFrame, wallRunFrame, selectedLowerCabinetWallPlacement, sinkPlanDimensions, usesRaisedFloorWallDoorPull, wallCabinetFitMeasure, wallGapFitPreview, wallGapFreehandPreview, wallGaps, wallPlacementAt, wallRunOffset, wallRunSpan, wallSpanMeasure, wallLength, wd18CountertopFaceLayout, type CabinetWallDragPreview, type CountertopSurface, type IslandZone, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type PotFillerFixture, rotatedSize, type RoomData, type SinkFixture, type WallCabinetFitMeasure, type WallGapFitPreview, type WallOpening, type WallSide, type WallSpanMeasure, wallTopLimit, } from "@/lib/design";
 import { islandCountertopRects, islandCountertopVisibleRects, islandRaisedBarRects, islandFaceFitMeasure } from "@/lib/islandScene";
 import { furniturePlanFrame, resolvedFurnitureDimensions } from "@/lib/design";
 import { farmhouseSinkBaseFaceLayout } from "@/lib/farmhouseSinkBaseFace";
@@ -435,6 +435,40 @@ export function threeDFittedFillerWidthText(cabinet: Pick<PlacedCabinet, "master
   const isAutomaticFit = /\bcut to\b/.test(cabinet.description ?? "");
   if (!isFiller || !isAutomaticFit || !Number.isFinite(cabinet.width) || cabinet.width <= 0) return null;
   return `Filler cut: ${exactFittedFillerInches(cabinet.width)}`;
+}
+
+/**
+ * One compact 3D notice replaces the former separate fitted-cut and maximum
+ * panels. Identical stock fillers with the same installed measurement are
+ * grouped, but every installed piece remains represented in `quantity` and
+ * every over-maximum condition remains visible.
+ */
+export type ThreeDFillerMeasurementNoticeEntry = {
+  masterCode: string;
+  installedWidth: number;
+  maximum: number;
+  over: boolean;
+  quantity: number;
+};
+
+export function threeDFillerMeasurementNoticeEntries(placed: readonly PlacedCabinet[]): ThreeDFillerMeasurementNoticeEntry[] {
+  const grouped = new Map<string, ThreeDFillerMeasurementNoticeEntry>();
+  for (const cabinet of placed) {
+    if (!isFillerItem(cabinet)) continue;
+    const installedWidth = Math.min(Math.abs(Number(cabinet.width)), Math.abs(Number(cabinet.depth)));
+    if (!Number.isFinite(installedWidth) || installedWidth <= 0) continue;
+    const range = fillerWidthRange(cabinet);
+    const maximum = range == null ? 3 : range.max;
+    const over = installedWidth > maximum + 0.001;
+    const key = `${cabinet.masterCode}|${installedWidth}|${maximum}|${over}`;
+    const existing = grouped.get(key);
+    if (existing) {
+      existing.quantity += 1;
+      continue;
+    }
+    grouped.set(key, { masterCode: cabinet.masterCode, installedWidth, maximum, over, quantity: 1 });
+  }
+  return Array.from(grouped.values());
 }
 
 /** A complete two-piece 45° front miter confirms a physical cabinet-front datum in the 3D planner. */
@@ -3663,11 +3697,17 @@ export function addCabinet(
   // carcass. Only explicit FS/floating-shelf items use the thin-shelf path.
   const isFloatingShelf = !isWallOpenShelf && (/^FS[-_ ]?\d+(?:\.\d+)?$/i.test(sku.masterCode ?? "") || /floating\s*shelf/i.test(`${sku.description ?? ""} ${sku.masterCode ?? ""}`));
   const floatingShelfWidth = Number(/^FS[-_ ]?(\d+(?:\.\d+)?)$/i.exec(sku.masterCode ?? "")?.[1]);
-  const lCornerLegRatio = isWall ? 0.5 : 2 / 3;
   const widthIn = isFloatingShelf && Number.isFinite(floatingShelfWidth) && floatingShelfWidth > 0
     ? floatingShelfWidth
     : numberValue(sku.width, 24);
   const depthIn = isFloatingShelf ? WALL_DEPTH : numberValue(sku.depth, isWall ? WALL_DEPTH : BASE_DEPTH);
+  // Base L-corners keep their actual 24-inch legs inside their square plan
+  // envelope. That produces 24/33 for ERB33 and retains the existing 24/36
+  // result for every 36-inch corner. Wall L-corners intentionally keep their
+  // present 12/24 fixed ratio until their source audit is separately approved.
+  const lCornerLegRatio = isWall
+    ? 0.5
+    : cornerLegRatioForPlaced({ width: widthIn, placement: "base" });
   const configuredHeightIn = isFloatingShelf ? 2.06 : numberValue(sku.height, isWall ? 30 : isTall ? 84 : 34.5);
   const resolvedHeightIn = isFreestandingRange
     ? Math.max(STD.RANGE_COOKING_SURFACE_HEIGHT, configuredHeightIn)
@@ -7004,7 +7044,7 @@ function worldCrownEdges(cabinet: PlacedCabinet, room: RoomData): ThreeDCrownPer
   const diagonalCorner = cornerKind === "diagonal";
   const lCorner = cornerKind === "l-shape";
   const lCornerParts = lCorner
-    ? lCornerCarcassParts(width, depth, cabinet.placement === "wall" ? 0.5 : 2 / 3)
+    ? lCornerCarcassParts(width, depth, cabinet.placement === "wall" ? 0.5 : cornerLegRatioForPlaced(cabinet))
     : null;
   const localEdges = diagonalCorner
     ? diagonalCornerCrownSegments(width, depth).map(({ kind, start, end }) => ({ kind, start, end }))
@@ -7056,7 +7096,7 @@ function worldCrownFootprints(cabinet: PlacedCabinet, room: RoomData): CrownFoot
         // The coverage helper clips against convex polygons. Preserve the
         // physical L as its two overlapping rectangular carcass legs instead
         // of replacing it with a square that would hide crown at a valid run.
-        const parts = lCornerCarcassParts(width, depth, cabinet.placement === "wall" ? 0.5 : 2 / 3);
+        const parts = lCornerCarcassParts(width, depth, cabinet.placement === "wall" ? 0.5 : cornerLegRatioForPlaced(cabinet));
         const rectangle = (part: { width: number; depth: number; x: number; z: number }) => [
           { x: part.x - part.width / 2, z: part.z - part.depth / 2 },
           { x: part.x + part.width / 2, z: part.z - part.depth / 2 },
@@ -7617,14 +7657,20 @@ export function sinkFixtureTransform(sink: SinkFixture) {
 
 export function sinkFaucetTransform(sink: SinkFixture) {
   const sinkTransform = sinkFixtureTransform(sink);
-  const offset = sink.sourceDepth ?? sink.depth;
+  const sinkDepth = sink.sourceDepth ?? sink.depth;
+  // New non-apron fixtures carry an explicit rear-deck datum. Preserve the
+  // pre-Part-1 offset for legacy unowned/free fixtures until a linked restore
+  // can safely derive their countertop relationship.
+  const offset = sink.faucetRearDeckOffsetIn == null
+    ? sinkDepth * 0.31
+    : sinkDepth / 2 + sink.faucetRearDeckOffsetIn;
   const back = sink.wallSide === "bottom"
-    ? { x: 0, z: offset * INCH * 0.31 }
+    ? { x: 0, z: offset * INCH }
     : sink.wallSide === "left"
-      ? { x: -offset * INCH * 0.31, z: 0 }
+      ? { x: -offset * INCH, z: 0 }
       : sink.wallSide === "right"
-        ? { x: offset * INCH * 0.31, z: 0 }
-        : { x: 0, z: -offset * INCH * 0.31 };
+        ? { x: offset * INCH, z: 0 }
+        : { x: 0, z: -offset * INCH };
   return {
     x: sinkTransform.x + back.x,
     z: sinkTransform.z + back.z,
@@ -8460,13 +8506,12 @@ export function threeDBacksplashTileTextureTransform(segment: ThreeDBacksplashSe
   };
 }
 
-function threeDWallRunSpan(cabinet: PlacedCabinet, side: WallSide) {
-  const quarterTurn = Math.abs(Math.round(cabinet.rotation / 90)) % 2 === 1;
-  const rotatedWidth = quarterTurn ? cabinet.depth : cabinet.width;
-  const rotatedDepth = quarterTurn ? cabinet.width : cabinet.depth;
-  const start = side === "top" || side === "bottom" ? cabinet.x : cabinet.y;
-  const span = side === "top" || side === "bottom" ? rotatedWidth : rotatedDepth;
-  return { start, end: start + span };
+function threeDWallRunSpan(cabinet: PlacedCabinet, side: WallSide, room: RoomData) {
+	  // The shared run helpers retain the catalog-authoritative 36-inch BBC body
+	  // for legacy saves that stored its reduced 33-inch box width.
+	  const start = wallRunOffset(cabinet, side, room);
+	  const span = wallRunSpan(cabinet, side, room);
+	  return { start, end: start + span };
 }
 
 /**
@@ -8479,10 +8524,10 @@ function threeDWallRunSpan(cabinet: PlacedCabinet, side: WallSide) {
  */
 export function threeDBacksplashSupportSpans(cabinet: PlacedCabinet, side: WallSide, room: RoomData) {
   if (!threeDSupportsBacksplash(cabinet, room)) return [];
-  const cornerKind = placedCornerGeometryKind(cabinet);
-  const wrapsCornerLegs = cornerKind === "l-shape" || cornerKind === "diagonal" || cornerKind === "corner-drawer";
-  if (!wrapsCornerLegs) {
-    return cabinetWall(cabinet, room) === side ? [threeDWallRunSpan(cabinet, side)] : [];
+	const cornerKind = placedCornerGeometryKind(cabinet);
+	const wrapsCornerLegs = cornerKind === "l-shape" || cornerKind === "diagonal" || cornerKind === "corner-drawer";
+	if (!wrapsCornerLegs) {
+		return cabinetWall(cabinet, room) === side ? [threeDWallRunSpan(cabinet, side, room)] : [];
   }
   const footprint = placedFootprint(cabinet);
   const wallToleranceIn = 0.5;
@@ -8524,11 +8569,11 @@ function subtractThreeDBacksplashRect(
 }
 
 export function threeDBacksplashSegments(
-  placed: PlacedCabinet[],
-  openings: WallOpening[],
-  room: RoomData,
-  heightMode: BacksplashHeightMode = "standard",
-  countertopUpstandIn = 0,
+		placed: PlacedCabinet[],
+		openings: WallOpening[],
+		room: RoomData,
+		heightMode: BacksplashHeightMode = "standard",
+		countertopUpstandIn = 0,
 ) {
   const sides: WallSide[] = ["top", "bottom", "left", "right"];
   const countertopTop = COUNTERTOP_TOP;
@@ -8541,13 +8586,13 @@ export function threeDBacksplashSegments(
     const supportIntervals = mergeThreeDIntervals(placed.flatMap((cabinet) =>
       cabinet.islandFace ? [] : threeDBacksplashSupportSpans(cabinet, side, room),
     ));
-    const rangeIntervals = mergeThreeDIntervals(wallItems.flatMap((cabinet) => {
-      if (cabinet.islandFace || cabinetWall(cabinet, room) !== side || cabinet.placement !== "appliance") return [];
-      return isRangeOrOven(cabinet.masterCode, cabinet.description) ? [threeDWallRunSpan(cabinet, side)] : [];
-    }));
-    const hoodIntervals = wallItems.flatMap((cabinet) => {
-      if (!isRangeHoodPlacement(cabinet)) return [];
-      const span = threeDWallRunSpan(cabinet, side);
+		const rangeIntervals = mergeThreeDIntervals(wallItems.flatMap((cabinet) => {
+			if (cabinet.islandFace || cabinetWall(cabinet, room) !== side || cabinet.placement !== "appliance") return [];
+			return isRangeOrOven(cabinet.masterCode, cabinet.description) ? [threeDWallRunSpan(cabinet, side, room)] : [];
+		}));
+		const hoodIntervals = wallItems.flatMap((cabinet) => {
+			if (!isRangeHoodPlacement(cabinet)) return [];
+			const span = threeDWallRunSpan(cabinet, side, room);
       return [{ ...span, bottom: elevationBox(cabinet, room).bottom }];
     });
     const cuts = [
@@ -8563,20 +8608,18 @@ export function threeDBacksplashSegments(
 	        const raisedAppliance = cabinet.placement === "appliance" && box.bottom > countertopTop;
 	        const floorTallAppliance = cabinet.placement === "appliance" && box.bottom <= 0.5 && !threeDSupportsBacksplash(cabinet, room);
 	        if (cabinet.placement !== "wall" && cabinet.placement !== "tall" && !raisedAppliance && !floorTallAppliance) return [];
-	        const span = threeDWallRunSpan(cabinet, side);
+			const span = threeDWallRunSpan(cabinet, side, room);
 	        return [{ ...span, bottom: box.bottom, top: box.bottom + box.height }];
 	      }),
 	    ];
-    // Backsplash is an optional installed surface, and when selected it follows
-    // the actual cabinet-supported run—not the entire architectural wall. Use
-    // both countertop supports and wall-cabinet spans so a run can continue up
-    // to the upper-cabinet edge, then let openings (especially windows) cut the
-    // field without changing the saved wall or opening geometry.
-    const wallCabinetIntervals = mergeThreeDIntervals(wallItems
-      .filter((cabinet) => cabinet.placement === "wall")
-      .map((cabinet) => threeDWallRunSpan(cabinet, side)));
-    const coverageIntervals = mergeThreeDIntervals([...supportIntervals, ...wallCabinetIntervals]);
-    const sourceSegments: Array<Omit<ThreeDBacksplashSegment, "side">> = coverageIntervals.map((interval) => ({
+		// These are the real countertop/range-supported wall runs. Use exactly the
+		// same spans for display, elevation parity, and materials—never a room-wide
+		// perimeter field that can paint an open wall or bare floor.
+		const wallCabinetIntervals = mergeThreeDIntervals(wallItems
+			.filter((cabinet) => cabinet.placement === "wall")
+			.map((cabinet) => threeDWallRunSpan(cabinet, side, room)));
+		const supportedIntervals = mergeThreeDIntervals([...supportIntervals, ...wallCabinetIntervals]);
+	    const sourceSegments: Array<Omit<ThreeDBacksplashSegment, "side">> = supportedIntervals.map((interval) => ({
       ...interval,
       bottom: tileBottom,
       top: heightMode === "full-height" ? ceilingTop : standardTop,
@@ -8614,7 +8657,7 @@ export function threeDCountertopUpstandSegments(
 ) {
   if (upstandIn !== 2.5 && upstandIn !== 3) return [];
   const upstandTop = COUNTERTOP_TOP + upstandIn;
-  return threeDBacksplashSegments(placed, openings, room, "standard", 0)
+	return threeDBacksplashSegments(placed, openings, room, "standard", 0)
     .map((segment) => ({ ...segment, top: Math.min(segment.top, upstandTop) }))
     .filter((segment) => segment.top - segment.bottom > 0.001);
 }
@@ -9429,6 +9472,15 @@ export function threeDSceneInputDiagnostics(
   };
 }
 
+/**
+ * Rendering-only compatibility repair for legacy saved refrigerator cap
+ * fillers. The source plan stays untouched; this returns the exact same
+ * verified filler envelope used by the regular Designer restore path.
+ */
+export function threeDRenderPlacements(placed: PlacedCabinet[], room: RoomData): PlacedCabinet[] {
+  return normalizeInstalledFillersToAdjacentCabinets(placed, room);
+}
+
 export type ThreeDDesignParityInput = Pick<Props,
   "roomOverride" | "placed" | "openings" | "sinks" | "potFillers" | "island" | "furniture" | "ponyWalls"
   | "catalogDoorSampleUrl" | "catalogFinishOverride" | "catalogFinishName"
@@ -10179,9 +10231,10 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
   useEffect(() => {
     const mount = mountRef.current;
     if (!mount || (!scene.roomShape && !roomOverride)) return;
-    const room = roomOverride
-      ? { ...roomOverride, ceilingHeight: wallHeightIn }
-      : { ...dimensions(scene.roomShape?.defaultDimensions), ceilingHeight: wallHeightIn };
+	    const room = roomOverride
+	      ? { ...roomOverride, ceilingHeight: wallHeightIn }
+	      : { ...dimensions(scene.roomShape?.defaultDimensions), ceilingHeight: wallHeightIn };
+	    const renderedPlaced = renderExistingDesign ? threeDRenderPlacements(placed, room) : placed;
 
     const roomFrameKey = threeDCameraRoomFrameKey(room);
 	    const canvasWidth = Math.max(280, mount.clientWidth);
@@ -10379,10 +10432,10 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
 	      ceilingHeight: wallHeightIn,
 	    } as RoomData);
 	    const backsplashSegments = backsplashTexture && renderExistingDesign
-	      ? threeDBacksplashSegments(placed, openings, backsplashRoom, backsplashHeightMode, countertopBacksplashHeightIn)
+	      ? threeDBacksplashSegments(renderedPlaced, openings, backsplashRoom, backsplashHeightMode, countertopBacksplashHeightIn)
 	      : [];
 	    const countertopUpstandSegments = renderExistingDesign
-	      ? threeDCountertopUpstandSegments(placed, openings, backsplashRoom, countertopBacksplashHeightIn)
+	      ? threeDCountertopUpstandSegments(renderedPlaced, openings, backsplashRoom, countertopBacksplashHeightIn)
 	      : [];
     // Measured room vertices are absolute inches. Starter-layout templates use
     // normalized points, so keep their conversion separate from the saved-plan
@@ -10511,15 +10564,15 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
 		    const finish = resolvedCabinetFinish;
 		    const visibleCabinetFinishOverrides = selectedCabinetPreviewFinish ? undefined : cabinetFinishOverrides;
 	    const fittedFillerToeKickSuppressions = renderExistingDesign
-	      ? threeDFittedFillerToeKickSuppressionUids(placed)
+	      ? threeDFittedFillerToeKickSuppressionUids(renderedPlaced)
 	      : new Set<string>();
 	    const continuousToeKickSegments = renderExistingDesign && toeKick
-	      ? threeDContinuousToeKickSegments(placed, room)
+	      ? threeDContinuousToeKickSegments(renderedPlaced, room)
 	      : [];
 	    const continuousToeKickMemberUids = new Set(continuousToeKickSegments.flatMap((segment) => segment.memberUids));
-    const hasAnyDoorSample = Boolean(activeDoorTexture || Object.values(cabinetDoorSampleUrls ?? {}).some(Boolean));
-    setDoorTextureState(hasAnyDoorSample ? "loading" : "not-requested");
-    catalogRoot.userData.sceneInput = threeDSceneInputDiagnostics(placed, activeDoorTexture, catalogRoomSceneUrl);
+	    const hasAnyDoorSample = Boolean(activeDoorTexture || Object.values(cabinetDoorSampleUrls ?? {}).some(Boolean));
+	    setDoorTextureState(hasAnyDoorSample ? "loading" : "not-requested");
+	    catalogRoot.userData.sceneInput = threeDSceneInputDiagnostics(renderedPlaced, activeDoorTexture, catalogRoomSceneUrl);
 	    catalogRoot.userData.administrationVisualReference = {
       roomSceneUrl: catalogRoomSceneUrl ?? null,
       renderedAsBackdropOrGeometry: false,
@@ -10539,13 +10592,13 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
     let disposed = false;
     const updateDoorTextureState = (state: "loading" | "loaded" | "failed") => {
       if (!disposed) setDoorTextureState(state);
-    };
-    if (renderExistingDesign) {
-	      const sharedStandardCountertopSurfaces = threeDStandardCountertopSurfaces(room, placed, island, ponyWalls);
-      for (const cabinet of placed) {
-	        if (!shouldRenderSavedSceneCabinet(cabinet, placed)) continue;
+	    };
+	    if (renderExistingDesign) {
+	      const sharedStandardCountertopSurfaces = threeDStandardCountertopSurfaces(room, renderedPlaced, island, ponyWalls);
+	      for (const cabinet of renderedPlaced) {
+	        if (!shouldRenderSavedSceneCabinet(cabinet, renderedPlaced)) continue;
 	        const baseSku = existingCabinetSku(cabinet, room);
-	        const transitionFootprint = angledWallTransitionFootprint(cabinet, room, placed);
+	        const transitionFootprint = angledWallTransitionFootprint(cabinet, room, renderedPlaced);
         const sku = {
           ...baseSku,
           catalogImageUrl: resolvedPlacedCabinetFrontVisual(cabinet, cabinetFrontVisuals, baseSku.catalogImageUrl),
@@ -10554,8 +10607,8 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
 	        const cabinetFinish = resolvedPlacedCabinetFinish(cabinet, visibleCabinetFinishOverrides, finish);
         const cabinetDoorProfile = resolvedPlacedCabinetDoorProfile(cabinet, cabinetDoorProfiles, resolvedDoorProfile);
         const cabinetDoorTexture = resolvedPlacedCabinetDoorSampleUrl(cabinet, cabinetDoorSampleUrls, catalogDoorSampleUrl, renderExistingDesign);
-        const transform = /^HOOD[-_]?/i.test(cabinet.masterCode ?? "")
-          ? savedRangeHoodTransform(cabinet, placed, room)
+	        const transform = /^HOOD[-_]?/i.test(cabinet.masterCode ?? "")
+	          ? savedRangeHoodTransform(cabinet, renderedPlaced, room)
           : existingCabinetTransform(cabinet, room);
 	        const hasExactFarmhouseFixture = sinks.some((sink) => (
 	          sink.cabinetUid === cabinet.uid
@@ -10579,23 +10632,23 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
 		          suppressFarmhouseSinkPlaceholder: hasExactFarmhouseFixture,
 		          hardwareStyleId,
 		          hardwareAccent,
-		        });
-		        if (cabinet.masterTracConceptStorage || cabinet.masterTracStorageItems) {
-		          const fixedTopIn = placed.find((board) => board.masterTracTowerId === cabinet.masterTracTowerId
-		            && board.masterTracTowerBayIndex === cabinet.masterTracTowerBayIndex && board.masterTracTowerRole === "fixed-top")?.mountBottom;
+	        });
+	        if (cabinet.masterTracConceptStorage || cabinet.masterTracStorageItems) {
+	          const fixedTopIn = renderedPlaced.find((board) => board.masterTracTowerId === cabinet.masterTracTowerId
+	            && board.masterTracTowerBayIndex === cabinet.masterTracTowerBayIndex && board.masterTracTowerRole === "fixed-top")?.mountBottom;
 		          addMasterTracConceptStorage(catalogRoot, cabinet, room, fixedTopIn ?? undefined);
 		        }
 		      }
-		      if (toeKick && continuousToeKickSegments.length > 0) {
-		        addThreeDContinuousToeKicks(catalogRoot, continuousToeKickSegments, room, visibleCabinetFinishOverrides, finish);
-		      }
-		      addThreeDStandardCountertops(catalogRoot, room, placed, materialDefaults.countertop, countertopTexture, island, ponyWalls);
-		      if (roomOverride) {
-		        addThreeDMeasuredWallMiterCountertops(catalogRoot, roomOverride, placed, materialDefaults.countertop, countertopTexture);
-		        addThreeDPeninsulaCountertops(catalogRoot, roomOverride, placed, materialDefaults.countertop, countertopTexture);
-		      }
-		      addThreeDGlassStackerRearSupports(catalogRoot, placed, room, visibleCabinetFinishOverrides, finish);
-		      if (crown) addThreeDCrownMolding(catalogRoot, placed, room, visibleCabinetFinishOverrides, finish);
+	      if (toeKick && continuousToeKickSegments.length > 0) {
+	        addThreeDContinuousToeKicks(catalogRoot, continuousToeKickSegments, room, visibleCabinetFinishOverrides, finish);
+	      }
+	      addThreeDStandardCountertops(catalogRoot, room, renderedPlaced, materialDefaults.countertop, countertopTexture, island, ponyWalls);
+	      if (roomOverride) {
+	        addThreeDMeasuredWallMiterCountertops(catalogRoot, roomOverride, renderedPlaced, materialDefaults.countertop, countertopTexture);
+	        addThreeDPeninsulaCountertops(catalogRoot, roomOverride, renderedPlaced, materialDefaults.countertop, countertopTexture);
+	      }
+	      addThreeDGlassStackerRearSupports(catalogRoot, renderedPlaced, room, visibleCabinetFinishOverrides, finish);
+	      if (crown) addThreeDCrownMolding(catalogRoot, renderedPlaced, room, visibleCabinetFinishOverrides, finish);
 	    } else {
       for (const suggestion of validSuggestions) {
         if (!suggestion.sku) continue;
@@ -12087,20 +12140,9 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
   if (webglUnavailable) {
     return <div data-testid="webgl-unavailable" className="flex min-h-[320px] flex-col items-center justify-center gap-3 rounded-xl border border-dashed bg-muted/30 px-6 text-center text-sm text-muted-foreground"><p>{webglAutoRetriesRef.current < 2 ? "Starting the interactive 3D view…" : "The interactive 3D view could not start. Close other 3D tabs, then press Retry. Your 2D plan and elevation preview remain available."}</p><button type="button" className="rounded-md border bg-background px-3 py-1.5 text-sm font-semibold text-foreground" onClick={() => { webglAutoRetriesRef.current = 0; setWebglUnavailable(false); }}>Retry 3D view</button></div>;
   }
-  const fittedFillerLabels = placed
-    .map((cabinet) => ({ uid: cabinet.uid, masterCode: cabinet.masterCode, text: threeDFittedFillerWidthText(cabinet) }))
-    .filter((label): label is { uid: string; masterCode: string; text: string } => label.text != null);
-  const fillerMeasurementLabels = placed
-    .map((cabinet) => {
-      if (!isFillerItem(cabinet)) return null;
-      const installedWidth = Math.min(Math.abs(Number(cabinet.width)), Math.abs(Number(cabinet.depth)));
-      if (!Number.isFinite(installedWidth) || installedWidth <= 0) return null;
-      const range = fillerWidthRange(cabinet);
-      const maximum = range == null ? 3 : range.max;
-      return { uid: cabinet.uid, masterCode: cabinet.masterCode, installedWidth, maximum, over: installedWidth > maximum + 0.001 };
-    })
-    .filter((label): label is { uid: string; masterCode: string; installedWidth: number; maximum: number; over: boolean } => label != null);
-  const overMaximumFillerLabels = fillerMeasurementLabels.filter((label) => label.over);
+  const fillerNoticeEntries = threeDFillerMeasurementNoticeEntries(placed);
+  const fillerNoticePieceCount = fillerNoticeEntries.reduce((total, entry) => total + entry.quantity, 0);
+  const hasOverMaximumFiller = fillerNoticeEntries.some((entry) => entry.over);
   const frontDatumSnaps = threeDFrontDatumSnapIndicators(placed);
 
   const temporaryPreviewCounterText = threeDTemporaryPreviewCounterText(temporaryPreviewCounter);
@@ -12161,13 +12203,12 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
 		        {catalogDragMeasurement?.fit.status === "valid" && <ThreeDRemainingSpaceLine before={catalogDragMeasurement.fit.before} after={catalogDragMeasurement.fit.after} />}
 		        {hybridPlanUnderlay && <div data-testid="three-d-plan-underlay-badge" className="pointer-events-none absolute left-3 top-3 z-20 rounded-md border border-[#d9c196] bg-white/90 px-2.5 py-1.5 text-[11px] font-semibold text-[#634b20] shadow-sm backdrop-blur">3D over plan · same placement rules</div>}
 	        {temporaryPreviewMessage && <div data-testid="three-d-preview-fade" aria-hidden="true" className={`pointer-events-none absolute inset-0 z-10 bg-background transition-opacity duration-200 motion-reduce:hidden ${temporaryPreviewFading ? "opacity-40" : "opacity-0"}`} />}
-		        {embedded && <><div className={`${THREE_D_EMBEDDED_TOOLBAR_CLASS} ${tabletOverlay ? "hidden" : "hidden sm:flex"}`} onPointerDown={(event) => event.stopPropagation()} onPointerUp={(event) => event.stopPropagation()}>{onHardwareStyleChange && <ThreeDHandlesControl value={hardwareStyleId} onChange={onHardwareStyleChange} />}<button type="button" data-testid="three-d-add-cabinet" onClick={() => setWorkspacePanel("catalog")} className="inline-flex items-center gap-1.5 rounded-md bg-[#1a2744] px-2.5 py-1.5 text-xs font-semibold text-white transition hover:bg-[#1a2744]/85 active:scale-95"><Plus className="h-3.5 w-3.5" />Add cabinet</button>{cabinetFinishPreviewOptions.length > 1 && <button type="button" data-testid="three-d-cabinet-color-toggle" onClick={cycleCabinetPreviewFinish} aria-pressed={Boolean(selectedCabinetPreviewFinish)} className={`inline-flex max-w-52 items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-semibold transition active:scale-95 ${selectedCabinetPreviewFinish ? "border-[#a87f33] bg-[#fff7e8] text-[#614512]" : "bg-background text-[#1a2744] hover:bg-muted"}`} title="Temporarily show every cabinet and rear filler in the next selected finish"><Palette className="h-3.5 w-3.5" /><span className="h-3 w-3 shrink-0 rounded-full border border-black/15" style={{ backgroundColor: selectedCabinetPreviewFinish?.color ?? catalogFinish }} /><span className="truncate">Color: {selectedCabinetPreviewFinish?.name ?? "Plan colors"}</span></button>}<button type="button" data-testid="three-d-wall-heights" onClick={() => setWorkspacePanel("room")} className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-semibold text-[#1a2744] transition hover:bg-muted active:scale-95" aria-label="Set individual wall heights"><Rotate3D className="h-3.5 w-3.5" />Wall heights</button><button type="button" data-testid="three-d-room-context-toggle" onClick={() => setShowRoomContext((current) => !current)} className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-semibold text-[#1a2744] transition hover:bg-muted active:scale-95" aria-pressed={showRoomContext} title={showRoomContext ? "Hide the room walls for an unobstructed cabinet view" : "Show the finished-thickness room walls and mitered corners"}><Eye className="h-3.5 w-3.5" />{showRoomContext ? "Hide room walls" : "Show room walls"}</button>{onToggleWallLayer && <button type="button" data-testid="three-d-toggle-wall-cabinets" onClick={onToggleWallLayer} className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-semibold text-[#1a2744] transition hover:bg-muted active:scale-95" aria-pressed={showWallLayer}><PanelTop className="h-3.5 w-3.5" />{showWallLayer ? "Hide wall cabinets" : "Show wall cabinets"}</button>}</div><div data-testid="three-d-mobile-canvas-tools" className={`absolute right-3 top-3 z-20 flex items-start gap-1 ${tabletOverlay ? "" : "sm:hidden"}`} onPointerDown={(event) => event.stopPropagation()} onPointerUp={(event) => event.stopPropagation()}>{onHardwareStyleChange && <ThreeDHandlesControl value={hardwareStyleId} onChange={onHardwareStyleChange} />}{!tabletOverlay && <button type="button" data-testid="three-d-add-cabinet-mobile" onClick={() => setWorkspacePanel("catalog")} className="inline-flex h-10 items-center gap-1.5 rounded-md bg-[#1a2744] px-3 text-xs font-semibold text-white shadow-sm active:scale-95"><Plus className="h-4 w-4" />Add</button>}<div className="relative"><button type="button" data-testid="three-d-mobile-canvas-tools-trigger" onClick={() => setMobileCanvasToolsOpen((open) => !open)} aria-expanded={mobileCanvasToolsOpen} aria-label="Canvas controls" className="inline-flex h-11 w-11 items-center justify-center rounded-md border bg-background/95 text-[#1a2744] shadow-sm active:scale-95"><PanelTop className="h-4 w-4" /></button>{mobileCanvasToolsOpen && <div data-testid="three-d-mobile-canvas-tools-menu" className="absolute right-0 top-11 w-56 rounded-lg border bg-background/95 p-2 text-xs shadow-lg backdrop-blur">{cabinetFinishPreviewOptions.length > 1 && <button type="button" data-testid="three-d-mobile-cabinet-color-toggle" onClick={() => { cycleCabinetPreviewFinish(); setMobileCanvasToolsOpen(false); }} className="flex w-full items-center gap-2 rounded px-2.5 py-2 text-left font-semibold text-[#1a2744] hover:bg-muted" aria-pressed={Boolean(selectedCabinetPreviewFinish)}><Palette className="h-3.5 w-3.5" /><span className="h-3 w-3 shrink-0 rounded-full border border-black/15" style={{ backgroundColor: selectedCabinetPreviewFinish?.color ?? catalogFinish }} /><span className="truncate">Color: {selectedCabinetPreviewFinish?.name ?? "Plan colors"}</span></button>}<button type="button" data-testid="three-d-mobile-wall-heights" onClick={() => { setWorkspacePanel("room"); setMobileCanvasToolsOpen(false); }} className="flex w-full items-center gap-2 rounded px-2.5 py-2 text-left font-semibold text-[#1a2744] hover:bg-muted"><Rotate3D className="h-3.5 w-3.5" />Move wall</button>{onToggleWallLayer && <button type="button" data-testid="three-d-mobile-toggle-wall-cabinets" onClick={() => { onToggleWallLayer(); setMobileCanvasToolsOpen(false); }} className="flex w-full items-center gap-2 rounded px-2.5 py-2 text-left font-semibold text-[#1a2744] hover:bg-muted" aria-pressed={showWallLayer}><PanelTop className="h-3.5 w-3.5" />{showWallLayer ? "Hide walls" : "Show walls"}</button>}{fittedFillerLabels.length > 0 && <div data-testid="three-d-mobile-fitted-filler-labels" className="mt-1 border-t border-[#ead9b6] px-2.5 pt-2 text-[#634b20]"><p className="font-semibold">Fitted fillers</p>{fittedFillerLabels.map((label) => <p key={label.uid} className="mt-1 truncate font-medium text-[#765416]">{label.masterCode} · {label.text}</p>)}</div>}</div>}</div></div></>}
-	        {fittedFillerLabels.length > 0 && tabletOverlay && <div data-testid="three-d-fitted-filler-chip" className="absolute left-3 top-3 z-20" onPointerDown={(event) => event.stopPropagation()} onPointerUp={(event) => event.stopPropagation()}>
-	          <button type="button" onClick={() => setFillerChipOpen((open) => !open)} aria-expanded={fillerChipOpen} className="inline-flex h-11 items-center gap-1.5 rounded-full border border-[#d9c196] bg-[#fffaf1]/95 px-3 text-xs font-semibold text-[#634b20] shadow-sm backdrop-blur active:scale-95">Fillers ({fittedFillerLabels.length})</button>
-	          {fillerChipOpen && <div className="mt-1 w-56 rounded-lg border border-[#d9c196] bg-[#fffaf1]/98 px-2.5 py-2 text-xs shadow-lg backdrop-blur"><p className="font-semibold text-[#634b20]">Fitted fillers</p>{fittedFillerLabels.map((label) => <p key={label.uid} className="mt-0.5 truncate font-medium text-[#765416]">{label.masterCode} · {label.text}</p>)}</div>}
-	        </div>}
-	        {fittedFillerLabels.length > 0 && !tabletOverlay && <div data-testid="three-d-fitted-filler-labels" className="pointer-events-none absolute left-3 top-3 z-20 hidden max-w-[calc(100%-10rem)] rounded-lg border border-[#d9c196] bg-[#fffaf1]/95 px-2.5 py-2 text-xs shadow-sm backdrop-blur sm:block"><p className="font-semibold text-[#634b20]">Fitted fillers</p>{fittedFillerLabels.map((label) => <p key={label.uid} className="mt-0.5 truncate font-medium text-[#765416]">{label.masterCode} · {label.text}</p>)}</div>}
-	        {fillerMeasurementLabels.length > 0 && !tabletOverlay && <div data-testid="three-d-filler-measurement-labels" role="status" className={`pointer-events-none absolute left-3 top-[5.25rem] z-20 hidden max-w-[calc(100%-10rem)] rounded-lg border px-2.5 py-2 text-xs shadow-sm backdrop-blur sm:block ${overMaximumFillerLabels.length > 0 ? "border-red-300 bg-red-50/95 text-red-950" : "border-violet-200 bg-violet-50/95 text-violet-950"}`}><p className="font-semibold">Filler measurements</p>{fillerMeasurementLabels.map((label) => <p key={label.uid} className="mt-0.5 truncate font-medium">{label.masterCode} · {formatEighthInches(label.installedWidth)} installed · {formatEighthInches(label.maximum)} max{label.over ? " · OVER MAX" : ""}</p>)}</div>}
+        {embedded && <><div className={`${THREE_D_EMBEDDED_TOOLBAR_CLASS} ${tabletOverlay ? "hidden" : "hidden sm:flex"}`} onPointerDown={(event) => event.stopPropagation()} onPointerUp={(event) => event.stopPropagation()}>{onHardwareStyleChange && <ThreeDHandlesControl value={hardwareStyleId} onChange={onHardwareStyleChange} />}<button type="button" data-testid="three-d-add-cabinet" onClick={() => setWorkspacePanel("catalog")} className="inline-flex items-center gap-1.5 rounded-md bg-[#1a2744] px-2.5 py-1.5 text-xs font-semibold text-white transition hover:bg-[#1a2744]/85 active:scale-95"><Plus className="h-3.5 w-3.5" />Add cabinet</button>{cabinetFinishPreviewOptions.length > 1 && <button type="button" data-testid="three-d-cabinet-color-toggle" onClick={cycleCabinetPreviewFinish} aria-pressed={Boolean(selectedCabinetPreviewFinish)} className={`inline-flex max-w-52 items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-semibold transition active:scale-95 ${selectedCabinetPreviewFinish ? "border-[#a87f33] bg-[#fff7e8] text-[#614512]" : "bg-background text-[#1a2744] hover:bg-muted"}`} title="Temporarily show every cabinet and rear filler in the next selected finish"><Palette className="h-3.5 w-3.5" /><span className="h-3 w-3 shrink-0 rounded-full border border-black/15" style={{ backgroundColor: selectedCabinetPreviewFinish?.color ?? catalogFinish }} /><span className="truncate">Color: {selectedCabinetPreviewFinish?.name ?? "Plan colors"}</span></button>}<button type="button" data-testid="three-d-wall-heights" onClick={() => setWorkspacePanel("room")} className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-semibold text-[#1a2744] transition hover:bg-muted active:scale-95" aria-label="Set individual wall heights"><Rotate3D className="h-3.5 w-3.5" />Wall heights</button><button type="button" data-testid="three-d-room-context-toggle" onClick={() => setShowRoomContext((current) => !current)} className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-semibold text-[#1a2744] transition hover:bg-muted active:scale-95" aria-pressed={showRoomContext} title={showRoomContext ? "Hide the room walls for an unobstructed cabinet view" : "Show the finished-thickness room walls and mitered corners"}><Eye className="h-3.5 w-3.5" />{showRoomContext ? "Hide room walls" : "Show room walls"}</button>{onToggleWallLayer && <button type="button" data-testid="three-d-toggle-wall-cabinets" onClick={onToggleWallLayer} className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-semibold text-[#1a2744] transition hover:bg-muted active:scale-95" aria-pressed={showWallLayer}><PanelTop className="h-3.5 w-3.5" />{showWallLayer ? "Hide wall cabinets" : "Show wall cabinets"}</button>}</div><div data-testid="three-d-mobile-canvas-tools" className={`absolute right-3 top-3 z-20 flex items-start gap-1 ${tabletOverlay ? "" : "sm:hidden"}`} onPointerDown={(event) => event.stopPropagation()} onPointerUp={(event) => event.stopPropagation()}>{onHardwareStyleChange && <ThreeDHandlesControl value={hardwareStyleId} onChange={onHardwareStyleChange} />}{!tabletOverlay && <button type="button" data-testid="three-d-add-cabinet-mobile" onClick={() => setWorkspacePanel("catalog")} className="inline-flex h-10 items-center gap-1.5 rounded-md bg-[#1a2744] px-3 text-xs font-semibold text-white shadow-sm active:scale-95"><Plus className="h-4 w-4" />Add</button>}<div className="relative"><button type="button" data-testid="three-d-mobile-canvas-tools-trigger" onClick={() => setMobileCanvasToolsOpen((open) => !open)} aria-expanded={mobileCanvasToolsOpen} aria-label="Canvas controls" className="inline-flex h-11 w-11 items-center justify-center rounded-md border bg-background/95 text-[#1a2744] shadow-sm active:scale-95"><PanelTop className="h-4 w-4" /></button>{mobileCanvasToolsOpen && <div data-testid="three-d-mobile-canvas-tools-menu" className="absolute right-0 top-11 w-56 rounded-lg border bg-background/95 p-2 text-xs shadow-lg backdrop-blur">{cabinetFinishPreviewOptions.length > 1 && <button type="button" data-testid="three-d-mobile-cabinet-color-toggle" onClick={() => { cycleCabinetPreviewFinish(); setMobileCanvasToolsOpen(false); }} className="flex w-full items-center gap-2 rounded px-2.5 py-2 text-left font-semibold text-[#1a2744] hover:bg-muted" aria-pressed={Boolean(selectedCabinetPreviewFinish)}><Palette className="h-3.5 w-3.5" /><span className="h-3 w-3 shrink-0 rounded-full border border-black/15" style={{ backgroundColor: selectedCabinetPreviewFinish?.color ?? catalogFinish }} /><span className="truncate">Color: {selectedCabinetPreviewFinish?.name ?? "Plan colors"}</span></button>}<button type="button" data-testid="three-d-mobile-wall-heights" onClick={() => { setWorkspacePanel("room"); setMobileCanvasToolsOpen(false); }} className="flex w-full items-center gap-2 rounded px-2.5 py-2 text-left font-semibold text-[#1a2744] hover:bg-muted"><Rotate3D className="h-3.5 w-3.5" />Move wall</button>{onToggleWallLayer && <button type="button" data-testid="three-d-mobile-toggle-wall-cabinets" onClick={() => { onToggleWallLayer(); setMobileCanvasToolsOpen(false); }} className="flex w-full items-center gap-2 rounded px-2.5 py-2 text-left font-semibold text-[#1a2744] hover:bg-muted" aria-pressed={showWallLayer}><PanelTop className="h-3.5 w-3.5" />{showWallLayer ? "Hide walls" : "Show walls"}</button>}{fillerNoticeEntries.length > 0 && <div data-testid="three-d-mobile-filler-notice" className={`mt-1 border-t px-2.5 pt-2 ${hasOverMaximumFiller ? "border-red-300 text-red-950" : "border-[#ead9b6] text-[#634b20]"}`}><p className="font-semibold">Fillers</p>{fillerNoticeEntries.map((label) => <p key={`${label.masterCode}-${label.installedWidth}-${label.maximum}-${label.over}`} className="mt-1 truncate font-medium">{label.masterCode} · {formatEighthInches(label.installedWidth)} installed · {formatEighthInches(label.maximum)} max{label.over ? " · OVER MAX" : ""}{label.quantity > 1 ? <> · ×{label.quantity}</> : null}</p>)}</div>}</div>}</div></div></>}
+        {fillerNoticeEntries.length > 0 && tabletOverlay && <div data-testid="three-d-filler-notice-chip" className="absolute left-3 top-3 z-20" onPointerDown={(event) => event.stopPropagation()} onPointerUp={(event) => event.stopPropagation()}>
+          <button type="button" onClick={() => setFillerChipOpen((open) => !open)} aria-expanded={fillerChipOpen} className={`inline-flex h-11 items-center gap-1.5 rounded-full border bg-[#fffaf1]/95 px-3 text-xs font-semibold shadow-sm backdrop-blur active:scale-95 ${hasOverMaximumFiller ? "border-red-300 text-red-950" : "border-[#d9c196] text-[#634b20]"}`}>Fillers ({fillerNoticePieceCount})</button>
+          {fillerChipOpen && <div className={`mt-1 w-56 rounded-lg border bg-[#fffaf1]/98 px-2.5 py-2 text-xs shadow-lg backdrop-blur ${hasOverMaximumFiller ? "border-red-300 text-red-950" : "border-[#d9c196] text-[#634b20]"}`}><p className="font-semibold">Fillers</p>{fillerNoticeEntries.map((label) => <p key={`${label.masterCode}-${label.installedWidth}-${label.maximum}-${label.over}`} className="mt-0.5 truncate font-medium">{label.masterCode} · {formatEighthInches(label.installedWidth)} installed · {formatEighthInches(label.maximum)} max{label.over ? " · OVER MAX" : ""}{label.quantity > 1 ? <> · ×{label.quantity}</> : null}</p>)}</div>}
+        </div>}
+        {fillerNoticeEntries.length > 0 && !tabletOverlay && <div data-testid="three-d-filler-notice" role="status" className={`pointer-events-none absolute left-3 top-3 z-20 hidden max-w-[calc(100%-10rem)] rounded-lg border px-2.5 py-2 text-xs shadow-sm backdrop-blur sm:block ${hasOverMaximumFiller ? "border-red-300 bg-red-50/95 text-red-950" : "border-[#d9c196] bg-[#fffaf1]/95 text-[#634b20]"}`}><p className="font-semibold">Fillers</p>{fillerNoticeEntries.map((label) => <p key={`${label.masterCode}-${label.installedWidth}-${label.maximum}-${label.over}`} className="mt-0.5 truncate font-medium">{label.masterCode} · {formatEighthInches(label.installedWidth)} installed · {formatEighthInches(label.maximum)} max{label.over ? " · OVER MAX" : ""}{label.quantity > 1 ? <> · ×{label.quantity}</> : null}</p>)}</div>}
 	        {frontDatumSnaps.length > 0 && <div data-testid="three-d-45-degree-front-datum-snap" role="status" aria-live="polite" className="pointer-events-none absolute bottom-3 left-3 z-20 max-w-[calc(100%-11rem)] rounded-lg border border-emerald-500 bg-emerald-50/95 px-2.5 py-2 text-xs text-emerald-950 shadow-lg backdrop-blur">
 	          <div className="flex items-start gap-1.5"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700" aria-hidden="true" /><div><p className="font-bold uppercase tracking-wide">45° front datum snapped</p>{frontDatumSnaps.map((snap) => <p key={snap.groupId} className="mt-0.5 font-medium"><span className="font-bold">{snap.datumIn}&quot;</span> {snap.placement === "wall" ? "wall-cabinet" : "base/tall cabinet"} front · {snap.cabinetCodes[0]} ↔ {snap.cabinetCodes[1]}</p>)}</div></div>
 	        </div>}

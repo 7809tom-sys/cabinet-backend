@@ -42,6 +42,31 @@ describe("Four-anchor appliance-first corner stage", () => {
     })).toEqual([]);
   });
 
+  it("includes a sixth custom wall in measured-corner discovery only when it shares a real vertex", () => {
+    const room = {
+      width: 180,
+      depth: 180,
+      ceilingHeight: 96,
+      vertices: [
+        { id: "a", x: 0, y: 0 }, { id: "b", x: 120, y: 0 }, { id: "c", x: 180, y: 60 },
+        { id: "d", x: 180, y: 180 }, { id: "e", x: 60, y: 180 }, { id: "f", x: 0, y: 120 },
+      ],
+      customWalls: [
+        ["w1", "a", "b"], ["w2", "b", "c"], ["w3", "c", "d"],
+        ["w4", "d", "e"], ["w5", "e", "f"], ["w6", "f", "a"],
+      ].map(([id, startVertexId, endVertexId]) => ({ id, startVertexId, endVertexId })),
+    } as typeof DEFAULT_ROOM;
+    const slots = fourAnchorCornerSlots("single-wall", {
+      wallIds: ["w5", "w6"], room, originCorner: "left", runDirection: "right",
+    });
+    expect(slots).toContainEqual({
+      id: "wall-5-wall-6",
+      label: "Corner between Wall 5 and Wall 6",
+      firstWall: "Wall 5",
+      secondWall: "Wall 6",
+    });
+  });
+
   it("deduplicates the declared L corner and retains both requested U corners", () => {
     const measured = { wallIds: ["top", "right"], room: DEFAULT_ROOM, originCorner: "left" as const, runDirection: "right" as const };
     expect(fourAnchorCornerSlots("l-shape", measured)).toHaveLength(1);

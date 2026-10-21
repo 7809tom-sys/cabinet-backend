@@ -87,8 +87,12 @@ describe("designer toolbar layout", () => {
   });
 
   it("keeps Materials & Parts as direct toolbar actions and removes every More-menu duplicate", () => {
-    // 3 direct desktop/mobile actions + the tablet "More tools" Workspace row.
-    expect(source.match(/setMaterialsListOpen\(true\)/g)).toHaveLength(4);
+    // Three direct desktop/mobile actions plus the tablet Workspace row use the
+    // same all-items opener; the red count remains a separate shortcut.
+    expect(source).toContain('const openMaterialsList = (initialConflictsOnly = false) => {');
+    expect(source).toContain('data-testid="compact-workspace-materials-trigger"');
+    expect(source).toContain('data-testid="tablet-more-materials-trigger"');
+    expect(source).toContain('ariaLabel="Materials"');
     expect(source).toContain("Materials &amp; Parts");
     expect(source).not.toContain("Materials &amp; Parts List");
   });

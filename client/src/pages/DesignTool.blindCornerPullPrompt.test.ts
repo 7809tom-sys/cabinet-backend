@@ -26,9 +26,21 @@ describe("Design Tool blind-corner pull prompt", () => {
     expect(source).toContain("Place blind corner");
   });
 
-  it("does not expose or mutate the BBC pull controls for wall blind cabinets", () => {
-    expect(source).toContain("{isBaseBlindCorner(selectedCab) && (() => {");
-    expect(source).toContain("if (!cabinet || !isBaseBlindCorner(cabinet)) return;");
-    expect(source).toContain("if (!selected || !isBaseBlindCorner(selected)) return;");
-  });
+	  it("does not expose or mutate the BBC pull controls for wall blind cabinets", () => {
+	    expect(source).toContain("{isBaseBlindCorner(selectedCab) && (() => {");
+	    expect(source).toContain("if (!cabinet || !isBaseBlindCorner(cabinet)) return;");
+	    expect(source).toContain("if (!selected || !isBaseBlindCorner(selected)) return;");
+	  });
+
+	  it("recovers a base BBC at an adjacent filler seam only after applying the selected pull and only while automatic snapping is enabled", () => {
+	    const start = source.indexOf("// Blind corner: auto-position and auto-swing");
+	    const end = source.indexOf("const validMountedMicrowavePair", start);
+	    expect(start).toBeGreaterThan(-1);
+	    expect(end).toBeGreaterThan(start);
+	    const add = source.slice(start, end);
+
+	    expect(add).toContain("resolveBaseBlindCornerFillerSnap(finalCab, room, normalizedPrevious, openings)");
+	    expect(add).toContain("automaticSnapping && !requestedIslandFace && isBaseBlindCorner(finalCab)");
+	    expect(add).toContain("keeping its selected");
+	  });
 });

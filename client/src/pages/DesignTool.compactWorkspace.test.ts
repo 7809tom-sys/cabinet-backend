@@ -64,7 +64,7 @@ describe("Designer Compact Workspace", () => {
     expect(source).toContain('title="View every cabinet, material, fixture, and part in this design"');
     expect(source).toContain('data-testid="compact-workspace-surfaces-trigger"');
     expect(source).toContain('title="Choose flooring, countertops, backsplash, faucets, and sinks"');
-    expect(source).toContain('onClick={() => setMaterialsListOpen(true)}');
+    expect(source).toContain('onClick={() => openMaterialsList()}');
     expect(source).toContain('setPaletteType("surfaces");');
     expect(source).toContain('setMobilePanel("catalog");');
   });
@@ -85,7 +85,8 @@ describe("Designer Compact Workspace", () => {
     expect(source).toContain('data-testid="compact-workspace-island-zone-trigger"');
     expect(source).toContain("onClick={openOrCreateIsland}");
     expect(source).toContain('onClick={() => setMoreSheetOpen(true)}');
-    expect(source).toContain('className={`${isCompactWorkspace ? "hidden" : "hidden lg:inline-flex"} shrink-0`}');
+    expect(source).toContain('data-testid="compact-workspace-more-trigger"\n              className={`hidden lg:inline-flex shrink-0');
+    expect(source).toContain('data-testid="compact-workspace-island-zone-trigger"\n              className={`${isTabletWorkspace ? "hidden" : "hidden lg:inline-flex"} shrink-0`}');
     expect(source).toContain("!isCompactWorkspace && moreToolsPortalElement");
   });
 
@@ -126,6 +127,24 @@ describe("Designer Compact Workspace", () => {
     expect(contextualRow).toContain("onClick={() => setSaveSignal((n) => n + 1)}");
     expect(contextualRow).toContain("disabled={placed.length === 0}");
     expect(source).toContain('data-testid="designer-save-design"');
+  });
+
+  it("shows the exact live placement-conflict count on every Materials launcher without hiding the action", () => {
+    expect(source).toContain('const materialsConflictCount = conflictUids.size;');
+    expect(source).toContain('data-testid="materials-conflict-count-badge"');
+    expect(source).toContain('function MaterialsConflictShortcut({');
+    expect(source).toContain('data-testid="compact-workspace-materials-trigger"');
+    expect(source).toContain('<MaterialsConflictShortcut count={materialsConflictCount}');
+    expect(source).toContain('data-testid="tablet-more-materials-trigger"');
+  });
+
+  it("opens conflicts-only when the visible Materials conflict badge is tapped, while the Materials label still opens every row", () => {
+    expect(source).toContain('const openMaterialsList = (initialConflictsOnly = false) => {');
+    expect(source).toContain('setMaterialsListInitialConflictsOnly(initialConflictsOnly);');
+    expect(source).toContain('data-materials-conflict-badge="true"');
+    expect(source).toContain('onOpenConflicts={() => openMaterialsList(true)}');
+    expect(source).toContain('aria-label={`Open Materials & Parts with ${conflictLabel} only`}');
+    expect(source).toContain('initialConflictsOnly={materialsListInitialConflictsOnly}');
   });
 
   it("keeps the automatic-save timestamp compact and accessible in the Designer toolbar", () => {

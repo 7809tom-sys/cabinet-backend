@@ -1,245 +1,30 @@
-# Project TODO
 
-- [x] Inspect the affiliate schema, data helpers, and administrative storefront address bindings.
-- [x] Identify every affiliate record and its current location/address value.
-- [x] Determine the canonical storefront HTML address for every affiliate: `/store/:slug`.
-- [x] Update the administrative and affiliate pages to emit the correct storefront address.
-- [x] Add automated coverage for canonical affiliate storefront URL generation.
-- [x] Verify the affected administrative and public storefront pages, then save a checkpoint.
-- [x] Replace invalid per-affiliate subdomain links with canonical `/store/:slug` storefront URLs across the administrative and affiliate portals.
-- [x] Verify the admin and affiliate portal link generators emit canonical `/store/:slug` URLs.
-- [x] Add a visible Copy storefront link button to every affiliate row in the admin panel.
-- [x] Add or update automated coverage for the admin-row storefront copy action.
-- [x] Verify the admin-panel action and save a checkpoint.
-- [x] Confirm the Copy storefront link action writes the canonical affiliate URL to the clipboard.
-- [x] Save a checkpoint containing the visible admin copy action.
-- [x] Inspect affiliate designer branding, design persistence, and CRM ownership flows.
-- [x] Define the affiliate context contract for designer routes, saved designs, and generated plans.
-- [x] White-label the affiliate designer with the affiliate’s logo, colors, and identity only.
-- [x] Remove Cabinet Dealz branding from all affiliate designer views and artifacts.
-- [x] Associate every affiliate-originated design and plan with its affiliate CRM.
-- [x] Surface affiliate-owned designs and plans in the matching affiliate CRM.
-- [x] Prevent affiliate-originated designs and plans from being created in or exposed through the Cabinet Dealz platform CRM.
-- [x] Add automated coverage for white-label branding and affiliate CRM routing.
-- [x] Verify affiliate designer and CRM behavior, then save a checkpoint.
-- [x] Keep the correction limited to affiliate logo/colors in the designer and affiliate-only CRM ownership for designs and plans.
-- [x] Verify the affiliate designer title and social metadata contain no Cabinet Dealz branding after the final white-label update.
-- [x] Search all affiliate-designer screens and plan artifacts for remaining Cabinet Dealz text, then remove or verify each result.
-- [x] Add focused coverage for affiliate white-label behavior beyond the build-sheet export.
-- [x] Restore master CRM visibility across all affiliate-owned deals while retaining their affiliate ownership.
-- [x] Validate master CRM oversight and affiliate-specific CRM ownership together.
-- [x] Add focused coverage proving master CRM visibility and affiliate CRM isolation.
-- [x] Verify master CRM records retain affiliate attribution while affiliate CRM remains scoped to its owner.
-- [x] Add router-level CRM list and detail coverage for master visibility and affiliate isolation.
-- [x] Verify master CRM results preserve affiliate attribution for affiliate-owned designer records.
-- [x] Verify affiliate-owned designer records appear in both the owning affiliate CRM and the master CRM.
-- [x] Exercise the CRM board and deal routes for master visibility and affiliate isolation.
-- [x] Verify master-board affiliate attribution for affiliate-owned designer records.
-- [x] Save a checkpoint after the final designer and CRM validation.
-- [x] Verify `crm.board` master visibility and affiliate scope with a router-level test.
-- [x] Verify `crm.deal` master visibility and affiliate isolation with a router-level test.
-- [x] Verify master-board affiliate name attribution for an affiliate-owned designer record.
-- [x] Save the final validated designer and CRM checkpoint.
-- [x] Inspect CRM deal-card components and affiliate branding data available to the master board.
-- [x] Add accessible affiliate-color accents and affiliate-name labels to master CRM deal cards.
-- [x] Add focused coverage for affiliate card-color resolution and attribution rendering.
-- [x] Verify the master CRM card presentation and save a checkpoint.
-- [x] Inspect master CRM deal cards to confirm affiliate-color accents and labels render correctly.
-- [x] Save a checkpoint containing the verified affiliate-color CRM card update.
-- [x] Inspect the master CRM board’s existing affiliate metadata and query controls.
-- [x] Add an All affiliates / specific affiliate dropdown filter to the master CRM board.
-- [x] Add focused coverage for master CRM affiliate-filter scope selection.
-- [x] Verify the dropdown filtering behavior and save a checkpoint.
-- [x] Inspect current designer import, cabinet placement, and door-style selection capabilities.
-- [x] Map the supplied dimensioned layout to cabinet, appliance, and corner-cabinet requirements.
-- [x] Report which layout-import steps can be automated and which require design review.
-- [x] Define the dimensioned plan upload, interpretation, review, and apply workflow for the designer.
-- [x] Add image-plan upload and structured cabinet-layout interpretation.
-- [x] Build an editable review screen that lets users inspect and correct proposed cabinet placements before applying them.
-- [x] Apply approved cabinet and appliance placements to the editable designer canvas before door-style selection.
-- [x] Add validation and automated coverage for imported layout mapping.
-- [x] Verify the feature in the designer and save a checkpoint.
-- [x] Support clear photographed handwritten plans and flag low-confidence labels or dimensions for review.
-- [x] Document Reaves Way Cabinet Shop as the approved standard for future affiliate setup.
-- [x] Identify the new-affiliate setup flow and its configurable defaults.
-- [x] Apply Reaves Way storefront, designer, CRM, and link behavior as the required default for future affiliates.
-- [ ] Verify the standardized new-affiliate setup and save a checkpoint.
-- [x] Audit First Class affiliate records, links, branding, and storefront content for Reaves Way-specific values.
-- [x] Remove or replace Reaves Way-specific values from First Class while preserving First Class configuration.
-- [x] Verify Reaves Way and First Class public and administrative affiliate views are separated, then save a checkpoint.
-- [x] Trace why the First Class dashboard renders Reaves Way referral data.
-- [x] Correct First Class branded storefront and quick referral link generation to use First Class only.
-- [x] Add regression coverage for per-affiliate dashboard link isolation.
-- [x] Verify the First Class dashboard link and code, then save a checkpoint.
-- [x] Verify the actual canonical storefront and referral HTML URLs resolve to First Class rather than Reaves Way.
-- [x] Verify the corrected First Class portal target route and `FIRSTCLASS` referral URL through the canonical link helper.
-- [x] Add regression coverage for the portal target helper used by each admin affiliate action.
-- [x] Verify First Class and Reaves Way canonical dashboard and referral URLs remain isolated.
-- [x] Save the corrected First Class canonical dashboard URL and referral-link isolation update.
-- [x] Add a component-level mapping test proving each admin affiliate row uses its own portal dashboard URL.
-- [x] Add a rendered `AffiliatesAdmin` component test for per-row portal and full-page URLs.
-- [ ] Verify the authenticated First Class and Reaves Way dashboard views show their own referral codes and canonical URLs.
-- [ ] Save a checkpoint after the final First Class and Reaves Way isolation verification.
-- [x] Confirm the screenshot’s Reaves Way links were caused by generic dashboard selection rather than overwritten First Class data.
-- [x] Verify the explicit First Class portal route resolves the First Class affiliate record before considering any deletion.
-- [x] Trace the First Class dashboard session or record binding that was yielding Reaves Way link values.
-- [x] Correct the active affiliate binding so First Class renders only `firstclass` and `FIRSTCLASS` links.
-- [ ] Verify the repaired First Class dashboard links and save a checkpoint.
-- [x] Inventory all First Class affiliate-dependent records before replacement.
-- [x] Supersede First Class removal because First Class remains the live affiliate.
-- [x] Supersede First Class recreation because the live record is preserved.
-- [x] Verify the retained First Class canonical dashboard and referral-link helpers.
-- [x] Supersede First Class training setup because training moves to the separate Sales Demo affiliate.
-- [x] Define Sales Demo as an administrator-managed training site with isolated affiliate identity.
-- [x] Configure invited sales-representative access to the Sales Demo storefront, designer, order walkthrough, and CRM.
-- [x] Verify the Sales Demo storefront identity and canonical training links.
-- [x] Preserve First Class as a live affiliate and repair its own canonical dashboard links.
-- [x] Define the separate demonstration affiliate’s safe training scope and identity.
-- [x] Create a dedicated demonstration affiliate for sales-representative storefront, designer, order, and CRM walkthroughs.
-- [x] Verify live First Class and the demonstration affiliate remain isolated through their public storefront and canonical affiliate links.
-- [x] Create the Sales Demo without a user-ID login binding so the administrator account remains separate.
-- [x] Create Cabinet Dealz Sales Demo with owner email `7809tom@gmail.com`, slug `sales-demo`, and referral code `SALESDEMO`.
-- [x] Inspect existing affiliate team invite and email-delivery workflow.
-- [x] Add a Sales Demo invitation action to the administration panel with salesperson CRM and designer access.
-- [x] Ensure invited users are limited to the Sales Demo training affiliate and cannot access First Class or other live affiliate data.
-- [x] Add automated coverage for Sales Demo invitation permissions and verify the admin workflow.
-- [x] Support prospective affiliate candidates as a Sales Demo invitation audience with the same isolated training access.
-- [x] Ensure a Sales Demo team-access grant occurs only after an invitation email is successfully sent.
-- [x] Add server coverage for Sales Demo invite audiences, permission flags, and no side effects when SMTP is unavailable.
-- [ ] Add router-level coverage for Sales Demo team permission flags and Sales Demo-only membership.
-- [ ] Add router-level coverage proving SMTP-not-configured invites cannot create or update team access.
-- [ ] Add access-scope coverage proving Sales Demo invitees cannot resolve into First Class or other live affiliate data.
-- [ ] Verify the admin Sales Demo invite flow in the browser after SMTP email delivery is configured.
-- [x] Compare standalone and affiliate-shell designer viewport sizing on mobile.
-- [x] Restore full usable canvas height for First Class and Sales Demo designer sessions.
-- [x] Verify affiliate designer canvases match the Cabinet Dealz mobile workspace and save a checkpoint.
-- [x] Capture comparable mobile evidence for Cabinet Dealz, First Class, and Sales Demo designer workspaces.
-- [x] Save a checkpoint after the verified affiliate designer viewport correction.
-- [x] Diagnose the First Class designer blank-canvas loading failure.
-- [x] Restore First Class designer functionality without affecting other affiliate designers.
-- [x] Move the consultant action beside the room-dimensions controls on mobile and desktop.
-- [x] Add regression coverage and verify the repaired First Class designer on mobile.
-- [x] Add a focused designer layout test covering the visible canvas container and consultant-control placement.
-- [x] Verify the repaired First Class designer canvas and room controls are usable on mobile.
-- [x] Verify Reaves Way designer rendering remains intact after the shared layout correction.
-- [x] Add a rendered consultant-control component test proving placement with room controls.
-- [x] Capture independently verifiable mobile evidence that First Class and Reaves Way render visible canvases and room controls.
-- [ ] Verify the authenticated First Class dashboard renders `FIRSTCLASS` and First Class-only canonical URLs.
-- [x] Add focused explicit-affiliate dashboard record-selection coverage without fallback to a generic affiliate.
-- [x] Audit checkout controls and primary customer-facing flows for redundant or confusing interaction points.
-- [x] Remove checkout cabinet-style and pricing-tier dropdowns while preserving selected item styles and authenticated pricing.
-- [x] Inspect the final checkout implementation to confirm duplicate style and pricing controls are absent while context persists.
-- [x] Add regression coverage for selected style and authenticated pricing carried into checkout.
-- [x] Add a rendered checkout test proving preselected door style and authenticated pricing appear without editable dropdowns.
-- [ ] Verify simplified checkout controls, totals, and submitted material-order payload in the browser.
-- [ ] Verify simplified checkout controls, totals, and submitted material-order payload in the browser.
-- [ ] Apply targeted low-risk usability cleanup fixes without changing established workflows.
-- [ ] Add regression coverage and verify the cleanup pass before saving a checkpoint.
-- [ ] Validate responsive design and interaction consistency across storefront, designer, checkout, and CRM after cleanup.
-- [x] Inspect affiliate order, CRM, and customer-facing estimate data structures for installation pricing support.
-- [x] Add affiliate installation estimate line items with descriptions, quantities, unit costs, and calculated totals.
-- [x] Surface customer-facing installation estimate details alongside affiliated cabinetry orders.
-- [x] Add coverage and verify installation-estimate editing in affiliate administration and customer presentation views.
-- [x] Keep Cabinet Dealz material invoices separate from affiliate installation estimates and invoices.
-- [x] Present customers with distinct material and installation documents and totals rather than one combined invoice.
-- [ ] Surface affiliate installation estimates in a customer-facing order or invoice view linked to the cabinetry order.
-- [ ] Add router and UI coverage for installation-estimate creation, listing, and status changes.
-- [ ] Create separate customer-facing material and installation documents with distinct issuer labels and totals.
-- [ ] Verify the affiliate editor and customer-facing separated billing views in the browser.
-- [x] Define the More-tab Import Existing Design upload, interpretation, review, and apply flow.
-- [x] Add image-plan upload and structured interpretation for readable typed or handwritten cabinet layouts.
-- [x] Build a review step that flags uncertain items before layout application.
-- [x] Add focused coverage and verify the More-tab existing-design import workflow.
-- [x] Add the Import Existing Design entry point to the desktop/laptop More controls as well as mobile.
-- [x] Replace the current designer layout automatically when the user applies a reviewed imported layout.
-- [x] Use the current designer room size when imported plans omit dimensions and flag each missing measurement for confirmation.
-- [x] Preselect high-confidence imported cabinet notes and require explicit approval for low-confidence notes.
-- [x] Apply a reviewed imported plan by replacing the current layout while retaining current room dimensions when plan dimensions are missing.
-- [x] Require explicit approval for every low-confidence imported cabinet note before applying the replacement layout.
-- [x] Add a direct image picker and camera-capable image upload to the designer’s Import Existing Design flow.
-- [x] Connect the direct plan-image upload dialog to both mobile and desktop More-menu actions.
-- [x] Redirect the existing parts-list import actions to the dedicated reviewed plan-image import dialog once its upload screen is rendered.
-- [x] Make plan interpretation available through the designer’s real public or email-gated entry path and handle unauthenticated attempts safely.
-- [ ] Verify on mobile and desktop that a designer user can upload a plan image, review interpreted results, and apply approved items without authentication failures.
-- [x] Allow affiliates to associate an installation estimate with a Cabinet Dealz material order request.
-- [x] Surface an eligible separate installation document on the customer’s material-order confirmation without merging invoice totals.
-- [x] Add focused coverage for customer installation-document URL generation and verify the linked billing presentation.
-- [x] Trace why recognized affiliate Gmail sign-ins return to the generic Cabinet Dealz page instead of the owning affiliate dashboard.
-- [x] Route recognized affiliate users to their own affiliate dashboard immediately after authentication while preserving explicit intended destinations.
-- [x] Add regression coverage for post-login affiliate destination selection and verify the Reaves Way sign-in outcome.
-- [x] Preserve the originating `/store/:slug` path when a visitor uses Gmail sign-in from an affiliate storefront footer.
-- [x] Verify Reaves Way storefront footer sign-in returns to the affiliate management entry, which resolves Reaves Way’s own dashboard, instead of the generic Cabinet Dealz page.
-- [x] Resolve the authenticated Gmail user to an affiliate at OAuth completion and redirect affiliate users directly to their own Administration dashboard.
-- [x] Add regression coverage proving Reaves Way Gmail sign-in routes to `/affiliate?viewAs=<Reaves Way affiliate ID>` or its own equivalent Administration destination.
 
-## Measured kitchen build order — 2026-10-18
+## Pelican vendor-page catalog editor — done
+- [x] Show all Pelican products in the admin vendor catalog with image, product name, category, cost, selling price, visibility, and edit action.
+- [x] Add atomic admin editing for product image URL, description, name, our cost, and retail/selling price directly on `/vendor?vendor=1`.
+- [x] Persist the administrator-set retail price and use it as the exact selling price when present; retain category-markup fallback when blank.
+- [x] Preserve existing Pelican visibility and quote-only safeguards when pricing is changed.
+- [x] Add focused editor and pricing regression coverage; TypeScript and production build pass.
+- [x] Database migration applied successfully for `pelican_products.retailPrice`.
 
-- [x] Inspect the current appliances → required corner → straight-run fill flow.
-- [x] Default surrounding base runs to larger regular base cabinets, excluding unrequested specialty units.
-- [x] Add source-priced, appropriately aligned wall cabinets after corners and base runs are placed.
-- [x] Preserve appliance measurements, refrigerator bay validation, corner geometry, and opening clearances.
-- [x] Add and run focused regressions, TypeScript, and build validation.
-- [x] Verify the actual updated dialog and actual upper helper/elevation renderer using a clearly labeled in-memory sandbox fixture; remove horizontal dialog clipping. No customer records created. Full authenticated measured-build browser flow remains unverified; do not claim live deployment.
+## Vendor order fulfillment queue (Pelican + every vendor) — done, unpublished
+- [x] New `order_shipments` table (one row per order + vendor scope), migration 0200 applied
+- [x] `vendorFulfillment` router: scopes / queue / markLabelPrinted / markShipped; vendor sees only own items, no prices
+- [x] Ships only when paid AND order rail = fulfillment_authorized; "Coming soon" tab is read-only
+- [x] 4x6 ship-to labels (one per package) + packing slip PDFs, no prices; tracking links for UPS/FedEx/USPS/DHL
+- [x] Fulfillment page + phone bottom-nav entry in Vendor Portal; Pelican vendor limited to Overview, Profile, Catalog, Shipping, Fulfillment
+- [x] FIXED: Pelican vendor login never reached its catalog/shipping (identity was keyed to a supply line that does not exist); now keyed to approved vendor record sourceKey="pelican"
+- [ ] OPEN: no postage purchase (no carrier label API in repo) — vendor buys postage with own carrier, enters tracking
+- [ ] OPEN: orders with no affiliate have no code path to leave affiliate_review (shown as "Waiting for Cabinet Dealz to release")
+- [ ] OPEN: Railway publish still failing on the platform side; publish needed before live site shows any of this
 
-## Refrigerator panel Cart lookup — 2026-10-18
-
-- [x] Reproduce exact REP2496 Cart price refresh returning no row despite its active, published, available source price.
-- [x] Admit literal requested source masters independently of general canonical browsing aliases, preserving active/nonconflict and source-price gates.
-- [x] Verify exact REP2496, canonical REPV2496, approved fallback and wrong-style/distributor behavior; panel regression failed before correction and passes 5/5 afterward. Broader price/cart/alias suites pass 69/69.
-- [x] Verify the corrected price lookup and exact Order code matching in the sandbox browser without creating an order or changing customer data.
-- [x] Inspect the supplied 180-inch back/right layout screenshots without reopening the attachments: no real corner, unwanted drawer banks, and no standard uppers.
-- [x] Verify live Designer asset DesignTool-DoqdHjOJ.js lacks the current regular-base and upper-stage markers; do not call preview corrections live.
-- [x] Reproduce adjoining measured walls skipping the corner when Single wall remains selected; require actual shared vertices independent of that dropdown. New corner regressions fail before correction and pass afterward; all six measured-builder suites pass 54/54.
-- [x] Render the actual corrected corner-selection dialog using real catalog options and an in-memory 180-inch back/right fixture; confirm mandatory corner and corners → bases → walls sequence. Confirm real catalog base filtering rejects 2DB24, 2DB36, and 3DB21. Customer draft untouched.
-
-## U.S. Cabinet Depot Frameless product quality — 2026-10-18
-
-- [x] Audit all 283 published frameless masters and 13,413 source/style rows against supplier-specific geometry/configuration; preserve 115 legitimate legacy identities and distinguish current V8 evidence from unavailable original V8.2 proof. Record existing decimal-precision differences without silently changing them.
-- [x] Remove spec-book names, versions, page references, and import/proof language from public titles/descriptions/SEO and new cart names while preserving technical provenance. Final eligible source descriptions have zero citation leaks.
-- [x] Replace spec-page hero crops with 42 neutral source-shaped render variants, including audited full-height, oven, wall-door, blind-corner, bridge and accessory exceptions. Verify source override/SKU image paths and printed three-drawer proportions. Protected prices, availability, geometry, shared masters and other suppliers are unchanged; zero eligible rows lack images.
-- [x] Verify actual enlarged product-detail presentation at desktop/tablet sizes and source-scoped category thumbnails; 48 focused tests pass, TypeScript and production builds pass. Record current V8/original V8.2 and source precision limits in the repair report.
-- [x] Save final tested presentation checkpoint 52139991 for publishing; supplier data updates are applied, but preview page-code changes are not claimed deployed.
-
-## Pantry bottom-drawer Designer correction — 2026-10-18
-
-- [x] Reproduce pantry drawers above tall doors in the actual production addCabinet mesh using a non-writing fixture; new mesh regressions fail before correction.
-- [x] Share a narrow source-backed pantry layout across 3D, elevation, and the product schematic. Anchor tall doors above bottom drawers, preserve authored top-to-bottom rows, and use manufacturer 15/15 or 7.375/7.375/15 source fallbacks only for known families. Exact T2DB2494 (24×94×24, one upper door/two lower drawers) is covered despite its misleading legacy two-door description. Prices, source dimensions, saved layouts, ordinary bases and oven towers are not changed.
-- [x] Verify 48 focused tests including the pantry views and reported blind-image cases; TypeScript and production build pass. Actual pantry fixture screenshots are preserved outside the project. The existing 3D suite has the same 10 failures on unchanged HEAD and on the fix, with zero new failures.
-- [x] Replace reported BBC37/40FH, BBC40/43FH, BBC43/46FH, BBC46/49FH thumbnails with fixed-blind-panel/single-door source renders, including distinct BBC43 versus BBC46 front widths. Replace reported WBC24/2730, WBC24/2735, WBC24/2740 ordinary-door thumbnails with their fixed-15-inch-blind/9-inch-door wall renders. Keep supplier two-door overrides and other families unchanged.
-- [x] Guard the image-only transaction and separately snapshot the current operation to preserve a concurrent T2DB2494 configuration edit rather than overwrite it. Final fresh-snapshot protection verifies unchanged pricing, availability, source geometry, shared masters, other suppliers and override configs; zero missing eligible source images.
-- [x] Save tested checkpoint 02109c5c; Designer page-code changes require publishing and are not claimed live. No customer layout or order was written by browser fixture verification.
-
-## Actual tall-cabinet visual verification — 2026-10-18
-
-- [x] Record the pre-deployment live failure: InteractiveRoom3D-DokGAj-6 and ElevationView-C_fzt2Hy lacked the correction, and the actual restored four-family kitchen put drawers on top. Preserve the real live-before screenshot.
-- [x] After deployment, restore T2DB2494, T3DB3084, VT2DB1884 and VT3DB1884 through the actual live Designer draft/UI flow; visually inspect the real 3D and elevation screenshots. All four drawer banks and ten drawer faces are now below the doors. Actual live view switching passes with no captured console errors; no server design/order/QA lead was created.
-- [x] Verify all 30 purchasable source drawer-pantry models through the production placed-to-scene adapter; exact source counts, dimensions and shallow/shallow/deep order are protected. Final focused pantry tests: 59 pass; TypeScript and production build pass. Two general elevation-suite failures match unchanged HEAD and are not new pantry regressions.
-- [x] Actual visual inspection caught a remaining elevation hardware mismatch: drawer pulls still occupied the old top band. Correct the source-backed hardware row centers and keep vertical pantry door pulls inside upper doors, using the production 3D pull-size limit. Verify the actual managed preview with all ten pulls inside lower drawer faces, all door pulls inside upper doors, real view switching and a visually inspected screenshot. Final hardware correction is preview-only until published.
-- [x] Record the user's frameless Panels & Fillers SKU table and Slim Cava flat/slab finish footnote without treating those accessories as cabinet boxes or guessing unlabeled dimensions/price columns.
-- [x] Restore original live QA storage, remove the disposable draft and backup, and save verified hardware checkpoint 0470fa36. Labeled live-3D and preview-elevation screenshots exist and were visually inspected. No final hardware live-completion claim is made.
-- [ ] Publish final hardware checkpoint only after the user confirms; then visually recheck the same four-family elevation on production before calling the final handle correction live.
-
-## Installation estimator material quantities — 2026-10-18
-- [x] Prefill countertop labor from saved-plan countertop square footage.
-- [x] Prefill cabinet assembly, installation, pantry, hanging, and handle quantities.
-- [x] Prefill fillers, crown molding with cut allowance, toe kick, light rail, and quarter round.
-- [x] Prefill decorative doors, roll-outs, Lazy Susan inserts, trash pull-outs, refrigerator panels, and dishwasher panels.
-- [x] Reuse existing invoice cost-sheet rows without duplicate categories.
-- [x] Validate with focused tests, TypeScript, and production build.
-
-## Measured builder: corner seating, appliance slide, wall cabinets (2026-10-18 "BBC36 cannot fit" screenshot)
-- [x] Seat the chosen corner cabinet at the exact shared vertex; slide a measured range/refrigerator (with its bay) away from the corner in 1/8" steps, max 3", and disclose every slide in a toast (`fourAnchorCornerSeating.ts`)
-- [x] Failure message names the real blocker and the true distance needed (corner box plus required 3" filler)
-- [x] Frameless required 3" blind-corner filler resolves: nominal 3" AltaEuro OF overlay (2-7/8") satisfies an exact 3" seam (`catalogFiller.ts`)
-- [x] Wall stage uses the line's real wall height class (frameless 30.25/35.25/40.25 vs framed 30/36/42) and adds wall blind corners with their integrated filler
-- [x] Focused tests: 156 pass across 9 suites (12 new real-catalog corner-seating tests); tsc clean; production build OK; checkpoint 6d8e2bce
-- [ ] Verify in the actual Designer UI with the user's real kitchen (needs the user's design or a live click-through)
-- Note: 4 failures in DesignTool.requiredBlindCornerFiller.test.ts also fail on unchanged HEAD (source-text contract tests), not caused by this change
-
-## Farmhouse (apron-front) sink base face — corrected
-- [x] Research: real FSB = apron slab at TOP, TWO DOORS below, no top rail / false drawer front / side doors (`/home/ubuntu/corner-wall-check/APRON_SINK_RESEARCH.md`).
-- [x] Root cause: 3D `farmhouse-sink` branch (introduced 7d2a393803, Aug 2026) drew apron mid-face + false front + side doors; elevation drew generic 20% false front over 2 doors; tests only checked pieces existed.
-- [x] Shared layout `client/src/lib/farmhouseSinkBaseFace.ts` (8.5" apron zone, 2 doors) used by 3D, wall elevation, island elevation.
-- [x] New real-mesh regression `InteractiveRoom3D.farmhouseSinkBase.test.ts` (10) + `ElevationView.farmhouseFace.test.ts` (4) + island pull test; old 3-part expectation updated.
-- [x] Real-Designer before/after proof: `/home/ubuntu/apron-sink-proof/FSB_before_after_proof.png`.
-- [ ] Not published: Designer code must be published before www.cabinetdealz.com shows the corrected FSB.
+## Vendor "Upload by code" (code + door name + price) — built, unpublished
+- [x] shared/vendorCodeUpload.ts: CSV/TSV/paste parser, header auto-detect, quote-aware, rejects a cut-off "$1,000"
+- [x] Code matches master code OR any alias (cabinets sku/vendorSku/altSku1-3, sku_master_aliases, cabinet_aliases, global code_aliases, the line's own SKU codes); ambiguous alias is never guessed
+- [x] Unknown code => new master, created hidden (no catalog/designer/2020, no invented dimensions), SKU pending + unpublished
+- [x] Door name must match exactly one active door on the line (our/public/vendor name or style code)
+- [x] Preview (read-only) then Commit (server re-plans from raw rows); large price moves (>=50%) flagged, not blocked
+- [x] UI: "Upload by code" on My Catalog (.xlsx/.csv/paste), phone/tablet/desktop checked in real browser
+- [ ] Admin review queue for uploaded-pending masters (complete spec: dimensions/category) — masters stay hidden until then
+- [ ] Publish needed: Railway deploys still failing; live site does not have this yet

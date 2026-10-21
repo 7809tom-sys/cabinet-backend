@@ -105,7 +105,9 @@ describe("Design Tool small-gap filler workflow", () => {
 	  it("preserves exact placement and one purchased filler identity", () => {
 		  expect(source).toContain("smallGapFillerLayout(cutOpportunity, mode)");
 		  expect(source).toContain('fillerBillingRole: index === 0 ? "primary" : "secondary"');
-			  expect(source).toContain("appendSmallGapFillerPlacement(workingPlaced, movedCabinet, pieces)");
+			  expect(source).toContain("cabinetPlacementCollisionDetail(movedCabinet, peers, room)");
+			  expect(source).not.toContain("if (hasCollision(movedCabinet, peers))");
+			  expect(source).toContain("appendSmallGapFillerPlacement(workingPlaced, movedCabinet, pieces, room)");
 		  expect(source).toContain("fillerForCabinetUid: owner.uid");
 		  expect(source).toContain("piece.side === \"left\" ? cutOpportunity.boundedCabinetUids[0] : cutOpportunity.boundedCabinetUids[1]");
 		  expect(source).toContain("cutOpportunity.replacingFillerGroupId ?? `filler-group-${makeUid()}`");

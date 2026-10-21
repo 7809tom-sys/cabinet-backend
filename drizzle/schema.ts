@@ -1773,8 +1773,11 @@ export const crmDeals = mysqlTable("crm_deals", {
   // Sort order within a stage column (for manual drag ordering)
   boardOrder: int("boardOrder").default(0).notNull(),
   closedAt: timestamp("closedAt"), // set when stage becomes won/lost
-  // Flag set by affiliate when they need help from the master admin to close this deal
+  // Independent help flags let the team see whether a customer needs closing,
+  // layout/design, or shipping-cost assistance without overwriting another need.
   needsHelpClosing: boolean("needsHelpClosing").default(false).notNull(),
+  needsHelpDesigning: boolean("needsHelpDesigning").default(false).notNull(),
+  needsHelpShipping: boolean("needsHelpShipping").default(false).notNull(),
   // Kitchen design price + live shipping quote synced from the Designer page.
   designValue: decimal("designValue", { precision: 12, scale: 2 }),
   shippingQuote: decimal("shippingQuote", { precision: 12, scale: 2 }),
@@ -2385,6 +2388,9 @@ export const siteSettings = mysqlTable("site_settings", {
   ])
     .default("public")
     .notNull(),
+  // GA4 Measurement IDs are public web-stream identifiers, not secrets. A
+  // nullable value lets the owner disable analytics without deleting settings.
+  googleAnalyticsMeasurementId: varchar("googleAnalyticsMeasurementId", { length: 32 }),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
 export type SiteSettings = typeof siteSettings.$inferSelect;
@@ -2432,6 +2438,12 @@ export const notificationSettings = mysqlTable("notification_settings", {
   onNewProApplication: varchar("onNewProApplication", { length: 1024 }).default("").notNull(),
   onNewConsultation: varchar("onNewConsultation", { length: 1024 }).default("").notNull(),
   onNewAffiliate: varchar("onNewAffiliate", { length: 1024 }).default("").notNull(),
+  // CRM help requests are routed to their own teams and start disabled until an
+  // administrator deliberately configures both a recipient list and a toggle.
+  onCrmDesignHelp: varchar("onCrmDesignHelp", { length: 1024 }).default("").notNull(),
+  onCrmShippingHelp: varchar("onCrmShippingHelp", { length: 1024 }).default("").notNull(),
+  notifyOnCrmDesignHelp: boolean("notifyOnCrmDesignHelp").default(false).notNull(),
+  notifyOnCrmShippingHelp: boolean("notifyOnCrmShippingHelp").default(false).notNull(),
   // Global toggle — if false, no notification emails are sent
   enabled: boolean("enabled").default(true).notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
@@ -3221,3 +3233,28 @@ export const freightQuoteHistory = mysqlTable("freight_quote_history", {
 }, (t) => ({
   kitchenDesignIdx: index("freight_quote_history_kitchen_design_idx").on(t.kitchenDesignId),
 }));
+
+// ─── Vendor order fulfillment ─────────────────────────────────────────────────
+// One row per (order request, supplying vendor). A single customer order can mix
+// cabinets from one distributor, Pelican surfaces/fixtures and Hardware
+// Resources, and each of those vendors ships its own boxes with its own carrier
+// and tracking number. vendorScope is "pelican" or "dist:<distributorId>".
+export const orderShipments = mysqlTable("order_shipments", {
+  id: int("id").autoincrement().primaryKey(),
+  orderRequestId: int("orderRequestId").notNull(),
+  vendorScope: varchar("vendorScope", { length: 32 }).notNull(),
+  status: mysqlEnum("status", ["pending", "shipped"]).default("pending").notNull(),
+  carrier: varchar("carrier", { length: 64 }),
+  trackingNumber: varchar("trackingNumber", { length: 128 }),
+  packageCount: int("packageCount").default(1).notNull(),
+  notes: varchar("notes", { length: 1000 }),
+  labelPrintedAt: timestamp("labelPrintedAt"),
+  shippedAt: timestamp("shippedAt"),
+  shippedByUserId: int("shippedByUserId"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (t) => ({
+  orderScopeUnique: uniqueIndex("order_shipments_order_scope_uq").on(t.orderRequestId, t.vendorScope),
+  scopeStatusIdx: index("order_shipments_scope_status_idx").on(t.vendorScope, t.status),
+}));
+export type OrderShipment = typeof orderShipments.$inferSelect;

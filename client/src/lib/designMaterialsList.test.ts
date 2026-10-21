@@ -415,11 +415,21 @@ describe("complete Designer materials list", () => {
 
   it("builds a printable landscape table with both sections, exact totals, and escaped text", () => {
     const html = materialsListPrintHtml({ rows, title: "Tom's <Kitchen>", roomLabel: '144\" × 120\"', styleName: "Aura Cream", generatedAt: "August 29, 2026" });
-	    expect(html).toContain("Numbered Cabinets &amp; Cabinet Parts");
+    expect(html).toContain("Numbered Cabinets &amp; Cabinet Parts");
     expect(html).toContain("Other Materials &amp; Parts — Alphabetical");
 	    expect(html).toContain("Priced total: $1589.00");
 	    expect(html).toContain("Quote-required lines: 5");
     expect(html).toContain("Tom&#039;s &lt;Kitchen&gt;");
     expect(html).toContain("@page{size:letter landscape");
+  });
+
+  it("retains exact source identities so a conflict-only view can include a grouped affected cabinet without exposing unrelated materials", () => {
+    const grouped = rows.find((row) => row.code === "B-24");
+    const unrelated = rows.find((row) => row.code === "W-18");
+    const conflicts = new Set(["b24-2"]);
+
+    expect(grouped?.sourceUids?.some((uid) => conflicts.has(uid))).toBe(true);
+    expect(unrelated?.sourceUids?.some((uid) => conflicts.has(uid))).toBe(false);
+    expect(rows.filter((row) => (row.sourceUids ?? []).some((uid) => conflicts.has(uid))).map((row) => row.code)).toEqual(["B-24"]);
   });
 });

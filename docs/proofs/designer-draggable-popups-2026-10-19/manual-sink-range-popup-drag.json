@@ -1,0 +1,84 @@
+[
+  {
+    "at": "2026-10-19T23:59:52.547Z",
+    "kind": "navigation",
+    "url": "https://3000-iiiccrm83w0u12z611siq-33db4eec.us1.manus.computer/design"
+  },
+  {
+    "at": "2026-10-19T23:59:52.675Z",
+    "kind": "console",
+    "type": "debug",
+    "text": "[vite] connecting..."
+  },
+  {
+    "at": "2026-10-19T23:59:52.678Z",
+    "kind": "console",
+    "type": "debug",
+    "text": "[Manus] Debug collector initialized (no rrweb, UI events only)"
+  },
+  {
+    "at": "2026-10-19T23:59:52.708Z",
+    "kind": "console",
+    "type": "debug",
+    "text": "[vite] connected."
+  },
+  {
+    "at": "2026-10-19T23:59:53.054Z",
+    "kind": "console",
+    "type": "info",
+    "text": "%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold"
+  },
+  {
+    "at": "2026-10-20T00:00:17.669Z",
+    "kind": "console",
+    "type": "warning",
+    "text": "THREE.WebGLShadowMap: PCFSoftShadowMap has been deprecated. Using PCFShadowMap instead."
+  },
+  {
+    "at": "2026-10-20T00:00:23.908Z",
+    "kind": "console",
+    "type": "warning",
+    "text": "THREE.WebGLShadowMap: PCFSoftShadowMap has been deprecated. Using PCFShadowMap instead."
+  },
+  {
+    "at": "2026-10-20T00:00:34.725Z",
+    "kind": "console",
+    "type": "warning",
+    "text": "THREE.WebGLShadowMap: PCFSoftShadowMap has been deprecated. Using PCFShadowMap instead."
+  },
+  {
+    "at": "2026-10-20T00:00:38.638Z",
+    "kind": "console",
+    "type": "warning",
+    "text": "THREE.WebGLShadowMap: PCFSoftShadowMap has been deprecated. Using PCFShadowMap instead."
+  },
+  {
+    "at": "2026-10-20T00:00:53.638Z",
+    "kind": "console",
+    "type": "warning",
+    "text": "THREE.WebGLShadowMap: PCFSoftShadowMap has been deprecated. Using PCFShadowMap instead."
+  },
+  {
+    "at": "2026-10-20T00:01:03.430Z",
+    "kind": "result",
+    "url": "https://3000-iiiccrm83w0u12z611siq-33db4eec.us1.manus.computer/design",
+    "before": {
+      "x": 520,
+      "y": 333,
+      "width": 400,
+      "height": 334
+    },
+    "after": {
+      "x": 520,
+      "y": 138,
+      "width": 400,
+      "height": 334
+    },
+    "movedUp": true,
+    "titleInfo": {
+      "title": null,
+      "dragHandle": "true"
+    },
+    "saved": false
+  }
+]
