@@ -1366,6 +1366,13 @@
       "when": 1792365469568,
       "tag": "0195_easy_speed_demon",
       "breakpoints": true
+    },
+    {
+      "idx": 196,
+      "version": "5",
+      "when": 1792560733714,
+      "tag": "0196_flaky_mantis",
+      "breakpoints": true
     }
   ]
 }
