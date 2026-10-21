@@ -28,6 +28,13 @@ describe("distributor vendor portal catalog and integration contracts", () => {
     expect(portal).toContain("Oracle NetSuite");
     expect(portal).toContain("UPS Rating API");
     expect(portal).toContain("FedEx Rate API");
+    expect(router).toContain('fulfillmentMode: input.isEnabled ? "netsuite_api" : "email"');
+    expect(router).toContain("netsuiteAccountId: input.accountNumber?.trim() || null");
+    expect(portal).toContain("vendor-carrier-connections");
+    expect(portal).toContain("NetSuite inventory");
+    expect(portal).toContain("UPS / parcel");
+    expect(portal).toContain("FedEx / parcel");
+    expect(portal).toContain("new catalog styles use the same locations automatically");
   });
 
   it("retains source photos and records normalization status", () => {

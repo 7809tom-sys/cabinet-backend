@@ -14,6 +14,7 @@ import {
   kitchenDesigns,
   affiliates,
   freightQuoteHistory,
+  distributorIntegrations,
   type ShippingSettings,
 } from "../../drizzle/schema";
 import { pelicanProducts, pelicanShippingProfiles } from "../../drizzle/pelicanSchema";
@@ -59,6 +60,7 @@ import { normalizeFreightQuoteDeliveryAddress, type FreightQuoteDeliveryAddress 
 import { getPricingSettings } from "../db";
 import { sellPriceForTier } from "@shared/margins";
 import { resolveAffiliateAccess } from "../lib/affiliateAccess";
+import { decryptDistributorSecret } from "../lib/distributorIntegrationCrypto";
 import {
   resolveDistributorShippingRule,
   type DistributorShippingRuleMode,
@@ -1719,6 +1721,41 @@ export const freightRouter = router({
       const quoteInput = { ...input, kitchenDesignId, deliveryAddress, destinationZip };
       const settingsRow = await loadSettingsRow();
       const settings = settingsRow ? rowToSettings(settingsRow) : DEFAULT_SETTINGS;
+      const quoteDistributorIds = Array.from(new Set(input.items
+        .map((item) => item.distributorId)
+        .filter((id): id is number => typeof id === "number")));
+      const distributorUpsCredentials = new Map<number, { clientId: string; clientSecret: string; accountNumber: string; environment: "sandbox" | "production" }>();
+      if (quoteDistributorIds.length > 0) {
+        const db = await getDb();
+        if (db) {
+          const rows = await db.select({
+            distributorId: distributorIntegrations.distributorId,
+            accountNumber: distributorIntegrations.accountNumber,
+            clientId: distributorIntegrations.clientId,
+            clientSecretEncrypted: distributorIntegrations.clientSecretEncrypted,
+            environment: distributorIntegrations.environment,
+            isEnabled: distributorIntegrations.isEnabled,
+          }).from(distributorIntegrations).where(and(
+            eq(distributorIntegrations.integrationType, "shipping"),
+            eq(distributorIntegrations.provider, "ups"),
+            eq(distributorIntegrations.isEnabled, true),
+            inArray(distributorIntegrations.distributorId, quoteDistributorIds),
+          ));
+          for (const row of rows) {
+            const clientId = row.clientId?.trim();
+            const clientSecret = decryptDistributorSecret(row.clientSecretEncrypted)?.trim();
+            const accountNumber = row.accountNumber?.trim();
+            if (clientId && clientSecret && accountNumber) {
+              distributorUpsCredentials.set(row.distributorId, {
+                clientId,
+                clientSecret,
+                accountNumber,
+                environment: row.environment === "sandbox" ? "sandbox" : "production",
+              });
+            }
+          }
+        }
+      }
 
       // A disabled Operations configuration is a hard stop. Do this before
       // package resolution or carrier selection so a public cart can never
@@ -1883,11 +1920,19 @@ export const freightRouter = router({
           // established LTL pallet path with no invented carton dimensions.
           const parcelDecision = resolveParcelShipmentMode(resolvedGroup.parcelPackages);
           const verifiedPelicanParcel = group.profileTransportMode === "parcel";
+          const groupDistributorId = group.items.find((item) => item.distributorId != null)?.distributorId ?? null;
+          const distributorUps = groupDistributorId == null ? undefined : distributorUpsCredentials.get(groupDistributorId);
+          const upsCredentials = distributorUps ?? (settingsRow && upsKeysSaved(settingsRow) ? {
+            clientId: settingsRow.upsClientId!,
+            clientSecret: settingsRow.upsClientSecret!,
+            accountNumber: settingsRow.upsAccountNumber!,
+            environment: (settingsRow.upsEnvironment ?? "sandbox") as "sandbox" | "production",
+          } : undefined);
           // Small packages go to UPS automatically once the UPS keys are saved:
           // a cart whose cartons all pass the UPS parcel screen never gets an
           // LTL pallet quote, even if the customer did not tick the UPS box.
-          const autoUpsSmallShipment = upsKeysSaved(settingsRow) && isSmallUpsShipment(parcelDecision.packageResults);
-          const directUpsParcel = (verifiedPelicanParcel || liveProvider === "ups" || quoteInput.carrierPreference === "ups" || autoUpsSmallShipment)
+          const autoUpsSmallShipment = Boolean(upsCredentials) && isSmallUpsShipment(parcelDecision.packageResults);
+          const directUpsParcel = Boolean(upsCredentials) && (verifiedPelicanParcel || liveProvider === "ups" || quoteInput.carrierPreference === "ups" || autoUpsSmallShipment)
             && parcelDecision.mode === "parcel"
             && parcelDecision.eligibleCarriers.includes("ups");
           const upsParcelMustNotBecomeLtl = directUpsParcel && (upsOnlyRequested || verifiedPelicanParcel || autoUpsSmallShipment);
@@ -1949,10 +1994,10 @@ export const freightRouter = router({
                     };
                   }
                   return upsParcelQuote({
-                    clientId: settingsRow.upsClientId ?? "",
-                    clientSecret: settingsRow.upsClientSecret ?? "",
-                    accountNumber: settingsRow.upsAccountNumber ?? "",
-                    environment: (settingsRow.upsEnvironment ?? "sandbox") as "sandbox" | "production",
+                    clientId: upsCredentials!.clientId,
+                    clientSecret: upsCredentials!.clientSecret,
+                    accountNumber: upsCredentials!.accountNumber,
+                    environment: upsCredentials!.environment,
                   }, {
                     fromZip: group.originZip,
                     toZip: quoteInput.destinationZip,

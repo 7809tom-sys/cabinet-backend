@@ -406,13 +406,23 @@ export const distributorPortalRouter = router({
 	        clientSecretEncrypted: input.clientSecret?.trim() ? encryptDistributorSecret(input.clientSecret) : undefined,
 	        passwordEncrypted: input.password?.trim() ? encryptDistributorSecret(input.password) : undefined,
 	      };
-	      const shared = {
-	        distributorId: lineId, integrationType: input.integrationType, provider: input.provider.trim(), displayName: input.displayName.trim(),
-	        baseUrl: input.baseUrl?.trim() || null, accountNumber: input.accountNumber?.trim() || null, clientId: input.clientId?.trim() || null,
-	        username: input.username?.trim() || null, authHeaderName: input.authHeaderName?.trim() || null,
-	        environment: input.environment, isEnabled: input.isEnabled, lastError: null,
-	      };
-	      if (input.id) {
+		      const shared = {
+		        distributorId: lineId, integrationType: input.integrationType, provider: input.provider.trim(), displayName: input.displayName.trim(),
+		        baseUrl: input.baseUrl?.trim() || null, accountNumber: input.accountNumber?.trim() || null, clientId: input.clientId?.trim() || null,
+		        username: input.username?.trim() || null, authHeaderName: input.authHeaderName?.trim() || null,
+		        environment: input.environment, isEnabled: input.isEnabled, lastError: null,
+		      };
+		      // NetSuite must be more than a saved credential card: enabling it also
+		      // selects the existing distributor fulfillment route used by order
+		      // dispatch. The account number is the NetSuite account ID; token and
+		      // consumer secrets remain encrypted in distributorIntegrations.
+		      if (input.integrationType === "inventory" && input.provider.trim() === "netsuite") {
+		        await db.update(distributors).set({
+		          fulfillmentMode: input.isEnabled ? "netsuite_api" : "email",
+		          netsuiteAccountId: input.accountNumber?.trim() || null,
+		        }).where(eq(distributors.id, lineId));
+		      }
+		      if (input.id) {
 	        const [owned] = await db.select({ id: distributorIntegrations.id }).from(distributorIntegrations).where(and(eq(distributorIntegrations.id, input.id), eq(distributorIntegrations.distributorId, lineId))).limit(1);
 	        if (!owned) throw new TRPCError({ code: "FORBIDDEN", message: "That integration is not in your distributor account." });
         await db.update(distributorIntegrations).set({ ...shared, ...secretPatch } as any).where(eq(distributorIntegrations.id, input.id));
