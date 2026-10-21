@@ -21,7 +21,7 @@ import { addThreeDMeasuredWallMiterCountertops, addThreeDStandardCountertops } f
 import { threeDMiteredRoomWallGeometry, threeDMiteredRoomWallOutlines } from "./InteractiveRoom3D";
 import { normalizedThreeDCabinetMoveIncrement, parsedThreeDCabinetMoveIncrement, THREE_D_MAX_MOVE_INCREMENT_IN, THREE_D_MIN_MOVE_INCREMENT_IN } from "./InteractiveRoom3D";
 import { addThreeDContinuousToeKicks, threeDContinuousToeKickSegments } from "./InteractiveRoom3D";
-import { COUNTERTOP_DEPTH_IN, DEFAULT_ROOM, STD, countertopRunFaceNormal, countertopSurfacePlanPolygon, countertopSurfaces, nextAvailableRoomCornerPlacement, peninsulaRunEndpoints, placedCornerGeometryKind, placedFootprint, wallPlacementAt } from "@/lib/design";
+import { COUNTERTOP_DEPTH_IN, DEFAULT_ROOM, STD, cornerLegRatioForPlaced, countertopRunFaceNormal, countertopSurfacePlanPolygon, countertopSurfaces, nextAvailableRoomCornerPlacement, peninsulaRunEndpoints, placedCornerGeometryKind, placedFootprint, wallPlacementAt } from "@/lib/design";
 import { AEF_PRINTED_GEOMETRY_MARKER } from "@shared/aefFramelessGeometry";
 import { ovenOpeningGeometry } from "@/lib/ovenOpening";
 import { addThreeDCrownMolding, applyThreeDStructuralFinishMaterials, threeDStructuralSampleTexture } from "./InteractiveRoom3D";
@@ -4344,6 +4344,86 @@ describe("interactive 3D room scene helpers", () => {
     expect(lShape.backLeg.width).toBe(36 / 12);
     expect(lShape.backLeg.depth).toBe(24 / 12);
     expect(lShape.backLeg.width - lShape.sideLeg.width).toBe(12 / 12);
+  });
+
+  it("renders each 33-inch base L-corner with its source-backed 24-inch legs while preserving the 36-inch datum", () => {
+    const fixtures = [
+      { masterCode: "ERB33", description: "33 inch Easy Reach Base Cabinet", side: 33 },
+      { masterCode: "BER33", description: "33 inch Base Easy Reach Corner Cabinet", side: 33 },
+      { masterCode: "LSB33", description: "33 inch Lazy Susan Base Cabinet", side: 33 },
+      { masterCode: "ERB36", description: "36 inch Easy Reach Base Cabinet", side: 36 },
+    ] as const;
+
+    for (const fixture of fixtures) {
+      const placed = {
+        uid: `${fixture.masterCode}-base-leg-depth`,
+        cabinetId: fixture.side,
+        masterCode: fixture.masterCode,
+        description: fixture.description,
+        placement: "base",
+        x: 0,
+        y: 0,
+        width: fixture.side,
+        depth: 24,
+        height: 34.5,
+        rotation: 0,
+        numberOfDoors: 2,
+        numberOfDrawers: 0,
+        cornerType: "l-shape",
+      } as never;
+      const expectedRatio = 24 / fixture.side;
+      expect(cornerLegRatioForPlaced(placed)).toBeCloseTo(expectedRatio, 12);
+
+      const root = new THREE.Group();
+      addCabinet(
+        root,
+        existingCabinetSku(placed),
+        null,
+        {},
+        144,
+        120,
+        "#d1ba8f",
+        "#ffffff",
+        { doorStyle: "Shaker", doorPanelType: null },
+        existingCabinetTransform(placed),
+      );
+
+      const carcassSpansIn: number[] = [];
+      const doors: THREE.Mesh[] = [];
+      const toeKicks: THREE.Mesh[] = [];
+      root.traverse((node) => {
+        if (node.userData.lCornerCarcass && node instanceof THREE.Mesh) {
+          const geometry = node.geometry as THREE.BoxGeometry;
+          carcassSpansIn.push(geometry.parameters.width * 12, geometry.parameters.depth * 12);
+        }
+        if (node.userData.lCornerDoor && node instanceof THREE.Mesh) doors.push(node);
+        if (node.userData.lCornerToeKick && node instanceof THREE.Mesh) toeKicks.push(node);
+      });
+
+      expect(carcassSpansIn.sort((left, right) => left - right)).toEqual([
+        fixture.side - 24,
+        24,
+        24,
+        fixture.side,
+      ]);
+      const backDoor = doors.find((door) => door.userData.lCornerDoor === "back-leg");
+      expect(backDoor).toBeDefined();
+      expect(backDoor!.position.z * 12).toBeCloseTo(24 - fixture.side / 2 + 0.36, 12);
+      const backToeKick = toeKicks.find((kick) => kick.userData.lCornerToeKickSide === "back-leg");
+      expect(backToeKick).toBeDefined();
+      expect(backToeKick!.position.z * 12).toBeCloseTo(24 - fixture.side / 2 - 3.12, 12);
+
+      const countertop = lCornerCountertopFootprintVertices(
+        fixture.side / 12,
+        fixture.side / 12,
+        expectedRatio,
+        1.5 / 12,
+      );
+      const finishedFrontIn = 24 - fixture.side / 2 + 1.5;
+      expect(countertop[2]!.z * 12).toBeCloseTo(finishedFrontIn, 12);
+      expect(countertop[3]!.x * 12).toBeCloseTo(finishedFrontIn, 12);
+      expect(countertop[3]!.z * 12).toBeCloseTo(finishedFrontIn, 12);
+    }
   });
 
   it("uses the LS36 36-by-36 L envelope for CDB36 while retaining CDB’s corner-drawer front", () => {
