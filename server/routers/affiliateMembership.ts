@@ -5,6 +5,7 @@ import { protectedProcedure, adminProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
 import { affiliates, affiliateInvoices } from "../../drizzle/schema";
 import { computeMembershipPeriodEnd } from "@shared/salesPrograms";
+import { linkStripeRecordsToAffiliateInvoice } from "../stripePaymentStore";
 
 const ANNUAL_FEE_CENTS = 119500; // $1,195.00
 
@@ -174,6 +175,24 @@ export const affiliateMembershipRouter = router({
           membershipExpiresAt: periodEnd,
         })
         .where(eq(affiliates.id, inv.affiliateId));
+
+      if (input.paymentMethod === "stripe" && input.paymentRef) {
+        try {
+          if (db) {
+            await linkStripeRecordsToAffiliateInvoice(db, {
+              paymentRef: input.paymentRef,
+              affiliateId: inv.affiliateId,
+              affiliateInvoiceId: inv.id,
+              description: inv.description,
+            });
+          }
+        } catch (error) {
+          console.error(
+            "[Affiliate membership] Could not link the Stripe payment reference:",
+            error instanceof Error ? error.message : "unknown error",
+          );
+        }
+      }
 
       return { ok: true, periodEnd };
     }),

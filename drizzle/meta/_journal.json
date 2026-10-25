@@ -1422,6 +1422,13 @@
       "when": 1792918926507,
       "tag": "0203_users_auth_id",
       "breakpoints": true
+    },
+    {
+      "idx": 204,
+      "version": "5",
+      "when": 1792968087801,
+      "tag": "0205_stripe_payment_records",
+      "breakpoints": true
     }
   ]
 }

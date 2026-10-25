@@ -32,11 +32,18 @@ describe("active order Stripe Checkout", () => {
 
   it("adds required Stripe metadata and persists the session on order_requests", () => {
     const stripe = source("server/stripe.ts");
+    const records = source("server/stripePaymentRecords.ts");
     expect(stripe).toContain('import { orderRequests } from "../drizzle/schema"');
     expect(stripe).toContain("client_reference_id: String(input.userId)");
     expect(stripe).toContain("customer_email: input.customerEmail");
-    expect(stripe).toContain("order_id: String(input.orderId)");
-    expect(stripe).toContain("customer_email: input.customerEmail ?? \"\"");
+    expect(stripe).toContain("checkoutSessionMetadata(");
+    expect(stripe).toContain("buildHostedCheckoutPaymentFields(");
+    expect(stripe).toContain("affiliateId: input.affiliateId");
+    expect(records).toContain("order_id: String(input.orderId)");
+    expect(records).toContain('customer_email: input.customerEmail ?? ""');
+    expect(records).toContain("affiliate_id:");
+    expect(records).toContain("receipt_email: receiptEmail");
+    expect(records).toContain("invoice_creation:");
     expect(stripe).toContain(".update(orderRequests)");
     expect(stripe).toContain("eq(orderRequests.stripeSessionId, sessionId)");
   });
@@ -45,13 +52,14 @@ describe("active order Stripe Checkout", () => {
     const webhook = source("server/stripeWebhook.ts");
     expect(webhook).toContain('if (session.payment_status === "paid")');
     expect(webhook).toContain("await fulfillOrder(session.id, paymentIntentId)");
+    expect(webhook).toContain("await recordStripeWebhookEvent(event,");
     expect(webhook).toContain('event.id.startsWith("evt_test_")');
   });
 
   it("allows zero verified freight only for the single temporary payment test item", () => {
     const orders = source("server/routers/orders.ts");
     expect(orders).toContain("isTemporaryOneDollarFreeShippingOrder(normalizedLines)");
-    expect(orders).toContain('deliveryMethod === "ship" && hasOnlyTemporaryFreeShippingItems');
+    expect(orders).toContain('deliveryMethod === "ship" && nonHardwareOrderLines.length > 0 && hasOnlyTemporaryFreeShippingItems');
     expect(orders).toContain("freightQuoteVerified = true;");
     expect(orders).toContain('message: "Request a current shipping quote before submitting this order."');
   });
