@@ -1,0 +1,1 @@
+ALTER TABLE `affiliates` MODIFY COLUMN `template` enum('classic','showcase','minimal','craftsman','coastal','gallery','studio','heritage') NOT NULL DEFAULT 'classic';

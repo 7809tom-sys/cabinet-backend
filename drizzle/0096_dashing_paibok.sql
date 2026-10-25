@@ -1,0 +1,1 @@
+ALTER TABLE `vendor_lines` ADD `websiteUrl` varchar(512);

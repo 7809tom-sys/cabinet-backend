@@ -1,0 +1,22 @@
+CREATE TABLE `cabinet_master_change_requests` (
+	`id` int AUTO_INCREMENT NOT NULL,
+	`cabinetId` int NOT NULL,
+	`masterCode` varchar(64) NOT NULL,
+	`sourceDistributorId` int,
+	`submittedBy` int NOT NULL,
+	`submittedByName` varchar(191),
+	`status` enum('pending','approved','applied_to_distributor','rejected','undone') NOT NULL DEFAULT 'pending',
+	`changesJson` text NOT NULL,
+	`previousValuesJson` text,
+	`appliedValuesJson` text,
+	`appliedDistributorId` int,
+	`reviewNote` text,
+	`reviewedBy` int,
+	`reviewedByName` varchar(191),
+	`reviewedAt` timestamp,
+	`undoneBy` int,
+	`undoneAt` timestamp,
+	`createdAt` timestamp NOT NULL DEFAULT (now()),
+	`updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,
+	CONSTRAINT `cabinet_master_change_requests_id` PRIMARY KEY(`id`)
+);

@@ -1,0 +1,1 @@
+ALTER TABLE `distributor_cabinet_overrides` ADD `configJson` text;

@@ -1,0 +1,1 @@
+ALTER TABLE `cabinets` ADD `openingHeight` decimal(5,2);

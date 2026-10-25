@@ -1,0 +1,1 @@
+ALTER TABLE `vendor_lines` ADD `linkedDistributorIds` json;

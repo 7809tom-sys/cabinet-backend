@@ -1,0 +1,22 @@
+CREATE TABLE `vendor_applications` (
+	`id` int AUTO_INCREMENT NOT NULL,
+	`companyName` varchar(256) NOT NULL,
+	`contactName` varchar(256) NOT NULL,
+	`email` varchar(320) NOT NULL,
+	`phone` varchar(32),
+	`website` varchar(512),
+	`headquarters` varchar(256),
+	`productLines` varchar(512),
+	`doorStyleCount` int,
+	`hasCatalogImages` boolean NOT NULL DEFAULT false,
+	`offersTradePricing` boolean NOT NULL DEFAULT false,
+	`leadTimeDays` int,
+	`message` text,
+	`status` enum('pending','approved','rejected') NOT NULL DEFAULT 'pending',
+	`reviewedBy` int,
+	`reviewedAt` timestamp,
+	`reviewNotes` text,
+	`createdAt` timestamp NOT NULL DEFAULT (now()),
+	`updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,
+	CONSTRAINT `vendor_applications_id` PRIMARY KEY(`id`)
+);

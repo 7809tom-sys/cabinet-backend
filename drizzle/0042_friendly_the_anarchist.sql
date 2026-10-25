@@ -1,0 +1,1 @@
+ALTER TABLE `cabinets` ADD `pkgWeight` decimal(8,2);

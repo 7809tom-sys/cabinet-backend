@@ -1,0 +1,86 @@
+/**
+ * Stripe webhook handler for Cabinet Dealz.
+ * Registered BEFORE express.json() so the raw request body is available for
+ * Stripe signature verification.
+ */
+
+import type { Express, Request, Response } from "express";
+import express from "express";
+import { fulfillOrder, getStripe } from "./stripe";
+import { requireStripeCredentials } from "./stripeConfig";
+
+export function registerStripeWebhook(app: Express): void {
+  app.post(
+    "/api/stripe/webhook",
+    express.raw({ type: "application/json" }),
+    async (req: Request, res: Response) => {
+      const sig = req.headers["stripe-signature"];
+
+      // ── Test event short-circuit ──────────────────────────────────────────
+      // Stripe's webhook test tool sends synthetic events with id starting
+      // "evt_test_". These bypass signature verification so the dashboard can
+      // confirm the endpoint is reachable.
+      let event: ReturnType<typeof getStripe>["webhooks"]["constructEvent"] extends (...args: any[]) => infer R ? R : never;
+      try {
+        const stripe = getStripe();
+        const credentials = requireStripeCredentials();
+        event = stripe.webhooks.constructEvent(
+          req.body as Buffer,
+          sig as string,
+          credentials.webhookSecret,
+        );
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Unknown error";
+        console.error("[Stripe Webhook] Signature verification failed:", msg);
+        res.status(400).send(`Webhook Error: ${msg}`);
+        return;
+      }
+
+      if (event.id.startsWith("evt_test_")) {
+        console.log("[Stripe Webhook] Test event detected, returning verification response");
+        res.json({ verified: true });
+        return;
+      }
+
+      console.log(`[Stripe Webhook] Event: ${event.type} (${event.id})`);
+
+      try {
+        switch (event.type) {
+          case "checkout.session.completed": {
+            const session = event.data.object as import("stripe").Stripe.Checkout.Session;
+            const paymentIntentId =
+              typeof session.payment_intent === "string"
+                ? session.payment_intent
+                : session.payment_intent?.id ?? null;
+
+            if (session.payment_status === "paid") {
+              await fulfillOrder(session.id, paymentIntentId);
+              console.log(
+                `[Stripe Webhook] Checkout ${session.id} confirmed (payment_intent=${paymentIntentId ?? "n/a"})`,
+              );
+            } else {
+              console.warn(`[Stripe Webhook] Checkout ${session.id} completed without a paid status.`);
+            }
+            break;
+          }
+
+          case "payment_intent.payment_failed": {
+            const pi = event.data.object as import("stripe").Stripe.PaymentIntent;
+            console.warn(`[Stripe Webhook] Payment failed: ${pi.id}`);
+            break;
+          }
+
+          default:
+            // Unhandled event types — log and acknowledge.
+            console.log(`[Stripe Webhook] Unhandled event type: ${event.type}`);
+        }
+      } catch (err) {
+        console.error("[Stripe Webhook] Handler error:", err);
+        res.status(500).send("Internal server error");
+        return;
+      }
+
+      res.json({ received: true });
+    },
+  );
+}

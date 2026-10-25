@@ -1,0 +1,1 @@
+ALTER TABLE `vendor_applications` ADD `categories` varchar(512);

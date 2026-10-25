@@ -1,0 +1,1 @@
+ALTER TABLE `affiliates` ADD `template` enum('classic','showcase','minimal','craftsman') DEFAULT 'classic' NOT NULL;

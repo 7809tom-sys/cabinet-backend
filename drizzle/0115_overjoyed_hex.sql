@@ -1,0 +1,1 @@
+ALTER TABLE `affiliate_style_branding` ADD `isEnabled` boolean DEFAULT true NOT NULL;

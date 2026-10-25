@@ -1,0 +1,20 @@
+CREATE TABLE `countertop_quotes` (
+	`id` int AUTO_INCREMENT NOT NULL,
+	`userId` int,
+	`contactName` varchar(256),
+	`contactEmail` varchar(320) NOT NULL,
+	`contactPhone` varchar(32),
+	`zip` varchar(16),
+	`material` varchar(128),
+	`squareFeet` decimal(8,2) NOT NULL,
+	`linearFeet` decimal(8,2) NOT NULL,
+	`hasIsland` boolean NOT NULL DEFAULT false,
+	`roomData` json,
+	`placedCabinets` json,
+	`notes` text,
+	`status` enum('new','quoted','won','lost') NOT NULL DEFAULT 'new',
+	`quotedPrice` decimal(10,2),
+	`createdAt` timestamp NOT NULL DEFAULT (now()),
+	`updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,
+	CONSTRAINT `countertop_quotes_id` PRIMARY KEY(`id`)
+);

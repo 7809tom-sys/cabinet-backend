@@ -1,0 +1,1 @@
+ALTER TABLE `cabinets` ADD `catalogImageUrl` varchar(512);

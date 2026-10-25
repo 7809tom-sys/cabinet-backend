@@ -1,0 +1,1 @@
+ALTER TABLE `distributor_column_mappings` ADD CONSTRAINT `uniq_dist_col` UNIQUE(`distributorId`,`columnCode`);

@@ -1,0 +1,1 @@
+ALTER TABLE `cabinets` ADD `glassDoorAddonCode` varchar(64);

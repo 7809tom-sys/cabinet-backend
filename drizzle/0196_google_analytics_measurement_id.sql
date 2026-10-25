@@ -1,0 +1,1 @@
+ALTER TABLE `site_settings` ADD `googleAnalyticsMeasurementId` varchar(32);

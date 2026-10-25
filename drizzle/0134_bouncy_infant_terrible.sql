@@ -1,0 +1,1 @@
+ALTER TABLE `design_image_requests` ADD `imageReadyEmailSentAt` timestamp;

@@ -1,0 +1,2 @@
+ALTER TABLE `door_styles` ADD `specificationStatus` enum('purchasable','availability_pending','coming_soon') DEFAULT 'purchasable' NOT NULL;--> statement-breakpoint
+ALTER TABLE `door_styles` ADD `sourceSpecification` varchar(512);

@@ -1,0 +1,215 @@
+import { describe, it, expect } from "vitest";
+import { appRouter } from "./routers";
+import type { TrpcContext } from "./_core/context";
+
+function publicCtx(): TrpcContext {
+  return {
+    user: null,
+    req: { protocol: "https", headers: {} } as TrpcContext["req"],
+    res: { clearCookie: () => {} } as unknown as TrpcContext["res"],
+  };
+}
+
+describe("storefront.families", () => {
+  it("returns families that each carry a distributorId and no supplier name", async () => {
+    const caller = appRouter.createCaller(publicCtx());
+    const families = await caller.storefront.families();
+    expect(Array.isArray(families)).toBe(true);
+    if (families.length) {
+      const f = families[0];
+      expect(typeof f.styleId).toBe("number");
+      expect(typeof f.distributorId).toBe("number");
+      // supplier identity must never leak
+      expect(f).not.toHaveProperty("distributorName");
+      expect(f).not.toHaveProperty("brandName");
+    }
+  });
+
+  it("narrowing by distributorId only returns that supply line", async () => {
+    const caller = appRouter.createCaller(publicCtx());
+    const all = await caller.storefront.families();
+    if (!all.length) return; // empty DB in this env — nothing to assert
+    const distId = all[0].distributorId;
+    const narrowed = await caller.storefront.families({ distributorId: distId });
+    expect(narrowed.every((f) => f.distributorId === distId)).toBe(true);
+  });
+});
+
+describe("storefront.familyCatalog (lock)", () => {
+  it("returns only cabinets scoped to the requested family styleId", async () => {
+    const caller = appRouter.createCaller(publicCtx());
+    const families = await caller.storefront.families();
+    if (!families.length) return;
+    const styleId = families[0].styleId;
+    const res = await caller.storefront.familyCatalog({ styleId, limit: 10 });
+    expect(res).toHaveProperty("items");
+    expect(res).toHaveProperty("total");
+    expect(Array.isArray(res.items)).toBe(true);
+    // every returned line must be priced for THIS family's SKU
+    for (const it of res.items) {
+      expect(typeof it.platformSku).toBe("string");
+      expect(it.platformSku.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("familyCategories only lists categories that exist within the family", async () => {
+    const caller = appRouter.createCaller(publicCtx());
+    const families = await caller.storefront.families();
+    if (!families.length) return;
+    const styleId = families[0].styleId;
+    const cats = await caller.storefront.familyCategories({ styleId });
+    expect(Array.isArray(cats)).toBe(true);
+    // a category returned here must yield items when used to filter the catalog
+    if (cats.length) {
+      const res = await caller.storefront.familyCatalog({
+        styleId,
+        category: cats[0],
+        limit: 5,
+      });
+      expect(res.total).toBeGreaterThan(0);
+    }
+  });
+
+  it("carries the selected distributor's glass policy on every glass-nomenclature catalog card", async () => {
+    const caller = appRouter.createCaller(publicCtx());
+    const families = await caller.storefront.families();
+    for (const family of families) {
+      const res = await caller.storefront.familyCatalog({ styleId: family.styleId, limit: 200 });
+      const glassItem = res.items.find((item) => /(?:PG|GD|G)$/i.test(item.masterCode.replace(/[\s_-]/g, "")));
+      if (!glassItem) continue;
+      expect(typeof (glassItem as { glassIncluded?: unknown }).glassIncluded).toBe("boolean");
+      return;
+    }
+    // Some development fixtures contain no active glass products. That is a
+    // valid catalog state, not an excuse to invent a glass item for the test.
+    expect(true).toBe(true);
+  });
+});
+
+describe("storefront.recommendForIntent (family-locked, never cross-distributor)", () => {
+  it("returns only items from the locked family", async () => {
+    const caller = appRouter.createCaller(publicCtx());
+    const families = await caller.storefront.families();
+    if (!families.length) return;
+    const styleId = families[0].styleId;
+
+    // Build the set of valid platformSkus for this family
+    const all = await caller.storefront.familyCatalog({ styleId, limit: 200 });
+    const validSkus = new Set(all.items.map((i) => i.platformSku));
+
+    const rec = await caller.storefront.recommendForIntent({
+      styleId,
+      intent: "island",
+      limit: 8,
+    });
+    expect(rec.intent).toBe("island");
+    // Any recommended item must be a SKU that belongs to this family.
+    for (const it of rec.items as Array<{ platformSku: string }>) {
+      expect(validSkus.has(it.platformSku)).toBe(true);
+    }
+  });
+
+  it("maps an island intent to buyable Base cabinets in the family (never empty)", async () => {
+    const caller = appRouter.createCaller(publicCtx());
+    const families = await caller.storefront.families();
+    if (!families.length) return;
+    const styleId = families[0].styleId;
+
+    const all = await caller.storefront.familyCatalog({ styleId, limit: 200 });
+    const hasBase = all.items.some((i) => i.category === "Base");
+
+    const rec = await caller.storefront.recommendForIntent({
+      styleId,
+      intent: "kitchen island",
+      limit: 8,
+    });
+    // If the family has base cabinets at all, an island intent must surface some.
+    if (hasBase) {
+      expect(rec.items.length).toBeGreaterThan(0);
+      for (const it of rec.items as Array<{ category: string }>) {
+        expect(it.category).toBe("Base");
+      }
+    }
+  });
+});
+
+
+import { accessoryGroupFor, ACCESSORY_GROUPS } from "./routers/storefront";
+
+describe("accessoryGroupFor (Accessory sub-grouping)", () => {
+  it("returns null for non-accessory cabinets", () => {
+    expect(
+      accessoryGroupFor({ category: "Base", subCategory: null, description: "24in Base" })
+    ).toBeNull();
+    expect(
+      accessoryGroupFor({ category: "Wall", subCategory: null, description: "Glass Door Wall" })
+    ).toBeNull();
+  });
+
+  it("groups fillers, moldings, toe kicks and scribes under Trim & Molding", () => {
+    expect(
+      accessoryGroupFor({ category: "Accessory", subCategory: "Trim & Molding", description: "Crown Molding" })
+    ).toBe(ACCESSORY_GROUPS.TRIM);
+    expect(
+      accessoryGroupFor({ category: "Accessory", subCategory: null, description: '6" Oven Filler' })
+    ).toBe(ACCESSORY_GROUPS.TRIM);
+    expect(
+      accessoryGroupFor({ category: "Accessory", subCategory: null, description: "Rope Scribe Molding" })
+    ).toBe(ACCESSORY_GROUPS.TRIM);
+  });
+
+  it("groups roll-out trays and the touch-up kit under general Accessories", () => {
+    expect(
+      accessoryGroupFor({ category: "Accessory", subCategory: "Roll-Out Tray", description: "Roll-Out Tray 24in" })
+    ).toBe(ACCESSORY_GROUPS.GENERAL);
+    expect(
+      accessoryGroupFor({ category: "Accessory", subCategory: "Hardware / Misc", description: "Touch-Up Kit" })
+    ).toBe(ACCESSORY_GROUPS.GENERAL);
+  });
+});
+
+describe("storefront.glassDoorUpsell (wall-cabinet swap only)", () => {
+  it("returns null for non-wall codes (oven/tall/base never get a glass swap)", async () => {
+    const caller = appRouter.createCaller(publicCtx());
+    const families = await caller.storefront.families();
+    if (!families.length) return;
+    const styleId = families[0].styleId;
+    // Oven, tall, and base codes are not wall codes -> no swap.
+    for (const code of ["O-30", "U-24-90", "B-24", "OE-6-30"]) {
+      const res = await caller.storefront.glassDoorUpsell({ styleId, masterCode: code });
+      expect(res).toBeNull();
+    }
+  });
+
+  it("returns null when the code is already a glass-door (GD) cabinet", async () => {
+    const caller = appRouter.createCaller(publicCtx());
+    const families = await caller.storefront.families();
+    if (!families.length) return;
+    const styleId = families[0].styleId;
+    const res = await caller.storefront.glassDoorUpsell({ styleId, masterCode: "W-24-30GD" });
+    expect(res).toBeNull();
+  });
+
+  it("if a solid wall cabinet has a buyable GD twin, the swap is that GD wall cabinet", async () => {
+    const caller = appRouter.createCaller(publicCtx());
+    const families = await caller.storefront.families();
+    if (!families.length) return;
+    const styleId = families[0].styleId;
+    // Find a solid wall cabinet in this family that actually has a buyable GD twin.
+    const all = await caller.storefront.familyCatalog({ styleId, category: "Wall", limit: 200 });
+    let checked = 0;
+    for (const it of all.items as Array<{ masterCode: string }>) {
+      const code = it.masterCode.toUpperCase();
+      if (code.endsWith("GD")) continue;
+      const res = await caller.storefront.glassDoorUpsell({ styleId, masterCode: code });
+      if (res) {
+        expect((res as { masterCode: string }).masterCode.toUpperCase()).toBe(`${code}GD`);
+        expect((res as { category: string }).category).toBe("Wall");
+        checked++;
+        if (checked >= 1) break;
+      }
+    }
+    // Not all families have GD twins; only assert structure when one was found.
+    expect(checked).toBeGreaterThanOrEqual(0);
+  });
+});

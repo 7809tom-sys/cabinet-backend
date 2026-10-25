@@ -1,0 +1,1 @@
+ALTER TABLE `pelican_products` ADD `unsupportedOverhangLimitIn` decimal(5,2);

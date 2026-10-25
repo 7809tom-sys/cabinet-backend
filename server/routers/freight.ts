@@ -1,0 +1,2828 @@
+import { z } from "zod";
+import { and, asc, desc, eq, inArray, like, or } from "drizzle-orm";
+import { TRPCError } from "@trpc/server";
+import { publicProcedure, adminProcedure, router } from "../_core/trpc";
+import { getDb } from "../db";
+import {
+  shippingSettings,
+  freightZones,
+  cabinets,
+  distributors,
+  distributorSkus,
+  distributorCabinetOverrides,
+  doorStyles,
+  kitchenDesigns,
+  affiliates,
+  freightQuoteHistory,
+  distributorIntegrations,
+  type ShippingSettings,
+} from "../../drizzle/schema";
+import { pelicanProducts, pelicanShippingProfiles } from "../../drizzle/pelicanSchema";
+import {
+  normalizeZip,
+  approxZipCentroid,
+  pickNearestWarehouseZip,
+  type WarehouseRef,
+} from "../../shared/availability";
+import { makeRequest, type GeocodingResult, type LatLng } from "../_core/map";
+import {
+  type FreightSettings,
+  type FreightQuote,
+  type FreightQuoteLine,
+  type FreightShipmentGroup,
+  combineStyleFreightGroups,
+  estimateFreight,
+  type FreightRateGroup,
+} from "@shared/freight";
+import {
+  buildPallets,
+  packagedCubicFt,
+  totalPackagedLoad,
+  type PalletCaps,
+  type FreightItemPackage,
+} from "@shared/liveFreight";
+import {
+  easypostParcelQuote,
+  easypostQuote,
+  type LiveQuoteAddress,
+  type LiveParcel,
+} from "../_core/easypost";
+
+// ─── Settings loading + defaults ────────────────────────────────────────────────
+import { freightquoteQuote } from "../_core/freightquote";
+import { globaltranzQuote } from "../_core/globaltranz";
+import { normalizeSpeedshipFreightClass, worldwideexpressQuote } from "../_core/worldwideexpress";
+import { upsParcelQuote, upsTestConnection } from "../_core/ups";
+import { fedexTestConnection } from "../_core/fedex";
+import { logFreightApiCall, getFreightApiLogs, type FreightApiPackageAudit } from "../_core/freightApiLog";
+import { createFreightQuoteToken } from "../_core/freightQuoteToken";
+import { normalizeFreightQuoteDeliveryAddress, type FreightQuoteDeliveryAddress } from "@shared/freightQuoteAddress";
+import { getPricingSettings } from "../db";
+import { sellPriceForTier } from "@shared/margins";
+import { resolveAffiliateAccess } from "../lib/affiliateAccess";
+import { decryptDistributorSecret } from "../lib/distributorIntegrationCrypto";
+import {
+  resolveDistributorShippingRule,
+  type DistributorShippingRuleMode,
+  type DistributorZipRate,
+} from "@shared/distributorShipping";
+import {
+  bundleCompatiblePackages,
+  resolveParcelShipmentMode,
+  isSmallUpsShipment,
+  type AuthoritativeParcelPackage,
+} from "@shared/parcelEligibility";
+import { freightClassFromDensity, genericCabinetPackage } from "@shared/genericCabinetPackaging";
+
+// ─── Settings loading + defaults ────────────────────────────────────────────────
+const DEFAULT_SETTINGS: FreightSettings = {
+  enabled: true,
+  originZip: "",
+  rateModel: "per_cwt",
+  handlingFeeCents: 0,
+  minChargeCents: 8900,
+  liftgateFeeCents: 7500,
+  residentialFeeCents: 6500,
+  insideDeliveryFeeCents: 5000,
+  markupBps: 1500,
+  damageFeeBps: 0,
+  freeFreightThresholdCents: 0,
+  defaultCabinetWeightLbs: 45,
+};
+
+/**
+ * A freight quote remains public, but a saved-plan association is optional and
+ * private. Do not reject the quote or disclose whether a requested plan exists:
+ * only retain the reference after confirming the caller can already access it.
+ */
+async function resolveAuthorizedFreightQuoteDesignId(
+  user: { id: number; email: string | null; role: string } | null | undefined,
+  requestedDesignId: number | undefined,
+): Promise<number | null> {
+  if (!requestedDesignId || !user) return null;
+  const db = await getDb();
+  if (!db) return null;
+  const [design] = await db
+    .select({ id: kitchenDesigns.id, userId: kitchenDesigns.userId, affiliateId: kitchenDesigns.affiliateId })
+    .from(kitchenDesigns)
+    .where(eq(kitchenDesigns.id, requestedDesignId))
+    .limit(1);
+  if (!design) return null;
+  if (user.role === "admin" || design.userId === user.id) return design.id;
+
+  const affiliateAccess = await resolveAffiliateAccess(db, user);
+  const authorizedAffiliateTeam = design.affiliateId != null
+    && affiliateAccess?.affiliateId === design.affiliateId
+    && (affiliateAccess.isOwner || affiliateAccess.accessDesigner || affiliateAccess.accessCrm);
+  return authorizedAffiliateTeam ? design.id : null;
+}
+
+function freightHistoryDesignPath(affiliateSlug: string | null, designId: number): string {
+  const path = affiliateSlug ? `/store/${encodeURIComponent(affiliateSlug)}/design` : "/design";
+  return `${path}?${new URLSearchParams({ load: String(designId), preview: "3d" }).toString()}`;
+}
+
+/** Adds an admin-safe saved-plan link to log/history rows that retain a verified ID. */
+async function attachFreightHistoryDesigns<T extends { kitchenDesignId?: number | null }>(
+  db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
+  rows: readonly T[],
+) {
+  const ids = Array.from(new Set(rows.flatMap((row) => row.kitchenDesignId != null ? [row.kitchenDesignId] : [])));
+  if (ids.length === 0) return rows.map((row) => ({ ...row, design: null }));
+  const designs = await db
+    .select({ id: kitchenDesigns.id, name: kitchenDesigns.name, affiliateSlug: affiliates.slug })
+    .from(kitchenDesigns)
+    .leftJoin(affiliates, eq(kitchenDesigns.affiliateId, affiliates.id))
+    .where(inArray(kitchenDesigns.id, ids));
+  const byId = new Map(designs.map((design) => [design.id, design]));
+  return rows.map((row) => {
+    const design = row.kitchenDesignId == null ? null : byId.get(row.kitchenDesignId) ?? null;
+    return {
+      ...row,
+      design: design ? {
+        id: design.id,
+        name: design.name,
+        url: freightHistoryDesignPath(design.affiliateSlug, design.id),
+      } : null,
+    };
+  });
+}
+
+function rowToSettings(row: ShippingSettings): FreightSettings {
+  return {
+    enabled: row.enabled,
+    originZip: row.originZip,
+    rateModel: row.rateModel,
+    handlingFeeCents: row.handlingFeeCents,
+    minChargeCents: row.minChargeCents,
+    liftgateFeeCents: row.liftgateFeeCents,
+    residentialFeeCents: row.residentialFeeCents,
+    insideDeliveryFeeCents: row.insideDeliveryFeeCents,
+    markupBps: row.markupBps,
+    damageFeeBps: row.damageFeeBps,
+    freeFreightThresholdCents: row.freeFreightThresholdCents,
+    defaultCabinetWeightLbs: Number(row.defaultCabinetWeightLbs),
+  };
+}
+
+function rowToPalletCaps(row: ShippingSettings): PalletCaps {
+  return {
+    standardPalletLengthIn: Number(row.standardPalletLengthIn),
+    palletLengthIn: Number(row.palletLengthIn),
+    palletWidthIn: Number(row.palletWidthIn),
+    palletHeightIn: Number(row.palletHeightIn),
+    palletMaxWeightLbs: Number(row.palletMaxWeightLbs),
+    palletMaxCubicFt: Number(row.palletMaxCubicFt),
+    palletTareLbs: Number(row.palletTareLbs),
+  };
+}
+
+async function loadSettingsRow(): Promise<ShippingSettings | null> {
+  const db = await getDb();
+  if (!db) return null;
+  const rows = await db.select().from(shippingSettings).limit(1);
+  return rows[0] ?? null;
+}
+
+const accessorialsSchema = z
+  .object({
+    liftgate: z.boolean().optional(),
+    residential: z.boolean().optional(),
+    insideDelivery: z.boolean().optional(),
+    limitedAccess: z.boolean().optional(),
+  })
+  .optional();
+
+const deliveryAddressSchema = z.object({
+  line1: z.string().trim().min(3).max(256),
+  line2: z.string().trim().max(256).nullable().optional(),
+  city: z.string().trim().min(2).max(128),
+  state: z.string().trim().regex(/^[A-Za-z]{2}$/),
+  zip: z.string().trim().regex(/^\d{5}(?:-\d{4})?$/),
+});
+
+const itemsSchema = z
+  .array(
+    z.object({
+      cabinetId: z.number().int().positive().nullable(),
+      masterCode: z.string().max(64).nullable().optional(),
+      styleId: z.number().int().positive().nullable().optional(),
+      distributorId: z.number().int().positive().nullable().optional(),
+      qty: z.number().int().min(1).max(999),
+      weightLbs: z.number().min(0).max(5000).nullable().optional(),
+      productKind: z.enum(["surface", "hardware"]).nullable().optional(),
+      category: z.string().max(128).nullable().optional(),
+      /** Exact Pelican SKU needed to resolve a source-backed shipping profile. */
+      pelicanProductId: z.number().int().positive().nullable().optional(),
+    })
+  )
+  .max(500)
+  .default([]);
+
+type FreightItemInput = {
+  cabinetId: number | null;
+  masterCode?: string | null;
+  styleId?: number | null;
+  distributorId?: number | null;
+  qty: number;
+  weightLbs?: number | null;
+  productKind?: "surface" | "hardware" | null;
+  category?: string | null;
+  pelicanProductId?: number | null;
+};
+
+function freightGroupItemLabels(items: FreightItemInput[]): string[] {
+  return Array.from(new Set(items.map((item) => item.masterCode?.trim() || item.category?.trim() || "Catalog item")));
+}
+
+function attachFreightQuoteToken(
+  quote: FreightQuote,
+  input: {
+    deliveryAddress?: FreightQuoteDeliveryAddress | null;
+    items: FreightItemInput[];
+    merchandiseSubtotalCents: number;
+    accessorials?: { residential?: boolean; liftgate?: boolean };
+  },
+): FreightQuote {
+  if (!quote.available) return quote;
+  // A ZIP-only estimate remains available for compatibility and browsing, but
+  // it cannot become a checkout authorization without a complete address.
+  if (!input.deliveryAddress) return quote;
+  return {
+    ...quote,
+    quoteToken: createFreightQuoteToken({
+      totalCents: quote.totalCents,
+      merchandiseSubtotalCents: input.merchandiseSubtotalCents,
+      deliveryAddress: input.deliveryAddress,
+      residential: input.accessorials?.residential === true,
+      liftgate: input.accessorials?.liftgate === true,
+      quoteKind: "freight",
+      items: input.items,
+    }),
+  };
+}
+
+// Resolve packaged weight + cubic feet per order line from the catalog. LTL may
+// use the existing configured fallbacks, but the parcel path receives only true
+// carton fields: a missing package record is never invented into a parcel.
+async function resolvePackages(
+  items: FreightItemInput[],
+  row: ShippingSettings | null,
+  fallbackWeight: number
+): Promise<{
+  packages: FreightItemPackage[];
+  weighted: { weightLbs: number | null; qty: number }[];
+  parcelPackages: AuthoritativeParcelPackage[];
+  /** Surface lines intentionally excluded until an enabled, verified SKU profile exists. */
+  unratedSurfaceItems: FreightItemInput[];
+}> {
+  const fallbackCubicFt = row ? Number(row.defaultCabinetCubicFt) : 8;
+
+  const ids = items
+    .map((i) => i.cabinetId)
+    .filter((id): id is number => typeof id === "number");
+  const codes = items
+    .map((i) => i.masterCode)
+    .filter((c): c is string => typeof c === "string" && c.length > 0);
+
+  type Pkg = {
+    id: number;
+    code: string;
+    packageWeight: number | null;
+    fallbackWeight: number | null;
+    l: number | null;
+    w: number | null;
+    h: number | null;
+    physicalWidth: number | null;
+    physicalHeight: number | null;
+    physicalDepth: number | null;
+    category: string;
+    description: string;
+    isTrim: boolean;
+  };
+  type PackageOverride = {
+    distributorId: number;
+    cabinetId: number;
+    packageWeight: number | null;
+    fallbackWeight: number | null;
+    l: number | null;
+    w: number | null;
+    h: number | null;
+    physicalWidth: number | null;
+    physicalHeight: number | null;
+    physicalDepth: number | null;
+  };
+  type SupplierSkuPackage = {
+    distributorId: number;
+    cabinetId: number;
+    styleId: number;
+    code: string;
+    packageWeight: number | null;
+    l: number | null;
+    w: number | null;
+    h: number | null;
+  };
+  const numeric = (value: unknown): number | null => value == null ? null : Number(value);
+  const byId = new Map<number, Pkg>();
+  const byCode = new Map<string, Pkg>();
+  const overridesByDistributorCabinet = new Map<string, PackageOverride>();
+  const supplierPackagesByLineStyleCabinet = new Map<string, SupplierSkuPackage>();
+  const pelicanProfilesByProductId = new Map<number, {
+    code: string;
+    category: string;
+    originZip: string;
+    transportMode: "parcel" | "ltl";
+    lengthIn: number;
+    widthIn: number;
+    heightIn: number;
+    weightLbs: number;
+    freightClass: string | null;
+    evidenceType: "supplier_verified" | "comparable_estimate";
+  }>();
+
+  if (ids.length > 0 || codes.length > 0 || items.some((item) => item.productKind === "surface" && (item.pelicanProductId ?? 0) > 0)) {
+    const db = await getDb();
+    if (db) {
+      if (ids.length > 0) {
+        const rows = await db
+          .select({
+            id: cabinets.id,
+            code: cabinets.masterCode,
+            weight: cabinets.pkgWeight,
+            fallbackWeight: cabinets.weight,
+            l: cabinets.pkgLength,
+            w: cabinets.pkgWidth,
+            h: cabinets.pkgHeight,
+            physicalWidth: cabinets.width,
+            physicalHeight: cabinets.height,
+            physicalDepth: cabinets.depth,
+            category: cabinets.category,
+            description: cabinets.description,
+            subCategory: cabinets.subCategory,
+          })
+          .from(cabinets)
+          .where(inArray(cabinets.id, ids));
+        for (const r of rows) {
+          byId.set(r.id, {
+            id: r.id,
+            code: r.code,
+            packageWeight: numeric(r.weight),
+            fallbackWeight: numeric(r.fallbackWeight),
+            l: numeric(r.l),
+            w: numeric(r.w),
+            h: numeric(r.h),
+            physicalWidth: numeric(r.physicalWidth),
+            physicalHeight: numeric(r.physicalHeight),
+            physicalDepth: numeric(r.physicalDepth),
+            category: r.category,
+            description: r.description,
+            isTrim: /trim|molding|moulding|crown|valance|toe.?kick/i.test(`${r.category ?? ""} ${r.subCategory ?? ""}`),
+          });
+        }
+      }
+      if (codes.length > 0) {
+        const rows = await db
+          .select({
+            id: cabinets.id,
+            code: cabinets.masterCode,
+            weight: cabinets.pkgWeight,
+            fallbackWeight: cabinets.weight,
+            l: cabinets.pkgLength,
+            w: cabinets.pkgWidth,
+            h: cabinets.pkgHeight,
+            physicalWidth: cabinets.width,
+            physicalHeight: cabinets.height,
+            physicalDepth: cabinets.depth,
+            category: cabinets.category,
+            description: cabinets.description,
+            subCategory: cabinets.subCategory,
+          })
+          .from(cabinets)
+          .where(inArray(cabinets.masterCode, codes));
+        for (const r of rows) {
+          byCode.set(r.code, {
+            id: r.id,
+            code: r.code,
+            packageWeight: numeric(r.weight),
+            fallbackWeight: numeric(r.fallbackWeight),
+            l: numeric(r.l),
+            w: numeric(r.w),
+            h: numeric(r.h),
+            physicalWidth: numeric(r.physicalWidth),
+            physicalHeight: numeric(r.physicalHeight),
+            physicalDepth: numeric(r.physicalDepth),
+            category: r.category,
+            description: r.description,
+            isTrim: /trim|molding|moulding|crown|valance|toe.?kick/i.test(`${r.category ?? ""} ${r.subCategory ?? ""}`),
+          });
+        }
+      }
+
+      const resolvedCabinetIds = Array.from(new Set([
+        ...ids,
+        ...Array.from(byCode.values()).map((pkg) => pkg.id),
+      ]));
+      const distributorIds = Array.from(new Set(
+        items.map((item) => item.distributorId).filter((id): id is number => typeof id === "number"),
+      ));
+      if (resolvedCabinetIds.length > 0 && distributorIds.length > 0) {
+        const supplierRows = await db
+          .select({
+            distributorId: distributorSkus.distributorId,
+            cabinetId: distributorSkus.cabinetId,
+            styleId: distributorSkus.styleId,
+            code: distributorSkus.distributorSku,
+            packageWeight: distributorSkus.pkgWeight,
+            l: distributorSkus.pkgLength,
+            w: distributorSkus.pkgWidth,
+            h: distributorSkus.pkgHeight,
+          })
+          .from(distributorSkus)
+          .where(and(
+            inArray(distributorSkus.cabinetId, resolvedCabinetIds),
+            inArray(distributorSkus.distributorId, distributorIds),
+          ));
+        for (const record of supplierRows) {
+          if (record.cabinetId == null) continue;
+          supplierPackagesByLineStyleCabinet.set(
+            `${record.distributorId}:${record.styleId}:${record.cabinetId}`,
+            {
+              distributorId: record.distributorId,
+              cabinetId: record.cabinetId,
+              styleId: record.styleId,
+              code: record.code,
+              packageWeight: numeric(record.packageWeight),
+              l: numeric(record.l),
+              w: numeric(record.w),
+              h: numeric(record.h),
+            },
+          );
+        }
+
+        const rows = await db
+          .select({
+            distributorId: distributorCabinetOverrides.distributorId,
+            cabinetId: distributorCabinetOverrides.cabinetId,
+            packageWeight: distributorCabinetOverrides.pkgWeight,
+            fallbackWeight: distributorCabinetOverrides.weight,
+            l: distributorCabinetOverrides.pkgLength,
+            w: distributorCabinetOverrides.pkgWidth,
+            h: distributorCabinetOverrides.pkgHeight,
+            physicalWidth: distributorCabinetOverrides.physicalWidth,
+            physicalHeight: distributorCabinetOverrides.height,
+            physicalDepth: distributorCabinetOverrides.depth,
+          })
+          .from(distributorCabinetOverrides)
+          .where(and(
+            inArray(distributorCabinetOverrides.cabinetId, resolvedCabinetIds),
+            inArray(distributorCabinetOverrides.distributorId, distributorIds),
+          ));
+        for (const record of rows) {
+          const override: PackageOverride = {
+            distributorId: record.distributorId,
+            cabinetId: record.cabinetId,
+            packageWeight: numeric(record.packageWeight),
+            fallbackWeight: numeric(record.fallbackWeight),
+            l: numeric(record.l),
+            w: numeric(record.w),
+            h: numeric(record.h),
+            physicalWidth: numeric(record.physicalWidth),
+            physicalHeight: numeric(record.physicalHeight),
+            physicalDepth: numeric(record.physicalDepth),
+          };
+          overridesByDistributorCabinet.set(`${override.distributorId}:${override.cabinetId}`, override);
+        }
+      }
+
+      const pelicanProductIds = Array.from(new Set(
+        items
+          .filter((item) => item.productKind === "surface")
+          .map((item) => item.pelicanProductId)
+          .filter((id): id is number => typeof id === "number" && id > 0),
+      ));
+      if (pelicanProductIds.length > 0) {
+        const rows = await db
+          .select({
+            productId: pelicanProducts.id,
+            code: pelicanProducts.pelicanCode,
+            category: pelicanProducts.category,
+            originZip: pelicanShippingProfiles.originZip,
+            transportMode: pelicanShippingProfiles.transportMode,
+            lengthIn: pelicanShippingProfiles.packageLengthIn,
+            widthIn: pelicanShippingProfiles.packageWidthIn,
+            heightIn: pelicanShippingProfiles.packageHeightIn,
+            weightLbs: pelicanShippingProfiles.packageWeightLbs,
+            freightClass: pelicanShippingProfiles.freightClass,
+            evidenceType: pelicanShippingProfiles.evidenceType,
+          })
+          .from(pelicanProducts)
+          .innerJoin(pelicanShippingProfiles, eq(pelicanShippingProfiles.pelicanProductId, pelicanProducts.id))
+          .where(and(
+            inArray(pelicanProducts.id, pelicanProductIds),
+            eq(pelicanShippingProfiles.isEnabled, true),
+          ));
+        for (const row of rows) {
+          const lengthIn = numeric(row.lengthIn);
+          const widthIn = numeric(row.widthIn);
+          const heightIn = numeric(row.heightIn);
+          const weightLbs = numeric(row.weightLbs);
+          if (!lengthIn || !widthIn || !heightIn || !weightLbs || !normalizeZip(row.originZip)) continue;
+          pelicanProfilesByProductId.set(row.productId, {
+            code: row.code,
+            category: row.category,
+            originZip: normalizeZip(row.originZip)!,
+            transportMode: row.transportMode,
+            lengthIn,
+            widthIn,
+            heightIn,
+            weightLbs,
+            freightClass: row.freightClass,
+            evidenceType: row.evidenceType,
+          });
+        }
+      }
+    }
+  }
+
+  const packages: FreightItemPackage[] = [];
+  const weighted: { weightLbs: number | null; qty: number }[] = [];
+  const parcelPackages: AuthoritativeParcelPackage[] = [];
+  const unratedSurfaceItems: FreightItemInput[] = [];
+
+  for (const it of items) {
+    if (it.productKind === "surface") {
+      const profile = it.pelicanProductId != null ? pelicanProfilesByProductId.get(it.pelicanProductId) : undefined;
+      if (!profile) {
+        unratedSurfaceItems.push(it);
+        continue;
+      }
+      const cubicFt = packagedCubicFt(profile.lengthIn, profile.widthIn, profile.heightIn, fallbackCubicFt);
+      weighted.push({ weightLbs: profile.weightLbs, qty: it.qty });
+      packages.push({
+        weightLbs: profile.weightLbs,
+        cubicFt,
+        qty: it.qty,
+        maxPackageLengthIn: Math.max(profile.lengthIn, profile.widthIn, profile.heightIn),
+        isTrim: false,
+      });
+      const backsplashBundle = profile.category === "Tile & Mosaic";
+      for (let unit = 0; unit < it.qty; unit += 1) {
+        parcelPackages.push({
+          lengthIn: profile.lengthIn,
+          widthIn: profile.widthIn,
+          heightIn: profile.heightIn,
+          weightLbs: profile.weightLbs,
+          hasAuthoritativePackage: true,
+          isEstimatedPackage: profile.evidenceType === "comparable_estimate",
+          freightClass: profile.freightClass,
+          label: profile.code,
+          isTrim: false,
+          bundleGroupKey: backsplashBundle ? `pelican:${profile.originZip}:tile-mosaic` : null,
+          bundleCategory: backsplashBundle ? "backsplash" : null,
+        });
+      }
+      continue;
+    }
+    const pkg =
+      it.cabinetId != null
+        ? byId.get(it.cabinetId)
+        : it.masterCode
+          ? byCode.get(it.masterCode)
+          : undefined;
+    const override = pkg && it.distributorId != null
+      ? overridesByDistributorCabinet.get(`${it.distributorId}:${pkg.id}`)
+      : undefined;
+    const supplierPackage = pkg && it.distributorId != null && it.styleId != null
+      ? supplierPackagesByLineStyleCabinet.get(`${it.distributorId}:${it.styleId}:${pkg.id}`)
+      : undefined;
+    // Supplier SKU package data is the most specific source for the exact
+    // distributor + door style + cabinet being purchased. It must take
+    // precedence over a line-wide override or generic master carton.
+    const physicalWidth = override?.physicalWidth ?? pkg?.physicalWidth ?? null;
+    const physicalHeight = override?.physicalHeight ?? pkg?.physicalHeight ?? null;
+    const physicalDepth = override?.physicalDepth ?? pkg?.physicalDepth ?? null;
+    const genericPackage = pkg ? genericCabinetPackage({
+      widthIn: physicalWidth,
+      heightIn: physicalHeight,
+      depthIn: physicalDepth,
+      assembledWeightLbs: override?.fallbackWeight ?? pkg?.fallbackWeight,
+      category: pkg?.category,
+      description: pkg?.description,
+    }) : null;
+    const sourcePackageWeight = supplierPackage?.packageWeight ?? override?.packageWeight ?? null;
+    const sourcePackageLength = supplierPackage?.l ?? override?.l ?? null;
+    const sourcePackageWidth = supplierPackage?.w ?? override?.w ?? null;
+    const sourcePackageHeight = supplierPackage?.h ?? override?.h ?? null;
+    const packageWeight = sourcePackageWeight ?? pkg?.packageWeight ?? genericPackage?.weightLbs ?? null;
+    const packageLength = sourcePackageLength ?? pkg?.l ?? genericPackage?.lengthIn ?? null;
+    const packageWidth = sourcePackageWidth ?? pkg?.w ?? genericPackage?.widthIn ?? null;
+    const packageHeight = sourcePackageHeight ?? pkg?.h ?? genericPackage?.heightIn ?? null;
+    const hasSourcePackage = [
+      sourcePackageWeight ?? pkg?.packageWeight,
+      sourcePackageLength ?? pkg?.l,
+      sourcePackageWidth ?? pkg?.w,
+      sourcePackageHeight ?? pkg?.h,
+    ].every((value) => value != null && value > 0);
+    const usesEstimatedPackage = genericPackage != null && !hasSourcePackage;
+
+    const resolvedWeight =
+      it.weightLbs != null
+        ? it.weightLbs
+        : packageWeight ?? override?.fallbackWeight ?? pkg?.fallbackWeight ?? null;
+    weighted.push({ weightLbs: resolvedWeight, qty: it.qty });
+
+    const cubicFt = packagedCubicFt(
+      packageLength,
+      packageWidth,
+      packageHeight,
+      fallbackCubicFt
+    );
+    packages.push({
+      weightLbs: resolvedWeight != null && resolvedWeight > 0 ? resolvedWeight : fallbackWeight,
+      cubicFt,
+      qty: it.qty,
+      maxPackageLengthIn: Math.max(
+        packageLength ?? 0,
+        packageWidth ?? 0,
+        packageHeight ?? 0,
+        physicalWidth ?? 0,
+        physicalHeight ?? 0,
+        physicalDepth ?? 0,
+      ) || null,
+      isTrim: genericPackage?.isTrim === true || pkg?.isTrim === true,
+    });
+    const hasAuthoritativePackage = hasSourcePackage;
+    for (let unit = 0; unit < it.qty; unit += 1) {
+      parcelPackages.push({
+        lengthIn: packageLength,
+        widthIn: packageWidth,
+        heightIn: packageHeight,
+        weightLbs: packageWeight,
+        hasAuthoritativePackage,
+        isEstimatedPackage: usesEstimatedPackage,
+        freightClass: genericPackage?.freightClass ?? null,
+        label: supplierPackage?.code ?? pkg?.code ?? it.masterCode ?? null,
+        isTrim: genericPackage?.isTrim === true || pkg?.isTrim === true,
+      });
+    }
+  }
+
+  return { packages, weighted, parcelPackages: bundleCompatiblePackages(parcelPackages), unratedSurfaceItems };
+}
+
+// ─── Freight origin resolution (nearest distributor warehouse) ───────────────
+// In-memory geocode cache (zip → coord). Process-lifetime only; mirrors the
+// location router so destination/warehouse ZIPs resolve offline-first.
+const zipCoordCache = new Map<string, LatLng | null>();
+const zipAddressCache = new Map<string, LiveQuoteAddress | null>();
+
+async function geocodeZip(zip: string): Promise<LatLng | null> {
+  if (zipCoordCache.has(zip)) return zipCoordCache.get(zip)!;
+  const offline = approxZipCentroid(zip);
+  if (offline) {
+    zipCoordCache.set(zip, offline);
+    return offline;
+  }
+  try {
+    const res = await makeRequest<GeocodingResult>("/maps/api/geocode/json", {
+      address: `${zip}, USA`,
+      components: "country:US",
+    });
+    const loc = res.results?.[0]?.geometry?.location ?? null;
+    zipCoordCache.set(zip, loc);
+    return loc;
+  } catch {
+    zipCoordCache.set(zip, null);
+    return null;
+  }
+}
+
+function addressComponent(
+  components: GeocodingResult["results"][number]["address_components"],
+  type: string,
+  preferShort = false,
+): string | null {
+  const component = components.find((candidate) => candidate.types.includes(type));
+  if (!component) return null;
+  return preferShort ? component.short_name : component.long_name;
+}
+
+/** Resolve non-invented city/state metadata required by the Speedship LTL request. */
+async function resolveZipAddress(zip: string): Promise<LiveQuoteAddress | null> {
+  const normalized = normalizeZip(zip);
+  if (!normalized) return null;
+  if (zipAddressCache.has(normalized)) return zipAddressCache.get(normalized)!;
+  try {
+    const result = await makeRequest<GeocodingResult>("/maps/api/geocode/json", {
+      address: `${normalized}, USA`,
+      components: "country:US",
+    });
+    const components = result.results?.[0]?.address_components ?? [];
+    const locality = addressComponent(components, "locality")
+      ?? addressComponent(components, "postal_town")
+      ?? addressComponent(components, "administrative_area_level_2");
+    const region = addressComponent(components, "administrative_area_level_1", true);
+    const address = locality && region ? { locality, region, countryCode: "US" as const } : null;
+    zipAddressCache.set(normalized, address);
+    return address;
+  } catch {
+    zipAddressCache.set(normalized, null);
+    return null;
+  }
+}
+
+/**
+ * Figure out which distributor(s) the cart's cabinets belong to. We look up the
+ * distributor_skus rows for the cabinetIds present in the cart. A well-formed
+ * order is single-line (one distributor), so we use the most common distributor.
+ * Returns null when no cabinetIds resolve to a SKU.
+ */
+async function resolveCartDistributorId(
+  items: FreightItemInput[],
+  explicit?: number | null
+): Promise<number | null> {
+  if (explicit != null) return explicit;
+  const ids = items
+    .map((i) => i.cabinetId)
+    .filter((id): id is number => typeof id === "number");
+  if (ids.length === 0) return null;
+  const db = await getDb();
+  if (!db) return null;
+  const rows = await db
+    .select({ distributorId: distributorSkus.distributorId })
+    .from(distributorSkus)
+    .where(inArray(distributorSkus.cabinetId, ids));
+  if (rows.length === 0) return null;
+  const counts = new Map<number, number>();
+  for (const r of rows) counts.set(r.distributorId, (counts.get(r.distributorId) ?? 0) + 1);
+  let bestId: number | null = null;
+  let bestN = -1;
+  for (const [id, n] of Array.from(counts.entries())) {
+    if (n > bestN) {
+      bestN = n;
+      bestId = id;
+    }
+  }
+  return bestId;
+}
+
+/**
+ * Resolve the freight ORIGIN ZIP: ship from the distributor warehouse nearest to
+ * the destination instead of one fixed origin. Falls back to `fallbackZip`
+ * (settings.originZip) when the distributor has no warehouse ZIPs or cannot be
+ * resolved.
+ */
+async function resolveOriginZip(
+  destinationZip: string,
+  distributorId: number | null,
+  fallbackZip: string
+): Promise<string> {
+  if (distributorId == null) return fallbackZip;
+  const db = await getDb();
+  if (!db) return fallbackZip;
+  const rows = await db
+    .select({ warehouseZips: distributors.warehouseZips })
+    .from(distributors)
+    .where(eq(distributors.id, distributorId))
+    .limit(1);
+  const zips = (rows[0]?.warehouseZips ?? []) as string[];
+  const normalized = zips
+    .map((z) => normalizeZip(z))
+    .filter((z): z is string => !!z);
+  if (normalized.length === 0) return fallbackZip;
+
+  const customer = await geocodeZip(normalizeZip(destinationZip) ?? destinationZip);
+  const warehouses: WarehouseRef[] = await Promise.all(
+    normalized.map(async (zip) => ({ zip, coord: await geocodeZip(zip) }))
+  );
+  const nearest = pickNearestWarehouseZip(customer, warehouses);
+  return nearest ?? fallbackZip;
+}
+
+export function normalizedDoorStyleOriginZips(
+  storedOrigins: string[] | null | undefined,
+  legacyOrigin: string | null | undefined,
+): string[] {
+  return Array.from(new Set([...(storedOrigins ?? []), legacyOrigin ?? ""]
+    .map((zip) => normalizeZip(zip))
+    .filter((zip): zip is string => Boolean(zip))));
+}
+
+async function chooseNearestDoorStyleOriginZip(
+  destinationZip: string,
+  originZips: string[],
+): Promise<string> {
+  if (originZips.length <= 1) return originZips[0] ?? "";
+  const customer = await geocodeZip(normalizeZip(destinationZip) ?? destinationZip);
+  const warehouses: WarehouseRef[] = await Promise.all(
+    originZips.map(async (zip) => ({ zip, coord: await geocodeZip(zip) })),
+  );
+  return pickNearestWarehouseZip(customer, warehouses) ?? originZips[0];
+}
+
+type StyleFreightGroup = {
+  key: string;
+  label: string;
+  vendorName: string;
+  originZip: string;
+  flatFreightFeeCents: number | null;
+  /** Explicit distributor fixed/threshold rule; style Plan B remains a fallback. */
+  distributorRuleFeeCents: number | null;
+  distributorRuleLabel: string | null;
+  usedOperationsOriginFallback: boolean;
+  missingOriginStyle: {
+    id: number;
+    name: string;
+    distributorId: number;
+    distributorName: string;
+  } | null;
+  /** Exact Pelican profile transport facts; absent means an unrated surface line. */
+  profileTransportMode?: "parcel" | "ltl";
+  profileFreightClass?: string | null;
+  profileEvidenceType?: "supplier_verified" | "comparable_estimate";
+  needsPelicanPackageData?: boolean;
+  items: FreightItemInput[];
+};
+
+type FreightSimulationMode = "pallet_preview" | "saved_configuration" | "plan_b";
+
+type FreightSimulationGroup = {
+  key: string;
+  label: string;
+  originZip: string;
+  planBFeeCents: number | null;
+  source: "preview" | "live" | "plan_b" | "estimator" | "unavailable";
+  carrier: string | null;
+  baseAmountCents: number | null;
+  liveError: string | null;
+  carrierRetryAt: number | null;
+  usedOperationsOriginFallback: boolean;
+  missingOriginStyle: {
+    id: number;
+    name: string;
+    distributorId: number;
+    distributorName: string;
+  } | null;
+  palletCount: number;
+  totalWeightLbs: number;
+  totalContentsWeightLbs: number;
+  totalCubicFt: number;
+  pallets: Array<{
+    lengthIn: number;
+    widthIn: number;
+    heightIn: number;
+    weightLbs: number;
+    contentsWeightLbs: number;
+    contentsCubicFt: number;
+  }>;
+};
+
+async function resolveStyleFreightGroups(input: {
+  destinationZip: string;
+  items: FreightItemInput[];
+  merchandiseSubtotalCents: number;
+  explicitDistributorId?: number | null;
+  fallbackOriginZip: string;
+  /** Operations-only test escape hatch; customer quotes still require a style ZIP. */
+  allowMissingStyleOriginFallback?: boolean;
+}): Promise<StyleFreightGroup[]> {
+  const db = await getDb();
+  const pelicanProfileByProductId = new Map<number, {
+    originZip: string;
+    transportMode: "parcel" | "ltl";
+    freightClass: string | null;
+    evidenceType: "supplier_verified" | "comparable_estimate";
+  }>();
+  const pelicanProductIds = Array.from(new Set(
+    input.items
+      .filter((item) => item.productKind === "surface")
+      .map((item) => item.pelicanProductId)
+      .filter((id): id is number => typeof id === "number" && id > 0),
+  ));
+  if (db && pelicanProductIds.length > 0) {
+    const profiles = await db
+      .select({
+        productId: pelicanShippingProfiles.pelicanProductId,
+        originZip: pelicanShippingProfiles.originZip,
+        transportMode: pelicanShippingProfiles.transportMode,
+        freightClass: pelicanShippingProfiles.freightClass,
+        evidenceType: pelicanShippingProfiles.evidenceType,
+      })
+      .from(pelicanShippingProfiles)
+      .where(and(
+        inArray(pelicanShippingProfiles.pelicanProductId, pelicanProductIds),
+        eq(pelicanShippingProfiles.isEnabled, true),
+      ));
+    for (const profile of profiles) {
+      const originZip = normalizeZip(profile.originZip);
+      if (!originZip) continue;
+      pelicanProfileByProductId.set(profile.productId, {
+        originZip,
+        transportMode: profile.transportMode,
+        freightClass: profile.freightClass,
+        evidenceType: profile.evidenceType,
+      });
+    }
+  }
+  const requestedStyleIds = Array.from(
+    new Set(
+      input.items
+        .map((item) => item.styleId)
+        .filter((styleId): styleId is number => typeof styleId === "number" && styleId > 0),
+    ),
+  );
+  const cabinetIds = Array.from(
+    new Set(
+      input.items
+        .map((item) => item.cabinetId)
+        .filter((cabinetId): cabinetId is number => typeof cabinetId === "number" && cabinetId > 0),
+    ),
+  );
+
+  type StyleMeta = {
+    id: number;
+    distributorId: number;
+    distributorName: string;
+    ourName: string;
+    aliasName: string | null;
+    warehouseZip: string | null;
+    warehouseZips: string[] | null;
+    flatFreightFeeCents: number | null;
+    distributorWarehouseZips: string[] | null;
+    shippingRuleMode: DistributorShippingRuleMode;
+    shippingFlatFreightFeeCents: number | null;
+    shippingFreeFreightThresholdCents: number | null;
+    shippingZipRates: DistributorZipRate[] | null;
+    shippingExceptions: string | null;
+  };
+  const styleById = new Map<number, StyleMeta>();
+  const candidatesByCabinet = new Map<number, StyleMeta[]>();
+
+  if (db && requestedStyleIds.length > 0) {
+    const rows = await db
+      .select({
+        id: doorStyles.id,
+        distributorId: doorStyles.distributorId,
+        distributorName: distributors.name,
+        ourName: doorStyles.ourName,
+        aliasName: doorStyles.aliasName,
+        warehouseZip: doorStyles.warehouseZip,
+        warehouseZips: doorStyles.warehouseZips,
+        flatFreightFeeCents: doorStyles.flatFreightFeeCents,
+        distributorWarehouseZips: distributors.warehouseZips,
+        shippingRuleMode: distributors.shippingRuleMode,
+        shippingFlatFreightFeeCents: distributors.shippingFlatFreightFeeCents,
+        shippingFreeFreightThresholdCents: distributors.shippingFreeFreightThresholdCents,
+        shippingZipRates: distributors.shippingZipRates,
+        shippingExceptions: distributors.shippingExceptions,
+      })
+      .from(doorStyles)
+      .innerJoin(distributors, eq(doorStyles.distributorId, distributors.id))
+      .where(inArray(doorStyles.id, requestedStyleIds));
+    for (const row of rows) styleById.set(row.id, row);
+  }
+
+  if (db && cabinetIds.length > 0) {
+    const rows = await db
+      .select({
+        cabinetId: distributorSkus.cabinetId,
+        id: doorStyles.id,
+        distributorId: doorStyles.distributorId,
+        distributorName: distributors.name,
+        ourName: doorStyles.ourName,
+        aliasName: doorStyles.aliasName,
+        warehouseZip: doorStyles.warehouseZip,
+        warehouseZips: doorStyles.warehouseZips,
+        flatFreightFeeCents: doorStyles.flatFreightFeeCents,
+        distributorWarehouseZips: distributors.warehouseZips,
+        shippingRuleMode: distributors.shippingRuleMode,
+        shippingFlatFreightFeeCents: distributors.shippingFlatFreightFeeCents,
+        shippingFreeFreightThresholdCents: distributors.shippingFreeFreightThresholdCents,
+        shippingZipRates: distributors.shippingZipRates,
+        shippingExceptions: distributors.shippingExceptions,
+      })
+      .from(distributorSkus)
+      .innerJoin(doorStyles, eq(distributorSkus.styleId, doorStyles.id))
+      .innerJoin(distributors, eq(doorStyles.distributorId, distributors.id))
+      .where(inArray(distributorSkus.cabinetId, cabinetIds));
+    for (const row of rows) {
+      if (row.cabinetId == null) continue;
+      const candidate: StyleMeta = row;
+      const current = candidatesByCabinet.get(row.cabinetId) ?? [];
+      current.push(candidate);
+      candidatesByCabinet.set(row.cabinetId, current);
+    }
+  }
+
+  // A distributor shipment may contain any of that distributor's finishes,
+  // colors, and styles. Keep separate groups only when the physical pickup
+  // origin differs; the pallet builder then mixes all same-origin lines and
+  // uses the fewest pallets allowed by weight/cube limits.
+  const groups = new Map<string, StyleFreightGroup>();
+  for (const item of input.items) {
+    if (item.productKind === "surface") {
+      const category = item.category?.trim() || "Pelican surface product";
+      const profile = item.pelicanProductId != null ? pelicanProfileByProductId.get(item.pelicanProductId) : undefined;
+      const vendorName = "Pelican";
+      const quartzCountertop = /quartz/i.test(category);
+      const pelicanBucket = quartzCountertop ? "quartz-countertops" : "products-except-quartz-countertops";
+      // One visible Pelican shipment per category bucket and origin. If a group
+      // contains any LTL-only product, keep the entire group on the LTL path;
+      // the package audit still lists every individual carton/pallet input.
+      const key = profile
+        ? `pelican:${pelicanBucket}:${profile.originZip}`
+        : `pelican:unrated:${pelicanBucket}`;
+      const existing = groups.get(key);
+      if (existing) {
+        existing.items.push(item);
+        existing.needsPelicanPackageData = existing.needsPelicanPackageData || !profile;
+        if (profile?.transportMode === "ltl") {
+          existing.profileTransportMode = "ltl";
+          existing.profileFreightClass = profile.freightClass ?? existing.profileFreightClass ?? null;
+        }
+        if (profile?.evidenceType === "comparable_estimate") {
+          existing.profileEvidenceType = "comparable_estimate";
+        }
+        continue;
+      }
+      groups.set(key, {
+        key,
+        label: profile
+          ? `${vendorName} · ${quartzCountertop ? "quartz countertops" : "products except quartz countertops"} · ${profile.transportMode === "parcel" ? "parcel" : "LTL"} origin ${profile.originZip}${profile.evidenceType === "comparable_estimate" ? " · comparable-package estimate" : ""}`
+          : `${vendorName} · ${quartzCountertop ? "quartz countertops" : "products except quartz countertops"} · shipping evidence required`,
+        vendorName,
+        originZip: profile?.originZip ?? "",
+        flatFreightFeeCents: null,
+        distributorRuleFeeCents: null,
+        distributorRuleLabel: null,
+        usedOperationsOriginFallback: false,
+        missingOriginStyle: null,
+        profileTransportMode: profile?.transportMode,
+        profileFreightClass: profile?.freightClass ?? null,
+        profileEvidenceType: profile?.evidenceType,
+        needsPelicanPackageData: !profile,
+        items: [item],
+      });
+      continue;
+    }
+    const requestedStyleId = item.styleId ?? null;
+    const directStyle = requestedStyleId ? styleById.get(requestedStyleId) : undefined;
+    const candidates = item.cabinetId ? candidatesByCabinet.get(item.cabinetId) ?? [] : [];
+    const requestedDistributorId = item.distributorId ?? input.explicitDistributorId ?? null;
+    const matchedStyle = requestedStyleId
+      ? (directStyle && (!requestedDistributorId || directStyle.distributorId === requestedDistributorId)
+          ? directStyle
+          : undefined)
+      : candidates.find(
+          (candidate) => !requestedDistributorId || candidate.distributorId === requestedDistributorId,
+        ) ?? (candidates.length === 1 ? candidates[0] : undefined);
+
+    if (requestedStyleId && !matchedStyle) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "The selected cabinet style could not be matched to its shipping origin. Review Featured Door Styles and request a new quote.",
+      });
+    }
+
+    const distributorId = matchedStyle?.distributorId ?? requestedDistributorId;
+    const styleOriginZips = normalizedDoorStyleOriginZips(
+      matchedStyle?.warehouseZips,
+      matchedStyle?.warehouseZip,
+    );
+    const distributorOriginZips = matchedStyle?.distributorWarehouseZips?.filter(
+      (zip): zip is string => typeof zip === "string" && /^\d{5}$/.test(zip),
+    ) ?? [];
+    const originZips = styleOriginZips.length > 0 ? styleOriginZips : distributorOriginZips;
+    const usedOperationsOriginFallback = Boolean(matchedStyle && originZips.length === 0);
+    if (matchedStyle && originZips.length === 0 && !input.allowMissingStyleOriginFallback) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: `${matchedStyle.aliasName || matchedStyle.ourName} does not have a Shipping Origin ZIP in Featured Door Styles.`,
+      });
+    }
+    const originZip = originZips.length > 0
+      ? await chooseNearestDoorStyleOriginZip(input.destinationZip, originZips)
+      : await resolveOriginZip(input.destinationZip, distributorId, input.fallbackOriginZip);
+    const key = `distributor:${distributorId ?? "global"}:${originZip}`;
+    const existing = groups.get(key);
+    if (existing) {
+      existing.items.push(item);
+      // Keep a configured legacy Plan B fee available if the first line in a
+      // consolidated distributor shipment did not have one. Live carrier and
+      // distributor fixed/threshold rules remain shipment-level behavior.
+      if (existing.flatFreightFeeCents == null && matchedStyle?.flatFreightFeeCents != null) {
+        existing.flatFreightFeeCents = matchedStyle.flatFreightFeeCents;
+      }
+      continue;
+    }
+    const distributorLabel = matchedStyle?.distributorName || "Configured supply line";
+    const distributorRule = matchedStyle
+      ? resolveDistributorShippingRule({
+          mode: matchedStyle.shippingRuleMode,
+          flatFeeCents: matchedStyle.shippingFlatFreightFeeCents,
+          freeThresholdCents: matchedStyle.shippingFreeFreightThresholdCents,
+          zipRates: matchedStyle.shippingZipRates ?? [],
+          exceptions: matchedStyle.shippingExceptions,
+        }, input.destinationZip, input.merchandiseSubtotalCents)
+      : { fixedFeeCents: null, label: null, matchedZipPrefix: null };
+    groups.set(key, {
+      key,
+      label: `${distributorLabel} · ${usedOperationsOriginFallback ? "Operations test origin" : "origin"} ${originZip}`,
+      vendorName: distributorLabel,
+      originZip,
+      flatFreightFeeCents: matchedStyle?.flatFreightFeeCents ?? null,
+      distributorRuleFeeCents: distributorRule.fixedFeeCents,
+      distributorRuleLabel: distributorRule.label,
+      usedOperationsOriginFallback,
+      missingOriginStyle: usedOperationsOriginFallback && matchedStyle
+        ? {
+            id: matchedStyle.id,
+            name: matchedStyle.aliasName || matchedStyle.ourName,
+            distributorId: matchedStyle.distributorId,
+            distributorName: matchedStyle.distributorName,
+          }
+        : null,
+      items: [item],
+    });
+  }
+
+  return Array.from(groups.values());
+}
+
+// Build a stable FreightQuote from a live carrier amount.
+function liveQuoteToFreightQuote(
+  carrierCents: number,
+  settings: FreightSettings,
+  merchandiseSubtotalCents: number,
+  billableWeightLbs: number,
+  palletCount: number,
+  carrierLabel: string | null
+): FreightQuote {
+  const lines: FreightQuoteLine[] = [];
+  lines.push({
+    label: `LTL freight${carrierLabel ? ` — ${carrierLabel}` : ""} (${palletCount} pallet${palletCount === 1 ? "" : "s"})`,
+    amountCents: carrierCents,
+  });
+
+  if (settings.handlingFeeCents > 0) {
+    lines.push({ label: "Handling", amountCents: settings.handlingFeeCents });
+  }
+
+  let freightBeforeMarkupCents = lines.reduce((s, l) => s + l.amountCents, 0);
+  const markupCents = Math.round((freightBeforeMarkupCents * settings.markupBps) / 10000);
+  const damageFeeCents = Math.round((freightBeforeMarkupCents * settings.damageFeeBps) / 10000);
+
+  let totalCents = freightBeforeMarkupCents + markupCents + damageFeeCents;
+
+  // Free-freight threshold on merchandise subtotal.
+  const freeFreightApplied =
+    settings.freeFreightThresholdCents > 0 &&
+    merchandiseSubtotalCents >= settings.freeFreightThresholdCents;
+  if (freeFreightApplied) totalCents = 0;
+
+  return {
+    available: true,
+    zoneName: carrierLabel,
+    billableWeightLbs,
+    lines,
+    freightBeforeMarkupCents,
+    markupCents,
+    damageFeeCents,
+    totalCents,
+    freeFreightApplied,
+  };
+}
+
+type LiveRateRequest = Parameters<typeof easypostQuote>[1];
+type LiveRateResult = {
+  ok: boolean;
+  amountCents: number;
+  carrier?: string;
+  service?: string;
+  transitDays?: number;
+  estimatedDeliveryDate?: string;
+  error?: string;
+  retryAfterMs?: number;
+};
+
+/** True when the UPS Client ID, Client Secret and account number are all saved. */
+export function upsKeysSaved(row: { upsClientId?: string | null; upsClientSecret?: string | null; upsAccountNumber?: string | null } | null | undefined): boolean {
+  return Boolean(row?.upsClientId?.trim() && row?.upsClientSecret?.trim() && row?.upsAccountNumber?.trim());
+}
+async function requestLiveRate(input: {
+  provider: NonNullable<ShippingSettings["liveProvider"]>;
+  settings: ShippingSettings;
+  liveApiKey: string;
+  request: LiveRateRequest;
+  palletCount: number;
+  totalWeightLbs: number;
+  kitchenDesignId?: number | null;
+}): Promise<LiveRateResult> {
+  const startedAt = Date.now();
+  let live: LiveRateResult;
+  if (input.provider === "ups") {
+    // Direct UPS is intentionally parcel-only. Never reshape a pallet into a
+    // UPS package or invent carton data merely to obtain a rate.
+    live = {
+      ok: false,
+      amountCents: 0,
+      error: "Direct UPS rating is available only when every item has a verified, UPS-eligible carton. This shipment requires an LTL carrier quote.",
+    };
+  } else if (input.provider === "freightquote") {
+    live = await freightquoteQuote(
+      {
+        clientId: input.settings.fqClientId ?? "",
+        clientSecret: input.settings.fqClientSecret ?? "",
+        accountNumber: input.settings.fqAccountNumber ?? "",
+        environment: (input.settings.fqEnvironment ?? "sandbox") as "sandbox" | "production",
+      },
+      input.request,
+    );
+  } else if (input.provider === "globaltranz") {
+    live = await globaltranzQuote(
+      {
+        apiKey: input.settings.gtzApiKey ?? "",
+        username: input.settings.gtzUsername ?? "",
+        password: input.settings.gtzPassword ?? "",
+        accountNumber: input.settings.gtzAccountNumber ?? "",
+        environment: (input.settings.gtzEnvironment ?? "sandbox") as "sandbox" | "production",
+      },
+      input.request,
+    );
+  } else if (input.provider === "worldwideexpress") {
+    const isProduction = input.settings.wwexEnvironment === "production";
+    const [fromAddress, toAddress] = await Promise.all([
+      resolveZipAddress(input.request.fromZip),
+      resolveZipAddress(input.request.toZip),
+    ]);
+    live = await worldwideexpressQuote(
+      {
+        clientId: input.settings.wwexClientId ?? "",
+        clientSecret: input.settings.wwexClientSecret ?? "",
+        accountNumber: input.settings.wwexAccountNumber ?? "",
+        username: input.settings.wwexUsername ?? undefined,
+        password: input.settings.wwexPassword ?? undefined,
+        environment: (input.settings.wwexEnvironment ?? "sandbox") as "sandbox" | "production",
+        tokenUrl: isProduction
+          ? input.settings.wwexProductionTokenUrl
+          : input.settings.wwexSandboxTokenUrl,
+        rateUrl: isProduction
+          ? input.settings.wwexProductionRateUrl
+          : input.settings.wwexSandboxRateUrl,
+      },
+      { ...input.request, fromAddress: fromAddress ?? undefined, toAddress: toAddress ?? undefined },
+    );
+  } else {
+    live = await easypostQuote(input.liveApiKey, input.request);
+  }
+
+  logFreightApiCall({
+    kitchenDesignId: input.kitchenDesignId ?? null,
+    broker: input.provider,
+    fromZip: input.request.fromZip,
+    toZip: input.request.toZip,
+    palletCount: input.palletCount,
+    totalWeightLbs: input.totalWeightLbs,
+    freightClass: input.request.freightClass,
+    accessorials: [
+      input.request.residential ? "RESIDENTIAL" : null,
+      input.request.liftgate ? "LIFTGATE" : null,
+      input.request.limitedAccess ? "LIMITED_ACCESS" : null,
+    ].filter(Boolean) as string[],
+    ok: live.ok,
+    amountCents: live.amountCents,
+    carrier: live.carrier,
+    service: live.service,
+    error: live.error,
+    durationMs: Date.now() - startedAt,
+    packages: input.request.pallets.map((pallet, index): FreightApiPackageAudit => ({
+      kind: "pallet",
+      index: index + 1,
+      lengthIn: pallet.lengthIn,
+      widthIn: pallet.widthIn,
+      heightIn: pallet.heightIn,
+      weightLbs: pallet.weightLbs,
+      reason: pallet.lengthIn >= 96
+        ? "8-foot pallet: at least one verified package required a long pallet."
+        : "Standard/short pallet: no verified package required 8 feet.",
+    })),
+  });
+  return live;
+}
+
+function liveProviderEnvironment(row: ShippingSettings): "sandbox" | "production" | null {
+  if (row.liveProvider === "ups") return row.upsEnvironment ?? "sandbox";
+  if (row.liveProvider === "freightquote") return row.fqEnvironment ?? "sandbox";
+  if (row.liveProvider === "globaltranz") return row.gtzEnvironment ?? "sandbox";
+  if (row.liveProvider === "worldwideexpress") return row.wwexEnvironment ?? "sandbox";
+  return null;
+}
+
+async function configuredFreightEstimate(input: {
+  destinationZip: string;
+  totalWeightLbs: number;
+  merchandiseSubtotalCents: number;
+  accessorials?: {
+    liftgate?: boolean;
+    residential?: boolean;
+    insideDelivery?: boolean;
+  };
+}, settings: FreightSettings): Promise<FreightQuote> {
+  const db = await getDb();
+  const zoneRows = db
+    ? await db.select().from(freightZones).orderBy(asc(freightZones.sortOrder))
+    : [];
+  return estimateFreight(input, settings, zoneRows.map((zone) => ({
+    zoneName: zone.zoneName,
+    zipPrefixes: zone.zipPrefixes,
+    rateCents: zone.rateCents,
+  })));
+}
+
+async function simulateFreight(input: {
+  destinationZip: string;
+  items: FreightItemInput[];
+  merchandiseSubtotalCents: number;
+  accessorials?: {
+    liftgate?: boolean;
+    residential?: boolean;
+    insideDelivery?: boolean;
+    limitedAccess?: boolean;
+  };
+  mode: FreightSimulationMode;
+  allowMissingStyleOriginFallback?: boolean;
+  forceCarrierQuote?: boolean;
+}) {
+  const settingsRow = await loadSettingsRow();
+  if (!settingsRow) {
+    throw new TRPCError({
+      code: "PRECONDITION_FAILED",
+      message: "Save Operations shipping settings before running a freight simulation.",
+    });
+  }
+
+  const destinationZip = normalizeZip(input.destinationZip);
+  if (!destinationZip) {
+    throw new TRPCError({ code: "BAD_REQUEST", message: "Enter a valid 5-digit destination ZIP." });
+  }
+
+  const settings = rowToSettings(settingsRow);
+  const caps = rowToPalletCaps(settingsRow);
+  const overall = await resolvePackages(input.items, settingsRow, settings.defaultCabinetWeightLbs);
+  const overallLoad = totalPackagedLoad(overall.packages);
+  const styleGroups = await resolveStyleFreightGroups({
+    destinationZip,
+    items: input.items,
+    merchandiseSubtotalCents: input.merchandiseSubtotalCents,
+    fallbackOriginZip: settings.originZip,
+    allowMissingStyleOriginFallback: input.allowMissingStyleOriginFallback,
+  });
+
+  const groups: FreightSimulationGroup[] = [];
+  const rateGroups: FreightRateGroup[] = [];
+  const unavailable: string[] = [];
+  let totalBillableWeightLbs = 0;
+  const shouldRequestCarrier = input.mode === "saved_configuration";
+  const savedSpeedshipClass = normalizeSpeedshipFreightClass(settingsRow.freightClass);
+  // WWEX only accepts documented Speedship LTL classes. Apply the same
+  // normalization used by customer quotes to every admin test path so an old
+  // stored class such as "75" cannot cause a 422 from the carrier.
+  const freightClass = settingsRow.liveProvider === "worldwideexpress"
+    ? savedSpeedshipClass ?? "175"
+    : settingsRow.freightClass;
+
+  for (const group of styleGroups) {
+    const resolvedGroup = await resolvePackages(
+      group.items,
+      settingsRow,
+      settings.defaultCabinetWeightLbs,
+    );
+    const plan = buildPallets(resolvedGroup.packages, caps);
+    totalBillableWeightLbs += plan.totalWeightLbs;
+    const detail: FreightSimulationGroup = {
+      key: group.key,
+      label: group.label,
+      originZip: group.originZip,
+      planBFeeCents: group.flatFreightFeeCents,
+      source: "preview",
+      carrier: null,
+      baseAmountCents: null,
+      liveError: null,
+      carrierRetryAt: null,
+      palletCount: plan.palletCount,
+      totalWeightLbs: plan.totalWeightLbs,
+      totalContentsWeightLbs: plan.totalContentsWeightLbs,
+      totalCubicFt: plan.totalCubicFt,
+      pallets: plan.pallets,
+      usedOperationsOriginFallback: group.usedOperationsOriginFallback,
+      missingOriginStyle: group.missingOriginStyle,
+    };
+
+    if (input.mode === "plan_b") {
+      if (group.flatFreightFeeCents == null) {
+        detail.source = "unavailable";
+        detail.liveError = "No Plan B fee is configured for this Featured Door Style.";
+        unavailable.push(`${group.label}: no Plan B fee configured`);
+      } else {
+        detail.source = "plan_b";
+        detail.baseAmountCents = group.flatFreightFeeCents;
+        rateGroups.push({
+          key: group.key,
+          label: `${group.label} · ${plan.palletCount} pallet${plan.palletCount === 1 ? "" : "s"}`,
+          vendorName: group.vendorName,
+          originZip: group.originZip,
+          source: "plan_b",
+          baseAmountCents: group.flatFreightFeeCents,
+          palletCount: plan.palletCount,
+        });
+      }
+    } else if (shouldRequestCarrier && settingsRow.liveProvider !== "estimator") {
+      const live = await requestLiveRate({
+        provider: settingsRow.liveProvider,
+        settings: settingsRow,
+        liveApiKey: settingsRow.liveApiKey ?? "",
+        request: {
+          fromZip: group.originZip,
+          toZip: destinationZip,
+          pallets: plan.pallets.map((pallet) => ({
+            lengthIn: pallet.lengthIn,
+            widthIn: pallet.widthIn,
+            heightIn: pallet.heightIn,
+            weightLbs: pallet.weightLbs,
+          })),
+          freightClass,
+          residential: input.accessorials?.residential,
+          liftgate: input.accessorials?.liftgate,
+          limitedAccess: input.accessorials?.limitedAccess,
+        },
+        palletCount: plan.palletCount,
+        totalWeightLbs: plan.totalWeightLbs,
+      });
+      const carrier = [live.carrier, live.service].filter(Boolean).join(" ") || null;
+      detail.carrier = carrier;
+      detail.liveError = live.ok ? null : live.error ?? "Carrier unavailable";
+      detail.carrierRetryAt = !live.ok && typeof live.retryAfterMs === "number"
+        ? Date.now() + live.retryAfterMs
+        : null;
+      if (live.ok) {
+        detail.source = "live";
+        detail.baseAmountCents = live.amountCents;
+        rateGroups.push({
+          key: group.key,
+          label: `${group.label}${carrier ? ` · ${carrier}` : ""} · ${plan.palletCount} pallet${plan.palletCount === 1 ? "" : "s"}`,
+          vendorName: group.vendorName,
+          originZip: group.originZip,
+          source: "live",
+          baseAmountCents: live.amountCents,
+          carrier,
+          palletCount: plan.palletCount,
+        });
+      } else if (!input.forceCarrierQuote && group.flatFreightFeeCents != null) {
+        detail.source = "plan_b";
+        detail.baseAmountCents = group.flatFreightFeeCents;
+        rateGroups.push({
+          key: group.key,
+          label: `${group.label} · ${plan.palletCount} pallet${plan.palletCount === 1 ? "" : "s"}`,
+          vendorName: group.vendorName,
+          originZip: group.originZip,
+          source: "plan_b",
+          baseAmountCents: group.flatFreightFeeCents,
+          palletCount: plan.palletCount,
+        });
+      } else {
+        detail.source = "unavailable";
+        unavailable.push(`${group.label}: ${detail.liveError}`);
+      }
+    } else if (shouldRequestCarrier) {
+      detail.source = "unavailable";
+      detail.liveError = "Select a configured carrier connection before requesting a shipping quote.";
+      unavailable.push(`${group.label}: ${detail.liveError}`);
+    }
+
+    groups.push(detail);
+  }
+
+  let quote: FreightQuote | null = null;
+  if (input.mode !== "pallet_preview" && unavailable.length === 0) {
+    quote = combineStyleFreightGroups({
+      groups: rateGroups,
+      settings,
+      accessorials: input.accessorials,
+      merchandiseSubtotalCents: input.merchandiseSubtotalCents,
+      billableWeightLbs: totalBillableWeightLbs,
+    });
+  }
+
+  if (input.mode !== "pallet_preview" && unavailable.length > 0) {
+    quote = {
+      available: false,
+      zoneName: null,
+      billableWeightLbs: totalBillableWeightLbs,
+      lines: [],
+      freightBeforeMarkupCents: 0,
+      markupCents: 0,
+      damageFeeCents: 0,
+      totalCents: 0,
+      freeFreightApplied: false,
+      reason: `Simulation unavailable for ${unavailable.join("; ")}.`,
+    };
+  }
+
+  return {
+    testOnly: true as const,
+    simulatedAt: Date.now(),
+    mode: input.mode,
+    destinationZip,
+    deliveryType: input.accessorials?.residential ? "residential" as const : "business" as const,
+    liftgate: input.accessorials?.liftgate === true,
+    quoteMode: settingsRow.quoteMode,
+    provider: settingsRow.liveProvider,
+    providerEnvironment: liveProviderEnvironment(settingsRow),
+    carrierRetryAt: groups.reduce<number | null>((latest, group) => {
+      if (group.carrierRetryAt == null) return latest;
+      return latest == null || group.carrierRetryAt > latest ? group.carrierRetryAt : latest;
+    }, null),
+    freightClass,
+    merchandiseSubtotalCents: input.merchandiseSubtotalCents,
+    totalUnits: overallLoad.units,
+    totalBillableWeightLbs,
+    groups,
+    quote,
+    note: input.mode === "pallet_preview"
+      ? "Pallet preview only. No carrier request, order, checkout, or payment was created."
+      : "Administrator simulation only. No order, checkout, payment, or signed customer quote was created.",
+  };
+}
+
+type SavedDesignPlacement = {
+  cabinetId?: unknown;
+  styleId?: unknown;
+  distributorId?: unknown;
+  qty?: unknown;
+};
+
+function positiveInteger(value: unknown): number | null {
+  return typeof value === "number" && Number.isInteger(value) && value > 0 ? value : null;
+}
+
+/**
+ * Convert a saved Designer plan into the same verified catalog lines used by
+ * customer freight. Appliances and stale/missing catalog selections are kept
+ * out of the carrier request instead of being assigned an invented package.
+ */
+async function savedDesignFreightInput(designId: number) {
+  const db = await getDb();
+  if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+
+  const designs = await db
+    .select({
+      id: kitchenDesigns.id,
+      name: kitchenDesigns.name,
+      placedCabinets: kitchenDesigns.placedCabinets,
+      selectedStyleId: kitchenDesigns.selectedStyleId,
+      selectedDistributorId: kitchenDesigns.selectedDistributorId,
+      updatedAt: kitchenDesigns.updatedAt,
+    })
+    .from(kitchenDesigns)
+    .where(eq(kitchenDesigns.id, designId))
+    .limit(1);
+  const design = designs[0];
+  if (!design) throw new TRPCError({ code: "NOT_FOUND", message: "Saved design not found." });
+
+  const defaultStyleId = positiveInteger(design.selectedStyleId);
+  const defaultDistributorId = positiveInteger(design.selectedDistributorId);
+  const placements = Array.isArray(design.placedCabinets)
+    ? design.placedCabinets as SavedDesignPlacement[]
+    : [];
+  const requested = new Map<string, { cabinetId: number; styleId: number; distributorId: number; qty: number }>();
+  let excludedPlacementUnits = 0;
+
+  for (const placement of placements) {
+    const cabinetId = positiveInteger(placement.cabinetId);
+    const styleId = positiveInteger(placement.styleId) ?? defaultStyleId;
+    const distributorId = positiveInteger(placement.distributorId) ?? defaultDistributorId;
+    const qty = Math.max(1, Math.min(999, positiveInteger(placement.qty) ?? 1));
+    if (!cabinetId || !styleId || !distributorId) {
+      excludedPlacementUnits += qty;
+      continue;
+    }
+    const key = `${cabinetId}:${styleId}:${distributorId}`;
+    const existing = requested.get(key);
+    requested.set(key, existing ? { ...existing, qty: existing.qty + qty } : { cabinetId, styleId, distributorId, qty });
+  }
+
+  if (requested.size === 0) {
+    throw new TRPCError({
+      code: "PRECONDITION_FAILED",
+      message: "This saved design has no cabinet selections with a door style and distributor. Select a priced cabinet line in the Designer first.",
+    });
+  }
+
+  const requestedLines = Array.from(requested.values());
+  const skuRows = await db
+    .select({
+      cabinetId: distributorSkus.cabinetId,
+      styleId: distributorSkus.styleId,
+      distributorId: distributorSkus.distributorId,
+      yourCost: distributorSkus.yourCost,
+      wholesalePrice: distributorSkus.wholesalePrice,
+      adjustedListPrice: distributorSkus.adjustedListPrice,
+      listPrice: distributorSkus.listPrice,
+      retailPriceBasis: distributors.retailPriceBasis,
+    })
+    .from(distributorSkus)
+    .innerJoin(distributors, eq(distributors.id, distributorSkus.distributorId))
+    .where(and(
+      inArray(distributorSkus.cabinetId, Array.from(new Set(requestedLines.map((line) => line.cabinetId)))),
+      inArray(distributorSkus.styleId, Array.from(new Set(requestedLines.map((line) => line.styleId)))),
+      inArray(distributorSkus.distributorId, Array.from(new Set(requestedLines.map((line) => line.distributorId)))),
+      eq(distributorSkus.isAvailable, true),
+      eq(distributorSkus.status, "approved"),
+    ));
+  const skuByIdentity = new Map(skuRows.map((row) => [`${row.cabinetId}:${row.styleId}:${row.distributorId}`, row]));
+  const pricingSettings = await getPricingSettings();
+  const items: FreightItemInput[] = [];
+  let unmatchedCatalogUnits = 0;
+  let unpricedCatalogUnits = 0;
+  let merchandiseSubtotalCents = 0;
+
+  for (const line of requestedLines) {
+    const sku = skuByIdentity.get(`${line.cabinetId}:${line.styleId}:${line.distributorId}`);
+    if (!sku) {
+      unmatchedCatalogUnits += line.qty;
+      continue;
+    }
+    items.push(line);
+    const sellPrice = sellPriceForTier(sku, pricingSettings, "homeowner");
+    if (sellPrice == null || sellPrice <= 0) {
+      unpricedCatalogUnits += line.qty;
+      continue;
+    }
+    merchandiseSubtotalCents += Math.round(sellPrice * 100) * line.qty;
+  }
+
+  if (items.length === 0) {
+    throw new TRPCError({
+      code: "PRECONDITION_FAILED",
+      message: "None of this saved design’s cabinet selections are currently available in the selected vendor catalog.",
+    });
+  }
+
+  return {
+    items,
+    merchandiseSubtotalCents,
+    savedDesign: {
+      id: design.id,
+      name: design.name,
+      updatedAt: design.updatedAt,
+      placedCabinetUnits: placements.reduce((total, placement) => total + (positiveInteger(placement.qty) ?? 1), 0),
+      quotedCabinetUnits: items.reduce((total, item) => total + item.qty, 0),
+      excludedPlacementUnits,
+      unmatchedCatalogUnits,
+      unpricedCatalogUnits,
+    },
+  };
+}
+
+export const freightRouter = router({
+  // ─── Public: estimate/quote freight for a cart ──────────────────────────────
+  estimate: publicProcedure
+    .input(
+      z.object({
+        /** Required for an order-authorizing token; ZIP-only estimates remain read-only. */
+        deliveryAddress: deliveryAddressSchema.optional(),
+        destinationZip: z.string().min(3).max(16).optional(),
+        items: itemsSchema,
+        merchandiseSubtotalCents: z.number().int().min(0).default(0),
+        accessorials: accessorialsSchema,
+        // A customer may deliberately request a direct UPS parcel check from
+        // the cart. This does not turn an LTL shipment into a parcel shipment:
+        // every carton still has to pass the source-backed UPS eligibility gate.
+        carrierPreference: z.enum(["ups"]).optional(),
+        // Optional: explicit supply line for this cart. When omitted we infer it
+        // from the cart's cabinetIds so freight ships from the nearest warehouse.
+        distributorId: z.number().int().positive().nullable().optional(),
+        // Optional saved plan for an internal quote-history link. It is never
+        // trusted until the request user is authorized against that saved plan.
+        kitchenDesignId: z.number().int().positive().optional(),
+      })
+    )
+    .query(async ({ input, ctx }): Promise<FreightQuote> => {
+      const deliveryAddress = input.deliveryAddress
+        ? normalizeFreightQuoteDeliveryAddress(input.deliveryAddress)
+        : null;
+      const destinationZip = deliveryAddress?.zip ?? normalizeZip(input.destinationZip ?? "");
+      if (!destinationZip) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Enter a complete delivery address before requesting shipping." });
+      }
+      // Carrier integrations currently consume a destination ZIP, while the
+      // signed checkout authorization remains bound to the full normalized address.
+      const kitchenDesignId = await resolveAuthorizedFreightQuoteDesignId(ctx.user, input.kitchenDesignId);
+      const quoteInput = { ...input, kitchenDesignId, deliveryAddress, destinationZip };
+      const settingsRow = await loadSettingsRow();
+      const settings = settingsRow ? rowToSettings(settingsRow) : DEFAULT_SETTINGS;
+      const quoteDistributorIds = Array.from(new Set(input.items
+        .map((item) => item.distributorId)
+        .filter((id): id is number => typeof id === "number")));
+      const distributorUpsCredentials = new Map<number, { clientId: string; clientSecret: string; accountNumber: string; environment: "sandbox" | "production" }>();
+      if (quoteDistributorIds.length > 0) {
+        const db = await getDb();
+        if (db) {
+          const rows = await db.select({
+            distributorId: distributorIntegrations.distributorId,
+            accountNumber: distributorIntegrations.accountNumber,
+            clientId: distributorIntegrations.clientId,
+            clientSecretEncrypted: distributorIntegrations.clientSecretEncrypted,
+            environment: distributorIntegrations.environment,
+            isEnabled: distributorIntegrations.isEnabled,
+          }).from(distributorIntegrations).where(and(
+            eq(distributorIntegrations.integrationType, "shipping"),
+            eq(distributorIntegrations.provider, "ups"),
+            eq(distributorIntegrations.isEnabled, true),
+            inArray(distributorIntegrations.distributorId, quoteDistributorIds),
+          ));
+          for (const row of rows) {
+            const clientId = row.clientId?.trim();
+            const clientSecret = decryptDistributorSecret(row.clientSecretEncrypted)?.trim();
+            const accountNumber = row.accountNumber?.trim();
+            if (clientId && clientSecret && accountNumber) {
+              distributorUpsCredentials.set(row.distributorId, {
+                clientId,
+                clientSecret,
+                accountNumber,
+                environment: row.environment === "sandbox" ? "sandbox" : "production",
+              });
+            }
+          }
+        }
+      }
+
+      // A disabled Operations configuration is a hard stop. Do this before
+      // package resolution or carrier selection so a public cart can never
+      // trigger a live provider request while shipping is intentionally off.
+      if (!settings.enabled) {
+        return {
+          available: false,
+          zoneName: null,
+          billableWeightLbs: 0,
+          lines: [],
+          freightBeforeMarkupCents: 0,
+          markupCents: 0,
+          damageFeeCents: 0,
+          totalCents: 0,
+          freeFreightApplied: false,
+          reason: "Shipping is currently unavailable because Operations has disabled freight quoting.",
+        };
+      }
+
+      const resolvedAllPackages = await resolvePackages(
+        quoteInput.items,
+        settingsRow,
+        settings.defaultCabinetWeightLbs
+      );
+      const { packages } = resolvedAllPackages;
+
+      const liveProvider = settingsRow?.liveProvider ?? "estimator";
+      const liveKey = settingsRow?.liveApiKey ?? "";
+      const liveFreightClass = liveProvider === "worldwideexpress"
+        ? normalizeSpeedshipFreightClass(settingsRow?.freightClass) ?? "175"
+        : settingsRow?.freightClass ?? "175";
+      const surfaceItems = quoteInput.items.filter((item) => item.productKind === "surface");
+      const cabinetItems = quoteInput.items.filter((item) => item.productKind !== "surface");
+      const unavailableSurfaceReason = "One or more Pelican shipments cannot be quoted right now. Those items remain in your cart and are listed under their shipment group; no shipping charge is included for them.";
+      if (surfaceItems.length > 0 && cabinetItems.length === 0 && !settingsRow) {
+        return {
+          available: false,
+          zoneName: null,
+          billableWeightLbs: 0,
+          lines: [],
+          freightBeforeMarkupCents: 0,
+          markupCents: 0,
+          damageFeeCents: 0,
+          totalCents: 0,
+          freeFreightApplied: false,
+          reason: unavailableSurfaceReason,
+        };
+      }
+
+      // ── QUOTE: one shipment per authoritative style/distributor origin ─────
+      // A configured distributor fixed/threshold rule is authoritative and takes
+      // precedence over a carrier call. Unconfigured lines remain live-only.
+      const styleGroups = settingsRow
+        ? await resolveStyleFreightGroups({
+            destinationZip: quoteInput.destinationZip,
+            items: quoteInput.items,
+            merchandiseSubtotalCents: quoteInput.merchandiseSubtotalCents,
+            explicitDistributorId: quoteInput.distributorId,
+            fallbackOriginZip: settings.originZip,
+          })
+        : [];
+      if (settingsRow && (surfaceItems.length > 0 || liveProvider !== "estimator" || quoteInput.carrierPreference === "ups" || styleGroups.some((group) => group.distributorRuleFeeCents != null))) {
+        const caps = rowToPalletCaps(settingsRow);
+        const load = totalPackagedLoad(packages);
+        if (load.units === 0 && surfaceItems.length === 0) {
+          return {
+            available: false,
+            zoneName: null,
+            billableWeightLbs: 0,
+            lines: [],
+            freightBeforeMarkupCents: 0,
+            markupCents: 0,
+            damageFeeCents: 0,
+            totalCents: 0,
+            freeFreightApplied: false,
+            reason: "Add cabinets to get a live shipping quote.",
+          };
+        }
+
+        const rateGroups: FreightRateGroup[] = [];
+        const shipmentGroups: FreightShipmentGroup[] = [];
+        const failedGroups: string[] = [];
+        const upsOnlyRequested = liveProvider === "ups" || quoteInput.carrierPreference === "ups";
+        let totalBillableWeightLbs = 0;
+
+        for (const group of styleGroups) {
+          const resolvedGroup = await resolvePackages(
+            group.items,
+            settingsRow,
+            settings.defaultCabinetWeightLbs,
+          );
+          if (group.needsPelicanPackageData || resolvedGroup.unratedSurfaceItems.length > 0) {
+            shipmentGroups.push({
+              label: group.label,
+              vendorName: group.vendorName,
+              packageEvidenceType: group.profileEvidenceType,
+              itemLabels: freightGroupItemLabels(group.items),
+              originZip: group.originZip,
+              freightClass: group.profileFreightClass ?? "Parcel",
+              transportMode: group.profileTransportMode ?? "parcel",
+              status: "needs_package_data",
+              statusReason: "This Pelican SKU needs an enabled shipping profile with verified origin, transport mode, package dimensions, package weight, and source reference.",
+              palletCount: 0,
+              totalWeightLbs: 0,
+              totalContentsWeightLbs: 0,
+              totalCubicFt: 0,
+              pallets: [],
+              parcelCount: 0,
+              parcels: [],
+            });
+            failedGroups.push(`${group.label}: Pelican shipping profile is incomplete or not enabled`);
+            continue;
+          }
+          const plan = buildPallets(resolvedGroup.packages, caps);
+          const resolvedLoad = totalPackagedLoad(resolvedGroup.packages);
+          const densityClass = resolvedGroup.parcelPackages.every((pkg) => pkg.hasAuthoritativePackage)
+            ? freightClassFromDensity(resolvedLoad.weightLbs / resolvedLoad.cubicFt)
+            : null;
+          const groupFreightClass = group.profileFreightClass ?? densityClass ?? liveFreightClass;
+          const estimatedPackageCount = resolvedGroup.parcelPackages
+            .filter((pkg) => pkg.isEstimatedPackage)
+            .length;
+          // An explicit UPS parcel request is a diagnostic quote request. Do
+          // not silently return the distributor's LTL/flat rule instead.
+          if (group.distributorRuleFeeCents != null && quoteInput.carrierPreference !== "ups") {
+            totalBillableWeightLbs += plan.totalWeightLbs;
+            shipmentGroups.push({
+              label: group.label,
+              vendorName: group.vendorName,
+              packageEvidenceType: group.profileEvidenceType,
+              originZip: group.originZip,
+              freightClass: groupFreightClass,
+              transportMode: "ltl",
+              palletCount: plan.palletCount,
+              totalWeightLbs: plan.totalWeightLbs,
+              totalContentsWeightLbs: plan.totalContentsWeightLbs,
+              totalCubicFt: plan.totalCubicFt,
+              estimatedPackageCount,
+              pallets: plan.pallets.map((pallet) => ({
+                lengthIn: pallet.lengthIn,
+                widthIn: pallet.widthIn,
+                heightIn: pallet.heightIn,
+                weightLbs: pallet.weightLbs,
+                contentsWeightLbs: pallet.contentsWeightLbs,
+                contentsCubicFt: pallet.contentsCubicFt,
+              })),
+            });
+            rateGroups.push({
+              key: group.key,
+              label: `${group.label} · ${group.distributorRuleLabel ?? "Distributor fixed freight"}`,
+              vendorName: group.vendorName,
+              originZip: group.originZip,
+              source: "plan_b",
+              baseAmountCents: group.distributorRuleFeeCents,
+              palletCount: plan.palletCount,
+            });
+            continue;
+          }
+
+          // Direct UPS and EasyPost are parcel-only. Every carton must pass the
+          // shared carrier screen first; otherwise the group remains on the
+          // established LTL pallet path with no invented carton dimensions.
+          const parcelDecision = resolveParcelShipmentMode(resolvedGroup.parcelPackages);
+          const verifiedPelicanParcel = group.profileTransportMode === "parcel";
+          const groupDistributorId = group.items.find((item) => item.distributorId != null)?.distributorId ?? null;
+          const distributorUps = groupDistributorId == null ? undefined : distributorUpsCredentials.get(groupDistributorId);
+          const upsCredentials = distributorUps ?? (settingsRow && upsKeysSaved(settingsRow) ? {
+            clientId: settingsRow.upsClientId!,
+            clientSecret: settingsRow.upsClientSecret!,
+            accountNumber: settingsRow.upsAccountNumber!,
+            environment: (settingsRow.upsEnvironment ?? "sandbox") as "sandbox" | "production",
+          } : undefined);
+          // Small packages go to UPS automatically once the UPS keys are saved:
+          // a cart whose cartons all pass the UPS parcel screen never gets an
+          // LTL pallet quote, even if the customer did not tick the UPS box.
+          const autoUpsSmallShipment = Boolean(upsCredentials) && isSmallUpsShipment(parcelDecision.packageResults);
+          const directUpsParcel = Boolean(upsCredentials) && (verifiedPelicanParcel || liveProvider === "ups" || quoteInput.carrierPreference === "ups" || autoUpsSmallShipment)
+            && parcelDecision.mode === "parcel"
+            && parcelDecision.eligibleCarriers.includes("ups");
+          const upsParcelMustNotBecomeLtl = directUpsParcel && (upsOnlyRequested || verifiedPelicanParcel || autoUpsSmallShipment);
+          const easyPostParcel = !verifiedPelicanParcel && liveProvider === "easypost" && parcelDecision.mode === "parcel";
+          if (verifiedPelicanParcel && !directUpsParcel) {
+            shipmentGroups.push({
+              label: group.label,
+              vendorName: group.vendorName,
+              packageEvidenceType: group.profileEvidenceType,
+              itemLabels: freightGroupItemLabels(group.items),
+              originZip: group.originZip,
+              freightClass: "Parcel",
+              transportMode: "parcel",
+              status: "carrier_error",
+              statusReason: "This verified Pelican parcel profile requires an active direct UPS connection and all cartons must pass UPS parcel limits.",
+              palletCount: 0,
+              totalWeightLbs: resolvedLoad.weightLbs,
+              totalContentsWeightLbs: resolvedLoad.weightLbs,
+              totalCubicFt: resolvedLoad.cubicFt,
+              pallets: [],
+              parcelCount: resolvedGroup.parcelPackages.length,
+              parcels: resolvedGroup.parcelPackages.map((carton) => ({
+                lengthIn: carton.lengthIn ?? 0,
+                widthIn: carton.widthIn ?? 0,
+                heightIn: carton.heightIn ?? 0,
+                weightLbs: carton.weightLbs ?? 0,
+                label: carton.label ?? null,
+              })),
+            });
+            failedGroups.push(`${group.label}: direct UPS parcel rating is not available for this verified Pelican parcel profile`);
+            continue;
+          }
+          if (directUpsParcel || easyPostParcel) {
+            const parcelCartons: LiveParcel[] = parcelDecision.packageResults.map((result, index) => {
+              const carton = result.package;
+              if (!carton) throw new Error("Parcel mode requires normalized carton data.");
+              return {
+                lengthIn: carton.lengthIn,
+                widthIn: carton.widthIn,
+                heightIn: carton.heightIn,
+                weightLbs: carton.weightLbs,
+                label: resolvedGroup.parcelPackages[index]?.label ?? null,
+              };
+            });
+            const parcelWeight = parcelCartons.reduce((sum, carton) => sum + carton.weightLbs, 0);
+            const parcelQuoteStartedAt = Date.now();
+            const live = await (directUpsParcel
+              ? (async () => {
+                  const [fromAddress, toAddress] = await Promise.all([
+                    resolveZipAddress(group.originZip),
+                    resolveZipAddress(quoteInput.destinationZip),
+                  ]);
+                  if (!fromAddress || !toAddress) {
+                    return {
+                      ok: false as const,
+                      amountCents: 0,
+                      packages: [],
+                      error: "Direct UPS rating requires verified city/state data for both origin and destination ZIP codes.",
+                    };
+                  }
+                  return upsParcelQuote({
+                    clientId: upsCredentials!.clientId,
+                    clientSecret: upsCredentials!.clientSecret,
+                    accountNumber: upsCredentials!.accountNumber,
+                    environment: upsCredentials!.environment,
+                  }, {
+                    fromZip: group.originZip,
+                    toZip: quoteInput.destinationZip,
+                    fromAddress,
+                    toAddress,
+                    parcels: parcelCartons,
+                  });
+                })()
+              : easypostParcelQuote(liveKey, {
+                  fromZip: group.originZip,
+                  toZip: quoteInput.destinationZip,
+                  parcels: parcelCartons,
+                  eligibleCarriers: parcelDecision.eligibleCarriers,
+                  residential: quoteInput.accessorials?.residential,
+                }));
+            logFreightApiCall({
+              kitchenDesignId: quoteInput.kitchenDesignId,
+              broker: directUpsParcel ? "ups" : "easypost",
+              fromZip: group.originZip,
+              toZip: quoteInput.destinationZip,
+              palletCount: 0,
+              totalWeightLbs: parcelWeight,
+              freightClass: "Parcel",
+              accessorials: quoteInput.accessorials?.residential ? ["RESIDENTIAL"] : [],
+              ok: live.ok,
+              amountCents: live.amountCents,
+              carrier: live.carrier,
+              service: live.service,
+              error: live.error,
+              durationMs: Date.now() - parcelQuoteStartedAt,
+              packages: parcelCartons.map((carton, index): FreightApiPackageAudit => ({
+                kind: "carton",
+                index: index + 1,
+                label: carton.label,
+                lengthIn: carton.lengthIn,
+                widthIn: carton.widthIn,
+                heightIn: carton.heightIn,
+                weightLbs: carton.weightLbs,
+                reason: group.profileEvidenceType === "comparable_estimate"
+                  ? "Comparable-package estimate sent to the parcel carrier; not Pelican carton data."
+                  : "Supplier-verified carton sent to the parcel carrier.",
+              })),
+            });
+            const carrierLabel = [live.carrier, live.service].filter(Boolean).join(" ") || null;
+            const shipmentGroup: FreightShipmentGroup = {
+              label: group.label,
+              vendorName: group.vendorName,
+              packageEvidenceType: group.profileEvidenceType,
+              itemLabels: freightGroupItemLabels(group.items),
+              originZip: group.originZip,
+              freightClass: "Parcel",
+              transportMode: "parcel",
+              palletCount: 0,
+              totalWeightLbs: parcelWeight,
+              totalContentsWeightLbs: parcelWeight,
+              totalCubicFt: 0,
+              pallets: [],
+              parcelCount: parcelCartons.length,
+              estimatedPackageCount,
+              parcels: parcelCartons.map((carton, index) => ({
+                ...carton,
+                label: carton.label ?? null,
+                carrier: live.packages[index]?.carrier,
+                service: live.packages[index]?.service,
+                amountCents: live.packages[index]?.amountCents,
+              })),
+              parcelReviewWarnings: parcelDecision.operationalWarnings,
+              transitDays: live.transitDays,
+              estimatedDeliveryDate: live.estimatedDeliveryDate,
+            };
+            if (live.ok) {
+              shipmentGroup.status = "quoted";
+              shipmentGroups.push(shipmentGroup);
+              totalBillableWeightLbs += parcelWeight;
+              rateGroups.push({
+                key: group.key,
+                label: `${group.label}${carrierLabel ? ` · ${carrierLabel}` : ""} · ${parcelCartons.length} carton${parcelCartons.length === 1 ? "" : "s"}`,
+                vendorName: group.vendorName,
+                originZip: group.originZip,
+                source: "parcel",
+                baseAmountCents: live.amountCents,
+                carrier: carrierLabel,
+                parcelReviewWarnings: parcelDecision.operationalWarnings,
+                transitDays: live.transitDays,
+                estimatedDeliveryDate: live.estimatedDeliveryDate,
+              });
+            } else if (!upsParcelMustNotBecomeLtl) {
+              totalBillableWeightLbs += plan.totalWeightLbs;
+              shipmentGroups.push({
+                label: group.label,
+                vendorName: group.vendorName,
+                packageEvidenceType: group.profileEvidenceType,
+                status: "carrier_error",
+                statusReason: live.error ?? "parcel carrier unavailable",
+                originZip: group.originZip,
+                freightClass: groupFreightClass,
+                transportMode: "ltl",
+                palletCount: plan.palletCount,
+                totalWeightLbs: plan.totalWeightLbs,
+                totalContentsWeightLbs: plan.totalContentsWeightLbs,
+                totalCubicFt: plan.totalCubicFt,
+                estimatedPackageCount,
+                pallets: plan.pallets.map((pallet) => ({
+                  lengthIn: pallet.lengthIn,
+                  widthIn: pallet.widthIn,
+                  heightIn: pallet.heightIn,
+                  weightLbs: pallet.weightLbs,
+                  contentsWeightLbs: pallet.contentsWeightLbs,
+                  contentsCubicFt: pallet.contentsCubicFt,
+                })),
+              });
+              failedGroups.push(`${group.label}: ${live.error ?? "parcel carrier unavailable"}`);
+            } else {
+              shipmentGroup.status = "carrier_error";
+              shipmentGroup.statusReason = live.error ?? "UPS did not return a rate";
+              shipmentGroups.push(shipmentGroup);
+              failedGroups.push(`${group.label}: UPS parcel rate unavailable — ${live.error ?? "UPS did not return a rate"}`);
+            }
+            continue;
+          }
+
+          // The customer specifically selected the UPS package-quote option.
+          // Preserve the honest pallet plan for reference, but never fall back
+          // to an LTL estimate or invented carton just to show a UPS price.
+          if (upsOnlyRequested) {
+            totalBillableWeightLbs += plan.totalWeightLbs;
+            failedGroups.push(`${group.label}: UPS parcel quoting requires every carton to have verified package dimensions and weight and to meet the UPS parcel limits. ${parcelDecision.reasons[0] ?? "This shipment remains LTL freight."}`);
+            continue;
+          }
+
+          totalBillableWeightLbs += plan.totalWeightLbs;
+          const shipmentGroup: FreightShipmentGroup = {
+            label: group.label,
+            vendorName: group.vendorName,
+            packageEvidenceType: group.profileEvidenceType,
+            itemLabels: freightGroupItemLabels(group.items),
+            originZip: group.originZip,
+            freightClass: groupFreightClass,
+            transportMode: "ltl",
+            palletCount: plan.palletCount,
+            totalWeightLbs: plan.totalWeightLbs,
+            totalContentsWeightLbs: plan.totalContentsWeightLbs,
+            totalCubicFt: plan.totalCubicFt,
+            estimatedPackageCount,
+            pallets: plan.pallets.map((pallet) => ({
+              lengthIn: pallet.lengthIn,
+              widthIn: pallet.widthIn,
+              heightIn: pallet.heightIn,
+              weightLbs: pallet.weightLbs,
+              contentsWeightLbs: pallet.contentsWeightLbs,
+              contentsCubicFt: pallet.contentsCubicFt,
+            })),
+          };
+          shipmentGroups.push(shipmentGroup);
+          const liveReq: LiveRateRequest = {
+            fromZip: group.originZip,
+            toZip: quoteInput.destinationZip,
+            pallets: plan.pallets.map((pallet) => ({
+              lengthIn: pallet.lengthIn,
+              widthIn: pallet.widthIn,
+              heightIn: pallet.heightIn,
+              weightLbs: pallet.weightLbs,
+            })),
+            freightClass: groupFreightClass,
+            residential: quoteInput.accessorials?.residential,
+            liftgate: quoteInput.accessorials?.liftgate,
+            limitedAccess: quoteInput.accessorials?.limitedAccess,
+          };
+          const live = await requestLiveRate({
+            provider: liveProvider,
+            settings: settingsRow,
+            liveApiKey: liveKey,
+            request: liveReq,
+            palletCount: plan.palletCount,
+            totalWeightLbs: plan.totalWeightLbs,
+            kitchenDesignId: quoteInput.kitchenDesignId,
+          });
+          const carrierLabel = [live.carrier, live.service].filter(Boolean).join(" ") || null;
+
+          if (live.ok) {
+            shipmentGroup.status = "quoted";
+            shipmentGroup.transitDays = live.transitDays;
+            shipmentGroup.estimatedDeliveryDate = live.estimatedDeliveryDate;
+            rateGroups.push({
+              key: group.key,
+              label: `${group.label}${carrierLabel ? ` · ${carrierLabel}` : ""} · ${plan.palletCount} pallet${plan.palletCount === 1 ? "" : "s"}`,
+              vendorName: group.vendorName,
+              originZip: group.originZip,
+              source: "live",
+              baseAmountCents: live.amountCents,
+              carrier: carrierLabel,
+              palletCount: plan.palletCount,
+              transitDays: live.transitDays,
+              estimatedDeliveryDate: live.estimatedDeliveryDate,
+            });
+          } else {
+            shipmentGroup.status = "carrier_error";
+            shipmentGroup.statusReason = live.error ?? "carrier unavailable";
+            failedGroups.push(`${group.label}: ${live.error ?? "carrier unavailable"}`);
+          }
+        }
+
+        if (failedGroups.length > 0) {
+          if (upsOnlyRequested || surfaceItems.length > 0) {
+            const partial = combineStyleFreightGroups({
+              groups: rateGroups,
+              settings,
+              accessorials: quoteInput.accessorials,
+              merchandiseSubtotalCents: quoteInput.merchandiseSubtotalCents,
+              billableWeightLbs: totalBillableWeightLbs,
+            });
+            return {
+              ...partial,
+              available: false,
+              partial: rateGroups.length > 0,
+              zoneName: rateGroups.length > 0 ? "Partial shipping quote" : null,
+              shipmentGroups,
+              reason: "One or more retained shipment groups cannot be quoted right now. Quoted shipping below covers only the shipment groups shown as quoted.",
+            };
+          }
+          const fallback = await configuredFreightEstimate({
+            destinationZip: quoteInput.destinationZip,
+            totalWeightLbs: totalBillableWeightLbs,
+            merchandiseSubtotalCents: quoteInput.merchandiseSubtotalCents,
+            accessorials: quoteInput.accessorials,
+          }, settings);
+          if (fallback.available) {
+            const requestedCarrier = quoteInput.carrierPreference === "ups" ? "UPS parcel rating" : "live carrier rating";
+            return attachFreightQuoteToken({
+              ...fallback,
+              zoneName: `Estimated LTL freight · ${fallback.zoneName ?? "configured zone"}`,
+              reason: `${requestedCarrier} is not available for this cart. A configured LTL freight estimate is shown instead; the final carrier amount is confirmed before shipment.`,
+              shipmentGroups,
+            }, quoteInput);
+          }
+          return {
+            available: false,
+            zoneName: null,
+            billableWeightLbs: totalBillableWeightLbs,
+            lines: [],
+            freightBeforeMarkupCents: 0,
+            markupCents: 0,
+            damageFeeCents: 0,
+            totalCents: 0,
+            freeFreightApplied: false,
+            shipmentGroups,
+            reason: `Carrier shipping is unavailable for ${failedGroups.join("; ")}.`,
+          };
+        }
+
+        const quoted = combineStyleFreightGroups({
+          groups: rateGroups,
+          settings,
+          accessorials: quoteInput.accessorials,
+          merchandiseSubtotalCents: quoteInput.merchandiseSubtotalCents,
+          billableWeightLbs: totalBillableWeightLbs,
+        });
+        const allDistributorRulesFree = styleGroups.length > 0 && styleGroups.every((group) => group.distributorRuleFeeCents === 0);
+        const quote = allDistributorRulesFree
+          ? {
+              ...quoted,
+              totalCents: 0,
+              freightBeforeMarkupCents: 0,
+              markupCents: 0,
+              damageFeeCents: 0,
+              freeFreightApplied: true,
+              lines: [{ label: "Distributor free-freight threshold", amountCents: 0 }],
+            }
+          : quoted;
+        return attachFreightQuoteToken({ ...quote, shipmentGroups }, quoteInput);
+      }
+
+      // Quote requests never substitute table estimates or Plan B fees for a
+      // carrier response. Until a carrier account is connected, use the
+      // administrator-configured zone estimator and label it clearly as an
+      // estimate so checkout can continue without presenting it as a live rate.
+      if (surfaceItems.length > 0 && !settingsRow) {
+        return {
+          available: false,
+          zoneName: null,
+          billableWeightLbs: 0,
+          lines: [],
+          freightBeforeMarkupCents: 0,
+          markupCents: 0,
+          damageFeeCents: 0,
+          totalCents: 0,
+          freeFreightApplied: false,
+          shipmentGroups: surfaceItems.map((item) => ({
+            label: `Pelican · ${item.category?.trim() || "surface product"}`,
+            vendorName: "Pelican",
+            originZip: "",
+            freightClass: "Parcel",
+            transportMode: "parcel" as const,
+            status: "needs_package_data" as const,
+            statusReason: "UPS requires verified carton dimensions and weight for each Pelican item.",
+            palletCount: 0,
+            totalWeightLbs: 0,
+            totalContentsWeightLbs: 0,
+            totalCubicFt: 0,
+            pallets: [],
+          })),
+          reason: unavailableSurfaceReason,
+        };
+      }
+      const load = totalPackagedLoad(packages);
+      const fallback = await configuredFreightEstimate({
+        destinationZip: quoteInput.destinationZip,
+        totalWeightLbs: load.weightLbs,
+        merchandiseSubtotalCents: quoteInput.merchandiseSubtotalCents,
+        accessorials: quoteInput.accessorials,
+      }, settings);
+      return fallback.available
+        ? attachFreightQuoteToken({
+            ...fallback,
+            zoneName: `Estimated LTL freight · ${fallback.zoneName ?? "configured zone"}`,
+            reason: "A live carrier account is not connected yet. This is the configured freight estimate; the final carrier amount is confirmed before shipment.",
+          }, quoteInput)
+        : {
+            ...fallback,
+            reason: fallback.reason ?? "Carrier shipping is unavailable because a carrier connection has not been configured.",
+          };
+    }),
+
+  // ─── Admin: read current settings + zones ───────────────────────────────────
+  adminGet: adminProcedure.query(async () => {
+    const settingsRow = await loadSettingsRow();
+    const db = await getDb();
+    const zoneRows = db
+      ? await db.select().from(freightZones).orderBy(asc(freightZones.sortOrder))
+      : [];
+    // Never leak the raw API key to the client; report only whether one is set.
+    const safeSettings = settingsRow
+      ? {
+          ...settingsRow,
+          liveApiKey: null, hasLiveApiKey: !!settingsRow.liveApiKey,
+          upsClientSecret: null, hasUpsClientSecret: !!settingsRow.upsClientSecret,
+          fedexClientSecret: null, hasFedexClientSecret: !!settingsRow.fedexClientSecret,
+          fqClientSecret: null, hasFqClientSecret: !!settingsRow.fqClientSecret,
+          gtzPassword: null, hasGtzPassword: !!settingsRow.gtzPassword,
+          gtzApiKey: null, hasGtzApiKey: !!settingsRow.gtzApiKey,
+          wwexClientSecret: null, hasWwexClientSecret: !!settingsRow.wwexClientSecret,
+          wwexPassword: null, hasWwexPassword: !!settingsRow.wwexPassword,
+        }
+      : null;
+    return { settings: safeSettings, zones: zoneRows };
+  }),
+
+  // ─── Admin: search real catalog/style combinations for test orders ───────────
+  adminSearchSimulationItems: adminProcedure
+    .input(z.object({ query: z.string().min(1).max(100) }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return [];
+      const query = `%${input.query.trim()}%`;
+      const rows = await db
+        .select({
+          cabinetId: cabinets.id,
+          masterCode: cabinets.masterCode,
+          description: cabinets.description,
+          category: cabinets.category,
+          pkgWeight: cabinets.pkgWeight,
+          fallbackWeight: cabinets.weight,
+          pkgLength: cabinets.pkgLength,
+          pkgWidth: cabinets.pkgWidth,
+          pkgHeight: cabinets.pkgHeight,
+          styleId: doorStyles.id,
+          styleName: doorStyles.ourName,
+          styleAlias: doorStyles.aliasName,
+          distributorId: doorStyles.distributorId,
+          distributorName: doorStyles.distributorName,
+          originZip: doorStyles.warehouseZip,
+          planBFeeCents: doorStyles.flatFreightFeeCents,
+          distributorSku: distributorSkus.distributorSku,
+          platformSku: distributorSkus.platformSku,
+        })
+        .from(distributorSkus)
+        .innerJoin(cabinets, eq(distributorSkus.cabinetId, cabinets.id))
+        .innerJoin(doorStyles, eq(distributorSkus.styleId, doorStyles.id))
+        .where(and(
+          eq(cabinets.isActive, true),
+          eq(doorStyles.isActive, true),
+          eq(distributorSkus.isAvailable, true),
+          eq(distributorSkus.status, "approved"),
+          or(
+            like(cabinets.masterCode, query),
+            like(cabinets.description, query),
+            like(distributorSkus.distributorSku, query),
+            like(distributorSkus.platformSku, query),
+            like(doorStyles.ourName, query),
+            like(doorStyles.aliasName, query),
+          ),
+        ))
+        .orderBy(asc(cabinets.masterCode), asc(doorStyles.ourName))
+        .limit(30);
+
+      return rows.map((row) => ({
+        cabinetId: row.cabinetId,
+        masterCode: row.masterCode,
+        description: row.description,
+        category: row.category,
+        distributorSku: row.distributorSku,
+        platformSku: row.platformSku,
+        styleId: row.styleId,
+        styleName: row.styleAlias || row.styleName,
+        distributorId: row.distributorId,
+        distributorName: row.distributorName,
+        originZip: normalizeZip(row.originZip ?? "") || null,
+        planBFeeCents: row.planBFeeCents,
+        packageWeightLbs: row.pkgWeight != null
+          ? Number(row.pkgWeight)
+          : row.fallbackWeight != null
+            ? Number(row.fallbackWeight)
+            : null,
+        packageDimensionsIn: row.pkgLength != null && row.pkgWidth != null && row.pkgHeight != null
+          ? {
+              length: Number(row.pkgLength),
+              width: Number(row.pkgWidth),
+              height: Number(row.pkgHeight),
+            }
+          : null,
+      }));
+    }),
+
+  // ─── Admin: choose a saved design for a test-only freight simulation ─────────
+  adminListSimulationDesigns: adminProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) return [];
+    const rows = await db
+      .select({
+        id: kitchenDesigns.id,
+        name: kitchenDesigns.name,
+        placedCabinets: kitchenDesigns.placedCabinets,
+        selectedStyleId: kitchenDesigns.selectedStyleId,
+        selectedDistributorId: kitchenDesigns.selectedDistributorId,
+        updatedAt: kitchenDesigns.updatedAt,
+      })
+      .from(kitchenDesigns)
+      .orderBy(desc(kitchenDesigns.updatedAt))
+      .limit(100);
+    return rows
+      .map((row) => {
+        const placements = Array.isArray(row.placedCabinets) ? row.placedCabinets as SavedDesignPlacement[] : [];
+        const cabinetUnits = placements.reduce((total, placement) => total + (positiveInteger(placement.cabinetId) ? positiveInteger(placement.qty) ?? 1 : 0), 0);
+        return {
+          id: row.id,
+          name: row.name,
+          updatedAt: row.updatedAt,
+          cabinetUnits,
+          readyForFreight: cabinetUnits > 0 && positiveInteger(row.selectedStyleId) != null && positiveInteger(row.selectedDistributorId) != null,
+        };
+      })
+      .filter((row) => row.cabinetUnits > 0);
+  }),
+
+  // ─── Admin: simulate a complete order without creating checkout state ────────
+  adminSimulateFreight: adminProcedure
+    .input(z.object({
+      destinationZip: z.string().min(3).max(16),
+      items: itemsSchema.refine((items) => items.length > 0, "Add at least one sample item."),
+      merchandiseSubtotalCents: z.number().int().min(0).max(100000000),
+      accessorials: accessorialsSchema,
+      mode: z.enum(["pallet_preview", "saved_configuration", "plan_b"]),
+    }))
+    .mutation(({ input }) => simulateFreight(input)),
+
+  // ─── Admin: simulate one saved design without creating order state ──────────
+  adminSimulateSavedDesignFreight: adminProcedure
+    .input(z.object({
+      designId: z.number().int().positive(),
+      destinationZip: z.string().min(3).max(16),
+      accessorials: accessorialsSchema,
+      mode: z.enum(["pallet_preview", "saved_configuration"]),
+    }))
+    .mutation(async ({ input }) => {
+      const plan = await savedDesignFreightInput(input.designId);
+      const simulation = await simulateFreight({
+        destinationZip: input.destinationZip,
+        items: plan.items,
+        merchandiseSubtotalCents: plan.merchandiseSubtotalCents,
+        accessorials: input.accessorials,
+        mode: input.mode,
+        allowMissingStyleOriginFallback: true,
+        forceCarrierQuote: true,
+      });
+      return { ...simulation, savedDesign: plan.savedDesign };
+    }),
+
+  // ─── Admin: update settings (upserts the single row) ────────────────────────
+  adminUpdateSettings: adminProcedure
+    .input(
+      z.object({
+        enabled: z.boolean(),
+        originZip: z.string().max(16),
+        rateModel: z.enum(["per_cwt", "flat"]),
+        handlingFeeCents: z.number().int().min(0).max(100000),
+        minChargeCents: z.number().int().min(0).max(1000000),
+        liftgateFeeCents: z.number().int().min(0).max(100000),
+        residentialFeeCents: z.number().int().min(0).max(100000),
+        insideDeliveryFeeCents: z.number().int().min(0).max(100000),
+        markupBps: z.number().int().min(0).max(20000),
+        damageFeeBps: z.number().int().min(0).max(10000),
+        freeFreightThresholdCents: z.number().int().min(0).max(100000000),
+        defaultCabinetWeightLbs: z.number().min(1).max(1000),
+        // Live-quote / pallet / floor controls.
+        quoteMode: z.enum(["estimator", "live"]),
+        liveProvider: z.enum(["estimator", "ups", "easypost", "shippo", "freightquote", "globaltranz", "worldwideexpress"]),
+        // Freightquote (C.H. Robinson) credentials
+        fqClientId: z.string().max(255).nullable().optional(),
+        fqClientSecret: z.string().max(255).nullable().optional(),
+        fqAccountNumber: z.string().max(64).nullable().optional(),
+        fqEnvironment: z.enum(["sandbox", "production"]).optional(),
+        // GlobalTranz credentials
+        gtzApiKey: z.string().max(255).nullable().optional(),
+        gtzUsername: z.string().max(128).nullable().optional(),
+        gtzPassword: z.string().max(255).nullable().optional(),
+        gtzAccountNumber: z.string().max(64).nullable().optional(),
+        gtzEnvironment: z.enum(["sandbox", "production"]).optional(),
+        // WWEX Client ID and Client Secret use saveWwexCredentials exclusively.
+        // Keeping them out of this broad form mutation prevents a stale form
+        // snapshot from overwriting a newer paired credential save.
+        wwexAccountNumber: z.string().max(64).nullable().optional(),
+        wwexUsername: z.string().max(128).nullable().optional(),
+        wwexPassword: z.string().max(255).nullable().optional(),
+        wwexEnvironment: z.enum(["sandbox", "production"]).optional(),
+        wwexSandboxTokenUrl: z.string().max(512).nullable().optional(),
+        wwexSandboxRateUrl: z.string().max(512).nullable().optional(),
+        wwexProductionTokenUrl: z.string().max(512).nullable().optional(),
+        wwexProductionRateUrl: z.string().max(512).nullable().optional(),
+        // Optional: only set the key when provided (keeps existing if omitted).
+        liveApiKey: z.string().max(255).nullable().optional(),
+        kitchenFreightFloorCents: z.number().int().min(0).max(100000000).optional(),
+        kitchenMinCabinets: z.number().int().min(1).max(100).optional(),
+        standardPalletLengthIn: z.number().min(12).max(96),
+        palletLengthIn: z.number().min(12).max(240),
+        palletWidthIn: z.number().min(12).max(120),
+        palletHeightIn: z.number().min(12).max(120),
+        palletMaxWeightLbs: z.number().min(50).max(10000),
+        palletMaxCubicFt: z.number().min(5).max(2000),
+        palletTareLbs: z.number().min(0).max(500),
+        freightClass: z.string().min(1).max(8),
+        defaultCabinetCubicFt: z.number().min(0.5).max(200),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      const existing = await loadSettingsRow();
+
+      const { liveApiKey, ...rest } = input;
+      const values: Record<string, unknown> = {
+        ...rest,
+        defaultCabinetWeightLbs: String(input.defaultCabinetWeightLbs),
+        standardPalletLengthIn: String(input.standardPalletLengthIn),
+        palletLengthIn: String(input.palletLengthIn),
+        palletWidthIn: String(input.palletWidthIn),
+        palletHeightIn: String(input.palletHeightIn),
+        palletMaxWeightLbs: String(input.palletMaxWeightLbs),
+        palletMaxCubicFt: String(input.palletMaxCubicFt),
+        palletTareLbs: String(input.palletTareLbs),
+        defaultCabinetCubicFt: String(input.defaultCabinetCubicFt),
+        updatedAt: new Date(),
+      };
+      // Only overwrite the key when a non-empty value is explicitly provided.
+      if (typeof liveApiKey === "string" && liveApiKey.length > 0) {
+        values.liveApiKey = liveApiKey;
+      }
+      // Broker credentials: only overwrite when a non-empty value is provided.
+      const credFields = [
+        "fqClientId", "fqClientSecret", "fqAccountNumber",
+        "gtzApiKey", "gtzUsername", "gtzPassword", "gtzAccountNumber",
+        "wwexAccountNumber", "wwexUsername", "wwexPassword",
+      ] as const;
+      for (const field of credFields) {
+        const v = (input as Record<string, unknown>)[field];
+        if (typeof v === "string" && v.length > 0) values[field] = v;
+        else if (v === null) values[field] = null;
+      }
+      if (input.fqEnvironment) values.fqEnvironment = input.fqEnvironment;
+      if (input.gtzEnvironment) values.gtzEnvironment = input.gtzEnvironment;
+      if (input.wwexEnvironment) values.wwexEnvironment = input.wwexEnvironment;
+
+      if (existing) {
+        await db.update(shippingSettings).set(values).where(eq(shippingSettings.id, existing.id));
+      } else {
+        await db.insert(shippingSettings).values(values as typeof shippingSettings.$inferInsert);
+      }
+      return { ok: true };
+    }),
+
+  // ─── Admin: save WWEX OAuth credentials without requiring the full settings form ──
+  saveWwexCredentials: adminProcedure
+    .input(z.object({
+      wwexClientId: z.string().trim().min(1).max(255),
+      wwexClientSecret: z.string().trim().min(1).max(255),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+
+      const existing = await loadSettingsRow();
+      const values = {
+        wwexClientId: input.wwexClientId,
+        wwexClientSecret: input.wwexClientSecret,
+        updatedAt: new Date(),
+      };
+
+      if (existing) {
+        await db.update(shippingSettings).set(values).where(eq(shippingSettings.id, existing.id));
+      } else {
+        await db.insert(shippingSettings).values(values);
+      }
+
+      // Deliberately return no credential value. The client only needs a safe
+      // confirmation that both fields were persisted together.
+      return { ok: true, wwexClientId: input.wwexClientId, hasWwexClientSecret: true };
+    }),
+
+  // ─── Admin: save direct UPS Rating API credentials as one protected set ──────
+  saveUpsCredentials: adminProcedure
+    .input(z.object({
+      upsClientId: z.string().trim().min(1).max(255),
+      upsClientSecret: z.string().trim().max(255).optional(), // omit to keep the saved secret
+      upsAccountNumber: z.string().trim().min(1).max(64).transform((value) => value.toUpperCase()),
+      upsEnvironment: z.enum(["sandbox", "production"]),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      const existing = await loadSettingsRow();
+      if (!input.upsClientSecret && !existing?.upsClientSecret) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Enter the UPS Client Secret." });
+      }
+      const values = {
+        upsClientId: input.upsClientId,
+        ...(input.upsClientSecret ? { upsClientSecret: input.upsClientSecret } : {}),
+        upsAccountNumber: input.upsAccountNumber,
+        upsEnvironment: input.upsEnvironment,
+        updatedAt: new Date(),
+      };
+      if (existing) {
+        await db.update(shippingSettings).set(values).where(eq(shippingSettings.id, existing.id));
+      } else {
+        await db.insert(shippingSettings).values(values);
+      }
+      // The secret is deliberately write-only; only a presence bit returns.
+      return {
+        ok: true,
+        upsClientId: input.upsClientId,
+        upsAccountNumber: input.upsAccountNumber,
+        upsEnvironment: input.upsEnvironment,
+        hasUpsClientSecret: true,
+      };
+    }),
+
+  // ─── Admin: save direct FedEx Rate API credentials as one protected set ──────
+  saveFedexCredentials: adminProcedure
+    .input(z.object({
+      fedexClientId: z.string().trim().min(1).max(255),
+      fedexClientSecret: z.string().trim().max(255).optional(), // omit to keep the saved secret
+      fedexAccountNumber: z.string().trim().min(1).max(64),
+      fedexEnvironment: z.enum(["sandbox", "production"]),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      const existing = await loadSettingsRow();
+      if (!input.fedexClientSecret && !existing?.fedexClientSecret) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Enter the FedEx Secret Key." });
+      }
+      const values = {
+        fedexClientId: input.fedexClientId,
+        ...(input.fedexClientSecret ? { fedexClientSecret: input.fedexClientSecret } : {}),
+        fedexAccountNumber: input.fedexAccountNumber,
+        fedexEnvironment: input.fedexEnvironment,
+        updatedAt: new Date(),
+      };
+      if (existing) await db.update(shippingSettings).set(values).where(eq(shippingSettings.id, existing.id));
+      else await db.insert(shippingSettings).values(values);
+      return { ok: true, fedexClientId: input.fedexClientId, fedexAccountNumber: input.fedexAccountNumber, fedexEnvironment: input.fedexEnvironment, hasFedexClientSecret: true };
+    }),
+  // ─── Admin: read-only check that the saved UPS or FedEx keys can sign in ─────
+  testCarrierConnection: adminProcedure
+    .input(z.object({ carrier: z.enum(["ups", "fedex"]) }))
+    .mutation(async ({ input }) => {
+      const s = await loadSettingsRow();
+      if (!s) return { ok: false, error: "Nothing saved yet." };
+      if (input.carrier === "ups") {
+        return upsTestConnection({ clientId: s.upsClientId ?? "", clientSecret: s.upsClientSecret ?? "", accountNumber: s.upsAccountNumber ?? "", environment: s.upsEnvironment ?? "sandbox" });
+      }
+      return fedexTestConnection({ clientId: s.fedexClientId ?? "", clientSecret: s.fedexClientSecret ?? "", accountNumber: s.fedexAccountNumber ?? "", environment: s.fedexEnvironment ?? "sandbox" });
+    }),
+  // ─── Admin: test a live quote with the stored key + an example shipment ──────
+  testLiveQuote: adminProcedure
+    .input(
+      z.object({
+        destinationZip: z.string().min(3).max(16),
+        // Example pallet load to test with (defaults to one full 8 ft pallet).
+        testWeightLbs: z.number().min(50).max(10000).default(900),
+        testCubicFt: z.number().min(5).max(2000).default(80),
+        residential: z.boolean().default(false),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const row = await loadSettingsRow();
+      if (!row) {
+        return { ok: false, error: "Shipping settings have not been saved yet." };
+      }
+      if (!row.originZip) {
+        return { ok: false, error: "Set an origin ZIP before testing a live quote." };
+      }
+
+      const caps = rowToPalletCaps(row);
+      const plan = buildPallets(
+        [{ weightLbs: input.testWeightLbs, cubicFt: input.testCubicFt, qty: 1 }],
+        caps
+      );
+
+      if (row.liveProvider === "estimator") {
+        return { ok: false, error: "Select a live freight provider before testing." };
+      }
+      if (row.liveProvider === "ups") {
+        return {
+          ok: false,
+          error: "Direct UPS is parcel-only. Use Freight Test Lab with a saved design whose items all have verified UPS-eligible carton dimensions and packaged weight.",
+        };
+      }
+      const live = await requestLiveRate({
+        provider: row.liveProvider,
+        settings: row,
+        liveApiKey: row.liveApiKey ?? "",
+        palletCount: plan.palletCount,
+        totalWeightLbs: plan.totalWeightLbs,
+        request: {
+        fromZip: row.originZip,
+        toZip: input.destinationZip,
+        pallets: plan.pallets.map((p) => ({
+          lengthIn: p.lengthIn,
+          widthIn: p.widthIn,
+          heightIn: p.heightIn,
+          weightLbs: p.weightLbs,
+        })),
+        freightClass: row.liveProvider === "worldwideexpress"
+          ? normalizeSpeedshipFreightClass(row.freightClass) ?? "175"
+          : row.freightClass ?? "175",
+        residential: input.residential,
+        },
+      });
+
+      if (!live.ok) return { ok: false, error: live.error ?? "Live quote failed." };
+
+      const carrierLabel = [live.carrier, live.service].filter(Boolean).join(" ") || null;
+      return {
+        ok: true,
+        amountCents: live.amountCents,
+        carrier: carrierLabel,
+        palletCount: plan.palletCount,
+        billableWeightLbs: plan.totalWeightLbs,
+      };
+    }),
+
+  // ─── Admin: replace the full estimator zone table (legacy) ──────────────────
+  adminSaveZones: adminProcedure
+    .input(
+      z.object({
+        zones: z
+          .array(
+            z.object({
+              zoneName: z.string().min(1).max(64),
+              zipPrefixes: z.string().min(1).max(255),
+              rateCents: z.number().int().min(0).max(10000000),
+            })
+          )
+          .max(100),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      await db.delete(freightZones);
+      if (input.zones.length > 0) {
+        await db.insert(freightZones).values(
+          input.zones.map((zone, i) => ({
+            zoneName: zone.zoneName,
+            zipPrefixes: zone.zipPrefixes,
+            rateCents: zone.rateCents,
+            sortOrder: i,
+          }))
+        );
+      }
+      return { ok: true, count: input.zones.length };
+    }),
+
+  // ─── Admin: get recent freight API call logs ─────────────────────────────────
+  adminGetApiLogs: adminProcedure
+    .input(z.object({ limit: z.number().int().min(1).max(200).default(50) }))
+    .query(async ({ input }) => {
+      const entries = getFreightApiLogs(input.limit);
+      const db = await getDb();
+      return db ? attachFreightHistoryDesigns(db, entries) : entries.map((entry) => ({ ...entry, design: null }));
+    }),
+
+  // Permanent quote history (database) so rates can be compared over time.
+  adminQuoteHistory: adminProcedure
+    .input(z.object({
+      limit: z.number().int().min(1).max(500).default(100),
+      broker: z.string().max(40).optional(),
+      onlyOk: z.boolean().optional(),
+    }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return [];
+      const { desc, eq, and } = await import("drizzle-orm");
+      const conds = [
+        input.broker ? eq(freightQuoteHistory.broker, input.broker) : undefined,
+        input.onlyOk ? eq(freightQuoteHistory.ok, true) : undefined,
+      ].filter(Boolean) as any[];
+      const rows = await db.select().from(freightQuoteHistory)
+        .where(conds.length ? and(...conds) : undefined)
+        .orderBy(desc(freightQuoteHistory.id)).limit(input.limit);
+      const parsedRows = rows.map((r) => {
+        let packages: unknown[] = [];
+        try { packages = JSON.parse(r.packagesJson ?? "[]"); } catch { /* ignore */ }
+        return { ...r, totalWeightLbs: Number(r.totalWeightLbs), packages };
+      });
+      return attachFreightHistoryDesigns(db, parsedRows);
+    }),
+
+});

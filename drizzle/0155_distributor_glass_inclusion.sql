@@ -1,0 +1,1 @@
+ALTER TABLE `distributors` ADD `glassIncluded` boolean DEFAULT false NOT NULL;

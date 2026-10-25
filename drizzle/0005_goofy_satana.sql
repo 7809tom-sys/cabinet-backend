@@ -1,0 +1,23 @@
+CREATE TABLE `order_requests` (
+	`id` int AUTO_INCREMENT NOT NULL,
+	`userId` int,
+	`requestNumber` varchar(64) NOT NULL,
+	`originatorName` varchar(256),
+	`originatorEmail` varchar(320),
+	`originatorPhone` varchar(32),
+	`zip` varchar(16),
+	`source` enum('ocr','csv','design','manual') NOT NULL DEFAULT 'manual',
+	`status` enum('draft','submitted','confirmed','cancelled') NOT NULL DEFAULT 'draft',
+	`styleId` int,
+	`styleName` varchar(128),
+	`tier` enum('Wholesale','Contractor') NOT NULL DEFAULT 'Contractor',
+	`lineItems` json NOT NULL,
+	`itemCount` int NOT NULL DEFAULT 0,
+	`totalAmount` decimal(12,2),
+	`notes` text,
+	`confirmedAt` timestamp,
+	`createdAt` timestamp NOT NULL DEFAULT (now()),
+	`updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,
+	CONSTRAINT `order_requests_id` PRIMARY KEY(`id`),
+	CONSTRAINT `order_requests_requestNumber_unique` UNIQUE(`requestNumber`)
+);

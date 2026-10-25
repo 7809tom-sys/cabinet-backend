@@ -1,0 +1,20 @@
+CREATE TABLE `bundle_deals` (
+	`id` int AUTO_INCREMENT NOT NULL,
+	`name` varchar(200) NOT NULL,
+	`description` text,
+	`designSnapshot` json NOT NULL,
+	`styleId` int,
+	`styleName` varchar(200),
+	`homeownerPrice` decimal(10,2),
+	`yourCost` decimal(10,2),
+	`roomWidthInches` int,
+	`roomDepthInches` int,
+	`cabinetCount` int NOT NULL DEFAULT 0,
+	`isPublished` boolean NOT NULL DEFAULT false,
+	`heroImageUrl` varchar(512),
+	`sortOrder` int NOT NULL DEFAULT 0,
+	`createdBy` int,
+	`createdAt` timestamp NOT NULL DEFAULT (now()),
+	`updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,
+	CONSTRAINT `bundle_deals_id` PRIMARY KEY(`id`)
+);

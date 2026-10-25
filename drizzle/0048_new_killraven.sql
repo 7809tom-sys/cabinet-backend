@@ -1,0 +1,1 @@
+ALTER TABLE `door_styles` ADD `isBuilderGrade` boolean DEFAULT false NOT NULL;

@@ -1,0 +1,2 @@
+ALTER TABLE `design_photo_renders` ADD `kitchenDesignId` int;--> statement-breakpoint
+CREATE INDEX `design_photo_renders_user_design_method_updated_idx` ON `design_photo_renders` (`userId`,`kitchenDesignId`,`generationMethod`,`updatedAt`);
