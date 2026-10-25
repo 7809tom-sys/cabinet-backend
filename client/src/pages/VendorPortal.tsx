@@ -23,6 +23,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { trpc } from "@/lib/trpc";
+import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { getLoginUrl } from "@/const";
 import { toast } from "sonner";
@@ -4249,25 +4250,10 @@ function VendorLoginForm() {
     }
   }, [inviteToken]);
 
-  const loginMutation = trpc.emailAuth.login.useMutation({
-    onSuccess: () => {
-      window.location.reload();
-    },
-    onError: (err) => {
-      setError(err.message || "Invalid email or password.");
-    },
-  });
+  const [isPending, setIsPending] = useState(false);
+  const [notice, setNotice] = useState("");
 
-  const registerMutation = trpc.emailAuth.signup.useMutation({
-    onSuccess: () => {
-      window.location.reload();
-    },
-    onError: (err: any) => {
-      setError(err.message || "Registration failed.");
-    },
-  });
-
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError("");
     if (!email.trim() || !password) {
@@ -4283,13 +4269,32 @@ function VendorLoginForm() {
         setError("Password must be at least 8 characters.");
         return;
       }
-      registerMutation.mutate({ email: email.trim(), password, inviteToken: inviteToken || undefined });
-    } else {
-      loginMutation.mutate({ email: email.trim(), password });
     }
+    setNotice("");
+    setIsPending(true);
+    // The server creates/links the vendor account on the first authenticated
+    // request; a supplier setup link travels as signup metadata.
+    const { data, error: authError } = mode === "register"
+      ? await supabase.auth.signUp({
+          email: email.trim(),
+          password,
+          options: {
+            emailRedirectTo: window.location.href,
+            data: inviteToken ? { inviteToken } : undefined,
+          },
+        })
+      : await supabase.auth.signInWithPassword({ email: email.trim(), password });
+    setIsPending(false);
+    if (authError) {
+      setError(authError.message || (mode === "register" ? "Registration failed." : "Invalid email or password."));
+      return;
+    }
+    if (!data.session) {
+      setNotice("Check your email to confirm your address, then sign in here.");
+      return;
+    }
+    window.location.reload();
   };
-
-  const isPending = loginMutation.isPending || registerMutation.isPending;
 
   return (
     <div className="flex items-center justify-center min-h-[60vh]">
@@ -4363,6 +4368,9 @@ function VendorLoginForm() {
             )}
             {error && (
               <p className="text-sm text-destructive">{error}</p>
+            )}
+            {notice && (
+              <p className="text-sm text-muted-foreground">{notice}</p>
             )}
             <Button type="submit" className="w-full" disabled={isPending}>
               {isPending ? (

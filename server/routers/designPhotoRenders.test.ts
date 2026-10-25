@@ -157,10 +157,13 @@ describe("design photo render safeguards", () => {
     expect(source).toContain("await runQueuedGeminiImageTestJob(job.id)");
     expect(source).toContain("await pollPendingGeminiImageTestJob(db, job)");
     expect(source).not.toContain("setTimeout(() => queueGeminiImageTestJob");
-    expect(serverSource).toContain('app.post("/api/scheduled/recover-gemini-image-tests"');
-    expect(serverSource).toContain("sdk.authenticateCronRequest(req)");
-    expect(serverSource).toContain("if (!user.isCron || !user.taskUid)");
+    // Recovery runs from a durable in-server schedule (no platform callback or cron cookie).
+    expect(serverSource).toContain('cron.schedule(');
+    expect(serverSource).toContain('"* * * * *"');
+    expect(serverSource).toContain('timezone: "America/Chicago"');
     expect(serverSource).toContain("await recoverDueGeminiImageTestJobs()");
+    expect(serverSource).not.toContain("/api/scheduled/");
+    expect(serverSource).not.toContain("authenticateCronRequest");
   });
 
   it("persists the administrator Google image test by saved-plan ID and reopens only the current locked plan revision", () => {

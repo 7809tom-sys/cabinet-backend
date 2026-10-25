@@ -1,4 +1,10 @@
-import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
+import { describe, expect, it, vi, afterEach } from "vitest";
+
+// ENV is read when the proxy module loads, so configure storage first.
+vi.hoisted(() => {
+  process.env.SUPABASE_URL ||= "https://project.supabase.co";
+  process.env.SUPABASE_SERVICE_ROLE_KEY ||= "test-service-key";
+});
 import express from "express";
 import type { Server } from "http";
 import { imageMimeFromBytes, registerStorageProxy } from "./_core/storageProxy";
@@ -19,10 +25,6 @@ const png = Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 
 
 describe("storage proxy image delivery", () => {
   const realFetch = global.fetch;
-  beforeEach(() => {
-    process.env.BUILT_IN_FORGE_API_URL ||= "https://forge.example.com";
-    process.env.BUILT_IN_FORGE_API_KEY ||= "test-key";
-  });
   afterEach(() => {
     global.fetch = realFetch;
     vi.restoreAllMocks();
@@ -114,10 +116,10 @@ describe("storage proxy image delivery", () => {
       expect(resp.status).toBe(200);
       expect(resp.headers.get("content-type")).toContain("image/jpeg");
       expect(new Uint8Array(await resp.arrayBuffer())).toEqual(jpeg);
-      expect(new URL(fetched[0]).searchParams.get("path")).toBe("media-library/1785260582020_classic_cream_room_scene_18c5ad57");
+      expect(fetched[0]).toContain("/storage/v1/object/authenticated/site-media/media-library/1785260582020_classic_cream_room_scene_18c5ad57");
       const blocked = await realFetch(`${baseUrl}/api/door-style-photo/bad%2Fkey`);
       expect(blocked.status).toBe(400);
-      expect(fetched).toHaveLength(2);
+      expect(fetched).toHaveLength(1);
     } finally {
       server.close();
     }
@@ -138,9 +140,9 @@ describe("storage proxy image delivery", () => {
       expect(resp.status).toBe(200);
       expect(resp.headers.get("content-type")).toContain("image/png");
       expect(new Uint8Array(await resp.arrayBuffer())).toEqual(png);
-      expect(new URL(fetched[0]).searchParams.get("path")).toBe("media-library/1790257199386_b12_b21_4dedff25");
+      expect(fetched[0]).toContain("/storage/v1/object/authenticated/site-media/media-library/1790257199386_b12_b21_4dedff25");
       expect((await realFetch(`${baseUrl}/api/catalog-media/bad%2Fkey`)).status).toBe(400);
-      expect(fetched).toHaveLength(2);
+      expect(fetched).toHaveLength(1);
     } finally {
       server.close();
     }
@@ -161,9 +163,45 @@ describe("storage proxy image delivery", () => {
       expect(photo.status).toBe(200);
       expect(photo.headers.get("content-type")).toContain("image/jpeg");
       expect(new Uint8Array(await photo.arrayBuffer())).toEqual(jpeg);
-      expect(new URL(fetched[0]).searchParams.get("path")).toBe("sku-images/1784390003470_ASP-B12_738a416d.jpg");
+      expect(fetched[0]).toContain("/storage/v1/object/authenticated/site-media/sku-images/1784390003470_ASP-B12_738a416d.jpg");
       expect((await realFetch(`${baseUrl}/api/catalog-sku-photo/bad%2Fkey`)).status).toBe(400);
-      expect(fetched).toHaveLength(2);
+      expect(fetched).toHaveLength(1);
+    } finally {
+      server.close();
+    }
+  });
+});
+
+describe("storage proxy Supabase routing", () => {
+  const realFetch = global.fetch;
+  afterEach(() => {
+    global.fetch = realFetch;
+    vi.restoreAllMocks();
+  });
+
+  it("reads public media from site-media and uploaded documents from private-files with the service key", async () => {
+    const seen: { url: string; auth: string | null }[] = [];
+    global.fetch = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      seen.push({ url: String(input), auth: new Headers(init?.headers).get("authorization") });
+      return new Response(jpeg as unknown as BodyInit, { headers: { "content-type": "image/jpeg" } });
+    }) as unknown as typeof fetch;
+    const { server, baseUrl } = await startProxy();
+    try {
+      expect((await realFetch(`${baseUrl}/manus-storage/media-library/logo.jpg`)).status).toBe(200);
+      expect((await realFetch(`${baseUrl}/manus-storage/ocr-uploads/u7-quote.jpg`)).status).toBe(200);
+    } finally {
+      server.close();
+    }
+    expect(seen[0].url).toContain("/storage/v1/object/authenticated/site-media/media-library/logo.jpg");
+    expect(seen[1].url).toContain("/storage/v1/object/authenticated/private-files/ocr-uploads/u7-quote.jpg");
+    expect(seen.every((s) => s.auth === "Bearer test-service-key" || s.auth?.startsWith("Bearer "))).toBe(true);
+  });
+
+  it("answers a file missing from Supabase with 404, not a server error", async () => {
+    global.fetch = vi.fn(async () => new Response(JSON.stringify({ error: "not_found" }), { status: 400 })) as unknown as typeof fetch;
+    const { server, baseUrl } = await startProxy();
+    try {
+      expect((await realFetch(`${baseUrl}/manus-storage/missing.png`)).status).toBe(404);
     } finally {
       server.close();
     }

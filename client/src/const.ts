@@ -1,14 +1,5 @@
 export { COOKIE_NAME, ONE_YEAR_MS } from "@shared/const";
 
-/**
- * Social providers offered through the Manus OAuth portal. The portal itself
- * supports Google / Apple / Microsoft / GitHub / email; we pass a hint so the
- * right provider is preselected when the user clicks a specific button. The
- * hint is advisory — if the portal ignores it, the user simply picks their
- * provider on the portal screen, so this is always safe.
- */
-export type LoginProvider = "google" | "apple" | "microsoft" | "github" | "email";
-
 // Titan-hosted webmail for the cabinetdealz.com mailboxes (sales@, etc.).
 // The admin panel links to this so staff can open the real inbox in a new tab
 // instead of the app trying to embed a full email client.
@@ -31,40 +22,6 @@ export function getSiteSignInUrl(returnTo?: string): string {
   return `${url.pathname}${url.search}`;
 }
 
-/**
- * A social sign-in may begin from the site sign-in page, which already carries
- * the real Designer/storefront destination in `returnTo`. Preserve that value
- * rather than sending the OAuth callback back to the intermediate sign-in page.
- */
-function currentAuthReturnPath(): string {
-  const requestedReturn = new URLSearchParams(window.location.search).get("returnTo");
-  if (isSafeSiteReturnPath(requestedReturn)) return requestedReturn;
-  return `${window.location.pathname}${window.location.search}${window.location.hash}`;
-}
-
-// Ordinary sign-in always stays on CabinetDealz. Explicit social-provider
-// buttons remain opt-in and use the hosted OAuth broker because those providers
-// require that secure exchange.
-export const getLoginUrl = (provider?: LoginProvider) => {
-  if (!provider) return getSiteSignInUrl();
-
-  const oauthPortalUrl = import.meta.env.VITE_OAUTH_PORTAL_URL;
-  const appId = import.meta.env.VITE_APP_ID;
-  const redirectUri = `${window.location.origin}/api/oauth/callback`;
-  // Preserve the page that initiated sign-in. This is especially important for
-  // white-label affiliate storefront footers: an authenticated visitor returns
-  // to that affiliate store rather than the generic platform home.
-  const returnTo = currentAuthReturnPath();
-  const state = btoa(JSON.stringify({ redirectUri, returnTo }));
-
-  const url = new URL(`${oauthPortalUrl}/app-auth`);
-  url.searchParams.set("appId", appId);
-  url.searchParams.set("redirectUri", redirectUri);
-  url.searchParams.set("state", state);
-  url.searchParams.set("type", "signIn");
-  // Common hint keys the portal may honor; harmless if unrecognized.
-  url.searchParams.set("provider", provider);
-  url.searchParams.set("loginMethod", provider);
-
-  return url.toString();
-};
+// All sign-in (email, Google) happens on the CabinetDealz /signin page via
+// Supabase Auth; `returnTo` carries the page that initiated it.
+export const getLoginUrl = () => getSiteSignInUrl();

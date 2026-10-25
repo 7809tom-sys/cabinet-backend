@@ -120,7 +120,7 @@ export default function AdminStickyNotes() {
             In <strong>Hostinger hPanel → Domains → DNS Zone → cabinetdealz.com</strong>, add one wildcard CNAME so every affiliate subdomain can resolve automatically.
           </p>
           <div className="grid gap-1 rounded-md border border-violet-200 bg-white p-2 font-mono text-xs sm:grid-cols-4">
-            <span>Type: CNAME</span><span>Name: *</span><span className="sm:col-span-2 break-all">Points to: cabinetz-dq7pucbp.manus.space</span><span>TTL: 3600 or default</span>
+            <span>Type: CNAME</span><span>Name: *</span><span className="sm:col-span-2 break-all">Points to: {import.meta.env.VITE_AFFILIATE_DNS_TARGET || "(set VITE_AFFILIATE_DNS_TARGET to the site's hosting domain)"}</span><span>TTL: 3600 or default</span>
           </div>
           <p className="text-xs text-violet-900/80">Do not replace existing <code>@</code>, <code>www</code>, or working affiliate DNS records. The wildcard only routes the web address; each affiliate retains separate branding and storefront settings.</p>
         </CardContent>

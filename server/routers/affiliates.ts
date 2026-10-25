@@ -1674,9 +1674,7 @@ export const affiliatesRouter = router({
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
       const [a] = await db.select().from(affiliates).where(eq(affiliates.id, input.id)).limit(1);
       if (!a) throw new TRPCError({ code: "NOT_FOUND", message: "Affiliate not found" });
-      const origin = process.env.VITE_FRONTEND_FORGE_API_URL
-        ? "https://www.cabinetdealz.com"
-        : "https://www.cabinetdealz.com";
+      const origin = "https://www.cabinetdealz.com";
       const storeUrl = `${origin}/store/${a.slug}`;
       const refLink = `${storeUrl}/order?ref=${a.referralCode}`;
       const loginUrl = `${origin}/affiliate`;

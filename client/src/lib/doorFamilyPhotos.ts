@@ -15,15 +15,15 @@ export interface DoorFamilyLike {
 // Compressed webp URLs (preferred for page loads).
 const PHOTOS: Record<Exclude<DoorPanelKind, "double-shaker" | "slim-shaker"> | "shaker", string> = {
   shaker:
-    "https://d2xsxph8kpxj0f.cloudfront.net/310519663775888316/DQ7pUcbPFvKvFZ8JnyMs4M/door-shaker-6rdTMsADtNgxjohki84YKU.webp",
+    "/manus-storage/legacy-cdn/door-shaker-6rdTMsADtNgxjohki84YKU.webp",
   raised:
-    "https://d2xsxph8kpxj0f.cloudfront.net/310519663775888316/DQ7pUcbPFvKvFZ8JnyMs4M/door-raised-oLYqpx7edoxNoN4EWy9xXG.webp",
+    "/manus-storage/legacy-cdn/door-raised-oLYqpx7edoxNoN4EWy9xXG.webp",
   slab:
-    "https://d2xsxph8kpxj0f.cloudfront.net/310519663775888316/DQ7pUcbPFvKvFZ8JnyMs4M/door-slab-EPKZonTXAZzp3JdcxzKMQQ.webp",
+    "/manus-storage/legacy-cdn/door-slab-EPKZonTXAZzp3JdcxzKMQQ.webp",
   beaded:
-    "https://d2xsxph8kpxj0f.cloudfront.net/310519663775888316/DQ7pUcbPFvKvFZ8JnyMs4M/door-beaded-nR3rA7Ru7s5RUiFQZghnDo.webp",
+    "/manus-storage/legacy-cdn/door-beaded-nR3rA7Ru7s5RUiFQZghnDo.webp",
   inset:
-    "https://d2xsxph8kpxj0f.cloudfront.net/310519663775888316/DQ7pUcbPFvKvFZ8JnyMs4M/door-inset-ZhoLPcYFUe6Qtsr2ARk4Jt.webp",
+    "/manus-storage/legacy-cdn/door-inset-ZhoLPcYFUe6Qtsr2ARk4Jt.webp",
 };
 
 /**
@@ -46,7 +46,7 @@ export function doorFamilyPhoto(style: DoorFamilyLike): string | null {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const CDN =
-  "https://d2xsxph8kpxj0f.cloudfront.net/310519663775888316/DQ7pUcbPFvKvFZ8JnyMs4M";
+  "/manus-storage/legacy-cdn";
 
 export type KitchenSceneKey =
   | "shaker-white"

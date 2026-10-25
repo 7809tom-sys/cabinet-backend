@@ -9,6 +9,8 @@ import App from "./App";
 import { getLoginUrl } from "./const";
 import { shouldRedirectToLoginOnError } from "./lib/authRedirect";
 import { fetchTrpcJson, TRPC_QUERY_METHOD_OVERRIDE } from "./lib/trpcTransport";
+import { supabase } from "./lib/supabase";
+import { apiUrl } from "./lib/apiBase";
 import "./index.css";
 
 const queryClient = new QueryClient();
@@ -44,14 +46,28 @@ queryClient.getMutationCache().subscribe(event => {
 const trpcClient = trpc.createClient({
   links: [
     httpBatchLink({
-      url: "/api/trpc",
+      url: apiUrl("/api/trpc"),
       transformer: superjson,
       methodOverride: TRPC_QUERY_METHOD_OVERRIDE,
-      fetch(input, init) {
-        return fetchTrpcJson(input, init);
+      async fetch(input, init) {
+        // getSession() returns the cached session and refreshes an expired
+        // access token, so every request carries a currently valid token.
+        const { data } = await supabase.auth.getSession();
+        const token = data.session?.access_token;
+        if (!token) return fetchTrpcJson(input, init);
+        const headers = new Headers(init?.headers);
+        headers.set("authorization", `Bearer ${token}`);
+        return fetchTrpcJson(input, { ...init, headers });
       },
     }),
   ],
+});
+
+// Sign-in, sign-out and token refreshes change who the server sees.
+supabase.auth.onAuthStateChange((event) => {
+  if (event === "SIGNED_IN" || event === "SIGNED_OUT" || event === "USER_UPDATED") {
+    void queryClient.invalidateQueries({ queryKey: [["auth", "me"]] });
+  }
 });
 
 createRoot(document.getElementById("root")!).render(

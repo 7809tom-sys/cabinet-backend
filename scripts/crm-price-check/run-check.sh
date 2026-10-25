@@ -1,12 +1,17 @@
 #!/bin/bash
 # Weekly CRM price check. REPORT ONLY: it never updates a CRM price.
 # usage: run-check.sh [outDir] [maxDeals]
+# Needs: DATABASE_URL, JWT_SECRET, SUPABASE_URL (or VITE_SUPABASE_URL), SUPABASE_JWT_SECRET,
+# SMTP_* and OWNER_EMAIL (or CRM_CHECK_REPORT_EMAIL) in the environment or in .env.
+# Optional: CHROMIUM_PATH (default: Playwright's own Chromium), CRM_CHECK_NO_EMAIL=1.
 set -u
-ROOT=/home/ubuntu/cabinet-dealz
-OUT=${1:-/home/ubuntu/crm-price-check/$(date +%Y-%m-%d)}
+ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+cd "$ROOT" || exit 1
+# Load .env when present (a host that injects variables needs no file).
+if [ -f .env ]; then set -a; . ./.env; set +a; fi
+OUT=${1:-$ROOT/.crm-price-check/$(date +%Y-%m-%d)}
 MAX=${2:-10000}
 PORT=3100
-cd "$ROOT" || exit 1
 mkdir -p "$OUT"
 snap() { pnpm exec tsx scripts/crm-price-check/snapshot.mts 2>&1 | sed -n 's/^SNAPSHOT //p' | tail -1; }
 
@@ -35,4 +40,9 @@ json.dump({"before": b, "after": a, "unchanged": b == a}, open(f"{out}/snapshot_
 print("UNCHANGED" if b == a else "CHANGED!")
 PY
 python3 scripts/crm-price-check/build-report.py "$OUT" snap
-rm -f "$OUT/token.txt"
+rm -f "$OUT/session.json"
+
+# Disk on the host may be temporary, so the report is emailed.
+if [ "${CRM_CHECK_NO_EMAIL:-0}" != "1" ]; then
+  pnpm exec tsx scripts/crm-price-check/email-report.mts "$OUT" 2>&1 | grep -E "EMAILED|EMAIL FAILED|rror" || echo "email step produced no result"
+fi

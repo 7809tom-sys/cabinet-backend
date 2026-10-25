@@ -117,3 +117,9 @@ client/public/__manus__/version.json
 /exports/
 /style_images/
 /scripts/*.png
+
+# Local copy of legacy Manus storage files (uploaded to Supabase Storage)
+manus storage/
+
+# Weekly CRM price check output
+.crm-price-check/

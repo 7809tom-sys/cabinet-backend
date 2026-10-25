@@ -26,6 +26,8 @@ export const users = mysqlTable("users", {
   // Email/password auth (alongside Manus OAuth). emailLower is the unique login key.
   emailLower: varchar("emailLower", { length: 320 }).unique(),
   passwordHash: varchar("passwordHash", { length: 255 }),
+  // Supabase Auth user id (auth.users.id, a UUID). Null until the user is linked.
+  authId: varchar("authId", { length: 36 }).unique(),
   failedLoginAttempts: int("failedLoginAttempts").default(0).notNull(),
   lockedUntil: timestamp("lockedUntil"),
   loginMethod: varchar("loginMethod", { length: 64 }),

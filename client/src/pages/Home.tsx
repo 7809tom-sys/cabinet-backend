@@ -23,7 +23,7 @@ import { buildMainSiteJsonLd } from "@/lib/seo/jsonLd";
 import { EditableText } from "@/components/admin/EditableText";
 import { HomepageWelcomeBanner } from "@/components/home/HomepageWelcomeBanner";
 
-const CDN = "https://d2xsxph8kpxj0f.cloudfront.net/310519663775888316/DQ7pUcbPFvKvFZ8JnyMs4M";
+const CDN = "/manus-storage/legacy-cdn";
 
 // ─── Dynamic Storefront Banner ───────────────────────────────────────────────
 // Driven by the active banner in the admin Banner Management panel.

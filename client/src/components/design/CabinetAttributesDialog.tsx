@@ -1075,7 +1075,7 @@ export function CabinetAttributesDialog({
                   onClick={() => onSetOvenType(uid, "single")}
                 >
                   <img
-                    src="https://d2xsxph8kpxj0f.cloudfront.net/310519663775888316/DQ7pUcbPFvKvFZ8JnyMs4M/oven-single-front-U843ihaYrWbB8xwKsMyngZ.webp"
+                    src="/manus-storage/legacy-cdn/oven-single-front-U843ihaYrWbB8xwKsMyngZ.webp"
                     alt="Single oven"
                     className="w-16 h-20 object-cover rounded-lg"
                   />
@@ -1091,7 +1091,7 @@ export function CabinetAttributesDialog({
                   onClick={() => onSetOvenType(uid, "double")}
                 >
                   <img
-                    src="https://d2xsxph8kpxj0f.cloudfront.net/310519663775888316/DQ7pUcbPFvKvFZ8JnyMs4M/oven-double-front-n2DaWbuTecczH4YKk7fJbo.webp"
+                    src="/manus-storage/legacy-cdn/oven-double-front-n2DaWbuTecczH4YKk7fJbo.webp"
                     alt="Double oven"
                     className="w-16 h-20 object-cover rounded-lg"
                   />

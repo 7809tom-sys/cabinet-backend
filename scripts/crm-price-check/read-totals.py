@@ -5,14 +5,19 @@ started with CD_SKIP_VIEW_LOG=1 so no "viewed" rows are written.
 
 usage: read-totals.py <outDir> <baseUrl> [maxDeals]
 """
-import json, sys, re
+import json, os, sys, re
+from urllib.parse import urlparse
 from playwright.sync_api import sync_playwright
 
 out_dir, base = sys.argv[1], sys.argv[2].rstrip("/")
 max_deals = int(sys.argv[3]) if len(sys.argv) > 3 else 10_000
 deals = json.load(open(f"{out_dir}/deals.json"))
-token = open(f"{out_dir}/token.txt").read().strip()
-host = re.sub(r"^https?://", "", base).split(":")[0]
+# Supabase session minted by export-deals.mts. supabase-js reads it from localStorage under
+# sb-<project-ref>-auth-token, so it is loaded before any page script runs.
+session = open(f"{out_dir}/session.json").read().strip()
+supabase_ref = urlparse(os.environ["VITE_SUPABASE_URL"]).hostname.split(".")[0]
+STORAGE_KEY = f"sb-{supabase_ref}-auth-token"
+INIT_SCRIPT = "window.localStorage.setItem(" + json.dumps(STORAGE_KEY) + ", " + json.dumps(session) + ");"
 targets = [d for d in deals if d["designs"]][:max_deals]
 results = {}
 BLOCK = re.compile(r"design\.captureLead|design\.save|orders\.submit|crm\.sendEmail")
@@ -24,7 +29,7 @@ GRAB = """() => { const t=document.body.innerText; const m=t.match(/Estimated To
 
 def read_design(b, deal, design):
     ctx = b.new_context(viewport={"width": 1500, "height": 900})
-    ctx.add_cookies([{"name": "app_session_id", "value": token, "domain": host, "path": "/"}])
+    ctx.add_init_script(INIT_SCRIPT)
     pg = ctx.new_page()
     pg.route("**/api/trpc/**", lambda r: r.abort() if BLOCK.search(r.request.url) else r.continue_())
     scope = f"/store/{deal['slug']}/design" if deal.get("slug") else "/design"
@@ -57,7 +62,8 @@ def read_design(b, deal, design):
 
 
 with sync_playwright() as p:
-    b = p.chromium.launch(executable_path="/usr/bin/chromium",
+    # CHROMIUM_PATH is optional: unset uses the Chromium that Playwright installed.
+    b = p.chromium.launch(executable_path=os.environ.get("CHROMIUM_PATH") or None,
                           args=["--no-sandbox", "--use-gl=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"])
     for i, d in enumerate(targets, 1):
         rs = []

@@ -625,7 +625,7 @@ export default function Admin() {
         </div>
         <div className="flex flex-wrap gap-2">
           <a
-            href={`${import.meta.env.VITE_ANALYTICS_ENDPOINT || "https://manus-analytics.com"}/share/${import.meta.env.VITE_ANALYTICS_WEBSITE_ID || ""}/Cabinet%20Dealz`}
+            href={`${import.meta.env.VITE_ANALYTICS_ENDPOINT || ""}/share/${import.meta.env.VITE_ANALYTICS_WEBSITE_ID || ""}/Cabinet%20Dealz`}
             target="_blank"
             rel="noopener noreferrer"
           >

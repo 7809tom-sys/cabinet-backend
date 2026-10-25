@@ -1,155 +1,81 @@
 /**
- * GOOGLE MAPS FRONTEND INTEGRATION - ESSENTIAL GUIDE
+ * MAP DISPLAY — MapLibre GL JS with OpenFreeMap tiles (free, no API key).
  *
- * USAGE FROM PARENT COMPONENT:
- * ======
+ * This only draws a map. Turning ZIP codes / addresses into coordinates
+ * (geocoding) is done on the server with the Google Geocoding API
+ * (server/_core/map.ts); OpenFreeMap does not provide geocoding.
  *
- * const mapRef = useRef<google.maps.Map | null>(null);
+ * Usage:
+ *   <MapView
+ *     className="h-80"
+ *     initialCenter={{ lat: 40.7128, lng: -74.006 }}
+ *     initialZoom={11}
+ *     onMapReady={(map) => {
+ *       new maplibregl.Marker().setLngLat([-74.006, 40.7128]).addTo(map);
+ *     }}
+ *   />
  *
- * <MapView
- *   initialCenter={{ lat: 40.7128, lng: -74.0060 }}
- *   initialZoom={15}
- *   onMapReady={(map) => {
- *     mapRef.current = map; // Store to control map from parent anytime, google map itself is in charge of the re-rendering, not react state.
- * </MapView>
- *
- * ======
- * Available Libraries and Core Features:
- * -------------------------------
- * 📍 MARKER (from `marker` library)
- * - Attaches to map using { map, position }
- * new google.maps.marker.AdvancedMarkerElement({
- *   map,
- *   position: { lat: 37.7749, lng: -122.4194 },
- *   title: "San Francisco",
- * });
- *
- * -------------------------------
- * 🏢 PLACES (from `places` library)
- * - Does not attach directly to map; use data with your map manually.
- * const place = new google.maps.places.Place({ id: PLACE_ID });
- * await place.fetchFields({ fields: ["displayName", "location"] });
- * map.setCenter(place.location);
- * new google.maps.marker.AdvancedMarkerElement({ map, position: place.location });
- *
- * -------------------------------
- * 🧭 GEOCODER (from `geocoding` library)
- * - Standalone service; manually apply results to map.
- * const geocoder = new google.maps.Geocoder();
- * geocoder.geocode({ address: "New York" }, (results, status) => {
- *   if (status === "OK" && results[0]) {
- *     map.setCenter(results[0].geometry.location);
- *     new google.maps.marker.AdvancedMarkerElement({
- *       map,
- *       position: results[0].geometry.location,
- *     });
- *   }
- * });
- *
- * -------------------------------
- * 📐 GEOMETRY (from `geometry` library)
- * - Pure utility functions; not attached to map.
- * const dist = google.maps.geometry.spherical.computeDistanceBetween(p1, p2);
- *
- * -------------------------------
- * 🛣️ ROUTES (from `routes` library)
- * - Combines DirectionsService (standalone) + DirectionsRenderer (map-attached)
- * const directionsService = new google.maps.DirectionsService();
- * const directionsRenderer = new google.maps.DirectionsRenderer({ map });
- * directionsService.route(
- *   { origin, destination, travelMode: "DRIVING" },
- *   (res, status) => status === "OK" && directionsRenderer.setDirections(res)
- * );
- *
- * -------------------------------
- * 🌦️ MAP LAYERS (attach directly to map)
- * - new google.maps.TrafficLayer().setMap(map);
- * - new google.maps.TransitLayer().setMap(map);
- * - new google.maps.BicyclingLayer().setMap(map);
- *
- * -------------------------------
- * ✅ SUMMARY
- * - “map-attached” → AdvancedMarkerElement, DirectionsRenderer, Layers.
- * - “standalone” → Geocoder, DirectionsService, DistanceMatrixService, ElevationService.
- * - “data-only” → Place, Geometry utilities.
+ * Attribution ("OpenFreeMap", "© OpenMapTiles", "Data from OpenStreetMap") is
+ * supplied by the style and shown by the map's attribution control. Keep it visible.
  */
-
-/// <reference types="@types/google.maps" />
-
 import { useEffect, useRef } from "react";
-import { usePersistFn } from "@/hooks/usePersistFn";
+import { Map as MapLibreMap, NavigationControl, setWorkerUrl } from "maplibre-gl";
+import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
+import "maplibre-gl/dist/maplibre-gl.css";
 import { cn } from "@/lib/utils";
 
-declare global {
-  interface Window {
-    google?: typeof google;
-  }
-}
+// Vite worker setup (once per page load).
+setWorkerUrl(workerUrl);
 
-const API_KEY = import.meta.env.VITE_FRONTEND_FORGE_API_KEY;
-const FORGE_BASE_URL =
-  import.meta.env.VITE_FRONTEND_FORGE_API_URL ||
-  "https://forge.butterfly-effect.dev";
-const MAPS_PROXY_URL = `${FORGE_BASE_URL}/v1/maps/proxy`;
+/** OpenFreeMap vector styles. */
+export const OPENFREEMAP_STYLES = {
+  liberty: "https://tiles.openfreemap.org/styles/liberty",
+  bright: "https://tiles.openfreemap.org/styles/bright",
+  positron: "https://tiles.openfreemap.org/styles/positron",
+} as const;
 
-function loadMapScript() {
-  return new Promise(resolve => {
-    const script = document.createElement("script");
-    script.src = `${MAPS_PROXY_URL}/maps/api/js?key=${API_KEY}&v=weekly&libraries=marker,places,geocoding,geometry`;
-    script.async = true;
-    script.crossOrigin = "anonymous";
-    script.onload = () => {
-      resolve(null);
-      script.remove(); // Clean up immediately
-    };
-    script.onerror = () => {
-      console.error("Failed to load Google Maps script");
-    };
-    document.head.appendChild(script);
-  });
-}
+export type MapLatLng = { lat: number; lng: number };
 
 interface MapViewProps {
   className?: string;
-  initialCenter?: google.maps.LatLngLiteral;
+  initialCenter?: MapLatLng;
   initialZoom?: number;
-  onMapReady?: (map: google.maps.Map) => void;
+  /** One of the OpenFreeMap styles, or a full style URL you host yourself. */
+  mapStyle?: keyof typeof OPENFREEMAP_STYLES | (string & {});
+  onMapReady?: (map: MapLibreMap) => void;
 }
 
 export function MapView({
   className,
   initialCenter = { lat: 37.7749, lng: -122.4194 },
   initialZoom = 12,
+  mapStyle = "liberty",
   onMapReady,
 }: MapViewProps) {
-  const mapContainer = useRef<HTMLDivElement>(null);
-  const map = useRef<google.maps.Map | null>(null);
-
-  const init = usePersistFn(async () => {
-    await loadMapScript();
-    if (!mapContainer.current) {
-      console.error("Map container not found");
-      return;
-    }
-    map.current = new window.google.maps.Map(mapContainer.current, {
-      zoom: initialZoom,
-      center: initialCenter,
-      mapTypeControl: true,
-      fullscreenControl: true,
-      zoomControl: true,
-      streetViewControl: true,
-      mapId: "DEMO_MAP_ID",
-    });
-    if (onMapReady) {
-      onMapReady(map.current);
-    }
-  });
+  const container = useRef<HTMLDivElement>(null);
+  // Keep the latest callback without re-creating the map when it changes.
+  const onReady = useRef(onMapReady);
+  onReady.current = onMapReady;
 
   useEffect(() => {
-    init();
-  }, [init]);
+    if (!container.current) return;
+    const style =
+      mapStyle in OPENFREEMAP_STYLES
+        ? OPENFREEMAP_STYLES[mapStyle as keyof typeof OPENFREEMAP_STYLES]
+        : mapStyle;
+    // MapLibre takes [longitude, latitude].
+    const map = new MapLibreMap({
+      container: container.current,
+      style,
+      center: [initialCenter.lng, initialCenter.lat],
+      zoom: initialZoom,
+    });
+    map.addControl(new NavigationControl({ showCompass: false }), "top-right");
+    onReady.current?.(map);
+    return () => map.remove();
+    // The map is created once per mount; later prop changes are not applied.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  return (
-    <div ref={mapContainer} className={cn("w-full h-[500px]", className)} />
-  );
+  return <div ref={container} className={cn("w-full h-[500px]", className)} />;
 }

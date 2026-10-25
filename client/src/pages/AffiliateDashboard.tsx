@@ -823,7 +823,7 @@ function CredentialsPanel({ affiliate, storeUrl, refLink, onCopy }: CredentialsP
                 <Copy className="h-4 w-4" />
               </Button>
             </div>
-            <p className="text-xs text-muted-foreground">Log in with your Manus account to access this dashboard.</p>
+            <p className="text-xs text-muted-foreground">Sign in with your Cabinet Dealz account to access this dashboard.</p>
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground">Referral Code</Label>

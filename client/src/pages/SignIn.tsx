@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { TRPCClientError } from "@trpc/client";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
-import { getLoginUrl, isSafeSiteReturnPath, type LoginProvider } from "@/const";
+import { supabase } from "@/lib/supabase";
+import { isSafeSiteReturnPath } from "@/const";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -37,48 +38,6 @@ function GoogleGlyph() {
   );
 }
 
-function AppleGlyph() {
-  return (
-    <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden="true" fill="currentColor">
-      <path d="M16.36 12.94c-.02-2.18 1.78-3.23 1.86-3.28-1.02-1.49-2.6-1.69-3.16-1.71-1.34-.14-2.62.79-3.3.79-.68 0-1.73-.77-2.85-.75-1.46.02-2.82.85-3.57 2.16-1.53 2.65-.39 6.56 1.09 8.71.73 1.05 1.59 2.23 2.73 2.19 1.1-.04 1.51-.71 2.84-.71 1.32 0 1.69.71 2.85.69 1.18-.02 1.93-1.07 2.65-2.13.84-1.22 1.18-2.4 1.2-2.46-.03-.01-2.3-.88-2.32-3.49zM14.2 6.36c.6-.73 1.01-1.74.9-2.75-.87.04-1.93.58-2.55 1.31-.56.65-1.05 1.69-.92 2.68.97.08 1.96-.5 2.57-1.24z" />
-    </svg>
-  );
-}
-
-function MicrosoftGlyph() {
-  return (
-    <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden="true">
-      <path fill="#F25022" d="M1 1h10v10H1z" />
-      <path fill="#7FBA00" d="M13 1h10v10H13z" />
-      <path fill="#00A4EF" d="M1 13h10v10H1z" />
-      <path fill="#FFB900" d="M13 13h10v10H13z" />
-    </svg>
-  );
-}
-
-function SocialButton({
-  provider,
-  label,
-  children,
-}: {
-  provider: LoginProvider;
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <a href={getLoginUrl(provider)} className="block">
-      <Button
-        type="button"
-        variant="outline"
-        className="w-full bg-background gap-2 font-medium"
-      >
-        {children}
-        {label}
-      </Button>
-    </a>
-  );
-}
-
 export default function SignIn() {
   const utils = trpc.useUtils();
   const { t, lang } = useLanguage();
@@ -100,63 +59,88 @@ export default function SignIn() {
   const [showSignupPw, setShowSignupPw] = useState(false);
   const [showConfirmPw, setShowConfirmPw] = useState(false);
 
-  const afterAuth = async () => {
-    await utils.auth.me.invalidate();
-    // Fetch fresh user to determine a safe same-host destination. A full
-    // document navigation deliberately remounts the shared header so it reads
-    // the newly-issued host-only session cookie instead of retaining a prior
-    // anonymous auth.me query while entering the Designer.
-    let me = await utils.auth.me.fetch();
-    if (!me) {
-      // A just-written secure cookie can take one browser task to become
-      // visible to the following tRPC request. Retry once before deciding the
-      // session was not established; never open a requested Designer route
-      // with an anonymous header.
-      await new Promise((resolve) => window.setTimeout(resolve, 150));
-      await utils.auth.me.invalidate();
-      me = await utils.auth.me.fetch();
-    }
-    if (!me) {
-      toast.error("Your sign-in session could not be confirmed. Please try again.");
-      return;
-    }
-    toast.success("Signed in successfully.");
-    const requestedReturn = new URLSearchParams(window.location.search).get("returnTo");
-    const destination = isSafeSiteReturnPath(requestedReturn)
-      ? requestedReturn
-      : (me as { role?: string }).role === "distributor"
-        ? "/vendor"
-        : (me as { role?: string }).role === "admin"
-          ? "/admin"
-          : "/account";
-    window.location.assign(destination);
+  const [pending, setPending] = useState<"login" | "signup" | "reset" | "google" | null>(null);
+  const finishing = useRef(false);
+
+  const requestedReturn = () => {
+    const value = new URLSearchParams(window.location.search).get("returnTo");
+    return isSafeSiteReturnPath(value) ? value : null;
   };
 
-  const loginMutation = trpc.emailAuth.login.useMutation({
-    onSuccess: afterAuth,
-    onError: (e) => toast.error(errMessage(e, "Unable to sign in.")),
-  });
+  const afterAuth = async () => {
+    if (finishing.current) return;
+    finishing.current = true;
+    try {
+      // The server links or creates the users row on this first authenticated
+      // request, then picks a safe destination (affiliate owners go to their
+      // Affiliate Administration). A full navigation remounts the header.
+      await utils.auth.me.invalidate();
+      const me = await utils.auth.me.fetch();
+      if (!me) {
+        toast.error("Your sign-in could not be confirmed. Please try again.");
+        return;
+      }
+      const { destination } = await utils.auth.signInDestination.fetch({ returnPath: requestedReturn() });
+      toast.success("Signed in successfully.");
+      window.location.assign(destination);
+    } catch (e) {
+      toast.error(errMessage(e, "Your sign-in could not be confirmed. Please try again."));
+    } finally {
+      finishing.current = false;
+    }
+  };
 
-  const signupMutation = trpc.emailAuth.signup.useMutation({
-    onSuccess: afterAuth,
-    onError: (e) => toast.error(errMessage(e, "Unable to create account.")),
-  });
+  // Returning from Google (or an email-confirmation link) lands here with a
+  // Supabase session already established from the URL.
+  useEffect(() => {
+    void supabase.auth.getSession().then(({ data }) => {
+      if (data.session) void afterAuth();
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  const resetMutation = trpc.emailAuth.requestPasswordReset.useMutation({
-    onSuccess: () => toast.success("If that email is registered, a reset link is on its way."),
-    onError: (e) => toast.error(errMessage(e, "Unable to request a password reset.")),
-  });
+  // Supabase emails and OAuth come back to this same page (and same origin,
+  // so affiliate subdomains keep their own session), preserving returnTo.
+  const authRedirectUrl = () => {
+    const url = new URL("/signin", window.location.origin);
+    const returnTo = requestedReturn();
+    if (returnTo) url.searchParams.set("returnTo", returnTo);
+    return url.toString();
+  };
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleGoogle = async () => {
+    setPending("google");
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: authRedirectUrl() },
+    });
+    if (error) {
+      setPending(null);
+      toast.error(errMessage(error, "Unable to start Google sign-in."));
+    }
+  };
+
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!loginEmail || !loginPassword) {
       toast.error("Enter your email and password.");
       return;
     }
-    loginMutation.mutate({ email: loginEmail, password: loginPassword });
+    setPending("login");
+    const { error } = await supabase.auth.signInWithPassword({
+      email: loginEmail.trim(),
+      password: loginPassword,
+    });
+    if (error) {
+      setPending(null);
+      toast.error(errMessage(error, "Unable to sign in."));
+      return;
+    }
+    await afterAuth();
+    setPending(null);
   };
 
-  const handleSignup = (e: React.FormEvent) => {
+  const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!signupEmail || !signupPassword) {
       toast.error("Email and password are required.");
@@ -170,22 +154,48 @@ export default function SignIn() {
       toast.error("Passwords do not match.");
       return;
     }
-    signupMutation.mutate({
-      email: signupEmail,
+    setPending("signup");
+    const { data, error } = await supabase.auth.signUp({
+      email: signupEmail.trim(),
       password: signupPassword,
-      name: name || undefined,
-      companyName: companyName || undefined,
+      options: {
+        emailRedirectTo: authRedirectUrl(),
+        // Read by the server when it creates the users row.
+        data: { name: name.trim() || undefined, companyName: companyName.trim() || undefined },
+      },
     });
+    if (error) {
+      setPending(null);
+      toast.error(errMessage(error, "Unable to create account."));
+      return;
+    }
+    if (!data.session) {
+      // Email confirmation is on: the account becomes usable from the link.
+      setPending(null);
+      toast.success("Check your email to confirm your account, then sign in.");
+      return;
+    }
+    await afterAuth();
+    setPending(null);
   };
 
-  const handleResetRequest = (e: React.FormEvent) => {
+  const handleResetRequest = async (e: React.FormEvent) => {
     e.preventDefault();
     const email = resetEmail.trim() || loginEmail.trim();
     if (!email) {
       toast.error("Enter the account email first.");
       return;
     }
-    resetMutation.mutate({ email });
+    setPending("reset");
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: new URL("/reset-password", window.location.origin).toString(),
+    });
+    setPending(null);
+    if (error) {
+      toast.error(errMessage(error, "Unable to request a password reset."));
+      return;
+    }
+    toast.success("If that email is registered, a reset link is on its way.");
   };
 
   return (
@@ -242,9 +252,9 @@ export default function SignIn() {
                 <Button
                   type="submit"
                   className="w-full"
-                  disabled={loginMutation.isPending}
+                  disabled={pending !== null}
                 >
-                  {loginMutation.isPending ? (
+                  {pending === "login" ? (
                     <Spinner className="h-4 w-4" />
                   ) : (
                     "Sign In"
@@ -278,8 +288,8 @@ export default function SignIn() {
                       required
                     />
                   </div>
-                  <Button type="submit" variant="outline" className="w-full" disabled={resetMutation.isPending}>
-                    {resetMutation.isPending ? "Sending reset link…" : "Email password-reset link"}
+                  <Button type="submit" variant="outline" className="w-full" disabled={pending !== null}>
+                    {pending === "reset" ? "Sending reset link…" : "Email password-reset link"}
                   </Button>
                 </form>
               )}
@@ -369,9 +379,9 @@ export default function SignIn() {
                 <Button
                   type="submit"
                   className="w-full"
-                  disabled={signupMutation.isPending}
+                  disabled={pending !== null}
                 >
-                  {signupMutation.isPending ? (
+                  {pending === "signup" ? (
                     <Spinner className="h-4 w-4" />
                   ) : (
                     "Create Account"
@@ -383,27 +393,20 @@ export default function SignIn() {
 
           <div className="my-6 flex items-center gap-3">
             <div className="h-px flex-1 bg-border" />
-            <span className="text-xs uppercase tracking-wide text-muted-foreground">
-              optional connected account
-            </span>
+            <span className="text-xs uppercase tracking-wide text-muted-foreground">or</span>
             <div className="h-px flex-1 bg-border" />
           </div>
 
-          <div className="space-y-2">
-            <SocialButton provider="google" label="Continue with Google">
-              <GoogleGlyph />
-            </SocialButton>
-            <SocialButton provider="apple" label="Continue with Apple">
-              <AppleGlyph />
-            </SocialButton>
-            <SocialButton provider="microsoft" label="Continue with Microsoft">
-              <MicrosoftGlyph />
-            </SocialButton>
-          </div>
-
-          <p className="mt-4 text-center text-xs text-muted-foreground">
-            Email and password sign-in stays on CabinetDealz. Connected-account buttons are optional.
-          </p>
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full bg-background gap-2 font-medium"
+            onClick={handleGoogle}
+            disabled={pending !== null}
+          >
+            {pending === "google" ? <Spinner className="h-4 w-4" /> : <GoogleGlyph />}
+            Continue with Google
+          </Button>
         </CardContent>
       </Card>
     </div>

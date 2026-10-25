@@ -1,6 +1,7 @@
 import type { Express, Request, Response } from "express";
 import { Readable } from "stream";
 import { ENV } from "./env";
+import { storageFetchObject } from "../storage";
 
 /** Storage may label extensionless media-library photos as octet-stream. */
 export function imageMimeFromBytes(bytes: Uint8Array): string | null {
@@ -19,34 +20,23 @@ export function registerStorageProxy(app: Express) {
       return;
     }
 
-    if (!ENV.forgeApiUrl || !ENV.forgeApiKey) {
+    if (!ENV.supabaseUrl || !ENV.supabaseServiceRoleKey) {
       res.status(500).send("Storage proxy not configured");
       return;
     }
 
     try {
-      const forgeUrl = new URL("v1/storage/presign/get", ENV.forgeApiUrl.replace(/\/+$/, "") + "/");
-      forgeUrl.searchParams.set("path", key);
-      const forgeResp = await fetch(forgeUrl, {
-        headers: { Authorization: `Bearer ${ENV.forgeApiKey}` },
-      });
-      if (!forgeResp.ok) {
-        const body = await forgeResp.text().catch(() => "");
-        console.error(`[StorageProxy] forge error: ${forgeResp.status} ${body}`);
-        res.status(502).send("Storage backend error");
+      // Stream original bytes from Supabase Storage, never substitute another image.
+      const imageResp = await storageFetchObject(key);
+      if (imageResp.status === 400 || imageResp.status === 404) {
+        // Supabase answers a missing object with 400 or 404.
+        res.status(404).send("File not found");
         return;
       }
-
-      const { url } = (await forgeResp.json()) as { url: string };
-      if (!url) {
-        res.status(502).send("Empty signed URL from backend");
-        return;
-      }
-
-      // Stream original bytes from the signed source, never substitute another image.
-      const imageResp = await fetch(url);
       if (!imageResp.ok) {
-        res.status(502).send("Failed to fetch image from storage");
+        const body = await imageResp.text().catch(() => "");
+        console.error(`[StorageProxy] storage error: ${imageResp.status} ${body.slice(0, 200)}`);
+        res.status(502).send("Failed to fetch file from storage");
         return;
       }
       if (!imageResp.body) {

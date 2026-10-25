@@ -114,9 +114,7 @@ export function TopNav() {
   const handleLogout = async () => {
     try {
       await logout();
-      // Remove only the transient auth snapshot. Saved Designer drafts and
-      // customer cart data remain available for the next sign-in.
-      window.localStorage.removeItem("manus-runtime-user-info");
+      // Saved Designer drafts and customer cart data stay available for the next sign-in.
       setMobileOpen(false);
       toast.success(t("acc_signed_out"));
       if (location !== "/") window.location.assign("/");

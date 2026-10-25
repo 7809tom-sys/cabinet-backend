@@ -1,14 +1,15 @@
 export const ENV = {
-  appId: process.env.VITE_APP_ID ?? "",
   cookieSecret: process.env.JWT_SECRET ?? "",
   databaseUrl: process.env.DATABASE_URL ?? "",
-  oAuthServerUrl: process.env.OAUTH_SERVER_URL ?? "",
+  // Supabase Auth: HS256 secret used to verify `Authorization: Bearer` access tokens.
+  supabaseJwtSecret: process.env.SUPABASE_JWT_SECRET ?? "",
+  supabaseUrl: process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL ?? "",
+  // Server-only admin key. Never expose through Vite.
+  supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY ?? "",
   ownerOpenId: process.env.OWNER_OPEN_ID ?? "",
   // Email auto-promoted to admin when it signs up via email/password.
   ownerEmail: process.env.OWNER_EMAIL ?? "7809tom@gmail.com",
   isProduction: process.env.NODE_ENV === "production",
-  forgeApiUrl: process.env.BUILT_IN_FORGE_API_URL ?? "",
-  forgeApiKey: process.env.BUILT_IN_FORGE_API_KEY ?? "",
   // Optional outbound CRM webhook (Zapier / Make / GoHighLevel / any CRM). When
   // set, business events (lead / design saved / order submitted) are POSTed here.
   // Only honor a real http(s) URL. A stray value (e.g. a placeholder word) is
@@ -36,6 +37,8 @@ export const ENV = {
   // Gemini Nano Banana image generation is server-only. Never expose this key
   // through Vite or return it from an administrator status endpoint.
   geminiApiKey: process.env.GEMINI_API_KEY ?? "",
+  // Google Maps Platform key for server-side geocoding (shipping/location checks).
+  googleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY ?? "",
   // ElevenLabs supports approved server-mediated audio workflows only. Never
   // publish this credential through Vite or return it from status procedures.
   elevenLabsApiKey: process.env.ELEVENLABS_API_KEY ?? "",

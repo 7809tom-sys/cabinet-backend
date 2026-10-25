@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { and, eq, sql, ne } from "drizzle-orm";
+import { and, eq, isNull, or, sql, ne } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { InsertUser, users, cabinets, vendorLines, distributors, distributorSkus } from "../drizzle/schema";
 import { ENV } from './_core/env';
@@ -181,6 +181,36 @@ export async function getUserByOpenId(openId: string) {
   return result.length > 0 ? result[0] : undefined;
 }
 
+// ─── Supabase Auth helpers ────────────────────────────────────────────────────
+
+export async function getUserByAuthId(authId: string) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(users).where(eq(users.authId, authId)).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+/**
+ * Link a users row to a Supabase auth user and record the provider that
+ * actually authenticated. Never overwrites an existing different authId.
+ */
+export async function linkUserAuthId(
+  userId: number,
+  authId: string,
+  loginMethod: string | null
+) {
+  const db = await getDb();
+  if (!db) return;
+  await db
+    .update(users)
+    .set({
+      authId,
+      lastSignedIn: new Date(),
+      ...(loginMethod ? { loginMethod } : {}),
+    })
+    .where(and(eq(users.id, userId), or(isNull(users.authId), eq(users.authId, authId))));
+}
+
 // ─── Email/password auth helpers ──────────────────────────────────────────────
 
 export async function getUserByEmailLower(emailLower: string) {
@@ -229,10 +259,13 @@ async function approvedVendorAccessForEmail(
 export async function createEmailUser(params: {
   email: string;
   emailLower: string;
-  passwordHash: string;
+  // Null for Supabase Auth accounts, whose credentials live in Supabase.
+  passwordHash: string | null;
   name?: string | null;
   companyName?: string | null;
   inviteToken?: string | null;
+  authId?: string | null;
+  loginMethod?: string | null;
 }): Promise<{ id: number; openId: string } | null> {
   const db = await getDb();
   if (!db) return null;
@@ -297,7 +330,8 @@ export async function createEmailUser(params: {
     email: params.email,
     emailLower: params.emailLower,
     passwordHash: params.passwordHash,
-    loginMethod: "password",
+    authId: params.authId ?? null,
+    loginMethod: params.loginMethod ?? "password",
     companyName: params.companyName ?? null,
     role,
     distributorId,
@@ -360,32 +394,6 @@ export async function synchronizeApprovedVendorLogin<T extends { id: number; rol
     distributorId: approvedVendorAccess.distributorId,
     approvedVendorLineId: approvedVendorAccess.vendorLineId,
   };
-}
-
-export async function recordLoginResult(
-  userId: number,
-  ok: boolean,
-  lockedUntil?: Date | null
-): Promise<void> {
-  const db = await getDb();
-  if (!db) return;
-  if (ok) {
-    await db
-      .update(users)
-      .set({ failedLoginAttempts: 0, lockedUntil: null, lastSignedIn: new Date() })
-      .where(eq(users.id, userId));
-  } else {
-    await db
-      .update(users)
-      .set({ failedLoginAttempts: sql`${users.failedLoginAttempts} + 1`, lockedUntil: lockedUntil ?? null })
-      .where(eq(users.id, userId));
-  }
-}
-
-export async function setPasswordHash(userId: number, passwordHash: string): Promise<void> {
-  const db = await getDb();
-  if (!db) return;
-  await db.update(users).set({ passwordHash }).where(eq(users.id, userId));
 }
 
 // ─── Pricing & Margins ────────────────────────────────────────────────────────

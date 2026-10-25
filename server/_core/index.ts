@@ -4,42 +4,22 @@ import { createServer } from "http";
 import { affiliateSlugFromHostCandidates, affiliateStorefrontPath, isAffiliateStorefrontBypassPath } from "../lib/affiliateSubdomain";
 import net from "net";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
-import { registerOAuthRoutes } from "./oauth";
 import { registerQboRoutes } from "../qboOAuth";
 import { registerStorageProxy } from "./storageProxy";
 import { registerSharedRoomPreviewRoutes } from "../sharedRoomPreview";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
-import { serveStatic, setupVite } from "./vite";
+import { serveStatic, setupVite, whiteLabelAffiliateHtml } from "./vite";
 import { registerSeoRoutes } from "../seo";
 import { apexRedirectMiddleware } from "../apexRedirect";
 import fs from "fs";
 import path from "path";
 import { registerStripeWebhook } from "../stripeWebhook";
 import { sdk } from "./sdk";
+import cron from "node-cron";
+import { corsMiddleware } from "../lib/cors";
+import { getFrontendShell } from "../lib/frontendShell";
 import { recoverDueGeminiImageTestJobs } from "../routers/designPhotoRenders";
-
-// Resolve the build version once at startup. The framework emits a build stamp
-// at client/public/__manus__/version.json during the build; if present we use
-// it, otherwise we fall back to the server boot time so dev still works.
-function resolveAppVersion(): string {
-  const candidates = [
-    path.resolve(process.cwd(), "dist/public/__manus__/version.json"),
-    path.resolve(process.cwd(), "client/public/__manus__/version.json"),
-  ];
-  for (const p of candidates) {
-    try {
-      const raw = fs.readFileSync(p, "utf8");
-      const data = JSON.parse(raw) as { version?: string };
-      if (data && typeof data.version === "string") return data.version;
-    } catch {
-      // ignore and try next
-    }
-  }
-  return `boot-${Date.now()}`;
-}
-
-const APP_VERSION = resolveAppVersion();
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -74,6 +54,9 @@ async function startServer() {
     res.set("Cache-Control", "no-store");
     res.status(200).json({ ok: true });
   });
+  // Cross-origin access for the separately hosted frontend. Before every other
+  // middleware so preflight requests are answered before host-based routing.
+  app.use(corsMiddleware());
   // Redirect the naked apex domain (cabinetdealz.com) to https://www.cabinetdealz.com.
   // No-op for localhost, *.manus.space/.manus.computer, and the www host, so it is
   // safe to run before everything else.
@@ -116,22 +99,7 @@ async function startServer() {
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
   registerStorageProxy(app);
   registerSharedRoomPreviewRoutes(app);
-  registerOAuthRoutes(app);
   registerQboRoutes(app);
-  // This project-level callback is invoked by a managed once-per-minute job.
-  // It uses the durable database queue; no browser session or in-process timer
-  // is required for an administrator Google image test to finish.
-  app.post("/api/scheduled/recover-gemini-image-tests", async (req, res) => {
-    try {
-      const user = await sdk.authenticateCronRequest(req);
-      if (!user.isCron || !user.taskUid) return res.status(403).json({ error: "cron-only" });
-      const result = await recoverDueGeminiImageTestJobs();
-      return res.json({ ok: true, ...result });
-    } catch (error) {
-      console.error("[Google image test recovery] Scheduled job failed", error instanceof Error ? error.name : "unknown error");
-      return res.status(500).json({ error: "Google image test recovery failed" });
-    }
-  });
   // tRPC API
   app.use(
     "/api/trpc",
@@ -147,14 +115,28 @@ async function startServer() {
   // SEO: dynamic robots.txt + sitemap.xml (must be registered before the
   // Vite/static SPA fallback so they aren't swallowed by the catch-all).
   registerSeoRoutes(app);
-  // Build-version endpoint for the client-side stale-cache watcher. Registered
-  // before the SPA fallback so it always returns JSON (never the HTML shell).
-  app.get("/__manus__/app-version.json", (_req, res) => {
-    res.set("Cache-Control", "no-store, no-cache, must-revalidate");
-    res.json({ version: APP_VERSION });
+  // Page shell for the Vercel-hosted frontend: Vercel forwards /store/* and /3d/*
+  // here so the backend can inject affiliate branding and share previews into
+  // the built index.html (fetched from FRONTEND_SHELL_URL). See DEPLOY.md.
+  app.get("/_shell/*", async (req, res) => {
+    const requestPath = req.originalUrl.slice("/_shell".length) || "/";
+    const shell = await getFrontendShell();
+    if (!shell) return res.status(502).type("text/plain").send("Frontend shell unavailable");
+    try {
+      const page = await whiteLabelAffiliateHtml(shell, requestPath, req);
+      res.setHeader("Content-Type", "text/html; charset=UTF-8");
+      res.setHeader("Cache-Control", "public, max-age=0, must-revalidate");
+      return res.send(page);
+    } catch (error) {
+      console.error("[Shell] head injection failed", error instanceof Error ? error.name : "unknown error");
+      return res.status(200).type("html").send(shell);
+    }
   });
   // development mode uses Vite, production mode uses static files
-  if (process.env.NODE_ENV === "development") {
+  if (process.env.SERVE_CLIENT === "false") {
+    // API-only deployment (Railway): the frontend is a separate static site.
+    app.use((_req, res) => res.status(404).json({ error: "Not found" }));
+  } else if (process.env.NODE_ENV === "development") {
     await setupVite(app, server);
   } else {
     serveStatic(app);
@@ -174,6 +156,22 @@ async function startServer() {
   server.listen(port, () => {
     console.log(`Server running on http://localhost:${port}/`);
   });
+
+  // Recover queued/pending Google image-test jobs every minute. The work comes
+  // from the durable database queue and is guarded per job, so a missed tick or
+  // a restart only delays recovery. America/Chicago keeps any future
+  // wall-clock schedules correct across daylight-saving changes.
+  cron.schedule(
+    "* * * * *",
+    async () => {
+      try {
+        await recoverDueGeminiImageTestJobs();
+      } catch (error) {
+        console.error("[Google image test recovery] Scheduled job failed", error instanceof Error ? error.name : "unknown error");
+      }
+    },
+    { timezone: "America/Chicago", noOverlap: true },
+  );
 }
 
 startServer().catch(console.error);

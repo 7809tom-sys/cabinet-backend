@@ -13,9 +13,9 @@ import { Droplets, ShowerHead, ChefHat, ArrowRight, Sparkles, PaintBucket, Shopp
 import { EditableText } from "@/components/admin/EditableText";
 import { useCart } from "@/contexts/CartContext";
 
-const HERO_KITCHEN = "https://d2xsxph8kpxj0f.cloudfront.net/310519663775888316/DQ7pUcbPFvKvFZ8JnyMs4M/stonecreek-kitchen-hero-GNgNkcBRXKeBwSEoXrBMBg.webp";
-const HERO_BATH = "https://d2xsxph8kpxj0f.cloudfront.net/310519663775888316/DQ7pUcbPFvKvFZ8JnyMs4M/stonecreek-bath-hero-fCp9GA4H5XXQNmpgUdMiWg.webp";
-const HERO_DETAIL = "https://d2xsxph8kpxj0f.cloudfront.net/310519663775888316/DQ7pUcbPFvKvFZ8JnyMs4M/stonecreek-lifestyle-detail-ksbNiy4yt4dWyBSzZDyKV4.webp";
+const HERO_KITCHEN = "/manus-storage/legacy-cdn/stonecreek-kitchen-hero-GNgNkcBRXKeBwSEoXrBMBg.webp";
+const HERO_BATH = "/manus-storage/legacy-cdn/stonecreek-bath-hero-fCp9GA4H5XXQNmpgUdMiWg.webp";
+const HERO_DETAIL = "/manus-storage/legacy-cdn/stonecreek-lifestyle-detail-ksbNiy4yt4dWyBSzZDyKV4.webp";
 
 type FaucetTab = "kitchen" | "bathroom" | "sinks";
 const FINISHES = ["All", "Matte Black", "Brushed Nickel", "Chrome", "Brushed Gold", "Oil Rubbed Bronze"] as const;

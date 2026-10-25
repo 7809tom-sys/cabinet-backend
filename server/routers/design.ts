@@ -139,7 +139,7 @@ type RemoteDesignSharePayload = {
 };
 
 function remoteDesignShareSecret() {
-  return ENV.cookieSecret || ENV.appId || "cabinet-dealz-remote-design-share-dev";
+  return ENV.cookieSecret || "cabinet-dealz-remote-design-share-dev";
 }
 
 function encodeRemoteDesignSharePayload(payload: RemoteDesignSharePayload) {

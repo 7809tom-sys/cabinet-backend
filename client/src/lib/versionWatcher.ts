@@ -2,8 +2,8 @@
 //
 // Detects when a newer build of the app has been deployed and gently prompts
 // the user to refresh, so nobody gets stuck on a stale, cached version of the
-// site. The framework emits a build stamp at /__manus__/version.json
-// (e.g. { "version": "9f2b7673", "timestamp": 1782513477461 }).
+// site. The frontend build writes /version.json (e.g. { "version": "9f2b7673" });
+// it changes only when a new frontend build is deployed.
 //
 // Design goals:
 // - Make a new build visible immediately, including while a Designer panel or
@@ -14,7 +14,7 @@
 
 export type VersionInfo = { version?: string; timestamp?: number };
 
-const VERSION_URL = "/__manus__/app-version.json";
+const VERSION_URL = "/version.json";
 // How often to check while the tab is visible.
 const POLL_MS = 5 * 60 * 1000; // 5 minutes
 

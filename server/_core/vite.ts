@@ -3,9 +3,7 @@ import fs from "fs";
 import { type Server } from "http";
 import { nanoid } from "nanoid";
 import path from "path";
-import { createServer as createViteServer } from "vite";
 import { eq } from "drizzle-orm";
-import viteConfig from "../../vite.config";
 import { getDb } from "../db";
 import { affiliates } from "../../drizzle/schema";
 import { injectAffiliateWhiteLabelHead } from "../lib/affiliateWhiteLabelHead";
@@ -38,7 +36,7 @@ function isIndexableAffiliatePath(requestPath: string, slug: string): boolean {
   return pathname === `/store/${slug}` || pathname === `/store/${slug}/kitchens` || pathname === `/store/${slug}/bundles`;
 }
 
-async function whiteLabelAffiliateHtml(
+export async function whiteLabelAffiliateHtml(
   html: string,
   requestPath: string,
   req: express.Request,
@@ -98,6 +96,11 @@ async function whiteLabelAffiliateHtml(
 }
 
 export async function setupVite(app: Express, server: Server) {
+  // Dev-only tooling is loaded lazily so a production API server never needs it.
+  const [{ createServer: createViteServer }, { default: viteConfig }] = await Promise.all([
+    import("vite"),
+    import("../../vite.config"),
+  ]);
   const serverOptions = {
     middlewareMode: true,
     hmr: { server },

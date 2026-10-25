@@ -1,357 +1,147 @@
-import { AXIOS_TIMEOUT_MS, COOKIE_NAME, ONE_YEAR_MS } from "@shared/const";
+import { AXIOS_TIMEOUT_MS } from "@shared/const";
 import { ForbiddenError } from "@shared/_core/errors";
-import axios, { type AxiosInstance } from "axios";
-import { parse as parseCookieHeader } from "cookie";
+import axios from "axios";
 import type { Request } from "express";
-import { SignJWT, jwtVerify } from "jose";
+import { jwtVerify } from "jose";
 import type { User } from "../../drizzle/schema";
 import * as db from "../db";
 import { ENV } from "./env";
-import type {
-  ExchangeTokenRequest,
-  ExchangeTokenResponse,
-  GetUserInfoResponse,
-  GetUserInfoWithJwtRequest,
-  GetUserInfoWithJwtResponse,
-} from "./types/manusTypes";
 // Utility function
 const isNonEmptyString = (value: unknown): value is string =>
   typeof value === "string" && value.length > 0;
 
-export type SessionPayload = {
-  openId: string;
-  appId: string;
-  name: string;
-};
-
-const EXCHANGE_TOKEN_PATH = `/webdev.v1.WebDevAuthPublicService/ExchangeToken`;
-const GET_USER_INFO_PATH = `/webdev.v1.WebDevAuthPublicService/GetUserInfo`;
-const GET_USER_INFO_WITH_JWT_PATH = `/webdev.v1.WebDevAuthPublicService/GetUserInfoWithJwt`;
-
-class OAuthService {
-  constructor(private client: ReturnType<typeof axios.create>) {
-    console.log("[OAuth] Initialized with baseURL:", ENV.oAuthServerUrl);
-    if (!ENV.oAuthServerUrl) {
-      console.error(
-        "[OAuth] ERROR: OAUTH_SERVER_URL is not configured! Set OAUTH_SERVER_URL environment variable."
-      );
-    }
-  }
-
-  private decodeState(state: string): string {
-    const redirectUri = atob(state);
-    return redirectUri;
-  }
-
-  async getTokenByCode(
-    code: string,
-    state: string
-  ): Promise<ExchangeTokenResponse> {
-    const payload: ExchangeTokenRequest = {
-      clientId: ENV.appId,
-      grantType: "authorization_code",
-      code,
-      redirectUri: this.decodeState(state),
-    };
-
-    const { data } = await this.client.post<ExchangeTokenResponse>(
-      EXCHANGE_TOKEN_PATH,
-      payload
-    );
-
-    return data;
-  }
-
-  async getUserInfoByToken(
-    token: ExchangeTokenResponse
-  ): Promise<GetUserInfoResponse> {
-    const { data } = await this.client.post<GetUserInfoResponse>(
-      GET_USER_INFO_PATH,
-      {
-        accessToken: token.accessToken,
-      }
-    );
-
-    return data;
-  }
-}
-
-const createOAuthHttpClient = (): AxiosInstance =>
-  axios.create({
-    baseURL: ENV.oAuthServerUrl,
-    timeout: AXIOS_TIMEOUT_MS,
-  });
-
+/**
+ * Request authentication. Users authenticate with a Supabase Auth access token
+ * (`Authorization: Bearer`); there are no application-signed session cookies.
+ */
 class SDKServer {
-  private readonly client: AxiosInstance;
-  private readonly oauthService: OAuthService;
-
-  constructor(client: AxiosInstance = createOAuthHttpClient()) {
-    this.client = client;
-    this.oauthService = new OAuthService(this.client);
-  }
-
-  private deriveLoginMethod(
-    platforms: unknown,
-    fallback: string | null | undefined
-  ): string | null {
-    if (fallback && fallback.length > 0) return fallback;
-    if (!Array.isArray(platforms) || platforms.length === 0) return null;
-    const set = new Set<string>(
-      platforms.filter((p): p is string => typeof p === "string")
-    );
-    if (set.has("REGISTERED_PLATFORM_EMAIL")) return "email";
-    if (set.has("REGISTERED_PLATFORM_GOOGLE")) return "google";
-    if (set.has("REGISTERED_PLATFORM_APPLE")) return "apple";
-    if (
-      set.has("REGISTERED_PLATFORM_MICROSOFT") ||
-      set.has("REGISTERED_PLATFORM_AZURE")
-    )
-      return "microsoft";
-    if (set.has("REGISTERED_PLATFORM_GITHUB")) return "github";
-    const first = Array.from(set)[0];
-    return first ? first.toLowerCase() : null;
-  }
-
   /**
-   * Exchange OAuth authorization code for access token
-   * @example
-   * const tokenResponse = await sdk.exchangeCodeForToken(code, state);
+   * Verify a Supabase Auth access token and return its subject (auth user id)
+   * and verified email, or null when the token is missing/invalid.
    */
-  async exchangeCodeForToken(
-    code: string,
-    state: string
-  ): Promise<ExchangeTokenResponse> {
-    return this.oauthService.getTokenByCode(code, state);
-  }
-
-  /**
-   * Get user information using access token
-   * @example
-   * const userInfo = await sdk.getUserInfo(tokenResponse.accessToken);
-   */
-  async getUserInfo(accessToken: string): Promise<GetUserInfoResponse> {
-    const data = await this.oauthService.getUserInfoByToken({
-      accessToken,
-    } as ExchangeTokenResponse);
-    const loginMethod = this.deriveLoginMethod(
-      (data as any)?.platforms,
-      (data as any)?.platform ?? data.platform ?? null
-    );
-    return {
-      ...(data as any),
-      platform: loginMethod,
-      loginMethod,
-    } as GetUserInfoResponse;
-  }
-
-  private parseCookies(cookieHeader: string | undefined) {
-    if (!cookieHeader) {
-      return new Map<string, string>();
-    }
-
-    const parsed = parseCookieHeader(cookieHeader);
-    return new Map(Object.entries(parsed));
-  }
-
-  private getSessionSecret() {
-    const secret = ENV.cookieSecret;
-    return new TextEncoder().encode(secret);
-  }
-
-  /**
-   * Create a session token for a Manus user openId
-   * @example
-   * const sessionToken = await sdk.createSessionToken(userInfo.openId);
-   */
-  async createSessionToken(
-    openId: string,
-    options: { expiresInMs?: number; name?: string } = {}
-  ): Promise<string> {
-    return this.signSession(
-      {
-        openId,
-        appId: ENV.appId,
-        name: options.name || "",
-      },
-      options
-    );
-  }
-
-  async signSession(
-    payload: SessionPayload,
-    options: { expiresInMs?: number } = {}
-  ): Promise<string> {
-    const issuedAt = Date.now();
-    const expiresInMs = options.expiresInMs ?? ONE_YEAR_MS;
-    const expirationSeconds = Math.floor((issuedAt + expiresInMs) / 1000);
-    const secretKey = this.getSessionSecret();
-
-    return new SignJWT({
-      openId: payload.openId,
-      appId: payload.appId,
-      name: payload.name,
-    })
-      .setProtectedHeader({ alg: "HS256", typ: "JWT" })
-      .setExpirationTime(expirationSeconds)
-      .sign(secretKey);
-  }
-
-  async verifySession(
-    cookieValue: string | undefined | null
-  ): Promise<{ openId: string; appId: string; name: string } | null> {
-    if (!cookieValue) {
-      console.warn("[Auth] Missing session cookie");
-      return null;
-    }
-
+  async verifySupabaseToken(
+    token: string
+  ): Promise<{
+    sub: string;
+    email: string;
+    provider: string | null;
+    name: string | null;
+    companyName: string | null;
+    inviteToken: string | null;
+  } | null> {
+    if (!ENV.supabaseJwtSecret) return null;
     try {
-      const secretKey = this.getSessionSecret();
-      const { payload } = await jwtVerify(cookieValue, secretKey, {
-        algorithms: ["HS256"],
-      });
-      const { openId, appId, name } = payload as Record<string, unknown>;
-
-      if (
-        !isNonEmptyString(openId) ||
-        !isNonEmptyString(appId) ||
-        !isNonEmptyString(name)
-      ) {
-        console.warn("[Auth] Session payload missing required fields");
-        return null;
-      }
-
+      const { payload } = await jwtVerify(
+        token,
+        new TextEncoder().encode(ENV.supabaseJwtSecret),
+        { algorithms: ["HS256"], audience: "authenticated" }
+      );
+      const { email, app_metadata, user_metadata } = payload as Record<string, any>;
+      if (!isNonEmptyString(payload.sub) || !isNonEmptyString(email)) return null;
+      const provider = app_metadata?.provider;
+      const pick = (value: unknown) => (isNonEmptyString(value) ? value.trim() : null);
       return {
-        openId,
-        appId,
-        name,
+        sub: payload.sub,
+        email: email.toLowerCase(),
+        provider: isNonEmptyString(provider) ? provider : null,
+        name: pick(user_metadata?.name) ?? pick(user_metadata?.full_name),
+        companyName: pick(user_metadata?.companyName),
+        inviteToken: pick(user_metadata?.inviteToken),
       };
     } catch (error) {
-      console.warn("[Auth] Session verification failed", String(error));
+      console.warn("[Auth] Supabase token verification failed", String(error));
       return null;
     }
   }
 
-  async getUserInfoWithJwt(
-    jwtToken: string
-  ): Promise<GetUserInfoWithJwtResponse> {
-    const payload: GetUserInfoWithJwtRequest = {
-      jwtToken,
-      projectId: ENV.appId,
+  private async authenticateSupabaseBearer(
+    req: Request
+  ): Promise<AuthenticatedUser | null> {
+    const header = req.headers.authorization;
+    if (!header?.startsWith("Bearer ")) return null;
+    const claims = await this.verifySupabaseToken(header.slice(7).trim());
+    if (!claims) throw ForbiddenError("Invalid Supabase token");
+
+    // Linked rows are found by authId; otherwise fall back to emailLower and
+    // link it, unless that row already belongs to another auth user.
+    let user = await db.getUserByAuthId(claims.sub);
+    if (!user) {
+      // Linking or creating a row trusts the email, so it must be confirmed in
+      // Supabase first. This runs once per auth user, on first sign-in.
+      if (!(await this.isSupabaseEmailConfirmed(claims.sub))) {
+        throw ForbiddenError("Email address is not confirmed");
+      }
+      const byEmail = await db.getUserByEmailLower(claims.email);
+      if (byEmail && byEmail.authId && byEmail.authId !== claims.sub) {
+        throw ForbiddenError("User is linked to a different account");
+      }
+      user = byEmail ?? (await this.createSupabaseUser(claims));
+    }
+    if (!user) throw ForbiddenError("User not found");
+    await db.linkUserAuthId(user.id, claims.sub, claims.provider);
+    // A vendor might have been approved after creating a normal account; this
+    // never changes admin or affiliate roles.
+    return db.synchronizeApprovedVendorLogin(user, claims.email);
+  }
+
+  /**
+   * First sign-in of a new Supabase account. createEmailUser applies the
+   * owner-email admin promotion, approved-vendor access and a supplier setup
+   * link (`inviteToken` from signup metadata) exactly as email signup did.
+   */
+  private async createSupabaseUser(
+    claims: NonNullable<Awaited<ReturnType<SDKServer["verifySupabaseToken"]>>>
+  ) {
+    const params = {
+      email: claims.email,
+      emailLower: claims.email,
+      passwordHash: null,
+      name: claims.name,
+      companyName: claims.companyName,
+      authId: claims.sub,
+      loginMethod: claims.provider,
     };
+    try {
+      await db.createEmailUser({ ...params, inviteToken: claims.inviteToken });
+    } catch (error) {
+      if (!claims.inviteToken) throw error;
+      // A used or invalid setup link must not lock the person out of their
+      // account; they get an ordinary account and can request a new link.
+      console.warn("[Auth] Supplier setup link rejected at first sign-in", String(error));
+      await db.createEmailUser(params);
+    }
+    return db.getUserByAuthId(claims.sub);
+  }
 
-    const { data } = await this.client.post<GetUserInfoWithJwtResponse>(
-      GET_USER_INFO_WITH_JWT_PATH,
-      payload
-    );
-
-    const loginMethod = this.deriveLoginMethod(
-      (data as any)?.platforms,
-      (data as any)?.platform ?? data.platform ?? null
-    );
-    return {
-      ...(data as any),
-      platform: loginMethod,
-      loginMethod,
-    } as GetUserInfoWithJwtResponse;
+  private async isSupabaseEmailConfirmed(authId: string): Promise<boolean> {
+    if (!ENV.supabaseUrl || !ENV.supabaseServiceRoleKey) return false;
+    try {
+      const { data } = await axios.get(
+        `${ENV.supabaseUrl}/auth/v1/admin/users/${encodeURIComponent(authId)}`,
+        {
+          headers: {
+            apikey: ENV.supabaseServiceRoleKey,
+            Authorization: `Bearer ${ENV.supabaseServiceRoleKey}`,
+          },
+          timeout: AXIOS_TIMEOUT_MS,
+        }
+      );
+      return Boolean(data?.email_confirmed_at);
+    } catch (error) {
+      console.warn("[Auth] Supabase user lookup failed", String(error));
+      return false;
+    }
   }
 
   async authenticateRequest(req: Request): Promise<AuthenticatedUser> {
-    // Regular authentication flow
-    const cookies = this.parseCookies(req.headers.cookie);
-    const sessionCookie = cookies.get(COOKIE_NAME);
-    const session = await this.verifySession(sessionCookie);
+    const bearerUser = await this.authenticateSupabaseBearer(req);
+    if (bearerUser) return bearerUser;
 
-    if (!session) {
-      throw ForbiddenError("Invalid session cookie");
-    }
-
-    if (session.openId.startsWith(CRON_OPEN_ID_PREFIX)) {
-      const userInfo = await this.getUserInfoWithJwt(sessionCookie ?? "");
-      const taskUid = userInfo.taskUid ?? null;
-      if (!taskUid) {
-        throw ForbiddenError("Cron session missing task_uid");
-      }
-      return buildCronUser(userInfo);
-    }
-
-    const sessionUserId = session.openId;
-    const signedInAt = new Date();
-    let user = await db.getUserByOpenId(sessionUserId);
-
-    // If user not in DB, sync from OAuth server automatically
-    if (!user) {
-      try {
-        const userInfo = await this.getUserInfoWithJwt(sessionCookie ?? "");
-        await db.upsertUser({
-          openId: userInfo.openId,
-          name: userInfo.name || null,
-          email: userInfo.email ?? null,
-          loginMethod: userInfo.loginMethod ?? userInfo.platform ?? null,
-          lastSignedIn: signedInAt,
-        });
-        user = await db.getUserByOpenId(userInfo.openId);
-      } catch (error) {
-        console.error("[Auth] Failed to sync user from OAuth:", error);
-        throw ForbiddenError("Failed to sync user info");
-      }
-    }
-
-    if (!user) {
-      throw ForbiddenError("User not found");
-    }
-
-    await db.upsertUser({
-      openId: user.openId,
-      lastSignedIn: signedInAt,
-    });
-
-    return user;
-  }
-
-  /**
-   * Heartbeat callbacks carry a platform-issued cron cookie rather than a JWT
-   * signed by this application. Validate that cookie with the OAuth service and
-   * require a cron identity plus task UID before allowing scheduled work.
-   */
-  async authenticateCronRequest(req: Request): Promise<AuthenticatedUser> {
-    const cookies = this.parseCookies(req.headers.cookie);
-    const sessionCookie = cookies.get(COOKIE_NAME);
-    if (!sessionCookie) throw ForbiddenError("Missing cron cookie");
-
-    const userInfo = await this.getUserInfoWithJwt(sessionCookie);
-    if (!userInfo.openId?.startsWith(CRON_OPEN_ID_PREFIX) || !userInfo.taskUid) {
-      throw ForbiddenError("Cron session missing task_uid");
-    }
-    return buildCronUser(userInfo);
+    throw ForbiddenError("Not signed in");
   }
 }
 
-const CRON_OPEN_ID_PREFIX = "cron_";
-
-/** Result of `sdk.authenticateRequest`. Cron callbacks set `isCron=true` and `taskUid`; see `references/periodic-updates.md`. */
-export type AuthenticatedUser = User & {
-  taskUid?: string;
-  isCron?: boolean;
-};
-
-function buildCronUser(
-  userInfo: GetUserInfoWithJwtResponse
-): AuthenticatedUser {
-  const now = new Date();
-  return {
-    id: -1,
-    openId: userInfo.openId,
-    name: userInfo.name || "Manus Scheduled Task",
-    email: null,
-    loginMethod: null,
-    role: "user",
-    createdAt: now,
-    updatedAt: now,
-    lastSignedIn: now,
-    taskUid: userInfo.taskUid ?? undefined,
-    isCron: true,
-  } as AuthenticatedUser;
-}
+/** Result of `sdk.authenticateRequest`. */
+export type AuthenticatedUser = User;
 
 export const sdk = new SDKServer();

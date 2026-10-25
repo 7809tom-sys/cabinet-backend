@@ -212,14 +212,17 @@ const normalizeToolChoice = (
   return toolChoice;
 };
 
-const resolveApiUrl = () =>
-  ENV.forgeApiUrl && ENV.forgeApiUrl.trim().length > 0
-    ? `${ENV.forgeApiUrl.replace(/\/$/, "")}/v1/chat/completions`
-    : "https://forge.manus.im/v1/chat/completions";
+// Gemini's OpenAI-compatible endpoint: same chat-completions request/response
+// shape, authenticated with the Gemini API key.
+const GEMINI_OPENAI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai";
+const GEMINI_THINKING_HEADROOM_TOKENS = 4096;
+const DEFAULT_LLM_MODEL =process.env.GEMINI_TEXT_MODEL?.trim() || "gemini-3-flash-preview";
+
+const resolveApiUrl = () => `${GEMINI_OPENAI_BASE_URL}/chat/completions`;
 
 const assertApiKey = () => {
-  if (!ENV.forgeApiKey) {
-    throw new Error("OPENAI_API_KEY is not configured");
+  if (!ENV.geminiApiKey) {
+    throw new Error("GEMINI_API_KEY is not configured");
   }
 };
 
@@ -352,8 +355,6 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
     responseFormat,
     response_format,
     model,
-    thinking,
-    reasoning,
     maxTokens,
     max_tokens,
   } = params;
@@ -362,9 +363,7 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
     messages: messages.map(normalizeMessage),
   };
 
-  if (model) {
-    payload.model = model;
-  }
+  payload.model = model || DEFAULT_LLM_MODEL;
 
   if (tools && tools.length > 0) {
     payload.tools = tools;
@@ -380,15 +379,14 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
 
   const resolvedMaxTokens = max_tokens ?? maxTokens;
   if (typeof resolvedMaxTokens === "number") {
-    payload.max_tokens = resolvedMaxTokens;
+    // Gemini 3 counts its hidden "thinking" tokens inside max_tokens, so a small
+    // caller limit can leave no room for the answer (empty content, finish
+    // "length"). Add headroom; replies still stop at their natural end.
+    payload.max_tokens = resolvedMaxTokens + GEMINI_THINKING_HEADROOM_TOKENS;
   }
 
-  if (thinking) {
-    payload.thinking = thinking;
-  }
-  if (reasoning) {
-    payload.reasoning = reasoning;
-  }
+  // `thinking` / `reasoning` are Manus-gateway options Gemini rejects; they stay
+  // accepted by InvokeParams so callers compile, but are not forwarded.
 
   const normalizedResponseFormat = normalizeResponseFormat({
     responseFormat,
@@ -405,7 +403,7 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
     method: "POST",
     headers: {
       "content-type": "application/json",
-      authorization: `Bearer ${ENV.forgeApiKey}`,
+      authorization: `Bearer ${ENV.geminiApiKey}`,
     },
     body: JSON.stringify(payload),
   });
@@ -435,12 +433,8 @@ export type ModelsResponse = {
 export async function listLLMModels(): Promise<ModelsResponse> {
   assertApiKey();
 
-  const url = ENV.forgeApiUrl && ENV.forgeApiUrl.trim().length > 0
-    ? `${ENV.forgeApiUrl.replace(/\/$/, "")}/v1/models`
-    : "https://forge.manus.im/v1/models";
-
-  const response = await fetchWithBackoff(url, {
-    headers: { authorization: `Bearer ${ENV.forgeApiKey}` },
+  const response = await fetchWithBackoff(`${GEMINI_OPENAI_BASE_URL}/models`, {
+    headers: { authorization: `Bearer ${ENV.geminiApiKey}` },
   });
 
   if (!response.ok) {

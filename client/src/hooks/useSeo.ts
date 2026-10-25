@@ -15,7 +15,7 @@ import { useEffect } from "react";
 
 const SITE_NAME = "Cabinet Dealz";
 const DEFAULT_IMAGE =
-  "https://d2xsxph8kpxj0f.cloudfront.net/310519663775888316/DQ7pUcbPFvKvFZ8JnyMs4M/cabinet-dealz-og-9YFJJyM9Uen3xAfZytLw8r.png";
+  "https://www.cabinetdealz.com/og-image.jpg";
 
 export function formatSeoTitle(
   title: string,

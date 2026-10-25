@@ -1,4 +1,5 @@
 // READ-ONLY fingerprint used before/after a run to prove nothing was written.
+import "dotenv/config";
 import { getDb } from "../../server/db";
 import { sql } from "drizzle-orm";
 const db: any = await getDb();

@@ -1,7 +1,11 @@
 import { COOKIE_NAME } from "@shared/const";
 import { clearLegacyCabinetDealzParentSession, getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
-import { publicProcedure, router } from "./_core/trpc";
+import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
+import { z } from "zod";
+import { getDb } from "./db";
+import { affiliates } from "../drizzle/schema";
+import { resolveAffiliateAdministrationDestination } from "./oauthAffiliateDestination";
 import {
   cabinetsRouter,
   distributorsRouter,
@@ -23,7 +27,6 @@ import { customersRouter } from "./routers/customers";
 import { ocrRouter } from "./routers/ocr";
 import { assistantRouter } from "./routers/assistant";
 import { skuImagesRouter } from "./routers/skuImages";
-import { emailAuthRouter } from "./routers/emailAuth";
 import { freightRouter } from "./routers/freight";
 import { pantryRouter } from "./routers/pantry";
 import { paymentsRouter } from "./routers/payments";
@@ -72,6 +75,31 @@ export const appRouter = router({
 
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),
+    // Where to land after a Supabase sign-in. `returnPath` is already
+    // validated client-side; active affiliate owners still go to their own
+    // Affiliate Administration, as the old OAuth callback did.
+    signInDestination: protectedProcedure
+      .input(z.object({ returnPath: z.string().max(2048).nullable() }))
+      .query(async ({ ctx, input }) => {
+        const user = ctx.user;
+        const roleDefault =
+          user.role === "distributor" ? "/vendor" : user.role === "admin" ? "/admin" : "/account";
+        const returnPath =
+          input.returnPath && input.returnPath.startsWith("/") && !input.returnPath.startsWith("//")
+            ? input.returnPath
+            : roleDefault;
+        const database = await getDb();
+        if (!database) return { destination: returnPath };
+        const affiliateRows = await database.select().from(affiliates);
+        const affiliateDestination = resolveAffiliateAdministrationDestination({
+          returnPath,
+          userId: user.id,
+          email: user.email,
+          userRole: user.role,
+          affiliates: affiliateRows,
+        });
+        return { destination: affiliateDestination ?? returnPath };
+      }),
     logout: publicProcedure.mutation(({ ctx }) => {
       const cookieOptions = getSessionCookieOptions(ctx.req);
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
@@ -100,7 +128,6 @@ export const appRouter = router({
   ocr: ocrRouter,
   assistant: assistantRouter,
   skuImages: skuImagesRouter,
-  emailAuth: emailAuthRouter,
   freight: freightRouter,
   pantry: pantryRouter,
   payments: paymentsRouter,

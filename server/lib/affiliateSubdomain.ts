@@ -3,6 +3,9 @@
  * browser requested. The deployment proxy may pass this through X-Forwarded-Host
  * while the ordinary Host header names an internal Manus domain.
  */
+// Subdomains that belong to the platform itself (the site and the API host).
+const RESERVED_SUBDOMAINS = new Set(["www", "api"]);
+
 export function affiliateSlugFromHost(hostHeader: string | null | undefined): string | null {
   const host = (hostHeader || "")
     .split(",")[0]
@@ -12,7 +15,7 @@ export function affiliateSlugFromHost(hostHeader: string | null | undefined): st
   const suffix = ".cabinetdealz.com";
   if (!host.endsWith(suffix)) return null;
   const candidate = host.slice(0, -suffix.length);
-  if (!candidate || candidate === "www" || candidate.includes(".")) return null;
+  if (!candidate || RESERVED_SUBDOMAINS.has(candidate) || candidate.includes(".")) return null;
   return candidate;
 }
 
@@ -43,12 +46,13 @@ export function isAffiliateStorefrontBypassPath(requestPath: string): boolean {
 	  const pathname = requestPath.split(/[?#]/)[0].replace(/\/+$/, "") || "/";
   return (
 	    requestPath.startsWith("/api/") ||
+	    requestPath.startsWith("/_shell/") ||
+	    requestPath === "/health" ||
 	    requestPath.startsWith("/store/") ||
 	    pathname === "/affiliate" ||
 	    pathname.startsWith("/affiliate/") ||
 	    pathname === "/admin" ||
 	    pathname.startsWith("/admin/") ||
-	    requestPath.startsWith("/__manus__") ||
     requestPath.startsWith("/manus-storage") ||
     requestPath.startsWith("/assets/") ||
     requestPath === "/robots.txt" ||

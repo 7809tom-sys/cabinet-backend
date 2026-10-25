@@ -27,6 +27,19 @@ describe("weekly CRM price check stays read-only", () => {
     for (const proc of ["design.captureLead", "design.save", "orders.submit", "crm.sendEmail"]) expect(src).toContain(proc.replace(".", "\\."));
   });
 
+  it("authenticates the browser with a Supabase session, not a retired cookie, and has no machine-specific paths", () => {
+    const exportDeals = fs.readFileSync(path.join(dir, "export-deals.mts"), "utf8");
+    expect(exportDeals).toContain("SUPABASE_JWT_SECRET");
+    expect(exportDeals).toContain("session.json");
+    expect(exportDeals).not.toContain("createSessionToken");
+    const reader = fs.readFileSync(path.join(dir, "read-totals.py"), "utf8");
+    expect(reader).toContain("add_init_script");
+    expect(reader).not.toContain("app_session_id");
+    for (const f of files) {
+      expect(fs.readFileSync(path.join(dir, f), "utf8")).not.toContain("/home/ubuntu");
+    }
+  });
+
   it("starts the private server with the view log switched off", () => {
     expect(fs.readFileSync(path.join(dir, "run-check.sh"), "utf8")).toContain("CD_SKIP_VIEW_LOG=1");
   });

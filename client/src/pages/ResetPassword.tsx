@@ -1,36 +1,38 @@
-import { useMemo, useState } from "react";
-import { Link, useLocation } from "wouter";
+import { useEffect, useState } from "react";
+import { Link } from "wouter";
 import { Eye, EyeOff, LockKeyhole } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { trpc } from "@/lib/trpc";
+import { supabase } from "@/lib/supabase";
 
 function errMessage(error: { message?: string } | null | undefined, fallback: string) {
   return error?.message || fallback;
 }
 
 export default function ResetPassword() {
-  const [, navigate] = useLocation();
-  const token = useMemo(() => new URLSearchParams(window.location.search).get("token")?.trim() ?? "", []);
   const [password, setPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [pending, setPending] = useState(false);
+  // The Supabase recovery link signs the user in on arrival; without that
+  // session the link was invalid, expired or opened in another browser.
+  const [hasRecoverySession, setHasRecoverySession] = useState<boolean | null>(null);
 
-  const complete = trpc.emailAuth.completePasswordReset.useMutation({
-    onSuccess: () => {
-      toast.success("Password updated. You can now sign in.");
-      navigate("/signin");
-    },
-    onError: (error) => toast.error(errMessage(error, "That reset link is invalid or expired.")),
-  });
+  useEffect(() => {
+    void supabase.auth.getSession().then(({ data }) => setHasRecoverySession(Boolean(data.session)));
+    const { data } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "PASSWORD_RECOVERY" || session) setHasRecoverySession(true);
+    });
+    return () => data.subscription.unsubscribe();
+  }, []);
 
-  const submit = (event: React.FormEvent) => {
+  const submit = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (token.length !== 64) {
-      toast.error("That password-reset link is invalid or expired.");
+    if (!hasRecoverySession) {
+      toast.error("That password-reset link is invalid or expired. Request a new one from sign in.");
       return;
     }
     if (password.length < 8) {
@@ -41,7 +43,15 @@ export default function ResetPassword() {
       toast.error("Passwords do not match.");
       return;
     }
-    complete.mutate({ token, password });
+    setPending(true);
+    const { error } = await supabase.auth.updateUser({ password });
+    setPending(false);
+    if (error) {
+      toast.error(errMessage(error, "That reset link is invalid or expired."));
+      return;
+    }
+    toast.success("Password updated.");
+    window.location.assign("/signin");
   };
 
   return (
@@ -91,8 +101,13 @@ export default function ResetPassword() {
                 required
               />
             </div>
-            <Button type="submit" className="w-full" disabled={complete.isPending}>
-              {complete.isPending ? "Updating password…" : "Set new password"}
+            {hasRecoverySession === false && (
+              <p className="text-sm text-destructive">
+                This reset link is invalid or has expired. Request a new one from sign in.
+              </p>
+            )}
+            <Button type="submit" className="w-full" disabled={pending || hasRecoverySession === false}>
+              {pending ? "Updating password…" : "Set new password"}
             </Button>
           </form>
           <p className="mt-5 text-center text-sm text-muted-foreground">

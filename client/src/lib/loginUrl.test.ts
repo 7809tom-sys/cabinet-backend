@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 
-// getLoginUrl reads window.location.origin and import.meta.env at call time, so
-// it must work on localhost, the *.manus.space preview, AND a custom domain
-// without code changes. These tests lock in the URL shape + provider hint.
+// getLoginUrl reads window.location at call time, so it must work on localhost,
+// a preview host AND a custom domain without code changes. All sign-in happens
+// on the CabinetDealz /signin page via Supabase Auth.
 
 const ORIGIN = "https://cabinetdeals.com";
 
@@ -36,32 +36,12 @@ describe("getLoginUrl", () => {
     expect(getLoginUrl()).toBe("/signin?returnTo=%2Fadmin%3Ftab%3Dcabinet-attention");
   });
 
-  it("uses the hosted broker only for an explicitly selected connected provider", async () => {
+  it("never sends sign-in to the retired Manus OAuth portal", async () => {
+    vi.stubGlobal("window", { location: { origin: ORIGIN, pathname: "/store/sales-demo/design", search: "", hash: "" } });
     const getLoginUrl = await load();
-    for (const p of ["google", "apple", "microsoft"] as const) {
-      const u = new URL(getLoginUrl(p));
-      expect(u.origin + u.pathname).toBe("https://portal.manus.im/app-auth");
-      expect(u.searchParams.get("appId")).toBe("app_123");
-      expect(u.searchParams.get("redirectUri")).toBe(`${ORIGIN}/api/oauth/callback`);
-      expect(u.searchParams.get("type")).toBe("signIn");
-      expect(u.searchParams.get("provider")).toBe(p);
-      expect(u.searchParams.get("loginMethod")).toBe(p);
-    }
-  });
-
-  it("preserves the original Designer destination when a connected sign-in starts from /signin", async () => {
-    vi.stubGlobal("window", {
-      location: {
-        origin: ORIGIN,
-        pathname: "/store/sales-demo/signin",
-        search: "?returnTo=%2Fstore%2Fsales-demo%2Fdesign",
-        hash: "",
-      },
-    });
-    const getLoginUrl = await load();
-    const url = new URL(getLoginUrl("google"));
-    const state = JSON.parse(Buffer.from(url.searchParams.get("state") ?? "", "base64").toString("utf8"));
-    expect(state.returnTo).toBe("/store/sales-demo/design");
+    const url = getLoginUrl();
+    expect(url).toBe("/signin?returnTo=%2Fstore%2Fsales-demo%2Fdesign");
+    expect(url).not.toContain("manus");
   });
 
   it("rejects external and recursive return destinations", async () => {
