@@ -19,7 +19,7 @@ const workbookPath = new URL(
 );
 
 describe("corrected cabinet descriptions round-trip workbook", () => {
-  it("parses with the admin round-trip contract: 8 columns, 618 rows, template version 1, no errors", () => {
+  it("parses with the admin round-trip contract: 8 columns, 617 rows, template version 1, no errors", () => {
     const workbook = XLSX.read(readFileSync(workbookPath), { type: "buffer", cellDates: false });
     expect(workbook.SheetNames).toHaveLength(1);
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
@@ -37,8 +37,8 @@ describe("corrected cabinet descriptions round-trip workbook", () => {
     const csv = XLSX.utils.sheet_to_csv(sheet);
     const parsed = parseDistributorRoundTripCsv(csv);
     expect(parsed.errors, parsed.errors.join("\n")).toEqual([]);
-    expect(parsed.rows).toHaveLength(618);
-    expect(matrix).toHaveLength(619);
+    expect(parsed.rows).toHaveLength(617);
+    expect(matrix).toHaveLength(618);
     expect(new Set(parsed.rows.map((row) => row.templateVersion))).toEqual(new Set([DISTRIBUTOR_ROUND_TRIP_VERSION]));
     expect(parsed.rows.every((row) => row.templateVersion === DISTRIBUTOR_ROUND_TRIP_VERSION)).toBe(true);
   });
