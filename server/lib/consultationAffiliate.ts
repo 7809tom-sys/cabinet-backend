@@ -246,8 +246,8 @@ INNER JOIN (
   WHERE affiliateId IS NOT NULL
   GROUP BY LOWER(email)
   HAVING COUNT(DISTINCT affiliateId) = 1
-) lead ON LOWER(c.customerEmail) = lead.emailKey
-SET c.affiliateId = lead.affiliateId
+) dl ON LOWER(c.customerEmail) = dl.emailKey
+SET c.affiliateId = dl.affiliateId
 WHERE c.affiliateId IS NULL
   AND d.affiliateId IS NULL
   AND deal.affiliateId IS NULL;
