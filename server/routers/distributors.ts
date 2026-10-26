@@ -29,6 +29,7 @@ import {
   shippingRuleCanQuote,
   type DistributorShippingRuleMode,
 } from "@shared/distributorShipping";
+import { omitImportLockedFields } from "@shared/cabinetConflictFlags";
 
 const execFileAsync = promisify(execFile);
 
@@ -64,10 +65,18 @@ function normalizeCategory(raw: string | undefined): string | null {
  * Returns a map from upper-cased alias value → { id, masterCode, description, category }.
  * Each cabinet can appear under multiple alias keys (sku, vendorSku, altSku1/2/3, masterCode).
  */
+type AliasHit = {
+  id: number;
+  masterCode: string;
+  description: string | null;
+  category: string | null;
+  importLockedFields: unknown;
+};
+
 async function buildAliasMap(
   db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
   codes: string[]
-): Promise<Map<string, { id: number; masterCode: string; description: string | null; category: string | null }>> {
+): Promise<Map<string, AliasHit>> {
   if (codes.length === 0) return new Map();
   const upper = codes.map((c) => c.toUpperCase());
 
@@ -78,6 +87,7 @@ async function buildAliasMap(
       masterCode: cabinets.masterCode,
       description: cabinets.description,
       category: cabinets.category,
+      importLockedFields: cabinets.importLockedFields,
       sku: cabinets.sku,
       vendorSku: cabinets.vendorSku,
       altSku1: cabinets.altSku1,
@@ -96,9 +106,9 @@ async function buildAliasMap(
       )
     );
 
-  const map = new Map<string, { id: number; masterCode: string; description: string | null; category: string | null }>();
+  const map = new Map<string, AliasHit>();
   for (const row of rows) {
-    const entry = { id: row.id, masterCode: row.masterCode, description: row.description, category: row.category };
+    const entry: AliasHit = { id: row.id, masterCode: row.masterCode, description: row.description, category: row.category, importLockedFields: row.importLockedFields };
     // Register under every alias (masterCode wins over aliases for the same key).
     for (const val of [row.sku, row.vendorSku, row.altSku1, row.altSku2, row.altSku3]) {
       if (val) {
@@ -315,7 +325,12 @@ export const distributorImportRouter = router({
       };
     }),
 
-  /** Apply only reviewed aliases and internal eligibility links. Prices never change here. */
+  /**
+   * Apply only reviewed aliases and internal eligibility links. Prices never
+   * change here. Description, category, dimensions, and drawer count are not
+   * written, so a value resolved in Cabinet Conflicts cannot be replaced by
+   * this upload.
+   */
   roundTripCommit: adminProcedure
     .input(z.object({ csv: z.string().min(1).max(2_000_000) }))
     .mutation(async ({ input }) => {
@@ -927,7 +942,7 @@ export const distributorImportRouter = router({
           });
           cabinetId = (res as unknown as [{ insertId: number }])[0].insertId;
           // Add to alias map so subsequent rows with the same code resolve correctly.
-          aliasMap.set(code.toUpperCase(), { id: cabinetId, masterCode: code, description: row.cells.description, category });
+          aliasMap.set(code.toUpperCase(), { id: cabinetId, masterCode: code, description: row.cells.description, category, importLockedFields: null });
           created++;
         } else {
           cabinetId = found.id;
@@ -938,10 +953,11 @@ export const distributorImportRouter = router({
           if (width != null) patch.width = String(width);
           if (height != null) patch.height = String(height);
           if (depth != null) patch.depth = String(depth);
-          if (Object.keys(patch).length > 0) {
+          const unlocked = omitImportLockedFields(patch, found.importLockedFields);
+          if (Object.keys(unlocked).length > 0) {
             await db
               .update(cabinets)
-              .set(patch)
+              .set(unlocked)
               .where(eq(cabinets.id, cabinetId));
             updated++;
           }
@@ -1408,7 +1424,7 @@ export const distributorImportRouter = router({
         let matchHow: string;
         if (overrideCabinetId != null) {
           // Admin manually selected a cabinet — look it up
-          const overrideRow = await db.select({ id: cabinets.id, masterCode: cabinets.masterCode, description: cabinets.description, category: cabinets.category }).from(cabinets).where(eq(cabinets.id, overrideCabinetId)).limit(1);
+          const overrideRow = await db.select({ id: cabinets.id, masterCode: cabinets.masterCode, description: cabinets.description, category: cabinets.category, importLockedFields: cabinets.importLockedFields }).from(cabinets).where(eq(cabinets.id, overrideCabinetId)).limit(1);
           if (overrideRow.length > 0) {
             found = overrideRow[0] as typeof found;
             matchHow = "override";
@@ -1482,7 +1498,7 @@ export const distributorImportRouter = router({
               ...(assembleCol >= 0 ? { isAssembled } : {}),
             });
             cabinetId = (res as unknown as [{ insertId: number }])[0].insertId;
-            aliasMap.set(code.toUpperCase(), { id: cabinetId, masterCode: code, description, category });
+            aliasMap.set(code.toUpperCase(), { id: cabinetId, masterCode: code, description, category, importLockedFields: null });
             created++;
           } else {
             cabinetId = -1;
@@ -1499,6 +1515,10 @@ export const distributorImportRouter = router({
           if (dims.depth) patch.depth = dims.depth;
           if (assembleCol >= 0) patch.isAssembled = isAssembled;
           if (weightParsed != null && !isNaN(weightParsed)) patch.weight = String(weightParsed);
+          const lockedPatch = omitImportLockedFields(patch, found.importLockedFields);
+          for (const key of Object.keys(patch)) {
+            if (!(key in lockedPatch)) delete patch[key];
+          }
           // Backfill alias: if the import code is not already stored in any alias slot, write it to the first empty slot
           const aliasFields = ["sku", "vendorSku", "altSku1", "altSku2", "altSku3"] as const;
           const codeUpper = code.toUpperCase();

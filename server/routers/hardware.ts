@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { and, asc, count, desc, eq, like, or } from "drizzle-orm";
+import { and, asc, count, desc, eq, like, notInArray, or } from "drizzle-orm";
+import { hiddenNumericIds, loadAffiliateCatalogGate } from "../lib/affiliateCatalogGate";
 import { router, publicProcedure, adminProcedure, distributorProcedure } from "../_core/trpc";
 import { getDb } from "../db";
 import { affiliates, distributors, hardwareShippingProfiles, vendorProducts } from "../../drizzle/schema";
@@ -85,6 +86,15 @@ async function hardwareLineAndProfile(db: NonNullable<Awaited<ReturnType<typeof 
     vendorOriginZip: hardwareVendorOriginZip(line.warehouseZips),
     profile: profile ?? null,
   };
+}
+
+async function excludeHiddenHardware(
+  db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
+  affiliateSlug: string | undefined,
+  conditions: unknown[],
+) {
+  const ids = hiddenNumericIds(await loadAffiliateCatalogGate(db, affiliateSlug), "hardware");
+  if (ids.length > 0) conditions.push(notInArray(vendorProducts.id, ids));
 }
 
 async function affiliateHardwareMarkupBps(
@@ -196,6 +206,7 @@ export const hardwareRouter = router({
     const db = await getDb();
     if (!db) return null;
     const affiliatePricing = await affiliateHardwareMarkupBps(db, input.affiliateSlug);
+    const hiddenIds = hiddenNumericIds(await loadAffiliateCatalogGate(db, input.affiliateSlug), "hardware");
     const [item] = await db
       .select({
         id: vendorProducts.id,
@@ -214,7 +225,7 @@ export const hardwareRouter = router({
       .innerJoin(distributors, eq(vendorProducts.distributorId, distributors.id))
       .where(and(publicHardwareConditions(), eq(vendorProducts.id, input.vendorProductId)))
       .limit(1);
-    if (!item) return null;
+    if (!item || hiddenIds.includes(item.id)) return null;
     const unitPriceCents = hardwareRetailCents(item.listPrice, affiliatePricing.markupBps);
     if (unitPriceCents == null) return null;
     return {
@@ -229,6 +240,7 @@ export const hardwareRouter = router({
     if (!db) return { items: [], hasMore: false, affiliateMarkupBps: 0 };
     const affiliatePricing = await affiliateHardwareMarkupBps(db, input.affiliateSlug);
     const conditions = [publicHardwareConditions()];
+    await excludeHiddenHardware(db, input.affiliateSlug, conditions);
     if (input.collection) conditions.push(eq(vendorProducts.hardwareCollection, input.collection));
     if (input.productType) conditions.push(eq(vendorProducts.hardwareProductType, input.productType));
     const rows = await db
@@ -274,6 +286,7 @@ export const hardwareRouter = router({
     if (!db) return { items: [], total: 0 };
     const affiliatePricing = await affiliateHardwareMarkupBps(db, input.affiliateSlug);
     const conditions = [publicHardwareConditions()];
+    await excludeHiddenHardware(db, input.affiliateSlug, conditions);
     if (input.category) conditions.push(eq(vendorProducts.category, input.category));
     if (input.search) {
       const term = `%${input.search}%`;
@@ -341,7 +354,10 @@ export const hardwareRouter = router({
       const { lineId, profile, vendorOriginZip } = await hardwareLineAndProfile(db);
       const affiliatePricing = await affiliateHardwareMarkupBps(db, input.affiliateSlug);
       if (!lineId) return { available: false, totalCents: 0, merchandiseCents: 0, shippingCents: null, promotionApplied: false, reason: "Hardware Resources is not configured." };
-      const ids = input.items.map((item) => item.vendorProductId);
+      const requestedIds = input.items.map((item) => item.vendorProductId);
+      const hiddenIds = new Set(hiddenNumericIds(await loadAffiliateCatalogGate(db, input.affiliateSlug), "hardware"));
+      const ids = requestedIds.filter((id) => !hiddenIds.has(id));
+      if (ids.length !== requestedIds.length) return { available: false, totalCents: 0, merchandiseCents: 0, shippingCents: null, promotionApplied: false, reason: "A hardware item is not offered on this storefront.", quoteToken: null, shipment: null };
       const products = await db
         .select({ id: vendorProducts.id, listPrice: vendorProducts.listPrice })
         .from(vendorProducts)

@@ -16,6 +16,8 @@ import { TRPCError } from "@trpc/server";
 import type { PafProduct } from "./pafXmlParser";
 import { mapCategory, mapPlacementType } from "./pafXmlParser";
 import { canonicalCatalogMasterCode, parseCatalogNomenclature } from "../../shared/catalogNomenclature";
+import { omitImportLockedFields } from "../../shared/cabinetConflictFlags";
+import { cabinetCanBeRenderedOrPlacedIn3d } from "../../shared/designerEligibility";
 
 export interface ImportStats {
   created: number;
@@ -67,7 +69,7 @@ export async function importPafProducts(
   // ── 3. Batch-load existing cabinets by masterCode ───────────────────────────
   // Load ALL cabinets (we need the full set for alias resolution too).
   const allCabinets = await db
-    .select({ id: cabinets.id, masterCode: cabinets.masterCode, catalogImageUrl: cabinets.catalogImageUrl })
+    .select({ id: cabinets.id, masterCode: cabinets.masterCode, catalogImageUrl: cabinets.catalogImageUrl, importLockedFields: cabinets.importLockedFields })
     .from(cabinets);
 
   // masterCode → cabinet row
@@ -215,11 +217,16 @@ export async function importPafProducts(
           const img = (product as any).catalogImageUrl || resolveSiblingImage(code) || resolveSiblingImage(sourceCode);
           if (img) { patch.catalogImageUrl = img; imageResolved = true; }
         }
+        const unlocked = omitImportLockedFields(patch, existing.importLockedFields);
+        // Keep the resolved description's attribution when the text itself is locked.
+        if (!("description" in unlocked)) delete unlocked.descriptionSource;
 
-        await db.update(cabinets).set(patch).where(eq(cabinets.id, existing.id));
+        if (Object.keys(unlocked).length > 0) {
+          await db.update(cabinets).set(unlocked).where(eq(cabinets.id, existing.id));
+        }
         cabinetId = existing.id;
         // Keep in-memory map current so later products can find it
-        cabinetByCode.set(code, { ...existing, catalogImageUrl: (patch.catalogImageUrl as string | null) ?? existing.catalogImageUrl });
+        cabinetByCode.set(code, { ...existing, catalogImageUrl: (unlocked.catalogImageUrl as string | null) ?? existing.catalogImageUrl });
         stats.updated++;
       } else {
         // ── INSERT new cabinet ───────────────────────────────────────────────
@@ -236,6 +243,15 @@ export async function importPafProducts(
           isActive: true,
           showInCatalog: true,
           showInDesigner: true,
+          designerEligible: cabinetCanBeRenderedOrPlacedIn3d({
+            masterCode: code,
+            description: product.description,
+            category: mappedCategory,
+            placementType: mappedPlacementType,
+            width: product.width,
+            height: product.height,
+            depth: product.depth,
+          }),
           showIn2020: true,
           cabinetStyle: product.cabinetStyle || "closedDoors",
           productType: product.productType || "standard",
@@ -262,7 +278,7 @@ export async function importPafProducts(
 
         cabinetId = newCab.id;
         // Add to in-memory maps so subsequent products can resolve against it
-        const newEntry = { id: cabinetId, masterCode: code, catalogImageUrl: img ?? null };
+        const newEntry = { id: cabinetId, masterCode: code, catalogImageUrl: img ?? null, importLockedFields: null };
         cabinetByCode.set(code, newEntry);
         cabinetById.set(cabinetId, newEntry);
         stats.created++;

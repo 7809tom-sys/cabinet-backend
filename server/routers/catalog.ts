@@ -37,11 +37,16 @@ import { invokeLLM } from "../_core/llm";
 import sharp from "sharp";
 import { generateImage } from "../_core/imageGeneration";
 import { rankDoorMatches, type DoorCandidate, type DoorVisionResult } from "@shared/doorPhotoMatch";
+import { changedLockableFields, HIDDEN_CONFLICT_STATUS, locksAfterResolve, omitImportLockedFields, PUBLIC_CATALOG_REVIEW_STATUS } from "@shared/cabinetConflictFlags";
 import { parsePriceAuditQuery } from "@shared/priceAuditLookup";
 import { filterStylesByAvailability } from "@shared/styleAvailability";
+import { groupRoomScenes } from "@shared/vendorRoomScenes";
 import { resolveAffiliateAccess } from "../lib/affiliateAccess";
 import { canViewAffiliatePrivateCost } from "../lib/affiliatePrivateCost";
 import { normalizeCode } from "../../shared/cabinetCodeMatch";
+import { filterCabinetSourceRows, loadAffiliateCatalogGate } from "../lib/affiliateCatalogGate";
+import { orderCabinetsByAliasRank, rankLoadedCabinetSearch } from "../lib/cabinetAliasSearch";
+import { aliasSearchOrder, exactCabinetAliasOwnerSql, orCabinetAliasMatch } from "../lib/cabinetAliasSearchSql";
 import { priceLadder } from "@shared/pricing";
 import { resolveCanonicalCatalogSources } from "../lib/canonicalCatalogSources";
 import { designerCabinetReadinessBySku } from "../lib/designerCabinetReadiness";
@@ -390,15 +395,71 @@ export const doorStylesRouter = router({
       .orderBy(asc(doorStyles.featuredRank), asc(doorStyles.ourName));
     const ids = rows.map((row) => row.id);
     const scenes = ids.length === 0 ? [] : await db
-      .select({ id: doorStyleRoomScenes.id, styleId: doorStyleRoomScenes.styleId, imageUrl: doorStyleRoomScenes.imageUrl, sortOrder: doorStyleRoomScenes.sortOrder })
+      .select({
+        id: doorStyleRoomScenes.id,
+        styleId: doorStyleRoomScenes.styleId,
+        imageUrl: doorStyleRoomScenes.imageUrl,
+        sortOrder: doorStyleRoomScenes.sortOrder,
+        sceneName: doorStyleRoomScenes.sceneName,
+        sceneDescription: doorStyleRoomScenes.sceneDescription,
+        sceneSortOrder: doorStyleRoomScenes.sceneSortOrder,
+        isCover: doorStyleRoomScenes.isCover,
+      })
       .from(doorStyleRoomScenes)
       .where(and(inArray(doorStyleRoomScenes.styleId, ids), eq(doorStyleRoomScenes.isActive, true), eq(doorStyleRoomScenes.isVerified, true)))
-      .orderBy(asc(doorStyleRoomScenes.sortOrder), asc(doorStyleRoomScenes.id));
+      .orderBy(asc(doorStyleRoomScenes.sceneSortOrder), desc(doorStyleRoomScenes.isCover), asc(doorStyleRoomScenes.sortOrder), asc(doorStyleRoomScenes.id));
     return rows.map((row) => ({
       ...scrubDoorStyle(row),
       roomScenes: scenes.filter((scene) => scene.styleId === row.id).slice(0, 6),
     }));
   }),
+
+  /** Public named room scenes for one door style or one vendor line. Source notes stay private. */
+  publicRoomScenes: publicProcedure
+    .input(z.object({
+      distributorId: z.number().int().positive().optional(),
+      styleId: z.number().int().positive().optional(),
+    }).optional())
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db || (input?.distributorId == null && input?.styleId == null)) return [];
+      const rows = await db.select({
+        id: doorStyleRoomScenes.id,
+        styleId: doorStyleRoomScenes.styleId,
+        styleName: sql<string>`COALESCE(NULLIF(${doorStyles.aliasName}, ''), NULLIF(${doorStyles.featuredLabel}, ''), ${doorStyles.ourName})`,
+        imageUrl: doorStyleRoomScenes.imageUrl,
+        sortOrder: doorStyleRoomScenes.sortOrder,
+        sceneName: doorStyleRoomScenes.sceneName,
+        sceneDescription: doorStyleRoomScenes.sceneDescription,
+        sceneSortOrder: doorStyleRoomScenes.sceneSortOrder,
+        isCover: doorStyleRoomScenes.isCover,
+        isActive: doorStyleRoomScenes.isActive,
+      }).from(doorStyleRoomScenes)
+        .innerJoin(doorStyles, eq(doorStyles.id, doorStyleRoomScenes.styleId))
+        .where(and(
+          eq(doorStyleRoomScenes.isActive, true),
+          eq(doorStyleRoomScenes.isVerified, true),
+          eq(doorStyles.isActive, true),
+          ...(input?.distributorId != null ? [eq(doorStyles.distributorId, input.distributorId)] : []),
+          ...(input?.styleId != null ? [eq(doorStyles.id, input.styleId)] : []),
+        ))
+        .orderBy(asc(doorStyleRoomScenes.sceneSortOrder), desc(doorStyleRoomScenes.isCover), asc(doorStyleRoomScenes.sortOrder), asc(doorStyleRoomScenes.id));
+      const byStyle = new Map<number, { styleId: number; styleName: string; photos: typeof rows }>();
+      for (const row of rows) {
+        const current = byStyle.get(row.styleId) ?? { styleId: row.styleId, styleName: row.styleName, photos: [] };
+        current.photos.push(row);
+        byStyle.set(row.styleId, current);
+      }
+      return Array.from(byStyle.values()).map((style) => ({
+        styleId: style.styleId,
+        styleName: style.styleName,
+        scenes: groupRoomScenes(style.photos).map((scene) => ({
+          name: scene.name,
+          description: scene.description,
+          photos: scene.photos.map((photo) => ({ id: photo.id, imageUrl: photo.imageUrl, isCover: Boolean(photo.isCover) })),
+        })),
+      }));
+    }),
 
   // Admin: every style (active + inactive) with its featured flag/rank, for the manager UI.
   listForAdmin: adminProcedure.query(async () => {
@@ -1170,6 +1231,7 @@ export const doorStylesRouter = router({
           masterCode: cabinets.masterCode,
           isActive: cabinets.isActive,
           showInDesigner: cabinets.showInDesigner,
+          designerEligible: cabinets.designerEligible,
           conflictStatus: cabinets.conflictStatus,
         })
         .from(cabinets),
@@ -1212,7 +1274,10 @@ export const doorStylesRouter = router({
       const normalizedCodeSearch = search ? normalizeCode(search) : "";
       const normalizedMasterCode = sql`UPPER(REPLACE(REPLACE(REPLACE(${cabinets.masterCode}, '-', ''), ' ', ''), '_', ''))`;
       const searchFilter = search
-        ? sql`(${cabinets.masterCode} LIKE ${`%${search}%`} OR ${cabinets.description} LIKE ${`%${search}%`} OR ${normalizedMasterCode} LIKE ${`%${normalizedCodeSearch}%`})`
+        ? orCabinetAliasMatch(
+            sql`(${cabinets.masterCode} LIKE ${`%${search}%`} OR ${cabinets.description} LIKE ${`%${search}%`} OR ${normalizedMasterCode} LIKE ${`%${normalizedCodeSearch}%`})`,
+            search,
+          )
         : undefined;
       const whereClause = searchFilter ? and(baseWhere, searchFilter) : baseWhere;
 
@@ -1246,7 +1311,7 @@ export const doorStylesRouter = router({
           .from(distributorSkus)
           .innerJoin(cabinets, eq(distributorSkus.cabinetId, cabinets.id))
           .where(whereClause)
-          .orderBy(asc(cabinets.masterCode))
+          .orderBy(...aliasSearchOrder(search, asc(cabinets.masterCode)))
           .limit(input.pageSize)
           .offset(offset),
         db
@@ -1258,6 +1323,7 @@ export const doorStylesRouter = router({
             masterCode: cabinets.masterCode,
             isActive: cabinets.isActive,
             showInDesigner: cabinets.showInDesigner,
+            designerEligible: cabinets.designerEligible,
             conflictStatus: cabinets.conflictStatus,
           })
           .from(cabinets),
@@ -1394,17 +1460,21 @@ export const cabinetsRouter = router({
         if (canon) {
           orParts.push(sql`${canonCol} LIKE ${`%${canon}%`}`);
         }
-        conditions.push(sql`(${sql.join(orParts, sql` OR `)})`);
+        conditions.push(orCabinetAliasMatch(sql`(${sql.join(orParts, sql` OR `)})`, raw));
       }
 
       const limit = input?.limit ?? 50;
       const offset = input?.offset ?? 0;
 
+      const cabinetQuery = db
+        .select()
+        .from(cabinets)
+        .where(and(...conditions));
+      const orderedCabinets = input?.search?.trim()
+        ? cabinetQuery.orderBy(...aliasSearchOrder(input.search, asc(cabinets.masterCode)))
+        : cabinetQuery;
       const [items, countResult] = await Promise.all([
-        db
-          .select()
-          .from(cabinets)
-          .where(and(...conditions))
+        orderedCabinets
           .limit(limit)
           .offset(offset),
         db
@@ -1434,6 +1504,7 @@ export const cabinetsRouter = router({
         sort: z.enum(["sku-asc", "width-asc", "width-desc", "height-asc", "height-desc", "type-asc"]).default("sku-asc"),
         limit: z.number().min(1).max(1000).default(48),
         offset: z.number().min(0).default(0),
+        affiliateSlug: z.string().trim().max(64).optional(),
       })
     )
     .query(async ({ input }) => {
@@ -1451,9 +1522,11 @@ export const cabinetsRouter = router({
       // Pull all viable source rows for this style. A source can sit under a
       // retired format alias; it is resolved to its canonical master below so
       // the style keeps its own price/SKU while the shopper sees one product.
-      const sourceRows = await db
+      const loadedSourceRows = await db
         .select({
           sourceMasterCode: cabinets.masterCode,
+          sourceDistributorId: distributorSkus.distributorId,
+          sourceStyleId: distributorSkus.styleId,
           // Policy is a distributor overlay: canonical product facts stay on
           // the master while this selected supply line defines whether its
           // glass insert is included in the cabinet price.
@@ -1472,6 +1545,9 @@ export const cabinetsRouter = router({
           eq(distributorCabinetOverrides.cabinetId, distributorSkus.cabinetId),
         ))
         .where(and(...sourceConds));
+      const catalogGate = input.affiliateSlug ? await loadAffiliateCatalogGate(db, input.affiliateSlug) : null;
+      if (catalogGate?.disabledStyleIds.has(input.styleId)) return { items: [], total: 0, categoryCounts: {} as Record<string, number> };
+      const sourceRows = filterCabinetSourceRows(loadedSourceRows, catalogGate);
 
       const [aliases, masters] = await Promise.all([
         db
@@ -1505,12 +1581,6 @@ export const cabinetsRouter = router({
       ]);
 
       const search = input.search?.trim() ?? "";
-      const normalizedSearch = normalizeCode(search);
-      const aliasMatchedMasterCodes = new Set(
-        aliases
-          .filter((alias) => normalizedSearch.length > 0 && normalizeCode(alias.aliasCode).includes(normalizedSearch))
-          .map((alias) => alias.masterCode),
-      );
       const matchesFilters = (row: (typeof masters)[number]) => {
         if (input.category && row.category !== input.category) return false;
         if (input.subCategory && row.subCategory !== input.subCategory) return false;
@@ -1519,11 +1589,7 @@ export const cabinetsRouter = router({
           const haystack = `${row.category ?? ""} ${row.subCategory ?? ""} ${row.description ?? ""}`.toLowerCase();
           if (!code.startsWith("ADA") && !haystack.includes("ada") && !haystack.includes("accessible")) return false;
         }
-        if (!search) return true;
-        return row.masterCode.includes(search)
-          || (row.description ?? "").toLowerCase().includes(search.toLowerCase())
-          || normalizeCode(row.masterCode).includes(normalizedSearch)
-          || aliasMatchedMasterCodes.has(row.masterCode);
+        return true;
       };
 
       const resolved = resolveCanonicalCatalogSources(sourceRows, aliases, masters)
@@ -1571,12 +1637,14 @@ export const cabinetsRouter = router({
         return skuCompare(a, b);
       };
 
-      const distinct = Array.from(allByCabinet.values())
-        .filter(matchesFilters)
-        .sort(sortItems);
+      const distinct = Array.from(allByCabinet.values()).filter(matchesFilters);
+      const searchRanks = await rankLoadedCabinetSearch(db, distinct, search, aliases);
+      const ordered = searchRanks
+        ? orderCabinetsByAliasRank(distinct, searchRanks, sortItems)
+        : distinct.sort(sortItems);
 
-      const total = distinct.length;
-      const page = distinct.slice(input.offset, input.offset + input.limit);
+      const total = ordered.length;
+      const page = ordered.slice(input.offset, input.offset + input.limit);
       return { items: page, total, categoryCounts };
     }),
 
@@ -1640,6 +1708,7 @@ export const cabinetsRouter = router({
           eq(cabinetAliases.alias, input.masterCode),
           eq(cabinetAliases.alias, normalizedCode),
           sql`${aliasCanon} = ${normalizedCode}`,
+          normalizedCode ? sql`CONCAT(';', ${aliasCanon}, ';') LIKE ${`%;${normalizedCode};%`}` : sql`false`,
         ))
         .limit(1);
       if (alias) {
@@ -1690,6 +1759,17 @@ export const cabinetsRouter = router({
         .limit(1);
       if (rows[0]) return scrubCabinet(rows[0]);
 
+      // Spreadsheet alias cells (sku, vendorSku, altSku1-3), including a
+      // semicolon-separated list, resolve here only when no item code matched.
+      if (normalizedCode) {
+        const [altOwner] = await db
+          .select()
+          .from(cabinets)
+          .where(and(exactCabinetAliasOwnerSql(normalizedCode), notInConflict()))
+          .limit(1);
+        if (altOwner) return scrubCabinet(altOwner);
+      }
+
       // Merged codes (master sheet 2026-10-03, rule 5: never deleted, only made
       // inactive — e.g. LS3612 → LSB36, ERB36 → BER36) live in
       // cabinet_code_equivalences. Resolve the request to the one active master
@@ -1724,6 +1804,9 @@ export const cabinetsRouter = router({
       depth: string | null;
       conflictReason: string | null;
       conflictedAt: Date | null;
+      conflictStatus: string;
+      numberOfDrawers: number | null;
+      staysPublic: boolean;
       skuCount: number;
       distributorNames: string[];
       doorStyleNames: string[];
@@ -1734,7 +1817,7 @@ export const cabinetsRouter = router({
     const items = await db
       .select()
       .from(cabinets)
-      .where(eq(cabinets.conflictStatus, "conflict"))
+      .where(inArray(cabinets.conflictStatus, [HIDDEN_CONFLICT_STATUS, PUBLIC_CATALOG_REVIEW_STATUS]))
       .orderBy(asc(cabinets.masterCode));
     if (items.length === 0) return [];
     const ids = items.map((c) => c.id);
@@ -1788,6 +1871,9 @@ export const cabinetsRouter = router({
         depth: c.depth,
         conflictReason: c.conflictReason,
         conflictedAt: c.conflictedAt,
+        conflictStatus: c.conflictStatus,
+        numberOfDrawers: c.numberOfDrawers,
+        staysPublic: c.conflictStatus !== HIDDEN_CONFLICT_STATUS,
         skuCount: skus.length,
         distributorNames,
         doorStyleNames,
@@ -1862,6 +1948,7 @@ export const cabinetsRouter = router({
         width: z.string().nullable().optional(),
         height: z.string().nullable().optional(),
         depth: z.string().nullable().optional(),
+        numberOfDrawers: z.number().int().min(0).max(8).nullable().optional(),
         conflictReason: z.string().nullable().optional(),
         // Re-assign this product to the correct door style. When provided, ALL of
         // the item's distributor SKUs are re-pointed to this styleId so the
@@ -1888,11 +1975,36 @@ export const cabinetsRouter = router({
       if (input.width !== undefined) patch.width = input.width;
       if (input.height !== undefined) patch.height = input.height;
       if (input.depth !== undefined) patch.depth = input.depth;
+      if (input.numberOfDrawers !== undefined) patch.numberOfDrawers = input.numberOfDrawers;
       if (input.conflictReason !== undefined) patch.conflictReason = input.conflictReason;
       if (input.clearAfter) {
+        const [current] = await db
+          .select({
+            conflictReason: cabinets.conflictReason,
+            importLockedFields: cabinets.importLockedFields,
+            description: cabinets.description,
+            category: cabinets.category,
+            subCategory: cabinets.subCategory,
+            width: cabinets.width,
+            height: cabinets.height,
+            depth: cabinets.depth,
+            numberOfDoors: cabinets.numberOfDoors,
+            numberOfDrawers: cabinets.numberOfDrawers,
+            specNotes: cabinets.specNotes,
+          })
+          .from(cabinets)
+          .where(eq(cabinets.id, input.id))
+          .limit(1);
+        const reason = input.conflictReason !== undefined ? input.conflictReason : current?.conflictReason;
+        const locked = locksAfterResolve({
+          existingLocks: current?.importLockedFields,
+          conflictReason: reason,
+          editedFields: changedLockableFields(current, patch),
+        });
         patch.conflictStatus = "none";
         patch.conflictReason = null;
         patch.conflictedAt = null;
+        if (locked.length > 0) patch.importLockedFields = locked;
       }
 
       // Re-assign door style across all of the item's SKUs, if requested.
@@ -1926,9 +2038,23 @@ export const cabinetsRouter = router({
     .mutation(async ({ input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      const [current] = await db
+        .select({ conflictReason: cabinets.conflictReason, importLockedFields: cabinets.importLockedFields })
+        .from(cabinets)
+        .where(eq(cabinets.id, input.id))
+        .limit(1);
+      const locked = locksAfterResolve({
+        existingLocks: current?.importLockedFields,
+        conflictReason: current?.conflictReason,
+      });
       await db
         .update(cabinets)
-        .set({ conflictStatus: "none", conflictReason: null, conflictedAt: null })
+        .set({
+          conflictStatus: "none",
+          conflictReason: null,
+          conflictedAt: null,
+          ...(locked.length > 0 ? { importLockedFields: locked } : {}),
+        })
         .where(eq(cabinets.id, input.id));
       return { ok: true };
     }),
@@ -2039,6 +2165,10 @@ export const cabinetsRouter = router({
       let updated = 0;
       let skipped = 0;
       const errors: string[] = [];
+      const lockRows = await db
+        .select({ masterCode: cabinets.masterCode, importLockedFields: cabinets.importLockedFields })
+        .from(cabinets);
+      const locksByCode = new Map(lockRows.map((row) => [row.masterCode, row.importLockedFields]));
 
       for (let i = 0; i < rawRows.length; i++) {
         const row = rawRows[i];
@@ -2101,12 +2231,13 @@ export const cabinetsRouter = router({
         if ("stainColor" in row) patch.stainColor = String(row["stainColor"] ?? "").trim() || null;
         if ("constructionMethod" in row) patch.constructionMethod = String(row["constructionMethod"] ?? "").trim() || null;
 
-        if (Object.keys(patch).length === 0) { skipped++; continue; }
+        const unlocked = omitImportLockedFields(patch, locksByCode.get(masterCode));
+        if (Object.keys(unlocked).length === 0) { skipped++; continue; }
 
         try {
           const result = await db
             .update(cabinets)
-            .set(patch)
+            .set(unlocked)
             .where(eq(cabinets.masterCode, masterCode));
           const affected = (result as unknown as { rowsAffected?: number })?.rowsAffected ?? 0;
           if (affected > 0) updated++;
@@ -2133,6 +2264,7 @@ export const cabinetsRouter = router({
         catalogImageUrl: z.string().nullable().optional(),
         showInCatalog: z.boolean().optional(),
         showInDesigner: z.boolean().optional(),
+        designerEligible: z.boolean().optional(),
         showIn2020: z.boolean().optional(),
         isActive: z.boolean().optional(),
         // Dimensions & weight
@@ -2246,6 +2378,7 @@ export const cabinetsRouter = router({
       if (input.catalogImageUrl !== undefined) patch.catalogImageUrl = input.catalogImageUrl;
       if (input.showInCatalog !== undefined) patch.showInCatalog = input.showInCatalog;
       if (input.showInDesigner !== undefined) patch.showInDesigner = input.showInDesigner;
+      if (input.designerEligible !== undefined) patch.designerEligible = input.designerEligible;
       if (input.showIn2020 !== undefined) patch.showIn2020 = input.showIn2020;
       // Helper: empty string → null, fraction strings → decimal for decimal columns
       const decOrNull = (v: string | null | undefined): string | null => {
@@ -2337,6 +2470,7 @@ export const cabinetsRouter = router({
       const requiresPublicPrice = input.isActive === true
         || input.showInCatalog === true
         || input.showInDesigner === true
+        || input.designerEligible === true
         || input.showIn2020 === true;
       if (requiresPublicPrice) {
         const [sellableSource] = await db
@@ -2872,9 +3006,10 @@ export const cabinetsRouter = router({
         const like = `%${search}%`;
         const normalizedCodeSearch = normalizeCode(search);
         const normalizedMasterCode = sql`UPPER(REPLACE(REPLACE(REPLACE(${cabinets.masterCode}, '-', ''), ' ', ''), '_', ''))`;
-        conditions.push(
-          sql`(${cabinets.masterCode} LIKE ${like} OR ${cabinets.description} LIKE ${like} OR ${normalizedMasterCode} LIKE ${`%${normalizedCodeSearch}%`})`
-        );
+        conditions.push(orCabinetAliasMatch(
+          sql`(${cabinets.masterCode} LIKE ${like} OR ${cabinets.description} LIKE ${like} OR ${normalizedMasterCode} LIKE ${`%${normalizedCodeSearch}%`})`,
+          search,
+        ));
       }
       if (input.category) {
         conditions.push(eq(cabinets.category, input.category));
@@ -2902,7 +3037,7 @@ export const cabinetsRouter = router({
           })
           .from(cabinets)
           .where(where)
-          .orderBy(asc(cabinets.masterCode))
+          .orderBy(...aliasSearchOrder(input.search, asc(cabinets.masterCode)))
           .limit(input.limit)
           .offset(input.page * input.limit),
         db
@@ -2951,7 +3086,10 @@ export const cabinetsRouter = router({
       const q = input.search?.trim();
       if (q) {
         const like = `%${q}%`;
-        base.push(sql`(${cabinets.masterCode} LIKE ${like} OR ${cabinets.description} LIKE ${like} OR ${distributorSkus.distributorSku} LIKE ${like})`);
+        base.push(orCabinetAliasMatch(
+          sql`(${cabinets.masterCode} LIKE ${like} OR ${cabinets.description} LIKE ${like} OR ${distributorSkus.distributorSku} LIKE ${like})`,
+          q,
+        ));
       }
       const onExpr = sql`(${distributorSkus.isAvailable} = true AND ${distributorSkus.isPublished} = true AND ${distributorSkus.status} = 'approved')`;
       const withState = [...base];
@@ -2978,7 +3116,7 @@ export const cabinetsRouter = router({
           .innerJoin(distributors, eq(distributors.id, distributorSkus.distributorId))
           .innerJoin(doorStyles, eq(doorStyles.id, distributorSkus.styleId))
           .where(where)
-          .orderBy(asc(distributors.name), asc(doorStyles.ourName), asc(cabinets.masterCode))
+          .orderBy(...aliasSearchOrder(q, asc(distributors.name), asc(doorStyles.ourName), asc(cabinets.masterCode)))
           .limit(input.limit)
           .offset(input.page * input.limit),
         db.select({
@@ -3085,11 +3223,14 @@ export const cabinetsRouter = router({
         conditions.push(eq(cabinets.category, input.category));
       }
       const where = and(...conditions);
-      const cabinetOrder = input.statusSort === "active-first"
-        ? [desc(cabinets.isActive), asc(cabinets.category), asc(cabinets.masterCode)]
-        : input.statusSort === "inactive-first"
-          ? [asc(cabinets.isActive), asc(cabinets.category), asc(cabinets.masterCode)]
-          : [asc(cabinets.category), asc(cabinets.masterCode)];
+      const cabinetOrder = aliasSearchOrder(
+        search,
+        ...(input.statusSort === "active-first"
+          ? [desc(cabinets.isActive), asc(cabinets.category), asc(cabinets.masterCode)]
+          : input.statusSort === "inactive-first"
+            ? [asc(cabinets.isActive), asc(cabinets.category), asc(cabinets.masterCode)]
+            : [asc(cabinets.category), asc(cabinets.masterCode)]),
+      );
       const [rows, countRows] = await Promise.all([
         db
           .select({
@@ -3118,6 +3259,7 @@ export const cabinetsRouter = router({
             altSku3: cabinets.altSku3,
             showInCatalog: cabinets.showInCatalog,
             showInDesigner: cabinets.showInDesigner,
+            designerEligible: cabinets.designerEligible,
             showIn2020: cabinets.showIn2020,
             isActive: cabinets.isActive,
             hasPositivePublishedPrice: hasPositivePublishedCabinetPrice(),
@@ -3212,11 +3354,11 @@ export const cabinetsRouter = router({
       if (search) {
         const like = `%${search}%`;
         const normalizedCodeSearch = normalizeCode(search);
-        conditions.push(sql`(
+        conditions.push(orCabinetAliasMatch(sql`(
           ${cabinets.masterCode} LIKE ${like}
           OR ${cabinets.description} LIKE ${like}
           OR UPPER(REPLACE(REPLACE(REPLACE(${cabinets.masterCode}, '-', ''), ' ', ''), '_', '')) LIKE ${`%${normalizedCodeSearch}%`}
-        )`);
+        )`, search));
       }
       const where = and(...conditions);
       const [rows, countRows] = await Promise.all([
@@ -3246,7 +3388,7 @@ export const cabinetsRouter = router({
         })
           .from(cabinets)
           .where(where)
-          .orderBy(asc(cabinets.category), asc(cabinets.masterCode))
+          .orderBy(...aliasSearchOrder(search, asc(cabinets.category), asc(cabinets.masterCode)))
           .limit(input.limit)
           .offset(input.page * input.limit),
         db.select({ count: sql<number>`COUNT(*)` }).from(cabinets).where(where),
@@ -3367,9 +3509,10 @@ export const cabinetsRouter = router({
         const like = `%${search}%`;
         const normalizedCodeSearch = normalizeCode(search);
         const normalizedMasterCode = sql`UPPER(REPLACE(REPLACE(REPLACE(${cabinets.masterCode}, '-', ''), ' ', ''), '_', ''))`;
-        conditions.push(
-          sql`(${cabinets.masterCode} LIKE ${like} OR ${cabinets.description} LIKE ${like} OR ${normalizedMasterCode} LIKE ${`%${normalizedCodeSearch}%`})`
-        );
+        conditions.push(orCabinetAliasMatch(
+          sql`(${cabinets.masterCode} LIKE ${like} OR ${cabinets.description} LIKE ${like} OR ${normalizedMasterCode} LIKE ${`%${normalizedCodeSearch}%`})`,
+          search,
+        ));
       }
       if (input.category) {
         conditions.push(eq(cabinets.category, input.category));
@@ -3384,7 +3527,7 @@ export const cabinetsRouter = router({
         })
         .from(cabinets)
         .where(and(...conditions))
-        .orderBy(asc(cabinets.masterCode));
+        .orderBy(...aliasSearchOrder(input.search, asc(cabinets.masterCode)));
 
       if (cabinetRows.length === 0) return { cabinets: [], styles: allStyles };
 
@@ -3578,7 +3721,10 @@ export const cabinetsRouter = router({
         const like = `%${search}%`;
         const normalizedCodeSearch = normalizeCode(search);
         const normalizedMasterCode = sql`UPPER(REPLACE(REPLACE(REPLACE(${cabinets.masterCode}, '-', ''), ' ', ''), '_', ''))`;
-        conds.push(sql`(${cabinets.masterCode} LIKE ${like} OR ${cabinets.description} LIKE ${like} OR ${normalizedMasterCode} LIKE ${`%${normalizedCodeSearch}%`})`);
+        conds.push(orCabinetAliasMatch(
+          sql`(${cabinets.masterCode} LIKE ${like} OR ${cabinets.description} LIKE ${like} OR ${normalizedMasterCode} LIKE ${`%${normalizedCodeSearch}%`})`,
+          search,
+        ));
       }
 
       const where = and(...conds);
@@ -3610,7 +3756,7 @@ export const cabinetsRouter = router({
           .innerJoin(doorStyles, eq(distributorSkus.styleId, doorStyles.id))
           .innerJoin(distributors, eq(distributorSkus.distributorId, distributors.id))
           .where(where)
-          .orderBy(asc(cabinets.category), asc(cabinets.masterCode), asc(doorStyles.styleCode))
+          .orderBy(...aliasSearchOrder(input.search, asc(cabinets.category), asc(cabinets.masterCode), asc(doorStyles.styleCode)))
           .limit(input.limit)
           .offset(input.offset),
         db
@@ -3651,7 +3797,7 @@ export const cabinetsRouter = router({
         const normalizedMasterCode = sql`UPPER(REPLACE(REPLACE(REPLACE(${cabinets.masterCode}, '-', ''), ' ', ''), '_', ''))`;
         const normalizedSupplierCode = sql`UPPER(REPLACE(REPLACE(REPLACE(${distributorSkus.distributorSku}, '-', ''), ' ', ''), '_', ''))`;
         const normalizedPlatformCode = sql`UPPER(REPLACE(REPLACE(REPLACE(${distributorSkus.platformSku}, '-', ''), ' ', ''), '_', ''))`;
-        conditions.push(sql`(
+        conditions.push(orCabinetAliasMatch(sql`(
           ${cabinets.masterCode} LIKE ${like}
           OR ${cabinets.description} LIKE ${like}
           OR ${distributorSkus.distributorSku} LIKE ${like}
@@ -3659,7 +3805,7 @@ export const cabinetsRouter = router({
           OR ${normalizedMasterCode} LIKE ${`%${normalizedCodeSearch}%`}
           OR ${normalizedSupplierCode} LIKE ${`%${normalizedCodeSearch}%`}
           OR ${normalizedPlatformCode} LIKE ${`%${normalizedCodeSearch}%`}
-        )`);
+        )`, search));
       }
       const where = and(...conditions);
       const [items, [totalRow]] = await Promise.all([
@@ -3687,7 +3833,7 @@ export const cabinetsRouter = router({
           .innerJoin(distributors, eq(distributorSkus.distributorId, distributors.id))
           .innerJoin(doorStyles, eq(distributorSkus.styleId, doorStyles.id))
           .where(where)
-          .orderBy(asc(distributorSkus.createdAt), asc(cabinets.masterCode))
+          .orderBy(...aliasSearchOrder(args.search, asc(distributorSkus.createdAt), asc(cabinets.masterCode)))
           .limit(args.limit ?? 100)
           .offset(args.offset ?? 0),
         db
@@ -4087,6 +4233,7 @@ export const pricingRouter = router({
 
       const rows = await db
         .select({
+          skuId: distributorSkus.id,
           styleId: distributorSkus.styleId,
           category: cabinets.category,
           styleCode: doorStyles.styleCode,
@@ -4220,6 +4367,7 @@ export const pricingRouter = router({
               ? (priceLadder(Math.round(rawCost * 100), affiliateFeeSettings).affiliateCents / 100).toFixed(2)
               : null;
           return {
+            skuId: r.skuId,
             styleId: r.styleId,
             styleCode: r.styleCode,
             name: r.name,

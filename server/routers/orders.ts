@@ -55,6 +55,8 @@ import { isTemporaryOneDollarCheckoutTestItem, isTemporaryOneDollarFreeShippingO
 import { isStagingTestHost } from "@shared/stagingTestMode";
 import { HARDWARE_LINE_CODE, hardwareProfileIsComplete, hardwareRetailCents, hardwareVendorOriginZip } from "@shared/hardwareCommerce";
 import { callerCanReadOrder, generateOrderAccessToken } from "../lib/orderAccess";
+import { choosePromotedPrice, type PricedCandidate } from "@shared/vendorPromotions";
+import { loadActivePromotionRules, loadPublishedCabinetPriceRows, priceLineWithPromotion } from "../vendorPromotionPricing";
 
 // Map the order tierEnum to the shared PricingTier.
 const orderTier = (t: "Wholesale" | "Contractor" | "Homeowner") =>
@@ -545,12 +547,14 @@ export const ordersRouter = router({
       const isAdmin = ctx.user?.role === "admin";
       const db = await getDb();
       if (!db || input.cabinetIds.length === 0) {
-        return { prices: [] as { cabinetId: number; unitPrice: number | null; myCost: number | null }[] };
+        return { prices: [] as { cabinetId: number; unitPrice: number | null; originalUnitPrice: number | null; promoName: string | null; myCost: number | null }[] };
       }
       const ps = await getPricingSettings();
       const rows = await db
         .select({
           cabinetId: distributorSkus.cabinetId,
+          skuId: distributorSkus.id,
+          distributorId: distributorSkus.distributorId,
           yourCost: distributorSkus.yourCost,
           wholesalePrice: distributorSkus.wholesalePrice,
           contractorPrice: distributorSkus.contractorPrice,
@@ -584,8 +588,12 @@ export const ordersRouter = router({
       // price selection is source cost → protected affiliate cost → that
       // affiliate's global/category/style markup, exactly as catalog and cart.
       const best = new Map<number, number>();
+      const promoted = new Map<number, { unitPrice: number; originalUnitPrice: number; promoName: string | null }>();
+      const candidates = new Map<number, PricedCandidate[]>();
       // Best (lowest) WHOLESALE floor per cabinet — owner-only "My Cost".
       const bestCost = new Map<number, number>();
+      const applyVendorPromo = !affiliatePricing && !requestedAffiliateScope;
+      const promos = applyVendorPromo ? await loadActivePromotionRules(db) : [];
       for (const r of rows) {
         if (r.cabinetId == null) continue;
         const sourceCostCents = r.yourCost == null ? null : Math.round(Number(r.yourCost) * 100);
@@ -598,8 +606,20 @@ export const ordersRouter = router({
             ? null
             : sellPriceForTier(r, ps, orderTier(input.tier));
         if (price !== null && Number.isFinite(price)) {
-          const cur = best.get(r.cabinetId);
-          if (cur === undefined || price < cur) best.set(r.cabinetId, price);
+          if (applyVendorPromo) {
+            const current = candidates.get(r.cabinetId) ?? [];
+            current.push({
+              distributorId: r.distributorId,
+              skuId: r.skuId,
+              styleId: input.styleId,
+              category: r.category,
+              basePrice: price,
+            });
+            candidates.set(r.cabinetId, current);
+          } else {
+            const cur = best.get(r.cabinetId);
+            if (cur === undefined || price < cur) best.set(r.cabinetId, price);
+          }
         }
         if (isAdmin) {
           const cost = Number(r.yourCost ?? r.wholesalePrice ?? r.contractorPrice);
@@ -609,13 +629,27 @@ export const ordersRouter = router({
           }
         }
       }
+      if (applyVendorPromo) {
+        for (const [cabinetId, cabinetCandidates] of Array.from(candidates.entries())) {
+          const choice = choosePromotedPrice(cabinetCandidates, promos);
+          if (!choice) continue;
+          promoted.set(cabinetId, {
+            unitPrice: choice.unitPrice,
+            originalUnitPrice: choice.originalPrice,
+            promoName: choice.promo?.name ?? null,
+          });
+        }
+      }
 
       return {
         prices: input.cabinetIds.map((id) => {
-          let unitPrice = best.has(id) ? best.get(id)! : null;
+          const promo = promoted.get(id);
+          const unitPrice = promo?.unitPrice ?? (best.has(id) ? best.get(id)! : null);
           return {
             cabinetId: id,
             unitPrice,
+            originalUnitPrice: promo?.promoName ? promo.originalUnitPrice : null,
+            promoName: promo?.promoName ?? null,
             // Only the owner/admin ever receives a non-null cost.
             myCost: isAdmin && bestCost.has(id) ? bestCost.get(id)! : null,
           };
@@ -891,6 +925,31 @@ export const ordersRouter = router({
             matched: true,
           };
         });
+      }
+      // Vendor promotions are an additional discount on the CabinetDealz sell
+      // price. Affiliate storefront prices stay on their protected markup path.
+      if (!affiliatePricing) {
+        const promoCabinetIds = Array.from(new Set(normalizedLines
+          .map((line) => line.productKind === "hardware" || line.productKind === "surface" ? null : line.cabinetId)
+          .filter((id): id is number => typeof id === "number" && id > 0)));
+        const promoStyleIds = Array.from(new Set(normalizedLines
+          .map((line) => line.styleId ?? input.styleId ?? null)
+          .filter((id): id is number => typeof id === "number" && id > 0)));
+        if (promoCabinetIds.length > 0 && promoStyleIds.length > 0) {
+          const [promoRules, promoRows, promoSettings] = await Promise.all([
+            loadActivePromotionRules(db),
+            loadPublishedCabinetPriceRows(db, promoCabinetIds, promoStyleIds),
+            getPricingSettings(),
+          ]);
+          normalizedLines = normalizedLines.map((line) => priceLineWithPromotion(
+            line,
+            promoRows,
+            promoRules,
+            promoSettings,
+            orderTier(resolvedTier),
+            input.styleId ?? null,
+          ));
+        }
       }
       // Cart intentionally retains every placed Designer cabinet, including a
       // rare line whose source-price refresh has not settled yet. Preserve that

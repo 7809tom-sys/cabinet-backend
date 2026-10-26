@@ -1431,9 +1431,44 @@
       "breakpoints": true
     },
     {
+      "idx": 205,
+      "version": "5",
+      "when": 1793060000000,
+      "tag": "0209_vendor_room_scenes_and_promotions",
+      "breakpoints": true
+    },
+    {
+      "idx": 206,
+      "version": "5",
+      "when": 1793100000000,
+      "tag": "0214_affiliate_white_label_catalog",
+      "breakpoints": true
+    },
+    {
+      "idx": 207,
+      "version": "5",
+      "when": 1793140000000,
+      "tag": "0206_public_cabinet_conflict_reviews",
+      "breakpoints": true
+    },
+    {
+      "idx": 208,
+      "version": "5",
+      "when": 1793180000000,
+      "tag": "0207_designer_eligible",
+      "breakpoints": true
+    },
+    {
       "idx": 209,
       "version": "5",
-      "when": 1793060800000,
+      "when": 1793220000000,
+      "tag": "0208_crm_cleanup",
+      "breakpoints": true
+    },
+    {
+      "idx": 210,
+      "version": "5",
+      "when": 1793260000000,
       "tag": "0210_order_request_access_token",
       "breakpoints": true
     }

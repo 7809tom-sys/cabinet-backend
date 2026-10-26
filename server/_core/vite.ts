@@ -7,6 +7,7 @@ import { eq } from "drizzle-orm";
 import { getDb } from "../db";
 import { affiliates } from "../../drizzle/schema";
 import { injectAffiliateWhiteLabelHead } from "../lib/affiliateWhiteLabelHead";
+import { publicContactForStorefront } from "@shared/affiliateStorefrontControls";
 import { injectMainSeoHead } from "../lib/mainSeoHead";
 import { injectSharedRoomPreviewHead } from "../sharedRoomPreview";
 import { canonicalPublicOrigin } from "../lib/publicOrigin";
@@ -63,6 +64,10 @@ export async function whiteLabelAffiliateHtml(
           publicPhone: affiliates.publicPhone,
           publicEmail: affiliates.publicEmail,
           publicAddress: affiliates.publicAddress,
+          showPublicEmail: affiliates.showPublicEmail,
+          showPublicPhone: affiliates.showPublicPhone,
+          showPublicAddress: affiliates.showPublicAddress,
+          faviconUrl: affiliates.faviconUrl,
           serviceArea: affiliates.serviceArea,
           facebookUrl: affiliates.facebookUrl,
           instagramUrl: affiliates.instagramUrl,
@@ -76,9 +81,13 @@ export async function whiteLabelAffiliateHtml(
   const kitchenDiscoveryPath = affiliatePathname === `/store/${slug}/kitchens`;
   const kitchenPackagesPath = affiliatePathname === `/store/${slug}/bundles`;
   const storeName = (row?.storeName?.trim() || "Kitchen & Bath Store").replace(/[.]+$/, "");
+  const contact = publicContactForStorefront(row ?? {});
   return injectAffiliateWhiteLabelHead(html, {
     slug,
     ...row,
+    publicEmail: contact.email,
+    publicPhone: contact.phone,
+    publicAddress: contact.address,
     ...(kitchenDiscoveryPath
       ? {
           pageTitle: `Plan Your Complete Kitchen with ${storeName}`,

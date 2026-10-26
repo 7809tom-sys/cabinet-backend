@@ -70,6 +70,7 @@ import { affiliateLiteratureRouter } from "./routers/affiliateLiterature";
 import { affiliateGeneratedImagesRouter } from "./routers/affiliateGeneratedImages";
 import { hardwareRouter } from "./routers/hardware";
 import { stripeInvoicesRouter } from "./routers/stripeInvoices";
+import { crmCleanupRouter } from "./routers/crmCleanup";
 
 export const appRouter = router({
   system: systemRouter,
@@ -172,6 +173,7 @@ export const appRouter = router({
   affiliateGeneratedImages: affiliateGeneratedImagesRouter,
   hardware: hardwareRouter,
   stripeInvoices: stripeInvoicesRouter,
+  crmCleanup: crmCleanupRouter,
 });
 
 export type AppRouter = typeof appRouter;
