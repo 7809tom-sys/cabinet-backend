@@ -1152,6 +1152,11 @@ export const kitchenDesigns = mysqlTable("kitchen_designs", {
   selectedStyleId: int("selectedStyleId"),
   selectedDistributorId: int("selectedDistributorId"),
   thumbnailUrl: varchar("thumbnailUrl", { length: 512 }),
+  // Assisted edits keep the customer's design id. "suggested" is a designer copy
+  // attached to the same project; the original row is never moved or deleted.
+  recordKind: mysqlEnum("recordKind", ["customer", "suggested"]).default("customer").notNull(),
+  suggestionOfDesignId: int("suggestionOfDesignId"),
+  assistLabel: varchar("assistLabel", { length: 160 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 }, (t) => ({
@@ -3258,12 +3263,123 @@ export const bundleDeals = mysqlTable("bundle_deals", {
   lockedDistributorId: int("lockedDistributorId"),            // FK to distributors.id
   // Sort order for storefront display
   sortOrder: int("sortOrder").default(0).notNull(),
+  // Copy of a saved design. The source row is never moved or updated.
+  sourceDesignId: int("sourceDesignId"),
+  featuredOnHome: boolean("featuredOnHome").default(false).notNull(),
+  // Customer-facing amount when it differs from the snapshotted BOM sum.
+  priceOverride: decimal("priceOverride", { precision: 10, scale: 2 }),
+  discountAmount: decimal("discountAmount", { precision: 10, scale: 2 }),
+  // BOM total at save/refresh time. Compared with live catalog prices.
+  bomSnapshotTotal: decimal("bomSnapshotTotal", { precision: 10, scale: 2 }),
+  lineItemsJson: json("lineItemsJson").$type<KitchenPackageLineItem[]>(),
+  priceSnapshottedAt: timestamp("priceSnapshottedAt"),
+  layoutLabel: varchar("layoutLabel", { length: 64 }),
+  doorColor: varchar("doorColor", { length: 128 }),
   createdBy: int("createdBy"),                               // FK to users.id
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
+
+export type KitchenPackageLineItem = {
+  label: string;
+  code: string;
+  category: string;
+  supplier: string;
+  qty: number;
+  unitPrice: number | null;
+  lineTotal: number | null;
+  section: "cabinet" | "other";
+};
+
 export type BundleDeal = typeof bundleDeals.$inferSelect;
 export type InsertBundleDeal = typeof bundleDeals.$inferInsert;
+
+// ─── Customer projects (storefront My Account) ───────────────────────────────
+// A signed-in shopper groups their own designs and quotes. Rows are owned by
+// userId and attributed to the storefront affiliate so that affiliate's CRM
+// can read them. Affiliates cannot edit or delete these rows.
+export const customerProjects = mysqlTable("customer_projects", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  affiliateId: int("affiliateId"),
+  name: varchar("name", { length: 256 }).notNull(),
+  jobSiteAddress: varchar("jobSiteAddress", { length: 512 }),
+  clientName: varchar("clientName", { length: 256 }),
+  notes: text("notes"),
+  status: mysqlEnum("status", ["planning", "active", "quoted", "completed", "archived"]).default("planning").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (t) => ({
+  ownerIdx: index("customer_projects_owner_idx").on(t.userId, t.affiliateId),
+}));
+export type CustomerProject = typeof customerProjects.$inferSelect;
+export type InsertCustomerProject = typeof customerProjects.$inferInsert;
+
+export const customerProjectDesigns = mysqlTable("customer_project_designs", {
+  id: int("id").autoincrement().primaryKey(),
+  projectId: int("projectId").notNull(),
+  kitchenDesignId: int("kitchenDesignId").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (t) => ({
+  designUnique: uniqueIndex("customer_project_designs_design_uq").on(t.kitchenDesignId),
+  projectIdx: index("customer_project_designs_project_idx").on(t.projectId),
+}));
+export type CustomerProjectDesign = typeof customerProjectDesigns.$inferSelect;
+
+export const customerProjectQuotes = mysqlTable("customer_project_quotes", {
+  id: int("id").autoincrement().primaryKey(),
+  projectId: int("projectId").notNull(),
+  orderRequestId: int("orderRequestId").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (t) => ({
+  quoteUnique: uniqueIndex("customer_project_quotes_order_uq").on(t.orderRequestId),
+  projectIdx: index("customer_project_quotes_project_idx").on(t.projectId),
+}));
+export type CustomerProjectQuote = typeof customerProjectQuotes.$inferSelect;
+
+// Previous design contents, written before an assisted edit so the customer
+// can restore that version. A suggested copy does not overwrite this history.
+export const kitchenDesignRevisions = mysqlTable("kitchen_design_revisions", {
+  id: int("id").autoincrement().primaryKey(),
+  kitchenDesignId: int("kitchenDesignId").notNull(),
+  revisionNumber: int("revisionNumber").notNull(),
+  authorUserId: int("authorUserId"),
+  authorLabel: varchar("authorLabel", { length: 160 }).notNull(),
+  kind: mysqlEnum("kind", ["assisted_edit", "suggested_copy", "revert"]).notNull(),
+  snapshot: json("snapshot").$type<Record<string, unknown>>().notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (t) => ({
+  designRevIdx: index("kitchen_design_revisions_design_idx").on(t.kitchenDesignId, t.revisionNumber),
+}));
+export type KitchenDesignRevision = typeof kitchenDesignRevisions.$inferSelect;
+
+// In-app notices only. Assisted edits never send email.
+export const customerNotices = mysqlTable("customer_notices", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  affiliateId: int("affiliateId"),
+  kind: mysqlEnum("kind", ["design_assisted", "design_suggested"]).notNull(),
+  title: varchar("title", { length: 200 }).notNull(),
+  body: text("body").notNull(),
+  designId: int("designId"),
+  projectId: int("projectId"),
+  readAt: timestamp("readAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (t) => ({
+  userIdx: index("customer_notices_user_idx").on(t.userId, t.createdAt),
+}));
+export type CustomerNotice = typeof customerNotices.$inferSelect;
+
+export const customerQuoteRevisions = mysqlTable("customer_quote_revisions", {
+  id: int("id").autoincrement().primaryKey(),
+  orderRequestId: int("orderRequestId").notNull(),
+  userId: int("userId").notNull(),
+  note: text("note").notNull(),
+  requestedAt: timestamp("requestedAt").defaultNow().notNull(),
+}, (t) => ({
+  orderIdx: index("customer_quote_revisions_order_idx").on(t.orderRequestId),
+}));
+export type CustomerQuoteRevision = typeof customerQuoteRevisions.$inferSelect;
 
 // ─── Media Library ─────────────────────────────────────────────────────────────
 // Admin-managed image library. Stores CDN URLs for images uploaded via the
