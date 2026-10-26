@@ -1,3 +1,4 @@
+-- 0209_vendor_room_scenes_and_promotions
 -- Named room-scene groups on the existing door-style scene rows, plus a
 -- dollars-off promotion type. Each statement is safe to run more than once.
 SET @schema := DATABASE();

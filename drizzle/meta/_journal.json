@@ -1431,10 +1431,10 @@
       "breakpoints": true
     },
     {
-      "idx": 205,
+      "idx": 208,
       "version": "5",
-      "when": 1792972800000,
-      "tag": "0206_vendor_room_scenes_and_promotions",
+      "when": 1793060000000,
+      "tag": "0209_vendor_room_scenes_and_promotions",
       "breakpoints": true
     }
   ]
