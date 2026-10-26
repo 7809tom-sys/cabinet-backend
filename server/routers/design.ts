@@ -17,6 +17,7 @@ import { resolveAffiliateStorefrontSale } from "@shared/affiliateBranding";
 import { getPricingSettings } from "../db";
 import { resolveStorefrontTier, visiblePricesForViewer } from "../../shared/pricingTier";
 import { resolveAffiliateAccess } from "../lib/affiliateAccess";
+import { filterCabinetSourceRows, loadAffiliateCatalogGate } from "../lib/affiliateCatalogGate";
 import { canViewAffiliateDesignPriceList, affiliateCustomerPosition } from "../lib/affiliateDesignPriceList";
 import { selectExactCartPriceRows } from "../lib/cartPriceSelection";
 import { canonicalizeDesignPriceItems, normalizedDesignPriceCode, verifiedLegacyDesignPriceAliases } from "../lib/designPriceAliases";
@@ -307,6 +308,7 @@ export const designRouter = router({
         // only the cabinets that are actually purchasable for THAT combination.
         distributorId: z.number().optional(),
         styleId: z.number().optional(),
+        affiliateSlug: z.string().trim().max(64).optional(),
       }).optional()
     )
     .query(async ({ ctx, input }) => {
@@ -336,9 +338,11 @@ export const designRouter = router({
       if (input?.styleId) {
         skuConditions.push(eq(distributorSkus.styleId, input.styleId));
       }
-      const sourceRows = await db
+      const loadedSourceRows = await db
         .select({
           sourceMasterCode: cabinets.masterCode,
+          sourceDistributorId: distributorSkus.distributorId,
+          sourceStyleId: distributorSkus.styleId,
           glassIncluded: distributors.glassIncluded,
           sourceDistributorCode: distributors.code,
           sourceDistributorSkuId: distributorSkus.id,
@@ -355,6 +359,9 @@ export const designRouter = router({
         .innerJoin(cabinets, eq(distributorSkus.cabinetId, cabinets.id))
         .innerJoin(distributors, eq(distributors.id, distributorSkus.distributorId))
         .where(and(...skuConditions, ne(cabinets.conflictStatus, "conflict")));
+      const catalogGate = input?.affiliateSlug ? await loadAffiliateCatalogGate(db, input.affiliateSlug) : null;
+      if (input?.styleId && catalogGate?.disabledStyleIds.has(input.styleId)) return [];
+      const sourceRows = filterCabinetSourceRows(loadedSourceRows, catalogGate);
 
       const stagedAefMasterCodes = adminAefPreview
         ? Array.from(new Set(sourceRows.map((row) => row.sourceMasterCode)))

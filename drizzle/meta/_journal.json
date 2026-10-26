@@ -1429,6 +1429,20 @@
       "when": 1792968087801,
       "tag": "0205_stripe_payment_records",
       "breakpoints": true
+    },
+    {
+      "idx": 205,
+      "version": "5",
+      "when": 1793060000000,
+      "tag": "0209_vendor_room_scenes_and_promotions",
+      "breakpoints": true
+    },
+    {
+      "idx": 206,
+      "version": "5",
+      "when": 1793100000000,
+      "tag": "0214_affiliate_white_label_catalog",
+      "breakpoints": true
     }
   ]
 }
