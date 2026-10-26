@@ -35,7 +35,7 @@ export type PelicanWeightMismatch = {
 export const PELICAN_SHOPIFY_PRODUCTS_URL = "https://buildpelican.com/products.json";
 
 export const QUARTZ_WEIGHT_DATA_ISSUE =
-  `The quartz comparison estimate assumes ${QUARTZ_ESTIMATE_WEIGHT_LBS} lb per slab. Pelican's Shopify catalog lists ${QUARTZ_CATALOG_WEIGHTS_LBS.map((row) => `${row.weightLbs} lb (${row.label})`).join(" and ")}, so quartz LTL quotes from that estimate may be low.`;
+  `The quartz comparison estimate assumes ${QUARTZ_ESTIMATE_WEIGHT_LBS} lb per slab. Pelican's Shopify catalog lists 800 lb (3cm) and 1,080 lb (Super Jumbo), so quartz LTL quotes from that estimate may be low.`;
 
 export function shopifyGramsToPounds(grams: number): number | null {
   if (!Number.isFinite(grams) || grams <= 0) return null;
