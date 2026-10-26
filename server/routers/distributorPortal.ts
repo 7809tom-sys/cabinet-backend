@@ -24,6 +24,7 @@ import {
 	  shippingSettings,
 	} from "../../drizzle/schema";
 import { storagePut } from "../storage";
+import { vendorRoomSceneProcedures } from "./vendorRoomScenes";
 import { encryptDistributorSecret } from "../lib/distributorIntegrationCrypto";
 import { decryptDistributorSecret } from "../lib/distributorIntegrationCrypto";
 import { generateImage } from "../_core/imageGeneration";
@@ -2944,4 +2945,6 @@ export const distributorPortalRouter = router({
         );
       return { success: true };
     }),
+
+  ...vendorRoomSceneProcedures,
 });
