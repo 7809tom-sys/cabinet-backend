@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { and, asc, desc, eq, gt, isNull, like, lte, not, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, isNull, like, lte, not, notInArray, or, sql } from "drizzle-orm";
+import { hiddenNumericIds, loadAffiliateCatalogGate } from "../lib/affiliateCatalogGate";
 import { router, publicProcedure, adminProcedure, supplierProfileProcedure } from "../_core/trpc";
 import { getDb } from "../db";
 import { pelicanProducts, pelicanShippingProfiles } from "../../drizzle/pelicanSchema";
@@ -210,6 +211,8 @@ export const pelicanRouter = router({
       if (input.scope === "designer") conds.push(eq(pelicanProducts.showInDesigner, true));
       if (input.scope === "catalog") conds.push(eq(pelicanProducts.showInCatalog, true));
       if (input.subCategory) conds.push(eq(pelicanProducts.subCategory, input.subCategory));
+      const hiddenSurfaces = hiddenNumericIds(await loadAffiliateCatalogGate(db, input.affiliateSlug), "surface");
+      if (hiddenSurfaces.length > 0) conds.push(notInArray(pelicanProducts.id, hiddenSurfaces));
       if (input.search) {
         const search = input.search.trim();
         const q = `%${search}%`;
@@ -296,6 +299,8 @@ export const pelicanRouter = router({
         ))
         .limit(1);
       if (!row) return null;
+      const hiddenSurfaces = hiddenNumericIds(await loadAffiliateCatalogGate(db, input.affiliateSlug), "surface");
+      if (hiddenSurfaces.includes(row.id)) return null;
       const markupMap = await loadMarkupMap(db);
       const affiliatePricing = await loadAffiliateStorefrontPricing(input.affiliateSlug);
       const priced = withPricing(row, markupMap, affiliatePricing
@@ -323,6 +328,7 @@ export const pelicanRouter = router({
       else return [];
       const markupMap = await loadMarkupMap(db);
       const affiliatePricing = await loadAffiliateStorefrontPricing(input.affiliateSlug);
+      const hiddenSurfaces = new Set(hiddenNumericIds(await loadAffiliateCatalogGate(db, input.affiliateSlug), "surface"));
       const rows = await db
         .select()
         .from(pelicanProducts)
@@ -338,6 +344,7 @@ export const pelicanRouter = router({
         .orderBy(desc(pelicanProducts.isPopular), asc(pelicanProducts.popularRank))
         .limit(input.limit);
       return rows
+        .filter((r) => !hiddenSurfaces.has(r.id))
         .map((r) => withPricing(r, markupMap, affiliatePricing
           ? resolveMarkupBps(affiliatePricing.markup, { categoryKey: r.category })
           : undefined))

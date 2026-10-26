@@ -1,8 +1,6 @@
 {
   "version": "5",
   "dialect": "mysql",
-  "id": "f9633e57-5e47-4c65-b831-4e6cadc35460",
-  "prevId": "74dc40ea-c54a-4b53-b846-653180784313",
   "tables": {
     "admin_sticky_notes": {
       "name": "admin_sticky_notes",
@@ -554,6 +552,77 @@
       "compositePrimaryKeys": {
         "affiliate_hardware_commission_snapshots_id": {
           "name": "affiliate_hardware_commission_snapshots_id",
+          "columns": [
+            "id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraint": {}
+    },
+    "affiliate_hidden_catalog_products": {
+      "name": "affiliate_hidden_catalog_products",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "affiliateId": {
+          "name": "affiliateId",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "catalogKind": {
+          "name": "catalogKind",
+          "type": "enum('cabinet','hardware','surface','closet')",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "productKey": {
+          "name": "productKey",
+          "type": "varchar(128)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(now())"
+        }
+      },
+      "indexes": {
+        "affiliate_hidden_catalog_product_uidx": {
+          "name": "affiliate_hidden_catalog_product_uidx",
+          "columns": [
+            "affiliateId",
+            "catalogKind",
+            "productKey"
+          ],
+          "isUnique": true
+        },
+        "affiliate_hidden_catalog_affiliate_idx": {
+          "name": "affiliate_hidden_catalog_affiliate_idx",
+          "columns": [
+            "affiliateId",
+            "catalogKind"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "affiliate_hidden_catalog_products_id": {
+          "name": "affiliate_hidden_catalog_products_id",
           "columns": [
             "id"
           ]
@@ -1775,6 +1844,80 @@
         "instagramUrl": {
           "name": "instagramUrl",
           "type": "varchar(512)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "logoDarkUrl": {
+          "name": "logoDarkUrl",
+          "type": "varchar(512)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "faviconUrl": {
+          "name": "faviconUrl",
+          "type": "varchar(512)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "backgroundColor": {
+          "name": "backgroundColor",
+          "type": "varchar(16)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "textColor": {
+          "name": "textColor",
+          "type": "varchar(16)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "footerText": {
+          "name": "footerText",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "showPublicEmail": {
+          "name": "showPublicEmail",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
+        },
+        "showPublicPhone": {
+          "name": "showPublicPhone",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
+        },
+        "showPublicAddress": {
+          "name": "showPublicAddress",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
+        },
+        "hidePlatformBranding": {
+          "name": "hidePlatformBranding",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
+        },
+        "sectionLabelsJson": {
+          "name": "sectionLabelsJson",
+          "type": "text",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
@@ -3888,6 +4031,13 @@
         "conflictedAt": {
           "name": "conflictedAt",
           "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "importLockedFields": {
+          "name": "importLockedFields",
+          "type": "json",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
@@ -8726,6 +8876,51 @@
           "autoincrement": false,
           "default": 0
         },
+        "sceneName": {
+          "name": "sceneName",
+          "type": "varchar(128)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'Room'"
+        },
+        "sceneDescription": {
+          "name": "sceneDescription",
+          "type": "varchar(512)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "sceneSortOrder": {
+          "name": "sceneSortOrder",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "isCover": {
+          "name": "isCover",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
+        },
+        "taggedCabinetIds": {
+          "name": "taggedCabinetIds",
+          "type": "json",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "taggedStyleIds": {
+          "name": "taggedStyleIds",
+          "type": "json",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "isVerified": {
           "name": "isVerified",
           "type": "boolean",
@@ -8780,6 +8975,15 @@
           "columns": [
             "styleId",
             "sortOrder"
+          ],
+          "isUnique": false
+        },
+        "door_style_room_scenes_scene_idx": {
+          "name": "door_style_room_scenes_scene_idx",
+          "columns": [
+            "styleId",
+            "sceneName",
+            "sceneSortOrder"
           ],
           "isUnique": false
         }
@@ -11879,6 +12083,379 @@
       },
       "checkConstraint": {}
     },
+    "pelican_products": {
+      "name": "pelican_products",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "pelicanCode": {
+          "name": "pelicanCode",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "slug": {
+          "name": "slug",
+          "type": "varchar(160)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "category": {
+          "name": "category",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "subCategory": {
+          "name": "subCategory",
+          "type": "varchar(128)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "size": {
+          "name": "size",
+          "type": "varchar(128)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "listPrice": {
+          "name": "listPrice",
+          "type": "decimal(10,2)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "priceTier2": {
+          "name": "priceTier2",
+          "type": "decimal(10,2)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "priceTier3": {
+          "name": "priceTier3",
+          "type": "decimal(10,2)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "priceTier4": {
+          "name": "priceTier4",
+          "type": "decimal(10,2)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "msrp": {
+          "name": "msrp",
+          "type": "decimal(10,2)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "retailPrice": {
+          "name": "retailPrice",
+          "type": "decimal(10,2)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "tiered": {
+          "name": "tiered",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
+        },
+        "yourCost": {
+          "name": "yourCost",
+          "type": "decimal(10,2)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "markupPercent": {
+          "name": "markupPercent",
+          "type": "decimal(6,4)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "isPopular": {
+          "name": "isPopular",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
+        },
+        "popularRank": {
+          "name": "popularRank",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "imageUrl": {
+          "name": "imageUrl",
+          "type": "varchar(512)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "materialImageUrl": {
+          "name": "materialImageUrl",
+          "type": "varchar(512)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "showInDesigner": {
+          "name": "showInDesigner",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": true
+        },
+        "showInCatalog": {
+          "name": "showInCatalog",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": true
+        },
+        "isActive": {
+          "name": "isActive",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": true
+        },
+        "coverageSqFt": {
+          "name": "coverageSqFt",
+          "type": "decimal(8,2)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "unsupportedOverhangLimitIn": {
+          "name": "unsupportedOverhangLimitIn",
+          "type": "decimal(6,3)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(now())"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "pelican_products_id": {
+          "name": "pelican_products_id",
+          "columns": [
+            "id"
+          ]
+        }
+      },
+      "uniqueConstraints": {
+        "pelican_products_pelicanCode_unique": {
+          "name": "pelican_products_pelicanCode_unique",
+          "columns": [
+            "pelicanCode"
+          ]
+        },
+        "pelican_products_slug_unique": {
+          "name": "pelican_products_slug_unique",
+          "columns": [
+            "slug"
+          ]
+        }
+      },
+      "checkConstraint": {}
+    },
+    "pelican_shipping_profiles": {
+      "name": "pelican_shipping_profiles",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "pelicanProductId": {
+          "name": "pelicanProductId",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "originName": {
+          "name": "originName",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "originZip": {
+          "name": "originZip",
+          "type": "varchar(16)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "transportMode": {
+          "name": "transportMode",
+          "type": "enum('parcel','ltl')",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "packageLengthIn": {
+          "name": "packageLengthIn",
+          "type": "decimal(8,2)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "packageWidthIn": {
+          "name": "packageWidthIn",
+          "type": "decimal(8,2)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "packageHeightIn": {
+          "name": "packageHeightIn",
+          "type": "decimal(8,2)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "packageWeightLbs": {
+          "name": "packageWeightLbs",
+          "type": "decimal(8,2)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "freightClass": {
+          "name": "freightClass",
+          "type": "varchar(8)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "evidenceType": {
+          "name": "evidenceType",
+          "type": "enum('supplier_verified','comparable_estimate')",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'supplier_verified'"
+        },
+        "comparisonRuleId": {
+          "name": "comparisonRuleId",
+          "type": "varchar(96)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "sourceUrl": {
+          "name": "sourceUrl",
+          "type": "varchar(512)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "sourceReference": {
+          "name": "sourceReference",
+          "type": "varchar(512)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "verifiedAt": {
+          "name": "verifiedAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "isEnabled": {
+          "name": "isEnabled",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(now())"
+        }
+      },
+      "indexes": {
+        "pelican_shipping_profiles_product_uidx": {
+          "name": "pelican_shipping_profiles_product_uidx",
+          "columns": [
+            "pelicanProductId"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "pelican_shipping_profiles_id": {
+          "name": "pelican_shipping_profiles_id",
+          "columns": [
+            "id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraint": {}
+    },
     "platform_pricing_settings": {
       "name": "platform_pricing_settings",
       "columns": {
@@ -14892,7 +15469,7 @@
         },
         "discountType": {
           "name": "discountType",
-          "type": "enum('percent','fixed_price')",
+          "type": "enum('percent','fixed_price','fixed_amount')",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
@@ -14956,389 +15533,17 @@
       },
       "uniqueConstraints": {},
       "checkConstraint": {}
-    },
-    "pelican_products": {
-      "name": "pelican_products",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "int",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": true
-        },
-        "pelicanCode": {
-          "name": "pelicanCode",
-          "type": "varchar(191)",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "slug": {
-          "name": "slug",
-          "type": "varchar(160)",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "name": {
-          "name": "name",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "description": {
-          "name": "description",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "category": {
-          "name": "category",
-          "type": "varchar(64)",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "subCategory": {
-          "name": "subCategory",
-          "type": "varchar(128)",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "size": {
-          "name": "size",
-          "type": "varchar(128)",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "listPrice": {
-          "name": "listPrice",
-          "type": "decimal(10,2)",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "priceTier2": {
-          "name": "priceTier2",
-          "type": "decimal(10,2)",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "priceTier3": {
-          "name": "priceTier3",
-          "type": "decimal(10,2)",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "priceTier4": {
-          "name": "priceTier4",
-          "type": "decimal(10,2)",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "msrp": {
-          "name": "msrp",
-          "type": "decimal(10,2)",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "retailPrice": {
-          "name": "retailPrice",
-          "type": "decimal(10,2)",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "tiered": {
-          "name": "tiered",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": false
-        },
-        "yourCost": {
-          "name": "yourCost",
-          "type": "decimal(10,2)",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "markupPercent": {
-          "name": "markupPercent",
-          "type": "decimal(6,4)",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "isPopular": {
-          "name": "isPopular",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": false
-        },
-        "popularRank": {
-          "name": "popularRank",
-          "type": "int",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": 0
-        },
-        "imageUrl": {
-          "name": "imageUrl",
-          "type": "varchar(512)",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "materialImageUrl": {
-          "name": "materialImageUrl",
-          "type": "varchar(512)",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "showInDesigner": {
-          "name": "showInDesigner",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": true
-        },
-        "showInCatalog": {
-          "name": "showInCatalog",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": true
-        },
-        "isActive": {
-          "name": "isActive",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": true
-        },
-        "coverageSqFt": {
-          "name": "coverageSqFt",
-          "type": "decimal(8,2)",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "unsupportedOverhangLimitIn": {
-          "name": "unsupportedOverhangLimitIn",
-          "type": "decimal(6,3)",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "createdAt": {
-          "name": "createdAt",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "(now())"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {
-        "pelican_products_id": {
-          "name": "pelican_products_id",
-          "columns": [
-            "id"
-          ]
-        }
-      },
-      "uniqueConstraints": {
-        "pelican_products_pelicanCode_unique": {
-          "name": "pelican_products_pelicanCode_unique",
-          "columns": [
-            "pelicanCode"
-          ]
-        },
-        "pelican_products_slug_unique": {
-          "name": "pelican_products_slug_unique",
-          "columns": [
-            "slug"
-          ]
-        }
-      },
-      "checkConstraint": {}
-    },
-    "pelican_shipping_profiles": {
-      "name": "pelican_shipping_profiles",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "int",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": true
-        },
-        "pelicanProductId": {
-          "name": "pelicanProductId",
-          "type": "int",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "originName": {
-          "name": "originName",
-          "type": "varchar(191)",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "originZip": {
-          "name": "originZip",
-          "type": "varchar(16)",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "transportMode": {
-          "name": "transportMode",
-          "type": "enum('parcel','ltl')",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "packageLengthIn": {
-          "name": "packageLengthIn",
-          "type": "decimal(8,2)",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "packageWidthIn": {
-          "name": "packageWidthIn",
-          "type": "decimal(8,2)",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "packageHeightIn": {
-          "name": "packageHeightIn",
-          "type": "decimal(8,2)",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "packageWeightLbs": {
-          "name": "packageWeightLbs",
-          "type": "decimal(8,2)",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "freightClass": {
-          "name": "freightClass",
-          "type": "varchar(8)",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "evidenceType": {
-          "name": "evidenceType",
-          "type": "enum('supplier_verified','comparable_estimate')",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "'supplier_verified'"
-        },
-        "comparisonRuleId": {
-          "name": "comparisonRuleId",
-          "type": "varchar(96)",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "sourceUrl": {
-          "name": "sourceUrl",
-          "type": "varchar(512)",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "sourceReference": {
-          "name": "sourceReference",
-          "type": "varchar(512)",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "verifiedAt": {
-          "name": "verifiedAt",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "isEnabled": {
-          "name": "isEnabled",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": false
-        },
-        "updatedAt": {
-          "name": "updatedAt",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "(now())"
-        }
-      },
-      "indexes": {
-        "pelican_shipping_profiles_product_uidx": {
-          "name": "pelican_shipping_profiles_product_uidx",
-          "columns": [
-            "pelicanProductId"
-          ],
-          "isUnique": true
-        }
-      },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {
-        "pelican_shipping_profiles_id": {
-          "name": "pelican_shipping_profiles_id",
-          "columns": [
-            "id"
-          ]
-        }
-      },
-      "uniqueConstraints": {},
-      "checkConstraint": {}
     }
   },
   "views": {},
   "_meta": {
-    "schemas": {},
     "tables": {},
     "columns": {}
   },
   "internal": {
     "tables": {},
     "indexes": {}
-  }
+  },
+  "id": "2c28ae32-8913-4e7e-8909-1236576a42a1",
+  "prevId": "64003784-d361-446e-95d3-90bf03eefd54"
 }
