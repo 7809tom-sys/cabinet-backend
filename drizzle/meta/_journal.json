@@ -1429,6 +1429,13 @@
       "when": 1792968087801,
       "tag": "0205_stripe_payment_records",
       "breakpoints": true
+    },
+    {
+      "idx": 210,
+      "version": "5",
+      "when": 1793300000000,
+      "tag": "0211_sales_forecast_vendor_portal",
+      "breakpoints": true
     }
   ]
 }

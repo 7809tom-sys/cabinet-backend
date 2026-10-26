@@ -191,6 +191,8 @@ export const designMissingPriceRouter = router({
           listPrice: distributorSkus.listPrice, yourCost: distributorSkus.yourCost,
           wholesalePrice: distributorSkus.wholesalePrice, adjustedListPrice: distributorSkus.adjustedListPrice,
           retailPriceBasis: distributors.retailPriceBasis,
+          vendorWholesale: distributorSkus.vendorWholesale,
+          vendorMarkupPercent: distributors.markupPercent,
         })
         .from(distributorSkus)
         .innerJoin(cabinets, eq(cabinets.id, distributorSkus.cabinetId))

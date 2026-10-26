@@ -5,6 +5,7 @@ import { affiliateSlugFromHostCandidates, affiliateStorefrontPath, isAffiliateSt
 import net from "net";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { registerQboRoutes } from "../qboOAuth";
+import { registerVendorInventorySync } from "../vendorInventoryHttp";
 import { registerStorageProxy } from "./storageProxy";
 import { registerSharedRoomPreviewRoutes } from "../sharedRoomPreview";
 import { appRouter } from "../routers";
@@ -100,6 +101,7 @@ async function startServer() {
   registerStorageProxy(app);
   registerSharedRoomPreviewRoutes(app);
   registerQboRoutes(app);
+  registerVendorInventorySync(app);
   // tRPC API
   app.use(
     "/api/trpc",
