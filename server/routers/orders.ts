@@ -16,6 +16,7 @@ import {
   doorStyles,
   distributors,
   orderRequests,
+  users,
   kitchenDesigns,
   crmDealDesigns,
   affiliates,
@@ -53,6 +54,7 @@ import { calcSalesTax } from "@shared/usSalesTax";
 import { isTemporaryOneDollarCheckoutTestItem, isTemporaryOneDollarFreeShippingOrder } from "@shared/temporaryCheckoutTest";
 import { isStagingTestHost } from "@shared/stagingTestMode";
 import { HARDWARE_LINE_CODE, hardwareProfileIsComplete, hardwareRetailCents, hardwareVendorOriginZip } from "@shared/hardwareCommerce";
+import { callerCanReadOrder, generateOrderAccessToken } from "../lib/orderAccess";
 import { choosePromotedPrice, type PricedCandidate } from "@shared/vendorPromotions";
 import { loadActivePromotionRules, loadPublishedCabinetPriceRows, priceLineWithPromotion } from "../vendorPromotionPricing";
 
@@ -1209,8 +1211,10 @@ export const ordersRouter = router({
       }
 
       const requestNumber = makeRequestNumber();
+      const accessToken = generateOrderAccessToken();
       const result = await db.insert(orderRequests).values({
         userId: ctx.user?.id ?? null,
+        accessToken,
         kitchenDesignId,
         requestNumber,
         originatorName: input.originatorName ?? ctx.user?.name ?? null,
@@ -1340,7 +1344,7 @@ export const ordersRouter = router({
       // to the distributor with copies to affiliates, and confirmed by the
       // originator/affiliate. That email step is DEFERRED until distributor email
       // is wired. For now we only persist the request.
-      return { id: insertId, requestNumber, freightCents: freightQuoteCents };
+      return { id: insertId, requestNumber, freightCents: freightQuoteCents, accessToken };
     }),
 
   // ─── Originator confirmation ───────────────────────────────────────────────
@@ -1418,17 +1422,38 @@ export const ordersRouter = router({
     }),
 
   // ─── Read one request ──────────────────────────────────────────────────────
+  // Sequential ids are guessable, and the row carries customer contact and
+  // shipping details. Return it only to an admin, the signed-in owner, or a
+  // holder of the unguessable token issued when the order was created. Missing
+  // and unauthorized lookups share one not-found error so a guess cannot
+  // confirm that an id exists. The token itself is never echoed back.
   byId: publicProcedure
-    .input(z.object({ id: z.number() }))
-    .query(async ({ input }) => {
+    .input(z.object({
+      id: z.number().int().positive(),
+      accessToken: z.string().min(1).max(128).optional(),
+    }))
+    .query(async ({ input, ctx }) => {
       const db = await getDb();
-      if (!db) return null;
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
       const rows = await db
         .select()
         .from(orderRequests)
         .where(eq(orderRequests.id, input.id))
         .limit(1);
-      return rows[0] ?? null;
+      const order = rows[0];
+      const allowed = order != null && await callerCanReadOrder(ctx.user, order, input.accessToken, async (userId) => {
+        const [owner] = await db
+          .select({ openId: users.openId })
+          .from(users)
+          .where(eq(users.id, userId))
+          .limit(1);
+        return owner?.openId;
+      });
+      if (!order || !allowed) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Order not found" });
+      }
+      const { accessToken: _accessToken, ...detail } = order;
+      return detail;
     }),
 
   // ─── My requests (authenticated) ───────────────────────────────────────────
