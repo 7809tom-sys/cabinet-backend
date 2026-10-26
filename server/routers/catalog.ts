@@ -37,6 +37,7 @@ import { invokeLLM } from "../_core/llm";
 import sharp from "sharp";
 import { generateImage } from "../_core/imageGeneration";
 import { rankDoorMatches, type DoorCandidate, type DoorVisionResult } from "@shared/doorPhotoMatch";
+import { changedLockableFields, HIDDEN_CONFLICT_STATUS, locksAfterResolve, omitImportLockedFields, PUBLIC_CATALOG_REVIEW_STATUS } from "@shared/cabinetConflictFlags";
 import { parsePriceAuditQuery } from "@shared/priceAuditLookup";
 import { filterStylesByAvailability } from "@shared/styleAvailability";
 import { groupRoomScenes } from "@shared/vendorRoomScenes";
@@ -1801,6 +1802,9 @@ export const cabinetsRouter = router({
       depth: string | null;
       conflictReason: string | null;
       conflictedAt: Date | null;
+      conflictStatus: string;
+      numberOfDrawers: number | null;
+      staysPublic: boolean;
       skuCount: number;
       distributorNames: string[];
       doorStyleNames: string[];
@@ -1811,7 +1815,7 @@ export const cabinetsRouter = router({
     const items = await db
       .select()
       .from(cabinets)
-      .where(eq(cabinets.conflictStatus, "conflict"))
+      .where(inArray(cabinets.conflictStatus, [HIDDEN_CONFLICT_STATUS, PUBLIC_CATALOG_REVIEW_STATUS]))
       .orderBy(asc(cabinets.masterCode));
     if (items.length === 0) return [];
     const ids = items.map((c) => c.id);
@@ -1865,6 +1869,9 @@ export const cabinetsRouter = router({
         depth: c.depth,
         conflictReason: c.conflictReason,
         conflictedAt: c.conflictedAt,
+        conflictStatus: c.conflictStatus,
+        numberOfDrawers: c.numberOfDrawers,
+        staysPublic: c.conflictStatus !== HIDDEN_CONFLICT_STATUS,
         skuCount: skus.length,
         distributorNames,
         doorStyleNames,
@@ -1939,6 +1946,7 @@ export const cabinetsRouter = router({
         width: z.string().nullable().optional(),
         height: z.string().nullable().optional(),
         depth: z.string().nullable().optional(),
+        numberOfDrawers: z.number().int().min(0).max(8).nullable().optional(),
         conflictReason: z.string().nullable().optional(),
         // Re-assign this product to the correct door style. When provided, ALL of
         // the item's distributor SKUs are re-pointed to this styleId so the
@@ -1965,11 +1973,36 @@ export const cabinetsRouter = router({
       if (input.width !== undefined) patch.width = input.width;
       if (input.height !== undefined) patch.height = input.height;
       if (input.depth !== undefined) patch.depth = input.depth;
+      if (input.numberOfDrawers !== undefined) patch.numberOfDrawers = input.numberOfDrawers;
       if (input.conflictReason !== undefined) patch.conflictReason = input.conflictReason;
       if (input.clearAfter) {
+        const [current] = await db
+          .select({
+            conflictReason: cabinets.conflictReason,
+            importLockedFields: cabinets.importLockedFields,
+            description: cabinets.description,
+            category: cabinets.category,
+            subCategory: cabinets.subCategory,
+            width: cabinets.width,
+            height: cabinets.height,
+            depth: cabinets.depth,
+            numberOfDoors: cabinets.numberOfDoors,
+            numberOfDrawers: cabinets.numberOfDrawers,
+            specNotes: cabinets.specNotes,
+          })
+          .from(cabinets)
+          .where(eq(cabinets.id, input.id))
+          .limit(1);
+        const reason = input.conflictReason !== undefined ? input.conflictReason : current?.conflictReason;
+        const locked = locksAfterResolve({
+          existingLocks: current?.importLockedFields,
+          conflictReason: reason,
+          editedFields: changedLockableFields(current, patch),
+        });
         patch.conflictStatus = "none";
         patch.conflictReason = null;
         patch.conflictedAt = null;
+        if (locked.length > 0) patch.importLockedFields = locked;
       }
 
       // Re-assign door style across all of the item's SKUs, if requested.
@@ -2003,9 +2036,23 @@ export const cabinetsRouter = router({
     .mutation(async ({ input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      const [current] = await db
+        .select({ conflictReason: cabinets.conflictReason, importLockedFields: cabinets.importLockedFields })
+        .from(cabinets)
+        .where(eq(cabinets.id, input.id))
+        .limit(1);
+      const locked = locksAfterResolve({
+        existingLocks: current?.importLockedFields,
+        conflictReason: current?.conflictReason,
+      });
       await db
         .update(cabinets)
-        .set({ conflictStatus: "none", conflictReason: null, conflictedAt: null })
+        .set({
+          conflictStatus: "none",
+          conflictReason: null,
+          conflictedAt: null,
+          ...(locked.length > 0 ? { importLockedFields: locked } : {}),
+        })
         .where(eq(cabinets.id, input.id));
       return { ok: true };
     }),
@@ -2116,6 +2163,10 @@ export const cabinetsRouter = router({
       let updated = 0;
       let skipped = 0;
       const errors: string[] = [];
+      const lockRows = await db
+        .select({ masterCode: cabinets.masterCode, importLockedFields: cabinets.importLockedFields })
+        .from(cabinets);
+      const locksByCode = new Map(lockRows.map((row) => [row.masterCode, row.importLockedFields]));
 
       for (let i = 0; i < rawRows.length; i++) {
         const row = rawRows[i];
@@ -2178,12 +2229,13 @@ export const cabinetsRouter = router({
         if ("stainColor" in row) patch.stainColor = String(row["stainColor"] ?? "").trim() || null;
         if ("constructionMethod" in row) patch.constructionMethod = String(row["constructionMethod"] ?? "").trim() || null;
 
-        if (Object.keys(patch).length === 0) { skipped++; continue; }
+        const unlocked = omitImportLockedFields(patch, locksByCode.get(masterCode));
+        if (Object.keys(unlocked).length === 0) { skipped++; continue; }
 
         try {
           const result = await db
             .update(cabinets)
-            .set(patch)
+            .set(unlocked)
             .where(eq(cabinets.masterCode, masterCode));
           const affected = (result as unknown as { rowsAffected?: number })?.rowsAffected ?? 0;
           if (affected > 0) updated++;

@@ -16,6 +16,7 @@ import { cabinets, cabinetAliases, distributors, distributorSkus, distributorCab
 import { storagePut } from "../storage";
 import { logCabinetConfigChanges, snapshotCabinetBeforeEdit } from "../lib/cabinetConfigHistory";
 import { normalizeCode } from "../../shared/cabinetCodeMatch";
+import { HIDDEN_CONFLICT_STATUS, omitImportLockedFields, PUBLIC_CATALOG_REVIEW_STATUS } from "../../shared/cabinetConflictFlags";
 import { aliasSearchOrder, orCabinetAliasMatch } from "../lib/cabinetAliasSearchSql";
 import {
   catalogNomenclatureIssueMessage,
@@ -96,7 +97,7 @@ export const genericCabinetsRouter = router({
       }
 
       if (input.conflictOnly) {
-        conditions.push(eq(cabinets.conflictStatus, "conflict"));
+        conditions.push(inArray(cabinets.conflictStatus, [HIDDEN_CONFLICT_STATUS, PUBLIC_CATALOG_REVIEW_STATUS]));
       }
 
       const where = conditions.length > 0 ? and(...conditions) : undefined;
@@ -803,7 +804,7 @@ export const genericCabinetsRouter = router({
 
       for (const row of input) {
         const existing = await db
-          .select({ id: cabinets.id })
+          .select({ id: cabinets.id, importLockedFields: cabinets.importLockedFields })
           .from(cabinets)
           .where(eq(cabinets.masterCode, row.masterCode))
           .limit(1);
@@ -829,9 +830,12 @@ export const genericCabinetsRouter = router({
         if (row.stainColor !== undefined) update.stainColor = row.stainColor;
         if (row.constructionMethod !== undefined) update.constructionMethod = row.constructionMethod;
 
+        const unlocked = omitImportLockedFields(update, existing[0].importLockedFields);
+        if (Object.keys(unlocked).length === 0) continue;
+
         // Aliases are purely informational cross-references.
         // Visibility is controlled exclusively by admin via showInCatalog/showInDesigner toggles.
-        await db.update(cabinets).set(update).where(eq(cabinets.id, existing[0].id));
+        await db.update(cabinets).set(unlocked).where(eq(cabinets.id, existing[0].id));
         updated++;
       }
 

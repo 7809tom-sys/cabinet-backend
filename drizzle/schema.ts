@@ -628,13 +628,15 @@ export const cabinets = mysqlTable("cabinets", {
   pkgHeight: decimal("pkgHeight", { precision: 6, scale: 2 }),
   pkgWeight: decimal("pkgWeight", { precision: 8, scale: 2 }), // packaged/shipping weight in lbs
   isActive: boolean("isActive").default(true).notNull(),
-  // Conflict / Needs-Review status. When 'conflict', the product is held in the
-  // admin back office only and hidden from the public catalog, storefront and
-  // the Design Tool palette until an admin reviews and clears it. Used for
-  // products whose identity/spec we are unsure about (e.g. skin/panel SKUs).
-  conflictStatus: varchar("conflictStatus", { length: 16 }).default("none").notNull(), // none | conflict
+  // Conflict / Needs-Review status.
+  // 'conflict' hides the product from the public catalog, storefront, and Design Tool.
+  // 'review' lists it in the same admin Conflicts tab and leaves the row public.
+  conflictStatus: varchar("conflictStatus", { length: 16 }).default("none").notNull(), // none | review | conflict
   conflictReason: text("conflictReason"),
   conflictedAt: timestamp("conflictedAt"),
+  // Catalog columns an admin resolved in Cabinet Conflicts. Spreadsheet imports
+  // skip these fields so the resolved value stays the source of truth.
+  importLockedFields: json("importLockedFields").$type<string[]>(),
   // Price Audit: set true once the owner has checked this item's prices against
   // the master price list and confirmed they are correct. Drives the audited
   // badge in the Cost Lookup / Price Audit tool.
