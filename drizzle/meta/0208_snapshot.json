@@ -1,8 +1,8 @@
 {
   "version": "5",
   "dialect": "mysql",
-  "id": "ae3976df-ed3a-4a4d-94bd-387b62146996",
-  "prevId": "f9633e57-5e47-4c65-b831-4e6cadc35460",
+  "id": "c0ee1bc8-5e96-453c-9498-b0dead921a96",
+  "prevId": "2c28ae32-8913-4e7e-8909-1236576a42a1",
   "tables": {
     "admin_sticky_notes": {
       "name": "admin_sticky_notes",
@@ -554,6 +554,77 @@
       "compositePrimaryKeys": {
         "affiliate_hardware_commission_snapshots_id": {
           "name": "affiliate_hardware_commission_snapshots_id",
+          "columns": [
+            "id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraint": {}
+    },
+    "affiliate_hidden_catalog_products": {
+      "name": "affiliate_hidden_catalog_products",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "affiliateId": {
+          "name": "affiliateId",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "catalogKind": {
+          "name": "catalogKind",
+          "type": "enum('cabinet','hardware','surface','closet')",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "productKey": {
+          "name": "productKey",
+          "type": "varchar(128)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(now())"
+        }
+      },
+      "indexes": {
+        "affiliate_hidden_catalog_product_uidx": {
+          "name": "affiliate_hidden_catalog_product_uidx",
+          "columns": [
+            "affiliateId",
+            "catalogKind",
+            "productKey"
+          ],
+          "isUnique": true
+        },
+        "affiliate_hidden_catalog_affiliate_idx": {
+          "name": "affiliate_hidden_catalog_affiliate_idx",
+          "columns": [
+            "affiliateId",
+            "catalogKind"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "affiliate_hidden_catalog_products_id": {
+          "name": "affiliate_hidden_catalog_products_id",
           "columns": [
             "id"
           ]
@@ -1775,6 +1846,80 @@
         "instagramUrl": {
           "name": "instagramUrl",
           "type": "varchar(512)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "logoDarkUrl": {
+          "name": "logoDarkUrl",
+          "type": "varchar(512)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "faviconUrl": {
+          "name": "faviconUrl",
+          "type": "varchar(512)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "backgroundColor": {
+          "name": "backgroundColor",
+          "type": "varchar(16)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "textColor": {
+          "name": "textColor",
+          "type": "varchar(16)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "footerText": {
+          "name": "footerText",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "showPublicEmail": {
+          "name": "showPublicEmail",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
+        },
+        "showPublicPhone": {
+          "name": "showPublicPhone",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
+        },
+        "showPublicAddress": {
+          "name": "showPublicAddress",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
+        },
+        "hidePlatformBranding": {
+          "name": "hidePlatformBranding",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
+        },
+        "sectionLabelsJson": {
+          "name": "sectionLabelsJson",
+          "type": "text",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
@@ -3892,6 +4037,13 @@
           "notNull": false,
           "autoincrement": false
         },
+        "importLockedFields": {
+          "name": "importLockedFields",
+          "type": "json",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "priceVerified": {
           "name": "priceVerified",
           "type": "boolean",
@@ -3929,6 +4081,14 @@
           "notNull": true,
           "autoincrement": false,
           "default": true
+        },
+        "designerEligible": {
+          "name": "designerEligible",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
         },
         "showIn2020": {
           "name": "showIn2020",
@@ -4912,6 +5072,290 @@
       "compositePrimaryKeys": {
         "crm_activities_id": {
           "name": "crm_activities_id",
+          "columns": [
+            "id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraint": {}
+    },
+    "crm_cleanup_audit": {
+      "name": "crm_cleanup_audit",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "previewId": {
+          "name": "previewId",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "actorUserId": {
+          "name": "actorUserId",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "actorName": {
+          "name": "actorName",
+          "type": "varchar(256)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "actorEmail": {
+          "name": "actorEmail",
+          "type": "varchar(320)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "status": {
+          "name": "status",
+          "type": "enum('running','completed','failed')",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "keepUserIdsJson": {
+          "name": "keepUserIdsJson",
+          "type": "json",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "countsJson": {
+          "name": "countsJson",
+          "type": "json",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "supabaseOptIn": {
+          "name": "supabaseOptIn",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
+        },
+        "supabaseDeleted": {
+          "name": "supabaseDeleted",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "supabaseFailed": {
+          "name": "supabaseFailed",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "errorMessage": {
+          "name": "errorMessage",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(now())"
+        },
+        "finishedAt": {
+          "name": "finishedAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "crm_cleanup_audit_created_idx": {
+          "name": "crm_cleanup_audit_created_idx",
+          "columns": [
+            "createdAt"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "crm_cleanup_audit_id": {
+          "name": "crm_cleanup_audit_id",
+          "columns": [
+            "id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraint": {}
+    },
+    "crm_cleanup_backup_rows": {
+      "name": "crm_cleanup_backup_rows",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "auditId": {
+          "name": "auditId",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "tableName": {
+          "name": "tableName",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "rowPk": {
+          "name": "rowPk",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "rowJson": {
+          "name": "rowJson",
+          "type": "json",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(now())"
+        }
+      },
+      "indexes": {
+        "crm_cleanup_backup_rows_audit_idx": {
+          "name": "crm_cleanup_backup_rows_audit_idx",
+          "columns": [
+            "auditId"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "crm_cleanup_backup_rows_id": {
+          "name": "crm_cleanup_backup_rows_id",
+          "columns": [
+            "id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraint": {}
+    },
+    "crm_cleanup_previews": {
+      "name": "crm_cleanup_previews",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "actorUserId": {
+          "name": "actorUserId",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "planHash": {
+          "name": "planHash",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "keepUserIdsJson": {
+          "name": "keepUserIdsJson",
+          "type": "json",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "alsoDeleteUserIdsJson": {
+          "name": "alsoDeleteUserIdsJson",
+          "type": "json",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "deleteSupabaseAuth": {
+          "name": "deleteSupabaseAuth",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
+        },
+        "snapshotJson": {
+          "name": "snapshotJson",
+          "type": "json",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "countsJson": {
+          "name": "countsJson",
+          "type": "json",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(now())"
+        },
+        "expiresAt": {
+          "name": "expiresAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "crm_cleanup_previews_id": {
+          "name": "crm_cleanup_previews_id",
           "columns": [
             "id"
           ]
@@ -8718,6 +9162,51 @@
           "autoincrement": false,
           "default": 0
         },
+        "sceneName": {
+          "name": "sceneName",
+          "type": "varchar(128)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'Room'"
+        },
+        "sceneDescription": {
+          "name": "sceneDescription",
+          "type": "varchar(512)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "sceneSortOrder": {
+          "name": "sceneSortOrder",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "isCover": {
+          "name": "isCover",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
+        },
+        "taggedCabinetIds": {
+          "name": "taggedCabinetIds",
+          "type": "json",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "taggedStyleIds": {
+          "name": "taggedStyleIds",
+          "type": "json",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "isVerified": {
           "name": "isVerified",
           "type": "boolean",
@@ -8772,6 +9261,15 @@
           "columns": [
             "styleId",
             "sortOrder"
+          ],
+          "isUnique": false
+        },
+        "door_style_room_scenes_scene_idx": {
+          "name": "door_style_room_scenes_scene_idx",
+          "columns": [
+            "styleId",
+            "sceneName",
+            "sceneSortOrder"
           ],
           "isUnique": false
         }
@@ -14884,7 +15382,7 @@
         },
         "discountType": {
           "name": "discountType",
-          "type": "enum('percent','fixed_price')",
+          "type": "enum('percent','fixed_price','fixed_amount')",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
@@ -15314,290 +15812,6 @@
       "compositePrimaryKeys": {
         "pelican_shipping_profiles_id": {
           "name": "pelican_shipping_profiles_id",
-          "columns": [
-            "id"
-          ]
-        }
-      },
-      "uniqueConstraints": {},
-      "checkConstraint": {}
-    },
-    "crm_cleanup_previews": {
-      "name": "crm_cleanup_previews",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "int",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": true
-        },
-        "actorUserId": {
-          "name": "actorUserId",
-          "type": "int",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "planHash": {
-          "name": "planHash",
-          "type": "varchar(64)",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "keepUserIdsJson": {
-          "name": "keepUserIdsJson",
-          "type": "json",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "alsoDeleteUserIdsJson": {
-          "name": "alsoDeleteUserIdsJson",
-          "type": "json",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "deleteSupabaseAuth": {
-          "name": "deleteSupabaseAuth",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": false
-        },
-        "snapshotJson": {
-          "name": "snapshotJson",
-          "type": "json",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "countsJson": {
-          "name": "countsJson",
-          "type": "json",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "createdAt": {
-          "name": "createdAt",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "(now())"
-        },
-        "expiresAt": {
-          "name": "expiresAt",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {
-        "crm_cleanup_previews_id": {
-          "name": "crm_cleanup_previews_id",
-          "columns": [
-            "id"
-          ]
-        }
-      },
-      "uniqueConstraints": {},
-      "checkConstraint": {}
-    },
-    "crm_cleanup_audit": {
-      "name": "crm_cleanup_audit",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "int",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": true
-        },
-        "previewId": {
-          "name": "previewId",
-          "type": "int",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "actorUserId": {
-          "name": "actorUserId",
-          "type": "int",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "actorName": {
-          "name": "actorName",
-          "type": "varchar(256)",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "actorEmail": {
-          "name": "actorEmail",
-          "type": "varchar(320)",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "status": {
-          "name": "status",
-          "type": "enum('running','completed','failed')",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "keepUserIdsJson": {
-          "name": "keepUserIdsJson",
-          "type": "json",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "countsJson": {
-          "name": "countsJson",
-          "type": "json",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "supabaseOptIn": {
-          "name": "supabaseOptIn",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": false
-        },
-        "supabaseDeleted": {
-          "name": "supabaseDeleted",
-          "type": "int",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": 0
-        },
-        "supabaseFailed": {
-          "name": "supabaseFailed",
-          "type": "int",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": 0
-        },
-        "errorMessage": {
-          "name": "errorMessage",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "createdAt": {
-          "name": "createdAt",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "(now())"
-        },
-        "finishedAt": {
-          "name": "finishedAt",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "crm_cleanup_audit_created_idx": {
-          "name": "crm_cleanup_audit_created_idx",
-          "columns": [
-            "createdAt"
-          ],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {
-        "crm_cleanup_audit_id": {
-          "name": "crm_cleanup_audit_id",
-          "columns": [
-            "id"
-          ]
-        }
-      },
-      "uniqueConstraints": {},
-      "checkConstraint": {}
-    },
-    "crm_cleanup_backup_rows": {
-      "name": "crm_cleanup_backup_rows",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "int",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": true
-        },
-        "auditId": {
-          "name": "auditId",
-          "type": "int",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "tableName": {
-          "name": "tableName",
-          "type": "varchar(64)",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "rowPk": {
-          "name": "rowPk",
-          "type": "int",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "rowJson": {
-          "name": "rowJson",
-          "type": "json",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "createdAt": {
-          "name": "createdAt",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "(now())"
-        }
-      },
-      "indexes": {
-        "crm_cleanup_backup_rows_audit_idx": {
-          "name": "crm_cleanup_backup_rows_audit_idx",
-          "columns": [
-            "auditId"
-          ],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {
-        "crm_cleanup_backup_rows_id": {
-          "name": "crm_cleanup_backup_rows_id",
           "columns": [
             "id"
           ]

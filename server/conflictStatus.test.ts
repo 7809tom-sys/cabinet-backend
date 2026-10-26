@@ -3,6 +3,7 @@ import { and, eq, ne, or } from "drizzle-orm";
 import { readFileSync } from "node:fs";
 import { getDb, hasPositivePublishedCabinetPrice, isCanonicalCabinetMaster, notInConflict } from "./db";
 import { cabinets } from "../drizzle/schema";
+import { PUBLIC_CATALOG_REVIEW_STATUS } from "../shared/cabinetConflictFlags";
 
 const dbSource = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
 
@@ -21,10 +22,13 @@ describe("notInConflict() predicate", () => {
     expect(pred.constructor).toBe(expected.constructor);
   });
 
-	it("compares against the literal 'conflict' (live 'none' rows pass)", () => {
+	it("compares against the literal 'conflict' (live 'none' and public 'review' rows pass)", () => {
 	  // The shared predicate must preserve the exact conflict gate alongside the
 	  // canonical-master rule, so ordinary live ('none') products still pass.
+	  // Public review flags use a different status and stay in the catalog.
 	  expect(dbSource).toContain('ne(cabinets.conflictStatus, "conflict")');
+	  expect(PUBLIC_CATALOG_REVIEW_STATUS).not.toBe("conflict");
+	  expect(dbSource).not.toContain(`ne(cabinets.conflictStatus, "${PUBLIC_CATALOG_REVIEW_STATUS}")`);
 	});
 
 	it("also excludes retired duplicate master codes through the canonical alias table", () => {

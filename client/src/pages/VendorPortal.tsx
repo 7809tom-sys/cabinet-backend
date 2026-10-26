@@ -23,6 +23,8 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { trpc } from "@/lib/trpc";
+import { VendorRoomSceneLibrary } from "@/components/vendor/VendorRoomSceneLibrary";
+import { PublicRoomSceneStrip } from "@/components/PublicRoomScenes";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { getLoginUrl } from "@/const";
@@ -55,7 +57,6 @@ const PEL_DIST_CODE = "PEL";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const ALL = "__all__";
-const MAX_PICKS = 8;
 const CATALOG_PAGE_SIZE = 100;
 function money(v: string | null | undefined): string {
   if (v == null) return "—";
@@ -79,7 +80,7 @@ async function readSupplierPdfAsBase64(file: File): Promise<string> {
 }
 
 // ─── Sub-pages ────────────────────────────────────────────────────────────────
-type VendorPage = "overview" | "supplier-profile" | "catalog" | "other-products" | "styles" | "featured-styles" | "shipping" | "picks" | "orders" | "fulfillment" | "promotions" | "gallery" | "analytics" | "ai-services" | "integrations" | "payments";
+type VendorPage = "overview" | "supplier-profile" | "catalog" | "other-products" | "styles" | "featured-styles" | "shipping" | "orders" | "fulfillment" | "promotions" | "gallery" | "analytics" | "ai-services" | "integrations" | "payments";
 
 const NAV_ITEMS: { id: VendorPage; label: string; icon: typeof LayoutDashboard }[] = [
   { id: "overview", label: "Overview", icon: LayoutDashboard },
@@ -89,7 +90,6 @@ const NAV_ITEMS: { id: VendorPage; label: string; icon: typeof LayoutDashboard }
   { id: "styles", label: "Door Styles", icon: Palette },
   { id: "featured-styles", label: "Featured Styles", icon: Star },
   { id: "shipping", label: "Shipping", icon: Truck },
-  { id: "picks", label: "3D Designer Picks", icon: Star },
   { id: "promotions", label: "Promotions", icon: DollarSign },
   { id: "gallery", label: "Gallery", icon: ImageIcon },
   { id: "analytics", label: "Analytics", icon: BarChart3 },
@@ -546,10 +546,6 @@ function OverviewPage({ onNavigate }: { onNavigate: (page: VendorPage) => void }
             <span className="text-muted-foreground">Warehouse Zips</span>
             <span>{(line.warehouseZips as string[] | null)?.join(", ") || "—"}</span>
           </div>
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">3D Designer Picks</span>
-            <span>{(line.designToolPicks as number[] | null)?.length ?? 0} / {MAX_PICKS}</span>
-          </div>
         </CardContent>
       </Card>
     </div>
@@ -782,13 +778,14 @@ function SupplierProfilePage() {
   const approvedVendor = profile.data.vendor;
   const line = myLine.data?.line ?? null;
   const linkedLines = profile.data.linkedDistributors ?? [];
-  const canSwitchLinkedLine = Boolean(user?.role === "admin" && adminApprovedVendorLineId && linkedLines.length > 1);
+  const canSwitchLinkedLine = linkedLines.length > 1 && (
+    user?.role === "distributor" || Boolean(user?.role === "admin" && adminApprovedVendorLineId)
+  );
   const switchLinkedLine = (distributorId: string) => {
-    if (!adminApprovedVendorLineId) return;
     const id = Number(distributorId);
     if (!Number.isSafeInteger(id) || !linkedLines.some((candidate) => candidate.id === id)) return;
     const url = new URL(window.location.href);
-    url.searchParams.set("vendor", String(adminApprovedVendorLineId));
+    if (adminApprovedVendorLineId) url.searchParams.set("vendor", String(adminApprovedVendorLineId));
     url.searchParams.set("as", String(id));
     url.searchParams.set("section", "supplier-profile");
     window.location.assign(url.toString());
@@ -809,7 +806,7 @@ function SupplierProfilePage() {
         <CardContent className="grid gap-3 text-sm md:grid-cols-2">
           <div><p className="text-muted-foreground">Signed-in account</p><p className="font-medium break-all">{user?.email || "—"}</p></div>
           <div>
-            <p className="text-muted-foreground">Catalog / supply line</p>
+            <p className="text-muted-foreground">Catalog / supply lines</p>
             {canSwitchLinkedLine ? (
               <Select value={String(line?.id ?? "")} onValueChange={switchLinkedLine}>
                 <SelectTrigger aria-label="Switch supplier catalog line" className="mt-1 h-9"><SelectValue /></SelectTrigger>
@@ -818,6 +815,18 @@ function SupplierProfilePage() {
                 </SelectContent>
               </Select>
             ) : <p className="font-medium">{line?.name ?? "Pending source-line link"}</p>}
+            {linkedLines.length > 0 && (
+              <ul className="mt-2 flex flex-wrap gap-1" aria-label="Your product lines">
+                {linkedLines.map((candidate) => (
+                  <li key={candidate.id}>
+                    <Badge variant="secondary" className="gap-1 text-[10px] font-normal">
+                      <span className="font-mono font-semibold">{candidate.code}</span>
+                      <span>{supplierCatalogLineLabel(candidate)}</span>
+                    </Badge>
+                  </li>
+                ))}
+              </ul>
+            )}
             {linkedLines.length > 1 && <p className="mt-1 text-xs text-muted-foreground">Framed and Frameless stay separate catalog, pricing, and order lines.</p>}
           </div>
           <p className="text-xs text-muted-foreground md:col-span-2">For security, passwords are never displayed or stored in readable form.</p>
@@ -862,6 +871,26 @@ function SupplierProfilePage() {
       </>
     </div>
   );
+}
+
+function VendorProfileRoomScenes({
+  distributorId,
+  distributorName,
+}: {
+  distributorId: number;
+  distributorName: string | null;
+}) {
+  const scenes = trpc.doorStyles.publicRoomScenes.useQuery({ distributorId });
+  const groups = (scenes.data ?? []).flatMap((style) => style.scenes.map((scene) => ({
+    name: `${style.styleName} · ${scene.name}`,
+    description: scene.description,
+    photos: scene.photos,
+  })));
+  if (scenes.isLoading) return <Skeleton className="h-24 w-full" />;
+  if (groups.length === 0) {
+    return <p className="text-sm text-muted-foreground">Room scene photos for {distributorName ?? "this vendor"} appear here after they are added on Door Styles or Featured Door Styles.</p>;
+  }
+  return <PublicRoomSceneStrip title={`${distributorName ?? "Vendor"} room scenes`} scenes={groups} />;
 }
 
 function VendorProfileCatalogPanel({
@@ -910,6 +939,7 @@ function VendorProfileCatalogPanel({
         <Badge variant="outline">{total} SKUs</Badge>
       </CardHeader>
       <CardContent className="space-y-3">
+        <VendorProfileRoomScenes distributorId={distributorId} distributorName={distributorName} />
         {catalog.isLoading ? <Skeleton className="h-32 w-full" /> : (
           <div className="rounded-md border overflow-x-auto">
             <Table>
@@ -1670,155 +1700,6 @@ function NewProductForm({ onClose }: { onClose: () => void }) {
   );
 }
 
-// ─── Design Tool Picks Page ───────────────────────────────────────────────────
-function DesignToolPicksPage() {
-  const utils = trpc.useUtils();
-  const adminDistId = useAdminDistributorId();
-  const picks = trpc.distributorPortal.getDesignToolPicks.useQuery(adminDistId ? { distributorId: adminDistId } : undefined);
-  const catalog = trpc.distributorPortal.catalog.useQuery({ ...(adminDistId ? { distributorId: adminDistId } : {}), limit: 500, offset: 0 });
-  const setPicks = trpc.distributorPortal.setDesignToolPicks.useMutation({
-    onSuccess: () => {
-      utils.distributorPortal.getDesignToolPicks.invalidate();
-      utils.distributorPortal.myLine.invalidate();
-      toast.success("Design tool picks updated");
-    },
-    onError: (err) => toast.error(err.message),
-  });
-
-  const currentPicks = picks.data?.picks ?? [];
-  const pickSet = useMemo(() => new Set(currentPicks), [currentPicks]);
-
-  const togglePick = useCallback((skuId: number) => {
-    const newPicks = pickSet.has(skuId)
-      ? currentPicks.filter((id) => id !== skuId)
-      : [...currentPicks, skuId];
-    if (newPicks.length > MAX_PICKS) {
-      toast.error(`Maximum ${MAX_PICKS} picks allowed`);
-      return;
-    }
-    setPicks.mutate({ skuIds: newPicks, ...(adminDistId ? { distributorId: adminDistId } : {}) });
-  }, [currentPicks, pickSet, setPicks]);
-
-  if (picks.isLoading || catalog.isLoading) {
-    return (
-      <div className="space-y-4">
-        <Skeleton className="h-8 w-48" />
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-32 w-full" />)}
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-xl font-bold">3D Designer Picks</h2>
-        <p className="text-muted-foreground text-sm mt-1">
-          Select up to {MAX_PICKS} products to feature in the 3D Designer.
-          These are your best items that customers will see when designing their kitchen.
-        </p>
-      </div>
-
-      <div className="flex items-center gap-3">
-        <Badge variant={currentPicks.length >= MAX_PICKS ? "destructive" : "secondary"}>
-          {currentPicks.length} / {MAX_PICKS} selected
-        </Badge>
-        {currentPicks.length > 0 && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setPicks.mutate({ skuIds: [], ...(adminDistId ? { distributorId: adminDistId } : {}) })}
-            disabled={setPicks.isPending}
-          >
-            Clear All
-          </Button>
-        )}
-      </div>
-
-      {/* Current picks */}
-      {picks.data?.items && picks.data.items.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Current Picks</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              {picks.data.items.map((item) => (
-                <div
-                  key={item.skuId}
-                  className="relative border rounded-lg p-3 bg-primary/5 border-primary/30"
-                >
-                  <button
-                    className="absolute top-1 right-1 h-6 w-6 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center hover:bg-destructive/80 transition-colors"
-                    onClick={() => togglePick(item.skuId)}
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                  {item.imageUrl ? (
-                    <img src={item.imageUrl} alt="" className="h-16 w-full object-cover rounded mb-2" />
-                  ) : (
-                    <div className="h-16 w-full bg-muted rounded mb-2 flex items-center justify-center">
-                      <ImageIcon className="h-6 w-6 text-muted-foreground" />
-                    </div>
-                  )}
-                  <p className="text-xs font-medium truncate">{item.masterCode}</p>
-                  <p className="text-xs text-muted-foreground truncate">{item.description}</p>
-                  <p className="text-xs text-muted-foreground">{item.styleName}</p>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Available products to pick from */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Available Products</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {catalog.data?.items
-              .filter((item) => item.isPublished && item.status === "approved")
-              .map((item) => {
-                const isPicked = pickSet.has(item.skuId);
-                return (
-                  <div
-                    key={item.skuId}
-                    className={`relative border rounded-lg p-3 cursor-pointer transition-all hover:shadow-md ${
-                      isPicked ? "bg-primary/5 border-primary/30" : "hover:border-primary/20"
-                    }`}
-                    onClick={() => togglePick(item.skuId)}
-                  >
-                    {isPicked && (
-                      <div className="absolute top-1 right-1 h-5 w-5 rounded-full bg-primary text-primary-foreground flex items-center justify-center">
-                        <Check className="h-3 w-3" />
-                      </div>
-                    )}
-                    {item.imageUrl ? (
-                      <img src={item.imageUrl} alt="" className="h-14 w-full object-cover rounded mb-2" />
-                    ) : (
-                      <div className="h-14 w-full bg-muted rounded mb-2 flex items-center justify-center">
-                        <ImageIcon className="h-5 w-5 text-muted-foreground" />
-                      </div>
-                    )}
-                    <p className="text-xs font-medium truncate">{item.masterCode}</p>
-                    <p className="text-xs text-muted-foreground truncate">{item.description}</p>
-                    <div className="flex justify-between items-center mt-1">
-                      <Badge variant="secondary" className="text-[10px]">{item.category}</Badge>
-                      <span className="text-xs font-medium">{money(item.contractorPrice)}</span>
-                    </div>
-                  </div>
-                );
-              })}
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
-
 // ─── Door Styles Page ─────────────────────────────────────────────────────────
 function DoorStylesPage() {
   const utils = trpc.useUtils();
@@ -1942,6 +1823,13 @@ function DoorStylesPage() {
 	              >
 	                <Ruler className="mr-1.5 h-3.5 w-3.5" />Submit sample measurements
 	              </Button>
+              <VendorRoomSceneLibrary
+                styleId={style.id}
+                styleName={style.ourName}
+                distributorId={adminDistId}
+                styles={styles.map((item) => ({ id: item.id, ourName: item.ourName }))}
+                cabinets={[]}
+              />
 	            </CardContent>
           </Card>
         ))}
@@ -2434,11 +2322,13 @@ function FeaturedCabinetDesignerReadiness({ style }: { style: VendorFeaturedStyl
  * materials while intentionally omitting global-only identity and other-line controls. */
 function VendorFeaturedStyleEditor({
   style,
+  styles,
   open,
   onClose,
   onSaved,
 }: {
   style: VendorFeaturedStyle;
+  styles: Array<{ id: number; ourName: string }>;
   open: boolean;
   onClose: () => void;
   onSaved: () => void;
@@ -2464,8 +2354,6 @@ function VendorFeaturedStyleEditor({
   const [roomSceneImageUrl, setRoomSceneImageUrl] = useState(style.roomSceneImageUrl ?? "");
   const [thumbnailImageUrl, setThumbnailImageUrl] = useState(style.thumbnailImageUrl ?? "");
   const [cornerSwatchImageUrl, setCornerSwatchImageUrl] = useState(style.cornerSwatchImageUrl ?? "");
-  const [newSceneUrl, setNewSceneUrl] = useState("");
-  const [newSceneNote, setNewSceneNote] = useState("");
   const [uploadTarget, setUploadTarget] = useState<"doorSample" | "drawerSample" | "roomScene" | "thumbnail" | "cornerSwatch" | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -2479,14 +2367,11 @@ function VendorFeaturedStyleEditor({
     setProfileNotes(style.profileNotes ?? ""); setProfileDescription(style.profileDescription ?? ""); setSourceSpecification(style.sourceSpecification ?? "");
     setDoorSampleImageUrl(style.doorSampleImageUrl ?? ""); setDrawerSampleImageUrl(style.drawerSampleImageUrl ?? "");
     setRoomSceneImageUrl(style.roomSceneImageUrl ?? ""); setThumbnailImageUrl(style.thumbnailImageUrl ?? ""); setCornerSwatchImageUrl(style.cornerSwatchImageUrl ?? "");
-    setNewSceneUrl(""); setNewSceneNote("");
   }, [style, open]);
 
   const withLine = <T extends Record<string, unknown>>(input: T) => ({ ...input, ...(adminDistId ? { distributorId: adminDistId } : {}) });
   const saved = () => { toast.success("Featured Style materials saved"); onSaved(); };
   const update = trpc.distributorPortal.updateFeaturedStyleMaterials.useMutation({ onSuccess: saved, onError: (error) => toast.error(error.message) });
-  const addScene = trpc.distributorPortal.addFeaturedStyleScene.useMutation({ onSuccess: () => { toast.success("Verified room scene added"); setNewSceneUrl(""); setNewSceneNote(""); onSaved(); }, onError: (error) => toast.error(error.message) });
-  const deleteScene = trpc.distributorPortal.deleteFeaturedStyleScene.useMutation({ onSuccess: () => { toast.success("Your room scene was removed"); onSaved(); }, onError: (error) => toast.error(error.message) });
   const upload = trpc.distributorPortal.updateDoorStyleImage.useMutation({ onSuccess: () => { toast.success("Style image uploaded"); onSaved(); }, onError: (error) => toast.error(error.message) });
 
   const addZip = () => {
@@ -2538,7 +2423,14 @@ function VendorFeaturedStyleEditor({
         <div className="rounded-lg border border-sky-200 bg-sky-50/50 p-3 space-y-3"><div><Label className="flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5 text-sky-700" />Shipping Origin ZIPs</Label><p className="text-xs text-muted-foreground">Same per-style origin controls as Featured Styles. Saved ZIPs become the style’s private freight origins.</p></div><div className="flex gap-2"><Input value={newZip} onChange={(event) => setNewZip(event.target.value.replace(/\D/g, "").slice(0, 5))} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); addZip(); } }} inputMode="numeric" placeholder="5-digit warehouse ZIP" maxLength={5} /><Button type="button" variant="outline" onClick={addZip}><Plus className="mr-1 h-4 w-4" />Add</Button></div><div className="flex flex-wrap gap-2">{warehouseZips.map((zip) => <Badge key={zip} variant="secondary" className="gap-1 py-1 pl-2.5 pr-1">{zip}<button type="button" onClick={() => setWarehouseZips((current) => current.filter((item) => item !== zip))} aria-label={`Remove warehouse ZIP ${zip}`}><X className="h-3.5 w-3.5" /></button></Badge>)}</div><div className="space-y-1"><Label className="text-xs">Plan B fallback freight fee (optional)</Label><div className="flex items-center gap-2"><span>$</span><Input value={flatFreight} onChange={(event) => setFlatFreight(event.target.value)} inputMode="decimal" placeholder="Used only if live freight is unavailable" /></div></div></div>
 	        <div className="rounded-lg border border-emerald-200 bg-emerald-50/40 p-3 space-y-3"><div><Label className="flex items-center gap-1.5"><Ruler className="h-3.5 w-3.5" />Verified frame profile</Label><p className="text-xs text-muted-foreground">Designer geometry is controlled by a submitted physical sample door and a CabinetDealz team measurement. Use <strong>Door Styles → Submit sample measurements</strong> to record the vendor source and select every style with the same profile.</p></div><div className="grid grid-cols-3 gap-3 text-sm"><div><p className="text-xs text-muted-foreground">Rail</p><p className="font-medium">{style.railWidth ?? "Pending"}</p></div><div><p className="text-xs text-muted-foreground">Stile</p><p className="font-medium">{style.stileWidth ?? "Pending"}</p></div><div><p className="text-xs text-muted-foreground">Center rail</p><p className="font-medium">{style.centerRailWidth ?? "—"}</p></div></div><p className="text-xs text-muted-foreground">{style.sourceSpecification ?? "No CabinetDealz-verified sample measurement yet — Designer uses a neutral face."}</p><div className="space-y-1"><Label className="text-xs">Profile notes</Label><Input value={profileNotes} onChange={(event) => setProfileNotes(event.target.value)} placeholder="e.g. Beaded inner edge" /></div><div className="space-y-1"><Label className="text-xs">Profile description</Label><textarea value={profileDescription} onChange={(event) => setProfileDescription(event.target.value)} rows={4} placeholder="Customer-facing educational description of this style" className="w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-sm" /></div></div>
         <div className="space-y-3"><div><Label>Image materials</Label><p className="text-xs text-muted-foreground">Upload or paste the exact verified image for this vendor’s Door Style. Saving updates only this vendor’s line.</p></div><div className="grid gap-3 sm:grid-cols-2">{imageField("Room scene photo", "Primary Featured Styles and cabinet-line scene.", roomSceneImageUrl, setRoomSceneImageUrl, "roomScene")}{imageField("Door sample photo", "Door panel material for the Designer and catalog.", doorSampleImageUrl, setDoorSampleImageUrl, "doorSample")}{imageField("Drawer sample photo", "Drawer-front material; blank falls back to the door sample.", drawerSampleImageUrl, setDrawerSampleImageUrl, "drawerSample")}{imageField("Corner swatch", "Angled profile/grain close-up for Featured Styles.", cornerSwatchImageUrl, setCornerSwatchImageUrl, "cornerSwatch")}{imageField("Thumbnail override", "Optional small-card thumbnail override.", thumbnailImageUrl, setThumbnailImageUrl, "thumbnail")}</div></div>
-        <div className="rounded-lg border border-emerald-200 bg-emerald-50/40 p-3 space-y-3"><div><Label>Verified room scene library ({style.roomScenes.length}/6)</Label><p className="text-xs text-muted-foreground">Vendor submissions are verified and can feature this cabinet line. You can only remove scenes submitted by your own line.</p></div>{style.roomScenes.length > 0 && <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">{style.roomScenes.map((scene) => <div key={scene.id} className="relative overflow-hidden rounded border border-border bg-background"><img src={scene.imageUrl} alt={`Room scene for ${style.ourName}`} className="h-20 w-full object-cover" /><p className="truncate p-1.5 text-[10px] text-muted-foreground">{scene.isVerified ? "Verified" : "Unverified"}{scene.sourceNote ? ` · ${scene.sourceNote}` : ""}</p>{scene.sourceDistributorId === style.distributorId && <Button type="button" size="icon" variant="ghost" className="absolute right-1 top-1 h-6 w-6 bg-background/90 text-destructive" disabled={deleteScene.isPending} onClick={() => deleteScene.mutate(withLine({ sceneId: scene.id }))} aria-label="Remove my room scene"><Trash2 className="h-3.5 w-3.5" /></Button>}</div>)}</div>}{style.roomScenes.length < 6 && <div className="border-t border-emerald-200 pt-3 space-y-2"><Input value={newSceneUrl} onChange={(event) => setNewSceneUrl(event.target.value)} placeholder="Verified room scene URL" /><Input value={newSceneNote} onChange={(event) => setNewSceneNote(event.target.value)} placeholder="Private source note (optional)" /><Button type="button" size="sm" disabled={!newSceneUrl.trim() || addScene.isPending} onClick={() => addScene.mutate(withLine({ styleId: style.id, imageUrl: newSceneUrl, sourceNote: newSceneNote.trim() || null }))}><Plus className="mr-1 h-3.5 w-3.5" />Add verified scene</Button></div>}</div>
+        <VendorRoomSceneLibrary
+          styleId={style.id}
+          styleName={style.ourName}
+          distributorId={adminDistId}
+          styles={styles}
+          cabinets={[]}
+          onChanged={onSaved}
+        />
       </div>
       <DialogFooter className="shrink-0 border-t border-border pt-3"><Button variant="outline" onClick={onClose} disabled={update.isPending}>Cancel</Button><Button onClick={save} disabled={update.isPending} className="bg-amber-600 text-white hover:bg-amber-700">{update.isPending ? "Saving…" : "Save Featured Style"}</Button></DialogFooter>
     </DialogContent>
@@ -2746,7 +2638,7 @@ function VendorFeaturedStylesPage() {
           </div>
         )}
 	      </div>
-	      {editingStyle && <VendorFeaturedStyleEditor style={editingStyle} open={Boolean(editingStyle)} onClose={() => setEditingStyle(null)} onSaved={() => { utils.distributorPortal.featuredStyles.invalidate(); utils.distributorPortal.myLine.invalidate(); }} />}
+	      {editingStyle && <VendorFeaturedStyleEditor style={editingStyle} styles={styles.map((item) => ({ id: item.id, ourName: item.ourName }))} open={Boolean(editingStyle)} onClose={() => setEditingStyle(null)} onSaved={() => { utils.distributorPortal.featuredStyles.invalidate(); utils.distributorPortal.myLine.invalidate(); }} />}
 	    </div>
 	  );
 }
@@ -3048,9 +2940,31 @@ function VendorShippingPage() {
 }
 
 // ─── Promotions Page ─────────────────────────────────────────────────────────
+function promotionDiscountLabel(discountType: string, discountValue: unknown) {
+  const amount = Number(discountValue);
+  if (discountType === "percent") return `${amount}% off`;
+  if (discountType === "fixed_amount") return `$${amount.toFixed(2)} off`;
+  return `Sale price $${amount.toFixed(2)}`;
+}
+
+function promotionTargetLabel(promo: { category?: string | null; styleId?: number | null; skuIds?: number[] | null }) {
+  const parts = [
+    promo.styleId ? `Style #${promo.styleId}` : null,
+    promo.category ? `Category: ${promo.category}` : null,
+    promo.skuIds?.length ? `${promo.skuIds.length} item(s)` : null,
+  ].filter(Boolean);
+  return parts.length > 0 ? parts.join(" · ") : "Whole catalog";
+}
+
 function PromotionsPage() {
   const adminDistId = useAdminDistributorId();
   const promos = trpc.promotions.list.useQuery(adminDistId ? { distributorId: adminDistId } : undefined);
+  const myLine = trpc.distributorPortal.myLine.useQuery(adminDistId ? { distributorId: adminDistId } : undefined);
+  const catalog = trpc.distributorPortal.catalog.useQuery({
+    ...(adminDistId ? { distributorId: adminDistId } : {}),
+    limit: 500,
+    offset: 0,
+  });
   const createMut = trpc.promotions.create.useMutation({
     onSuccess: () => { promos.refetch(); toast.success("Promotion created"); setShowCreate(false); },
     onError: (e: any) => toast.error(e.message),
@@ -3062,13 +2976,19 @@ function PromotionsPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState({
     name: "",
-    discountType: "percent" as "percent" | "fixed_price",
+    discountType: "percent" as "percent" | "fixed_amount",
     discountValue: "",
-    targetType: "all" as "all" | "sku" | "category",
-    targetValue: "",
+    targetType: "all" as "all" | "category" | "style" | "sku",
+    category: "",
+    styleId: "",
+    skuIds: [] as number[],
     startsAt: "",
     endsAt: "",
   });
+  const styleOptions = myLine.data?.styles ?? [];
+  const catalogItems = catalog.data?.items ?? [];
+  const categories = Array.from(new Set(catalogItems.map((item) => item.category).filter((category): category is string => Boolean(category)))).sort();
+  const skuChoices = catalogItems.filter((item) => item.skuId != null && (!form.styleId || item.styleId === Number(form.styleId)) && (!form.category || item.category === form.category));
 
   return (
     <div className="space-y-6">
@@ -3105,13 +3025,9 @@ function PromotionsPage() {
             {promos.data?.map((p: any) => (
               <TableRow key={p.id}>
                 <TableCell className="font-medium">{p.name}</TableCell>
+                <TableCell>{promotionDiscountLabel(p.discountType, p.discountValue)}</TableCell>
                 <TableCell>
-                  {p.discountType === "percent" ? `${p.discountValue}% off` : `$${Number(p.discountValue).toFixed(2)} off`}
-                </TableCell>
-                <TableCell>
-                  <Badge variant="outline">
-                    {p.category ? `Category: ${p.category}` : p.skuIds?.length ? `${p.skuIds.length} SKU(s)` : "All Products"}
-                  </Badge>
+                  <Badge variant="outline">{promotionTargetLabel(p)}</Badge>
                 </TableCell>
                 <TableCell className="text-sm text-muted-foreground">
                   {p.startsAt ? new Date(p.startsAt).toLocaleDateString() : "—"}
@@ -3141,38 +3057,79 @@ function PromotionsPage() {
               <label className="text-sm font-medium">Title</label>
               <Input value={form.name} onChange={(e) => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Summer Sale 20% Off" />
             </div>
+            <p className="text-xs text-muted-foreground">This extra discount stacks on the normal sell price. A percent must be greater than 0 and at most 100. A fixed amount must be greater than $0.</p>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-sm font-medium">Discount Type</label>
-                <Select value={form.discountType} onValueChange={(v) => setForm(f => ({ ...f, discountType: v as any }))}>
+                <Select value={form.discountType} onValueChange={(v) => setForm(f => ({ ...f, discountType: v as "percent" | "fixed_amount" }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="percent">Percentage Off</SelectItem>
-                    <SelectItem value="fixed_price">Fixed Amount Off</SelectItem>
+                    <SelectItem value="fixed_amount">Fixed Amount Off</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div>
                 <label className="text-sm font-medium">Value</label>
-                <Input type="number" value={form.discountValue} onChange={(e) => setForm(f => ({ ...f, discountValue: e.target.value }))} placeholder={form.discountType === "percent" ? "20" : "5.00"} />
+                <Input type="number" min={form.discountType === "percent" ? 0.01 : 0.01} max={form.discountType === "percent" ? 100 : undefined} value={form.discountValue} onChange={(e) => setForm(f => ({ ...f, discountValue: e.target.value }))} placeholder={form.discountType === "percent" ? "5" : "5.00"} />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-3">
               <div>
                 <label className="text-sm font-medium">Target</label>
-                <Select value={form.targetType} onValueChange={(v) => setForm(f => ({ ...f, targetType: v as any }))}>
+                <Select value={form.targetType} onValueChange={(v) => setForm(f => ({ ...f, targetType: v as "all" | "category" | "style" | "sku", skuIds: [] }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All My Products</SelectItem>
-                    <SelectItem value="sku">Specific SKU</SelectItem>
-                    <SelectItem value="category">Category</SelectItem>
+                    <SelectItem value="all">Whole catalog</SelectItem>
+                    <SelectItem value="category">Specific category</SelectItem>
+                    <SelectItem value="style">Specific door style</SelectItem>
+                    <SelectItem value="sku">Specific items</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-              {form.targetType !== "all" && (
+              {(form.targetType === "category" || form.targetType === "sku") && (
                 <div>
-                  <label className="text-sm font-medium">{form.targetType === "sku" ? "SKU Code" : "Category Name"}</label>
-                  <Input value={form.targetValue} onChange={(e) => setForm(f => ({ ...f, targetValue: e.target.value }))} />
+                  <label className="text-sm font-medium">Category</label>
+                  <Select value={form.category || "none"} onValueChange={(v) => setForm(f => ({ ...f, category: v === "none" ? "" : v, skuIds: [] }))}>
+                    <SelectTrigger><SelectValue placeholder="Choose a category" /></SelectTrigger>
+                    <SelectContent>
+                      {form.targetType === "sku" ? <SelectItem value="none">Any category</SelectItem> : <SelectItem value="none">Choose a category</SelectItem>}
+                      {categories.map((category) => <SelectItem key={category} value={category}>{category}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              {(form.targetType === "style" || form.targetType === "sku") && (
+                <div>
+                  <label className="text-sm font-medium">Door style</label>
+                  <Select value={form.styleId || "none"} onValueChange={(v) => setForm(f => ({ ...f, styleId: v === "none" ? "" : v, skuIds: [] }))}>
+                    <SelectTrigger><SelectValue placeholder="Choose a door style" /></SelectTrigger>
+                    <SelectContent>
+                      {form.targetType === "sku" ? <SelectItem value="none">Any door style</SelectItem> : <SelectItem value="none">Choose a door style</SelectItem>}
+                      {styleOptions.map((style) => <SelectItem key={style.id} value={String(style.id)}>{style.ourName}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              {form.targetType === "sku" && (
+                <div className="max-h-40 space-y-1 overflow-y-auto rounded-md border p-2">
+                  {skuChoices.length === 0 && <p className="text-xs text-muted-foreground">No catalog items match this scope.</p>}
+                  {skuChoices.slice(0, 80).map((item) => (
+                    <label key={item.skuId} className="flex items-center gap-2 text-xs">
+                      <input
+                        type="checkbox"
+                        checked={form.skuIds.includes(item.skuId)}
+                        onChange={() => setForm((current) => ({
+                          ...current,
+                          skuIds: current.skuIds.includes(item.skuId)
+                            ? current.skuIds.filter((id) => id !== item.skuId)
+                            : [...current.skuIds, item.skuId],
+                        }))}
+                      />
+                      <span className="font-mono">{item.masterCode ?? item.platformSku ?? `SKU ${item.skuId}`}</span>
+                      <span className="truncate text-muted-foreground">{item.styleName ?? item.category ?? ""}</span>
+                    </label>
+                  ))}
                 </div>
               )}
             </div>
@@ -3190,13 +3147,15 @@ function PromotionsPage() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowCreate(false)}>Cancel</Button>
             <Button
-              disabled={!form.name || !form.discountValue || createMut.isPending}
+              disabled={!form.name || !form.discountValue || createMut.isPending || (form.targetType === "category" && !form.category) || (form.targetType === "style" && !form.styleId) || (form.targetType === "sku" && form.skuIds.length === 0)}
               onClick={() => createMut.mutate({
                 ...(adminDistId ? { distributorId: adminDistId } : {}),
                 name: form.name,
                 discountType: form.discountType,
                 discountValue: Number(form.discountValue),
-                category: form.targetType === "category" ? form.targetValue : undefined,
+                category: form.targetType === "category" || (form.targetType === "sku" && form.category) ? form.category : undefined,
+                styleId: form.targetType === "style" || (form.targetType === "sku" && form.styleId) ? Number(form.styleId) : undefined,
+                skuIds: form.targetType === "sku" ? form.skuIds : undefined,
                 startsAt: form.startsAt ? new Date(form.startsAt).toISOString() : undefined,
                 endsAt: form.endsAt ? new Date(form.endsAt).toISOString() : undefined,
               })}
@@ -4427,11 +4386,17 @@ function VendorLoginForm() {
 export default function VendorPortal() {
   const { user, loading } = useAuth();
   const params = new URLSearchParams(window.location.search);
-  const requestedPage = params.get("section");
+  const requestedPage = params.get("section") === "picks" ? null : params.get("section");
   const initialPage: VendorPage = NAV_ITEMS.some((item) => item.id === requestedPage)
     ? requestedPage as VendorPage
     : "overview";
   const [page, setPage] = useState<VendorPage>(initialPage);
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("section") !== "picks") return;
+    const url = new URL(window.location.href);
+    url.searchParams.delete("section");
+    window.history.replaceState({}, "", url.toString());
+  }, []);
 
   // Admin bypass: detect ?as=<distributorId> in URL
   const asParam = params.get("as");
@@ -4466,6 +4431,12 @@ export default function VendorPortal() {
   );
   const distList = trpc.distributors.list.useQuery(undefined, { enabled: isAdmin === true || user?.role === "distributor" });
   const approvedVendors = trpc.vendors.list.useQuery(undefined, { enabled: isAdmin === true });
+  const ownProfile = trpc.distributorPortal.supplierProfile.useQuery(undefined, { enabled: user?.role === "distributor" });
+  const ownLinkedLines = ownProfile.data?.linkedDistributors ?? [];
+  const requestedLineId = asParam && Number.isSafeInteger(Number(asParam)) ? Number(asParam) : null;
+  const vendorDistributorId = user?.role === "distributor"
+    ? (ownLinkedLines.some((line) => line.id === requestedLineId) ? requestedLineId : user.distributorId ?? null)
+    : null;
 
   useEffect(() => {
     if (!isAdmin || !adminApprovedVendorLineId) return;
@@ -4565,6 +4536,8 @@ export default function VendorPortal() {
       setPage={navigateToPage}
       isAdmin={isAdmin}
       adminDistributorId={adminDistributorId}
+      vendorDistributorId={vendorDistributorId}
+      linkedLines={ownLinkedLines}
       adminApprovedVendorLineId={adminApprovedVendorLineId}
       onSwitchVendor={switchAdminVendor}
       distList={distList.data ?? []}
@@ -4644,6 +4617,8 @@ function VendorPortalDashboard({
   setPage,
   isAdmin,
   adminDistributorId,
+  vendorDistributorId = null,
+  linkedLines = [],
   adminApprovedVendorLineId,
   onSwitchVendor,
   distList,
@@ -4657,13 +4632,16 @@ function VendorPortalDashboard({
   setPage: (p: VendorPage) => void;
   isAdmin: boolean;
   adminDistributorId: number | null;
+  vendorDistributorId?: number | null;
+  linkedLines?: Array<{ id: number; code: string; name: string }>;
   adminApprovedVendorLineId: number | null;
   onSwitchVendor: (vendor: PortalApprovedVendorOption) => void;
   distList: PortalDistributorOption[];
   approvedVendorList: PortalApprovedVendorOption[];
   supplierProfileOnly?: boolean;
 }) {
-  const activeDistributorId = isAdmin ? adminDistributorId : user.distributorId;
+  const actingDistributorId = isAdmin ? adminDistributorId : vendorDistributorId;
+  const activeDistributorId = actingDistributorId;
   const activeDistCode = activeDistributorId
     ? (distList.find((d: any) => d.id === activeDistributorId)?.code ?? undefined)
     : undefined;
@@ -4681,7 +4659,7 @@ function VendorPortalDashboard({
   }, [setPage]);
 
   return (
-    <AdminDistributorContext.Provider value={isAdmin && adminDistributorId ? adminDistributorId : undefined}>
+    <AdminDistributorContext.Provider value={actingDistributorId ?? undefined}>
     <AdminApprovedVendorContext.Provider value={isAdmin && adminApprovedVendorLineId ? adminApprovedVendorLineId : undefined}>
     <AdminDistributorCodeContext.Provider value={activeDistCode}>
     <div className="flex min-h-[calc(100vh-64px)]">
@@ -4690,6 +4668,15 @@ function VendorPortalDashboard({
         <div className="p-4 border-b">
           <h1 className="font-bold text-lg">Vendor Portal</h1>
           <p className="text-xs text-muted-foreground mt-1">{user.name}</p>
+          {!isAdmin && linkedLines.length > 0 && (
+            <ul className="mt-3 space-y-1" aria-label="Signed-in catalog lines">
+              {linkedLines.map((line) => (
+                <li key={line.id} className={`rounded px-2 py-1 text-xs ${line.id === actingDistributorId ? "bg-primary/10 font-medium text-primary" : "text-muted-foreground"}`}>
+                  <span className="font-mono font-semibold">{line.code}</span> {supplierCatalogLineLabel(line)}
+                </li>
+              ))}
+            </ul>
+          )}
           {isAdmin && adminApprovedVendorLineId && (
             <AdminVendorQuickSwitch
               adminApprovedVendorLineId={adminApprovedVendorLineId}
@@ -4743,6 +4730,18 @@ function VendorPortalDashboard({
 
       {/* Main content */}
 	      <main className="flex-1 p-6 pb-20 md:pb-6 overflow-y-auto">
+        {!isAdmin && linkedLines.length > 0 && (
+          <ul className="mb-4 flex flex-wrap gap-1 md:hidden" aria-label="Signed-in catalog lines">
+            {linkedLines.map((line) => (
+              <li key={line.id}>
+                <Badge variant={line.id === actingDistributorId ? "default" : "secondary"} className="gap-1 text-[10px] font-normal">
+                  <span className="font-mono font-semibold">{line.code}</span>
+                  <span>{supplierCatalogLineLabel(line)}</span>
+                </Badge>
+              </li>
+            ))}
+          </ul>
+        )}
         {isAdmin && adminApprovedVendorLineId && (
           <AdminVendorQuickSwitch
             adminApprovedVendorLineId={adminApprovedVendorLineId}
@@ -4755,11 +4754,10 @@ function VendorPortalDashboard({
 	        {page === "overview" && (isPelican ? <PelicanVendorOverviewPage onNavigateToCatalog={handleNavigateToCatalog} /> : <OverviewPage onNavigate={setPage} />)}
 	        {page === "supplier-profile" && <SupplierProfilePage />}
 	        {page === "catalog" && (isPelican ? <PelicanVendorCatalogPage initialCategory={pelicanCategoryFilter} /> : <CatalogPage />)}
-	        {page === "other-products" && <VendorOtherProducts distributorId={adminDistributorId ?? undefined} />}
+	        {page === "other-products" && <VendorOtherProducts distributorId={actingDistributorId ?? undefined} />}
 	        {page === "styles" && <DoorStylesPage />}
 	        {page === "featured-styles" && <VendorFeaturedStylesPage />}
-        {page === "shipping" && (isPelican ? <PelicanShippingProfilesPanel isAdmin={isAdmin} /> : <VendorShippingPage />)}
-	        {page === "picks" && <DesignToolPicksPage />}
+	        {page === "shipping" && (isPelican ? <PelicanShippingProfilesPanel isAdmin={isAdmin} /> : <VendorShippingPage />)}
         {page === "promotions" && <PromotionsPage />}
         {page === "gallery" && <GalleryPage />}
         {page === "analytics" && <VendorAnalyticsPage />}
