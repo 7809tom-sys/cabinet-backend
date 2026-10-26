@@ -19,6 +19,10 @@ export function registerStorageProxy(app: Express) {
       res.status(400).send("Missing storage key");
       return;
     }
+    if (key.startsWith("affiliate-resources/")) {
+      res.status(403).send("This file is available only to signed-in affiliates");
+      return;
+    }
 
     if (!ENV.supabaseUrl || !ENV.supabaseServiceRoleKey) {
       res.status(500).send("Storage proxy not configured");
