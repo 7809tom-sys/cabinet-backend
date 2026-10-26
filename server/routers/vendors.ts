@@ -1,14 +1,16 @@
 import { z } from "zod";
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
-import { router, adminProcedure, publicProcedure } from "../_core/trpc";
+import { router, adminProcedure, publicProcedure, supplierProfileProcedure } from "../_core/trpc";
 import { getDb } from "../db";
-import { distributors, emailSettings, vendorLines, orders, orderItems } from "../../drizzle/schema";
+import { catalogImports, distributorSkus, distributors, emailSettings, vendorApplications, vendorLines, vendorProducts, orders, orderItems } from "../../drizzle/schema";
 import { pelicanProducts } from "../../drizzle/pelicanSchema";
 import { storagePut } from "../storage";
-import { approvedVendorLinkedDistributorIds, approvedVendorSourceDistributorId } from "../lib/approvedVendorAccess";
+import { approvedVendorLinkedDistributorIds, approvedVendorMatchesDistributor, approvedVendorSourceDistributorId } from "../lib/approvedVendorAccess";
+import { buildPendingVendorReview } from "../lib/pendingVendorReview";
 import { emailSettingsReady, sendEmailViaSettings } from "../email";
 import { buildSupplierPortalInvite } from "../supplierPortalInvite";
+import { featuresForVendor, vendorApprovalChoiceError } from "../../shared/vendorFeatures";
 
 // Approved Vendors scorecard.
 //
@@ -76,6 +78,7 @@ export const vendorsRouter = router({
         contactEmail: z.string().max(255).optional(),
         contactPhone: z.string().max(64).optional(),
         isApproved: z.boolean().optional(),
+        isCabinetVendor: z.boolean().nullable().optional(),
         totalSalesCents: z.number().int().min(0).optional(),
         notes: z.string().nullable().optional(),
         websiteUrl: z.string().max(512).nullable().optional(),
@@ -84,6 +87,11 @@ export const vendorsRouter = router({
       })
     )
     .mutation(async ({ input }) => {
+      const choiceError = vendorApprovalChoiceError({
+        isApproved: input.isApproved,
+        isCabinetVendor: input.isCabinetVendor,
+      });
+      if (choiceError) throw new TRPCError({ code: "BAD_REQUEST", message: choiceError });
       const db = await getDb();
       if (!db) return { success: false } as const;
       const { id, ...rest } = input;
@@ -321,4 +329,103 @@ export const vendorsRouter = router({
         .where(eq(vendorLines.id, input.id));
       return { success: true, totalSalesCents, autoComputed: true } as const;
     }),
+
+  /**
+   * The signed-in supplier's cabinet choice, or the vendor an administrator is
+   * previewing. The portal uses this for its menu. Administrators can open any
+   * vendor; the returned flag is still that vendor's flag.
+   */
+  portalFeatures: supplierProfileProcedure
+    .input(z.object({ approvedVendorLineId: z.number().int().positive().optional() }).optional())
+    .query(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) return null;
+      const requestedId = ctx.isAdmin ? input?.approvedVendorLineId ?? null : ctx.approvedVendorLineId ?? null;
+      const vendorColumns = {
+        id: vendorLines.id,
+        name: vendorLines.name,
+        sourceKey: vendorLines.sourceKey,
+        linkedDistributorIds: vendorLines.linkedDistributorIds,
+        contactEmail: vendorLines.contactEmail,
+        isApproved: vendorLines.isApproved,
+        isCabinetVendor: vendorLines.isCabinetVendor,
+      };
+      let vendor: {
+        id: number;
+        name: string;
+        sourceKey: string | null;
+        isApproved: boolean;
+        isCabinetVendor: boolean | null;
+      } | null = null;
+      if (requestedId != null) {
+        const [row] = await db.select(vendorColumns).from(vendorLines).where(eq(vendorLines.id, requestedId)).limit(1);
+        vendor = row ?? null;
+      } else if (!ctx.isAdmin && ctx.distributorId != null) {
+        const [line] = await db
+          .select({ id: distributors.id, code: distributors.code, isActive: distributors.isActive })
+          .from(distributors)
+          .where(eq(distributors.id, ctx.distributorId))
+          .limit(1);
+        if (line) {
+          const rows = await db.select(vendorColumns).from(vendorLines);
+          vendor = rows.find((candidate) => candidate.isApproved && approvedVendorMatchesDistributor(candidate, line)) ?? null;
+        }
+      }
+      if (!vendor) return null;
+      return {
+        id: vendor.id,
+        name: vendor.name,
+        sourceKey: vendor.sourceKey,
+        isApproved: vendor.isApproved,
+        isCabinetVendor: vendor.isCabinetVendor,
+        features: featuresForVendor(vendor),
+      };
+    }),
+
+  /** Vendors that still need an administrator. This never approves anyone. */
+  pendingReview: adminProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) return { count: 0, items: [] as const };
+    const [vendorRows, supplierLines, applications, imports, skus, products, pelicanSample] = await Promise.all([
+      db.select({
+        id: vendorLines.id,
+        name: vendorLines.name,
+        sourceKey: vendorLines.sourceKey,
+        linkedDistributorIds: vendorLines.linkedDistributorIds,
+        contactEmail: vendorLines.contactEmail,
+        isApproved: vendorLines.isApproved,
+        isCabinetVendor: vendorLines.isCabinetVendor,
+      }).from(vendorLines),
+      db.select({
+        id: distributors.id,
+        code: distributors.code,
+        name: distributors.name,
+        isActive: distributors.isActive,
+      }).from(distributors),
+      db.select({
+        id: vendorApplications.id,
+        companyName: vendorApplications.companyName,
+        contactName: vendorApplications.contactName,
+        email: vendorApplications.email,
+        phone: vendorApplications.phone,
+        website: vendorApplications.website,
+        categories: vendorApplications.categories,
+        status: vendorApplications.status,
+      }).from(vendorApplications).where(eq(vendorApplications.status, "pending")),
+      db.selectDistinct({ distributorId: catalogImports.distributorId }).from(catalogImports),
+      db.selectDistinct({ distributorId: distributorSkus.distributorId }).from(distributorSkus),
+      db.selectDistinct({ distributorId: vendorProducts.distributorId }).from(vendorProducts),
+      db.select({ id: pelicanProducts.id }).from(pelicanProducts).limit(1),
+    ]);
+    const referencedDistributorIds = [...imports, ...skus, ...products]
+      .map((row) => row.distributorId)
+      .filter((id): id is number => typeof id === "number");
+    return buildPendingVendorReview({
+      vendors: vendorRows,
+      distributors: supplierLines,
+      applications,
+      referencedDistributorIds,
+      pelicanProductCount: pelicanSample.length,
+    });
+  }),
 });

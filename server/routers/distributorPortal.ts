@@ -2,6 +2,7 @@ import { z } from "zod";
 import { and, eq, inArray, desc, gte, lte, isNotNull, or, sql } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { adminProcedure, distributorProcedure, router, supplierProfileProcedure } from "../_core/trpc";
+import { withVendorFeature } from "../lib/vendorFeatureProcedure";
 import { getDb } from "../db";
 import {
 	  distributors,
@@ -289,7 +290,7 @@ export const distributorPortalRouter = router({
 	   * intentionally separate from SKU mutation: a distributor can upload the
 	   * source workbook/CSV for audit, then use the validated spreadsheet flow.
 	   */
-	  uploadCatalogFile: distributorProcedure
+	  uploadCatalogFile: withVendorFeature("cabinet_catalog")
 	    .input(z.object({
 	      distributorId: z.number().optional(),
 	      fileName: z.string().trim().min(1).max(255),
@@ -324,7 +325,7 @@ export const distributorPortalRouter = router({
     }),
 
 	  /** Most-recent-first archive list; file URLs are only returned to the owning line. */
-	  catalogFileHistory: distributorProcedure
+	  catalogFileHistory: withVendorFeature("cabinet_catalog")
 	    .input(z.object({ distributorId: z.number().optional(), limit: z.number().int().min(1).max(100).default(25) }).optional())
 	    .query(async ({ ctx, input }) => {
 	      const db = await getDb();
@@ -339,7 +340,7 @@ export const distributorPortalRouter = router({
 	    }),
 
 	  /** Export the complete current distributor SKU view as a portable CSV. */
-	  exportCatalog: distributorProcedure
+	  exportCatalog: withVendorFeature("cabinet_catalog")
 	    .input(z.object({ distributorId: z.number().optional() }).optional())
 	    .query(async ({ ctx, input }) => {
 	      const db = await getDb();
@@ -682,7 +683,7 @@ export const distributorPortalRouter = router({
 	 * filters are applied against the vendor's cabinet records, not merely a
 	 * door-style label, so a vendor can find a specific cabinet SKU.
 	 */
-	featuredStyles: distributorProcedure
+	featuredStyles: withVendorFeature("featured_styles")
 	  .input(z.object({
 	    distributorId: z.number().optional(),
 	    search: z.string().trim().max(120).optional(),
@@ -895,7 +896,7 @@ export const distributorPortalRouter = router({
 	  }),
 
 	/** Toggle a featured style, with both line ownership and cabinet evidence enforced on the server. */
-	setFeaturedStyle: distributorProcedure
+	setFeaturedStyle: withVendorFeature("featured_styles")
 	  .input(z.object({ distributorId: z.number().optional(), styleId: z.number().int().positive(), featured: z.boolean() }))
 	  .mutation(async ({ ctx, input }) => {
 	    const db = await getDb();
@@ -944,7 +945,7 @@ export const distributorPortalRouter = router({
 	  }),
 
 	/** Reorder only this vendor's featured styles while preserving other vendors' rank slots. */
-	reorderFeaturedStyles: distributorProcedure
+	reorderFeaturedStyles: withVendorFeature("featured_styles")
 	  .input(z.object({ distributorId: z.number().optional(), orderedIds: z.array(z.number().int().positive()).min(1) }))
 	  .mutation(async ({ ctx, input }) => {
 	    const db = await getDb();
@@ -973,7 +974,7 @@ export const distributorPortalRouter = router({
 	 * must be both owned by the current vendor and represented by that vendor's
 	 * cabinet catalog. This deliberately does not expose global/admin records.
 	 */
-	updateFeaturedStyleMaterials: distributorProcedure
+	updateFeaturedStyleMaterials: withVendorFeature("featured_styles")
 	  .input(z.object({
 	    distributorId: z.number().optional(),
 	    styleId: z.number().int().positive(),
@@ -1080,7 +1081,7 @@ export const distributorPortalRouter = router({
 		 * deliberately separate from submissions and are never visible to admins
 		 * or other supplier accounts.
 		 */
-		doorMeasurementDraft: distributorProcedure
+		doorMeasurementDraft: withVendorFeature("door_styles")
 		  .input(z.object({ distributorId: z.number().optional(), styleId: z.number().int().positive() }))
 		  .query(async ({ ctx, input }) => {
 		    const db = await getDb();
@@ -1096,7 +1097,7 @@ export const distributorPortalRouter = router({
 		  }),
 
 		/** Save incomplete sheet work without entering the CabinetDealz review queue. */
-		saveDoorMeasurementDraft: distributorProcedure
+		saveDoorMeasurementDraft: withVendorFeature("door_styles")
 		  .input(z.object({
 		    distributorId: z.number().optional(),
 		    styleId: z.number().int().positive(),
@@ -1150,7 +1151,7 @@ export const distributorPortalRouter = router({
 		  }),
 
 		/** Remove a draft after it has been submitted, or when the owner discards it. */
-		deleteDoorMeasurementDraft: distributorProcedure
+		deleteDoorMeasurementDraft: withVendorFeature("door_styles")
 		  .input(z.object({ distributorId: z.number().optional(), styleId: z.number().int().positive() }))
 		  .mutation(async ({ ctx, input }) => {
 		    const db = await getDb();
@@ -1165,7 +1166,7 @@ export const distributorPortalRouter = router({
 		  }),
 
 		/** Attach or replace one of the four reference images on an existing draft. */
-		uploadDoorMeasurementDraftPhoto: distributorProcedure
+		uploadDoorMeasurementDraftPhoto: withVendorFeature("door_styles")
 		  .input(z.object({
 		    distributorId: z.number().optional(),
 		    styleId: z.number().int().positive(),
@@ -1211,7 +1212,7 @@ export const distributorPortalRouter = router({
 		 * pending until CabinetDealz confirms the physical sample before Designer
 		 * frame geometry is changed.
 		 */
-		submitDoorMeasurement: distributorProcedure
+		submitDoorMeasurement: withVendorFeature("door_styles")
 		  .input(z.object({
 		    distributorId: z.number().optional(),
 		    styleId: z.number().int().positive(),
@@ -1330,7 +1331,7 @@ export const distributorPortalRouter = router({
 		  }),
 
 		/** Add a vendor-owned, verified merchandising scene without granting access to other vendors' libraries. */
-	addFeaturedStyleScene: distributorProcedure
+	addFeaturedStyleScene: withVendorFeature("room_scenes")
 	  .input(z.object({ distributorId: z.number().optional(), styleId: z.number().int().positive(), imageUrl: z.string().trim().min(1).max(512), sourceNote: z.string().max(512).nullable().optional() }))
 	  .mutation(async ({ ctx, input }) => {
 	    const db = await getDb();
@@ -1346,7 +1347,7 @@ export const distributorPortalRouter = router({
 	  }),
 
 	/** A vendor may remove only its own submitted room scenes, never another supplier's or admin's assets. */
-	deleteFeaturedStyleScene: distributorProcedure
+	deleteFeaturedStyleScene: withVendorFeature("room_scenes")
 	  .input(z.object({ distributorId: z.number().optional(), sceneId: z.number().int().positive() }))
 	  .mutation(async ({ ctx, input }) => {
 	    const db = await getDb();
@@ -1688,7 +1689,7 @@ export const distributorPortalRouter = router({
     }),
 
   /** This line's catalog: one row per SKU with cabinet info + visibility state. */
-  catalog: distributorProcedure
+  catalog: withVendorFeature("cabinet_catalog")
     .input(
       z.object({
         distributorId: z.number().optional(),
@@ -1770,7 +1771,7 @@ export const distributorPortalRouter = router({
     }),
 
   /** Toggle a single SKU's published (visible) state. Scoped to this line. */
-  setVisibility: distributorProcedure
+  setVisibility: withVendorFeature("cabinet_catalog")
     .input(
       z.object({
         distributorId: z.number().optional(),
@@ -1815,7 +1816,7 @@ export const distributorPortalRouter = router({
     }),
 
   /** Bulk publish/unpublish a set of SKUs in this line. */
-  bulkSetVisibility: distributorProcedure
+  bulkSetVisibility: withVendorFeature("cabinet_catalog")
     .input(
       z.object({
         distributorId: z.number().optional(),
@@ -1844,7 +1845,7 @@ export const distributorPortalRouter = router({
     }),
 
   /** Administrator product list used by the direct draft/edit/publish workspace. */
-  adminProductList: distributorProcedure
+  adminProductList: withVendorFeature("cabinet_catalog")
     .input(
       z.object({
         distributorId: z.number().optional(),
@@ -1919,7 +1920,7 @@ export const distributorPortalRouter = router({
     }),
 
   /** Direct administrator editor for supplier products. Master mapping is optional. */
-  adminSaveProduct: distributorProcedure
+  adminSaveProduct: withVendorFeature("cabinet_catalog")
     .input(
       z.object({
         skuId: z.number().int().positive().optional(),
@@ -2098,7 +2099,7 @@ export const distributorPortalRouter = router({
   // ─── Image Upload (instant) ───────────────────────────────────────────────────
 
   /** Vendor uploads a product image (base64 encoded). Stored in S3, URL saved on SKU. */
-  updateImage: distributorProcedure
+  updateImage: withVendorFeature("cabinet_catalog")
     .input(
       z.object({
         distributorId: z.number().optional(),
@@ -2144,7 +2145,7 @@ export const distributorPortalRouter = router({
     }),
 
   /** Records the source information needed before a supplier-only cabinet item can be published. */
-  completeUnmatchedProductDetails: distributorProcedure
+  completeUnmatchedProductDetails: withVendorFeature("cabinet_catalog")
     .input(z.object({
       distributorId: z.number().optional(),
       skuId: z.number().int().positive(),
@@ -2359,7 +2360,7 @@ export const distributorPortalRouter = router({
    * price; the small set of unmatched products is retained as pending records
    * for specification completion, never discarded or published by the import.
    */
-  importCatalogSpreadsheet: distributorProcedure
+  importCatalogSpreadsheet: withVendorFeature("cabinet_catalog")
     .input(z.object({
       distributorId: z.number().optional(),
       rows: z.array(z.object({
@@ -2441,7 +2442,7 @@ export const distributorPortalRouter = router({
     }),
 
   /** Vendor submits a new product. Goes to pending status until admin approves. */
-  submitNewProduct: distributorProcedure
+  submitNewProduct: withVendorFeature("cabinet_catalog")
     .input(
       z.object({
         distributorId: z.number().optional(),
@@ -2562,7 +2563,7 @@ export const distributorPortalRouter = router({
   // ─── Admin Approve/Reject Product ─────────────────────────────────────────────
 
   /** Admin publishes, returns to draft, or rejects a supplier product. */
-  adminSetProductStatus: distributorProcedure
+  adminSetProductStatus: withVendorFeature("cabinet_catalog")
     .input(
       z.object({
         distributorId: z.number().optional(),
@@ -2615,7 +2616,7 @@ export const distributorPortalRouter = router({
   // ─── Design Tool Picks (max 8) ───────────────────────────────────────────────
 
   /** Get the vendor's current design tool picks. */
-  getDesignToolPicks: distributorProcedure
+  getDesignToolPicks: withVendorFeature("designer_eligibility")
     .input(z.object({ distributorId: z.number().optional() }).optional())
     .query(async ({ ctx, input }) => {
       const db = await getDb();
@@ -2652,7 +2653,7 @@ export const distributorPortalRouter = router({
     }),
 
   /** Vendor sets their design tool picks (max 8 SKU IDs). */
-  setDesignToolPicks: distributorProcedure
+  setDesignToolPicks: withVendorFeature("designer_eligibility")
     .input(
       z.object({
         distributorId: z.number().optional(),
@@ -2691,7 +2692,7 @@ export const distributorPortalRouter = router({
     }),
 
   /** Order requests that reference a door style carried by this line. */
-  orders: distributorProcedure
+  orders: withVendorFeature("cabinet_catalog")
     .input(
       z.object({
         distributorId: z.number().optional(),
@@ -2736,7 +2737,7 @@ export const distributorPortalRouter = router({
     }),
 
   /** Distributor confirms inventory and returns the updated invoice to the affiliate. */
-  confirmInventoryAndInvoice: distributorProcedure
+  confirmInventoryAndInvoice: withVendorFeature("cabinet_catalog")
     .input(z.object({
       distributorId: z.number().optional(),
       orderId: z.number().int().positive(),
@@ -2768,7 +2769,7 @@ export const distributorPortalRouter = router({
   // ─── Door Style Image Update (instant) ────────────────────────────────────────
 
 	/** Vendor updates one of its Door Style merchandising image slots. */
-	  updateDoorStyleImage: distributorProcedure
+	  updateDoorStyleImage: withVendorFeature("door_styles")
     .input(
       z.object({
         distributorId: z.number().optional(),
@@ -2860,7 +2861,7 @@ export const distributorPortalRouter = router({
 
   // ─── AI Service Requests ─────────────────────────────────────────────────────
 
-  aiServiceHistory: distributorProcedure
+  aiServiceHistory: withVendorFeature("design_tools")
     .input(z.object({ distributorId: z.number().optional() }).optional())
     .query(async ({ ctx, input }) => {
       const db = await getDb();
@@ -2875,7 +2876,7 @@ export const distributorPortalRouter = router({
       return rows;
     }),
 
-  aiServiceSubmit: distributorProcedure
+  aiServiceSubmit: withVendorFeature("design_tools")
     .input(
       z.object({
         distributorId: z.number().optional(),
@@ -2919,7 +2920,7 @@ export const distributorPortalRouter = router({
       };
     }),
 
-  aiServiceApprove: distributorProcedure
+  aiServiceApprove: withVendorFeature("design_tools")
     .input(z.object({ distributorId: z.number().optional(), requestId: z.number().int() }))
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
@@ -2938,7 +2939,7 @@ export const distributorPortalRouter = router({
       return { success: true };
     }),
 
-  aiServiceCancel: distributorProcedure
+  aiServiceCancel: withVendorFeature("design_tools")
     .input(z.object({ distributorId: z.number().optional(), requestId: z.number().int() }))
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
