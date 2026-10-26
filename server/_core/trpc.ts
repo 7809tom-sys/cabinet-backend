@@ -2,6 +2,7 @@ import { NOT_ADMIN_ERR_MSG, UNAUTHED_ERR_MSG } from '@shared/const';
 import { initTRPC, TRPCError } from "@trpc/server";
 import superjson from "superjson";
 import type { TrpcContext } from "./context";
+import { loadLinkedCatalogLineIds } from "../lib/approvedVendorCatalog";
 
 const t = initTRPC.context<TrpcContext>().create({
   transformer: superjson,
@@ -67,12 +68,14 @@ export const distributorProcedure = t.procedure.use(
       });
     }
 
+    const linkedDistributorIds = isDistributor ? await loadLinkedCatalogLineIds(ctx.user) : [];
     return next({
       ctx: {
         ...ctx,
         user: ctx.user,
         isAdmin,
         distributorId: isDistributor ? ctx.user.distributorId : null,
+        linkedDistributorIds,
       },
     });
   }),
@@ -98,6 +101,7 @@ export const supplierProfileProcedure = t.procedure.use(
         message: "Your account is not linked to an approved vendor record yet. Contact the platform admin.",
       });
     }
+    const linkedDistributorIds = isSupplier ? await loadLinkedCatalogLineIds(ctx.user) : [];
     return next({
       ctx: {
         ...ctx,
@@ -105,6 +109,7 @@ export const supplierProfileProcedure = t.procedure.use(
         isAdmin,
         distributorId: isSupplier ? ctx.user.distributorId : null,
         approvedVendorLineId: isSupplier ? ctx.user.approvedVendorLineId : null,
+        linkedDistributorIds,
       },
     });
   }),

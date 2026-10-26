@@ -2,6 +2,7 @@ import { z } from "zod";
 import { eq, and, desc, lte, gte, isNull, or, inArray } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { distributorProcedure, publicProcedure, router } from "../_core/trpc";
+import { resolveVendorCatalogLineId } from "../lib/approvedVendorAccess";
 import { getDb } from "../db";
 import { vendorPromotions, doorStyles, distributorSkus, cabinets } from "../../drizzle/schema";
 import { vendorDiscountError, vendorPromotionWindowError, type VendorDiscountType } from "@shared/vendorPromotions";
@@ -9,18 +10,10 @@ import { vendorDiscountError, vendorPromotionWindowError, type VendorDiscountTyp
 function resolveLineId(
   ctxDistributorId: number | null,
   isAdmin: boolean,
-  inputDistributorId?: number | null
+  inputDistributorId?: number | null,
+  linkedDistributorIds?: readonly number[] | null,
 ): number {
-  if (!isAdmin) {
-    if (ctxDistributorId == null) {
-      throw new TRPCError({ code: "FORBIDDEN", message: "No supply line linked." });
-    }
-    return ctxDistributorId;
-  }
-  if (inputDistributorId == null) {
-    throw new TRPCError({ code: "BAD_REQUEST", message: "Admins must specify distributorId." });
-  }
-  return inputDistributorId;
+  return resolveVendorCatalogLineId(isAdmin, ctxDistributorId, inputDistributorId, linkedDistributorIds);
 }
 
 async function assertOwnPromotionScope(
@@ -75,7 +68,7 @@ export const promotionsRouter = router({
     .query(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) return [];
-      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input?.distributorId);
+      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input?.distributorId, ctx.linkedDistributorIds);
       return db
         .select()
         .from(vendorPromotions)
@@ -101,7 +94,7 @@ export const promotionsRouter = router({
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
-      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId);
+      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId, ctx.linkedDistributorIds);
       assertDiscount(input.discountType, input.discountValue, input.startsAt, input.endsAt);
       const skuIds = input.skuIds?.length ? Array.from(new Set(input.skuIds)) : null;
       await assertOwnPromotionScope(db, lineId, { skuIds, styleId: input.styleId ?? null, category: input.category || null });
@@ -141,7 +134,7 @@ export const promotionsRouter = router({
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
-      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId);
+      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId, ctx.linkedDistributorIds);
       const [existing] = await db.select().from(vendorPromotions)
         .where(and(eq(vendorPromotions.id, input.id), eq(vendorPromotions.distributorId, lineId))).limit(1);
       if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "That promotion is not on your line." });
@@ -185,7 +178,7 @@ export const promotionsRouter = router({
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
-      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId);
+      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId, ctx.linkedDistributorIds);
       await db
         .delete(vendorPromotions)
         .where(and(eq(vendorPromotions.id, input.id), eq(vendorPromotions.distributorId, lineId)));
@@ -198,7 +191,7 @@ export const promotionsRouter = router({
     .query(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) return [];
-      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input?.distributorId);
+      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input?.distributorId, ctx.linkedDistributorIds);
       const now = new Date();
       const all = await db
         .select()

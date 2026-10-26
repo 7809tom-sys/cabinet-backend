@@ -15,12 +15,13 @@ describe("affiliate public contact setup", () => {
     expect(router).toContain("publicAddress: z.string().max(256).nullable().optional()");
   });
 
-  it("prioritizes configured public contact details while retaining legacy storefront fallback data", () => {
-    expect(router).toContain("publicEmail: a.publicEmail");
-    expect(router).toContain("publicPhone: a.publicPhone");
-    expect(router).toContain("publicAddress: a.publicAddress");
-    expect(storefront).toContain("const storefrontEmail = data.publicEmail || data.email");
-    expect(storefront).toContain("const storefrontPhone = data.publicPhone || data.phone");
-    expect(storefront).toContain("const storefrontLocation = data.publicAddress || data.serviceArea || data.location");
+  it("publishes contact details only when the affiliate opts in", () => {
+    expect(router).toContain("publicContactForStorefront");
+    expect(router).toContain("email: null");
+    expect(router).toContain("phone: null");
+    expect(storefront).toContain("const storefrontEmail = data.showPublicEmail ? data.publicEmail : null");
+    expect(storefront).toContain("const storefrontPhone = data.showPublicPhone ? data.publicPhone : null");
+    expect(storefront).not.toContain("data.publicEmail || data.email");
+    expect(storefront).not.toContain("data.publicPhone || data.phone");
   });
 });
