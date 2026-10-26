@@ -53,7 +53,7 @@ import { calcSalesTax } from "@shared/usSalesTax";
 import { isTemporaryOneDollarCheckoutTestItem, isTemporaryOneDollarFreeShippingOrder } from "@shared/temporaryCheckoutTest";
 import { isStagingTestHost } from "@shared/stagingTestMode";
 import { HARDWARE_LINE_CODE, hardwareProfileIsComplete, hardwareRetailCents, hardwareVendorOriginZip } from "@shared/hardwareCommerce";
-import { choosePromotedPrice } from "@shared/vendorPromotions";
+import { choosePromotedPrice, type PricedCandidate } from "@shared/vendorPromotions";
 import { loadActivePromotionRules, loadPublishedCabinetPriceRows, priceLineWithPromotion } from "../vendorPromotionPricing";
 
 // Map the order tierEnum to the shared PricingTier.
@@ -549,7 +549,7 @@ export const ordersRouter = router({
       }
       const ps = await getPricingSettings();
       const rows = await db
-        select({
+        .select({
           cabinetId: distributorSkus.cabinetId,
           skuId: distributorSkus.id,
           distributorId: distributorSkus.distributorId,
@@ -628,7 +628,7 @@ export const ordersRouter = router({
         }
       }
       if (applyVendorPromo) {
-        for (const [cabinetId, cabinetCandidates] of candidates) {
+        for (const [cabinetId, cabinetCandidates] of Array.from(candidates.entries())) {
           const choice = choosePromotedPrice(cabinetCandidates, promos);
           if (!choice) continue;
           promoted.set(cabinetId, {

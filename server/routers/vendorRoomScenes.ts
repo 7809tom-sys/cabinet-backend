@@ -227,7 +227,8 @@ export const vendorRoomSceneProcedures = {
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
       const lineId = lineIdFrom(ctx.distributorId, ctx.isAdmin, input.distributorId);
       await requireOwnStyle(db, lineId, input.styleId);
-      for (const [index, rawName] of input.orderedNames.entries()) {
+      for (let index = 0; index < input.orderedNames.length; index++) {
+        const rawName = input.orderedNames[index];
         const name = sceneNameOrThrow(rawName);
         await db.update(doorStyleRoomScenes).set({ sceneSortOrder: (index + 1) * 10 }).where(and(
           eq(doorStyleRoomScenes.styleId, input.styleId),
