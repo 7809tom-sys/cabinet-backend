@@ -649,6 +649,11 @@ export const cabinets = mysqlTable("cabinets", {
   // showIn2020: included in 2020 Design export files (default true).
   showInCatalog: boolean("showInCatalog").default(true).notNull(),
   showInDesigner: boolean("showInDesigner").default(true).notNull(),
+  // Admin mark for the 3D Designer product list. False by default so a new
+  // row stays out of the Designer until an admin turns it on. The migration
+  // backfills existing rows that already have a published price and can be
+  // rendered or placed.
+  designerEligible: boolean("designerEligible").default(false).notNull(),
   showIn2020: boolean("showIn2020").default(true).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   configuredAt: timestamp("configuredAt"),

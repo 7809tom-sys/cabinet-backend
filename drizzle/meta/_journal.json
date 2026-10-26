@@ -1450,6 +1450,13 @@
       "when": 1793140000000,
       "tag": "0206_public_cabinet_conflict_reviews",
       "breakpoints": true
+    },
+    {
+      "idx": 208,
+      "version": "5",
+      "when": 1793180000000,
+      "tag": "0207_designer_eligible",
+      "breakpoints": true
     }
   ]
 }

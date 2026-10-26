@@ -412,6 +412,9 @@ export const designRouter = router({
             adminAefPreview && stagedAefMasterCodes.length > 0
               ? or(eq(cabinets.showInDesigner, true), inArray(cabinets.masterCode, stagedAefMasterCodes))
               : eq(cabinets.showInDesigner, true),
+            adminAefPreview && stagedAefMasterCodes.length > 0
+              ? or(eq(cabinets.designerEligible, true), inArray(cabinets.masterCode, stagedAefMasterCodes))
+              : eq(cabinets.designerEligible, true),
             ne(cabinets.conflictStatus, "conflict"),
           )),
       ]);
@@ -1290,6 +1293,7 @@ export const designRouter = router({
         eq(cabinets.isActive, true),
         notInConflict(),
         eq(cabinets.showInDesigner, true),
+        eq(cabinets.designerEligible, true),
         eq(distributorSkus.styleId, input.targetStyleId),
         eq(distributorSkus.isAvailable, true),
         eq(distributorSkus.isPublished, true),
@@ -2559,7 +2563,12 @@ export const designRouter = router({
           catalogImageUrl: cabinets.catalogImageUrl,
         })
         .from(cabinets)
-        .where(and(eq(cabinets.isActive, true), notInConflict()));
+        .where(and(
+          eq(cabinets.isActive, true),
+          notInConflict(),
+          eq(cabinets.showInDesigner, true),
+          eq(cabinets.designerEligible, true),
+        ));
 
       const skuConditions = [
         eq(distributorSkus.isAvailable, true),

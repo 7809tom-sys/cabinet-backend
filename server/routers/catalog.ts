@@ -1231,6 +1231,7 @@ export const doorStylesRouter = router({
           masterCode: cabinets.masterCode,
           isActive: cabinets.isActive,
           showInDesigner: cabinets.showInDesigner,
+          designerEligible: cabinets.designerEligible,
           conflictStatus: cabinets.conflictStatus,
         })
         .from(cabinets),
@@ -1322,6 +1323,7 @@ export const doorStylesRouter = router({
             masterCode: cabinets.masterCode,
             isActive: cabinets.isActive,
             showInDesigner: cabinets.showInDesigner,
+            designerEligible: cabinets.designerEligible,
             conflictStatus: cabinets.conflictStatus,
           })
           .from(cabinets),
@@ -2262,6 +2264,7 @@ export const cabinetsRouter = router({
         catalogImageUrl: z.string().nullable().optional(),
         showInCatalog: z.boolean().optional(),
         showInDesigner: z.boolean().optional(),
+        designerEligible: z.boolean().optional(),
         showIn2020: z.boolean().optional(),
         isActive: z.boolean().optional(),
         // Dimensions & weight
@@ -2375,6 +2378,7 @@ export const cabinetsRouter = router({
       if (input.catalogImageUrl !== undefined) patch.catalogImageUrl = input.catalogImageUrl;
       if (input.showInCatalog !== undefined) patch.showInCatalog = input.showInCatalog;
       if (input.showInDesigner !== undefined) patch.showInDesigner = input.showInDesigner;
+      if (input.designerEligible !== undefined) patch.designerEligible = input.designerEligible;
       if (input.showIn2020 !== undefined) patch.showIn2020 = input.showIn2020;
       // Helper: empty string → null, fraction strings → decimal for decimal columns
       const decOrNull = (v: string | null | undefined): string | null => {
@@ -2466,6 +2470,7 @@ export const cabinetsRouter = router({
       const requiresPublicPrice = input.isActive === true
         || input.showInCatalog === true
         || input.showInDesigner === true
+        || input.designerEligible === true
         || input.showIn2020 === true;
       if (requiresPublicPrice) {
         const [sellableSource] = await db
@@ -3254,6 +3259,7 @@ export const cabinetsRouter = router({
             altSku3: cabinets.altSku3,
             showInCatalog: cabinets.showInCatalog,
             showInDesigner: cabinets.showInDesigner,
+            designerEligible: cabinets.designerEligible,
             showIn2020: cabinets.showIn2020,
             isActive: cabinets.isActive,
             hasPositivePublishedPrice: hasPositivePublishedCabinetPrice(),

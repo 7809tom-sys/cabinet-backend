@@ -25,6 +25,7 @@ import {
   designerFriendlyDescription,
   hasPositiveCatalogPrice,
 } from "../../shared/catalogNomenclature";
+import { cabinetCanBeRenderedOrPlacedIn3d } from "../../shared/designerEligibility";
 
 export const genericCabinetsRouter = router({
   /**
@@ -129,6 +130,7 @@ export const genericCabinetsRouter = router({
             constructionMethod: cabinets.constructionMethod,
             conflictStatus: cabinets.conflictStatus,
             showInDesigner: cabinets.showInDesigner,
+            designerEligible: cabinets.designerEligible,
             showInCatalog: cabinets.showInCatalog,
             isActive: cabinets.isActive,
           })
@@ -241,6 +243,7 @@ export const genericCabinetsRouter = router({
           altSku3: cabinets.altSku3,
           isActive: cabinets.isActive,
           showInDesigner: cabinets.showInDesigner,
+          designerEligible: cabinets.designerEligible,
           showInCatalog: cabinets.showInCatalog,
         })
         .from(cabinets)
@@ -299,6 +302,7 @@ export const genericCabinetsRouter = router({
         hingeSide: z.string().trim().max(16).nullable().optional(),
         toeKickHeight: z.number().min(0).max(24).nullable().optional(),
         graphicType: z.string().trim().max(64).nullable().optional(),
+        designerEligible: z.boolean().optional(),
         isCornerCabinet: z.boolean().default(false),
         cornerSide: z.string().trim().max(16).nullable().optional(),
         cornerType: z.string().trim().max(50).nullable().optional(),
@@ -432,6 +436,16 @@ export const genericCabinetsRouter = router({
         isActive: publish,
         showInCatalog: publish,
         showInDesigner: publish,
+        designerEligible: input.designerEligible ?? (publish && cabinetCanBeRenderedOrPlacedIn3d({
+          masterCode,
+          description,
+          category,
+          subCategory: input.subCategory,
+          placementType: input.placementType,
+          width: input.width,
+          height: input.height,
+          depth: input.depth,
+        })),
         showIn2020: publish,
         conflictStatus: "none",
       };
@@ -644,6 +658,7 @@ export const genericCabinetsRouter = router({
         catalogImageUrl: z.string().nullable().optional(),
         conflictStatus: z.enum(["none", "conflict"]).optional(),
         showInDesigner: z.boolean().optional(),
+        designerEligible: z.boolean().optional(),
         showInCatalog: z.boolean().optional(),
         isActive: z.boolean().optional(),
       })
@@ -666,7 +681,7 @@ export const genericCabinetsRouter = router({
 
       if (Object.keys(update).length === 0) return { ok: true };
 
-      const requiresPublicPrice = input.isActive === true || input.showInCatalog === true || input.showInDesigner === true;
+      const requiresPublicPrice = input.isActive === true || input.showInCatalog === true || input.showInDesigner === true || input.designerEligible === true;
       const changesTruthFields = input.description !== undefined
         || input.category !== undefined
         || input.subCategory !== undefined
