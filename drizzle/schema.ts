@@ -1603,6 +1603,18 @@ export const affiliates = mysqlTable("affiliates", {
   yearsInBusiness: int("yearsInBusiness"),
   facebookUrl: varchar("facebookUrl", { length: 512 }),
   instagramUrl: varchar("instagramUrl", { length: 512 }),
+  // White-label presentation. Public contact is opt-in so the account email
+  // and phone are never copied onto the storefront by default.
+  logoDarkUrl: varchar("logoDarkUrl", { length: 512 }),
+  faviconUrl: varchar("faviconUrl", { length: 512 }),
+  backgroundColor: varchar("backgroundColor", { length: 16 }),
+  textColor: varchar("textColor", { length: 16 }),
+  footerText: text("footerText"),
+  showPublicEmail: boolean("showPublicEmail").default(false).notNull(),
+  showPublicPhone: boolean("showPublicPhone").default(false).notNull(),
+  showPublicAddress: boolean("showPublicAddress").default(false).notNull(),
+  hidePlatformBranding: boolean("hidePlatformBranding").default(false).notNull(),
+  sectionLabelsJson: text("sectionLabelsJson"),
   storefrontEnabled: boolean("storefrontEnabled").default(true).notNull(),
   // Storefront layout template variant
   template: mysqlEnum("template", AFFILIATE_STOREFRONT_TEMPLATE_IDS).default("classic").notNull(),
@@ -1739,6 +1751,24 @@ export const affiliateDistributorSelections = mysqlTable("affiliate_distributor_
 
 export type AffiliateDistributorSelection = typeof affiliateDistributorSelections.$inferSelect;
 export type InsertAffiliateDistributorSelection = typeof affiliateDistributorSelections.$inferInsert;
+
+// Products an affiliate has turned off for their public storefront.
+// Absence of a row means the product stays visible, so existing stores do not
+// change until the affiliate hides something. Style-level isEnabled on
+// affiliate_style_branding still hides an entire cabinet line.
+export const affiliateHiddenCatalogProducts = mysqlTable("affiliate_hidden_catalog_products", {
+  id: int("id").autoincrement().primaryKey(),
+  affiliateId: int("affiliateId").notNull(),
+  catalogKind: mysqlEnum("catalogKind", ["cabinet", "hardware", "surface", "closet"]).notNull(),
+  productKey: varchar("productKey", { length: 128 }).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (t) => ({
+  uniqueProduct: uniqueIndex("affiliate_hidden_catalog_product_uidx").on(t.affiliateId, t.catalogKind, t.productKey),
+  affiliateKindIndex: index("affiliate_hidden_catalog_affiliate_idx").on(t.affiliateId, t.catalogKind),
+}));
+
+export type AffiliateHiddenCatalogProduct = typeof affiliateHiddenCatalogProducts.$inferSelect;
+export type InsertAffiliateHiddenCatalogProduct = typeof affiliateHiddenCatalogProducts.$inferInsert;
 
 // ─── CRM: Sales pipeline (admin) + affiliate pipeline ──────────────────────────
 // A lightweight task-board / pipeline over leads & deals. A deal with

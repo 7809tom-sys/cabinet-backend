@@ -18,6 +18,7 @@ import {
   skuMasterAliases,
 } from "../../drizzle/schema";
 import { normalizeCode } from "../../shared/cabinetCodeMatch";
+import { filterCabinetSourceRows, loadAffiliateCatalogGate } from "../lib/affiliateCatalogGate";
 import { resolveCanonicalCatalogSources } from "../lib/canonicalCatalogSources";
 import { loadAffiliateStorefrontPricing } from "../lib/affiliateStorefrontPricing";
 
@@ -162,6 +163,22 @@ export function accessoryGroupFor(row: {
 }
 
 export const storefrontRouter = router({
+  hiddenCatalogKeys: publicProcedure
+    .input(z.object({ slug: z.string().min(1).max(64) }))
+    .query(async ({ input }) => {
+      const empty = { cabinet: [] as string[], hardware: [] as string[], surface: [] as string[], closet: [] as string[] };
+      const db = await getDb();
+      if (!db) return empty;
+      const gate = await loadAffiliateCatalogGate(db, input.slug);
+      if (!gate) return empty;
+      return {
+        cabinet: Array.from(gate.keys.cabinet),
+        hardware: Array.from(gate.keys.hardware),
+        surface: Array.from(gate.keys.surface),
+        closet: Array.from(gate.keys.closet),
+      };
+    }),
+
   // Record an anonymous storefront view for cabinet lines this affiliate has
   // actively featured. The browser session key only de-dupes repeat counts.
   recordFeaturedDistributorViews: publicProcedure
@@ -555,7 +572,7 @@ export const storefrontRouter = router({
         (input.subCategory === ACCESSORY_GROUPS.TRIM ||
           input.subCategory === ACCESSORY_GROUPS.GENERAL);
 
-      const sourceRows = await db
+      const loadedSourceRows = await db
         .select({
           sourceMasterCode: cabinets.masterCode,
           platformSku: distributorSkus.platformSku,
@@ -572,11 +589,15 @@ export const storefrontRouter = router({
           adjustedListPrice: distributorSkus.adjustedListPrice,
           yourCost: distributorSkus.yourCost,
           retailPriceBasis: distributors.retailPriceBasis,
+          sourceDistributorId: distributorSkus.distributorId,
+          sourceStyleId: distributorSkus.styleId,
         })
         .from(distributorSkus)
         .innerJoin(cabinets, eq(distributorSkus.cabinetId, cabinets.id))
         .innerJoin(distributors, eq(distributors.id, distributorSkus.distributorId))
         .where(and(...sourceConditions));
+      const catalogGate = await loadAffiliateCatalogGate(db, input.slug);
+      const sourceRows = filterCabinetSourceRows(loadedSourceRows, catalogGate);
 
       const [aliases, masters] = await Promise.all([
         db
@@ -732,7 +753,7 @@ export const storefrontRouter = router({
         ne(cabinets.conflictStatus, "conflict"),
       ];
 
-      const sourceRows = await db
+      const loadedSourceRows = await db
         .select({
           sourceMasterCode: cabinets.masterCode,
           platformSku: distributorSkus.platformSku,
@@ -742,11 +763,15 @@ export const storefrontRouter = router({
           adjustedListPrice: distributorSkus.adjustedListPrice,
           yourCost: distributorSkus.yourCost,
           retailPriceBasis: distributors.retailPriceBasis,
+          sourceDistributorId: distributorSkus.distributorId,
+          sourceStyleId: distributorSkus.styleId,
         })
         .from(distributorSkus)
         .innerJoin(cabinets, eq(distributorSkus.cabinetId, cabinets.id))
         .innerJoin(distributors, eq(distributors.id, distributorSkus.distributorId))
         .where(and(...sourceConditions));
+      const catalogGate = await loadAffiliateCatalogGate(db, input.slug);
+      const sourceRows = filterCabinetSourceRows(loadedSourceRows, catalogGate);
       const [aliases, masters] = await Promise.all([
         db
           .select({ aliasCode: skuMasterAliases.aliasCode, masterCode: skuMasterAliases.masterCode })
