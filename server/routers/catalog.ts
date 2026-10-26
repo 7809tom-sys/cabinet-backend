@@ -39,6 +39,7 @@ import { generateImage } from "../_core/imageGeneration";
 import { rankDoorMatches, type DoorCandidate, type DoorVisionResult } from "@shared/doorPhotoMatch";
 import { parsePriceAuditQuery } from "@shared/priceAuditLookup";
 import { filterStylesByAvailability } from "@shared/styleAvailability";
+import { groupRoomScenes } from "@shared/vendorRoomScenes";
 import { resolveAffiliateAccess } from "../lib/affiliateAccess";
 import { canViewAffiliatePrivateCost } from "../lib/affiliatePrivateCost";
 import { normalizeCode } from "../../shared/cabinetCodeMatch";
@@ -390,15 +391,71 @@ export const doorStylesRouter = router({
       .orderBy(asc(doorStyles.featuredRank), asc(doorStyles.ourName));
     const ids = rows.map((row) => row.id);
     const scenes = ids.length === 0 ? [] : await db
-      .select({ id: doorStyleRoomScenes.id, styleId: doorStyleRoomScenes.styleId, imageUrl: doorStyleRoomScenes.imageUrl, sortOrder: doorStyleRoomScenes.sortOrder })
+      .select({
+        id: doorStyleRoomScenes.id,
+        styleId: doorStyleRoomScenes.styleId,
+        imageUrl: doorStyleRoomScenes.imageUrl,
+        sortOrder: doorStyleRoomScenes.sortOrder,
+        sceneName: doorStyleRoomScenes.sceneName,
+        sceneDescription: doorStyleRoomScenes.sceneDescription,
+        sceneSortOrder: doorStyleRoomScenes.sceneSortOrder,
+        isCover: doorStyleRoomScenes.isCover,
+      })
       .from(doorStyleRoomScenes)
       .where(and(inArray(doorStyleRoomScenes.styleId, ids), eq(doorStyleRoomScenes.isActive, true), eq(doorStyleRoomScenes.isVerified, true)))
-      .orderBy(asc(doorStyleRoomScenes.sortOrder), asc(doorStyleRoomScenes.id));
+      .orderBy(asc(doorStyleRoomScenes.sceneSortOrder), desc(doorStyleRoomScenes.isCover), asc(doorStyleRoomScenes.sortOrder), asc(doorStyleRoomScenes.id));
     return rows.map((row) => ({
       ...scrubDoorStyle(row),
       roomScenes: scenes.filter((scene) => scene.styleId === row.id).slice(0, 6),
     }));
   }),
+
+  /** Public named room scenes for one door style or one vendor line. Source notes stay private. */
+  publicRoomScenes: publicProcedure
+    .input(z.object({
+      distributorId: z.number().int().positive().optional(),
+      styleId: z.number().int().positive().optional(),
+    }).optional())
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db || (input?.distributorId == null && input?.styleId == null)) return [];
+      const rows = await db.select({
+        id: doorStyleRoomScenes.id,
+        styleId: doorStyleRoomScenes.styleId,
+        styleName: sql<string>`COALESCE(NULLIF(${doorStyles.aliasName}, ''), NULLIF(${doorStyles.featuredLabel}, ''), ${doorStyles.ourName})`,
+        imageUrl: doorStyleRoomScenes.imageUrl,
+        sortOrder: doorStyleRoomScenes.sortOrder,
+        sceneName: doorStyleRoomScenes.sceneName,
+        sceneDescription: doorStyleRoomScenes.sceneDescription,
+        sceneSortOrder: doorStyleRoomScenes.sceneSortOrder,
+        isCover: doorStyleRoomScenes.isCover,
+        isActive: doorStyleRoomScenes.isActive,
+      }).from(doorStyleRoomScenes)
+        .innerJoin(doorStyles, eq(doorStyles.id, doorStyleRoomScenes.styleId))
+        .where(and(
+          eq(doorStyleRoomScenes.isActive, true),
+          eq(doorStyleRoomScenes.isVerified, true),
+          eq(doorStyles.isActive, true),
+          ...(input?.distributorId != null ? [eq(doorStyles.distributorId, input.distributorId)] : []),
+          ...(input?.styleId != null ? [eq(doorStyles.id, input.styleId)] : []),
+        ))
+        .orderBy(asc(doorStyleRoomScenes.sceneSortOrder), desc(doorStyleRoomScenes.isCover), asc(doorStyleRoomScenes.sortOrder), asc(doorStyleRoomScenes.id));
+      const byStyle = new Map<number, { styleId: number; styleName: string; photos: typeof rows }>();
+      for (const row of rows) {
+        const current = byStyle.get(row.styleId) ?? { styleId: row.styleId, styleName: row.styleName, photos: [] };
+        current.photos.push(row);
+        byStyle.set(row.styleId, current);
+      }
+      return Array.from(byStyle.values()).map((style) => ({
+        styleId: style.styleId,
+        styleName: style.styleName,
+        scenes: groupRoomScenes(style.photos).map((scene) => ({
+          name: scene.name,
+          description: scene.description,
+          photos: scene.photos.map((photo) => ({ id: photo.id, imageUrl: photo.imageUrl, isCover: Boolean(photo.isCover) })),
+        })),
+      }));
+    }),
 
   // Admin: every style (active + inactive) with its featured flag/rank, for the manager UI.
   listForAdmin: adminProcedure.query(async () => {
@@ -4087,6 +4144,7 @@ export const pricingRouter = router({
 
       const rows = await db
         .select({
+          skuId: distributorSkus.id,
           styleId: distributorSkus.styleId,
           category: cabinets.category,
           styleCode: doorStyles.styleCode,
@@ -4220,6 +4278,7 @@ export const pricingRouter = router({
               ? (priceLadder(Math.round(rawCost * 100), affiliateFeeSettings).affiliateCents / 100).toFixed(2)
               : null;
           return {
+            skuId: r.skuId,
             styleId: r.styleId,
             styleCode: r.styleCode,
             name: r.name,

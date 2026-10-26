@@ -532,6 +532,13 @@ export const doorStyleRoomScenes = mysqlTable("door_style_room_scenes", {
   imageUrl: varchar("imageUrl", { length: 512 }).notNull(),
   fileKey: varchar("fileKey", { length: 512 }),
   sortOrder: int("sortOrder").default(0).notNull(),
+  // Photos that share a scene name are one named room (Kitchen, Bathroom, or a custom name).
+  sceneName: varchar("sceneName", { length: 128 }).default("Room").notNull(),
+  sceneDescription: varchar("sceneDescription", { length: 512 }),
+  sceneSortOrder: int("sceneSortOrder").default(0).notNull(),
+  isCover: boolean("isCover").default(false).notNull(),
+  taggedCabinetIds: json("taggedCabinetIds").$type<number[]>(),
+  taggedStyleIds: json("taggedStyleIds").$type<number[]>(),
   isVerified: boolean("isVerified").default(false).notNull(),
   sourceNote: varchar("sourceNote", { length: 512 }),
   sourceDistributorId: int("sourceDistributorId"),
@@ -540,6 +547,7 @@ export const doorStyleRoomScenes = mysqlTable("door_style_room_scenes", {
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 }, (table) => [
   index("door_style_room_scenes_style_idx").on(table.styleId, table.sortOrder),
+  index("door_style_room_scenes_scene_idx").on(table.styleId, table.sceneName, table.sceneSortOrder),
 ]);
 
 export type DoorStyleRoomScene = typeof doorStyleRoomScenes.$inferSelect;
@@ -1406,6 +1414,9 @@ export type OrderLineItem = {
   hardwareMarkupBps?: number | null;
   tier?: "Wholesale" | "Contractor" | "Homeowner" | null;
   matched: boolean;
+  /** Present when a vendor promotion changed this line's normal sell price. */
+  promoName?: string | null;
+  originalUnitPrice?: number | null;
 };
 
 export const orderRequests = mysqlTable("order_requests", {
@@ -2682,8 +2693,8 @@ export const vendorPromotions = mysqlTable("vendor_promotions", {
   styleId: int("styleId"), // targets all SKUs of this door style
   category: varchar("category", { length: 128 }), // e.g. "Base Cabinets", "Wall Cabinets"
   // Discount
-  discountType: mysqlEnum("discountType", ["percent", "fixed_price"]).notNull(),
-  discountValue: decimal("discountValue", { precision: 10, scale: 2 }).notNull(), // % amount or fixed price
+  discountType: mysqlEnum("discountType", ["percent", "fixed_price", "fixed_amount"]).notNull(),
+  discountValue: decimal("discountValue", { precision: 10, scale: 2 }).notNull(), // percent off, dollars off, or legacy fixed sale price
   // Date range (null = no limit)
   startsAt: timestamp("startsAt"),
   endsAt: timestamp("endsAt"),

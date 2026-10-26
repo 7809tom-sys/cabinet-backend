@@ -558,6 +558,7 @@ export const storefrontRouter = router({
       const sourceRows = await db
         .select({
           sourceMasterCode: cabinets.masterCode,
+          skuId: distributorSkus.id,
           platformSku: distributorSkus.platformSku,
           // This distributor overlay determines the customer-facing glass
           // disclosure while the canonical master still owns product identity.
