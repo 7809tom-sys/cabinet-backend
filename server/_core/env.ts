@@ -1,8 +1,10 @@
 export const ENV = {
   cookieSecret: process.env.JWT_SECRET ?? "",
   databaseUrl: process.env.DATABASE_URL ?? "",
-  // Supabase Auth: HS256 secret used to verify `Authorization: Bearer` access tokens.
+  // Legacy Supabase Auth HMAC secret. Used only when an access token header
+  // says HS256. Current projects sign tokens with ES256 and are checked via JWKS.
   supabaseJwtSecret: process.env.SUPABASE_JWT_SECRET ?? "",
+  // Auth API origin for the JWKS document. Railway sets VITE_SUPABASE_URL only.
   supabaseUrl: process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL ?? "",
   // Server-only admin key. Never expose through Vite.
   supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY ?? "",
