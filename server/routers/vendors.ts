@@ -26,6 +26,22 @@ import { buildSupplierPortalInvite } from "../supplierPortalInvite";
 //    distributorId is any configured line for that supplier profile.
 //  - Any other/empty sourceKey: not auto-computed; admin can set manually.
 
+/**
+ * Portal readiness for one approved-vendor record.
+ * An approved Pelican catalog (sourceKey "pelican") with a contact email is
+ * ready even though Pelican has no cabinet supply line. Other approved
+ * records without a linked line stay profile-only.
+ */
+export function vendorPortalReadiness(
+  line: { isApproved: boolean; contactEmail?: string | null; sourceKey?: string | null },
+  hasLinkedDistributor: boolean,
+): "not-approved" | "email-required" | "profile-only" | "ready" {
+  if (!line.isApproved) return "not-approved";
+  if (!line.contactEmail?.trim()) return "email-required";
+  if (hasLinkedDistributor || line.sourceKey?.trim().toLowerCase() === "pelican") return "ready";
+  return "profile-only";
+}
+
 export const vendorsRouter = router({
   list: adminProcedure.query(async () => {
     const db = await getDb();
@@ -44,14 +60,7 @@ export const vendorsRouter = router({
       const linkedDistributors = supplierLines
         .filter((candidate) => linkedDistributorIds.includes(candidate.id))
         .map((candidate) => ({ id: candidate.id, code: candidate.code, name: candidate.name }));
-      const hasContactEmail = Boolean(line.contactEmail?.trim());
-      const portalReadiness: "not-approved" | "email-required" | "profile-only" | "ready" = !line.isApproved
-        ? "not-approved"
-        : !hasContactEmail
-          ? "email-required"
-          : distributor
-            ? "ready"
-            : "profile-only";
+      const portalReadiness = vendorPortalReadiness(line, Boolean(distributor));
       return {
         ...line,
         linkedDistributorIds,
