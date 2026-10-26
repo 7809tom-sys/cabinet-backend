@@ -17,6 +17,8 @@ import { emailSettingsReady, sendEmailViaSettings } from "../email";
 import { buildSalesDemoInvite, deliverInviteThenGrant, SALES_DEMO_AFFILIATE_SLUG, SALES_DEMO_TEAM_ACCESS } from "../salesDemoInvite";
 import { buildAffiliateSetupInvite } from "../affiliateSetupInvite";
 import { resolveAffiliateAccess } from "../lib/affiliateAccess";
+import { listAffiliateVendorProducts, setAffiliateProductVisibility, setAffiliateVendorVisibility } from "../lib/affiliateVendorCatalog";
+import { cleanSectionLabels, publicContactForStorefront, parseCatalogVendorKey, parseSectionLabels, storefrontEditDecision, validateWhiteLabelPatch } from "@shared/affiliateStorefrontControls";
 import { computeEarning, dollarsToCents, groupByWeek, isoWeekKey, isoWeekStart } from "@shared/earnings";
 import {
   normalizeReferralCode,
@@ -174,43 +176,54 @@ async function saveStorefrontDistributorSelections(
 
 // Public-safe projection of an affiliate (no internal notes / commission rate).
 function toPublicStorefront(a: typeof affiliates.$inferSelect) {
+  const contact = publicContactForStorefront(a);
   return {
     id: a.id,
     storeName: a.storeName,
     slug: a.slug,
     contactName: a.contactName,
-    email: a.email,
-    phone: a.phone,
+    // Account email and phone are never public. Opt-in fields below are the
+    // only customer-facing contact details.
+    email: null,
+    phone: null,
     website: a.website,
-    location: a.location,
+    location: null,
     referralCode: a.referralCode,
     status: a.status,
     logoUrl: a.logoUrl,
+    logoDarkUrl: a.logoDarkUrl,
+    faviconUrl: a.faviconUrl,
     primaryColor: a.primaryColor,
     accentColor: a.accentColor,
-    publicEmail: a.publicEmail,
-    publicPhone: a.publicPhone,
-    publicAddress: a.publicAddress,
+    backgroundColor: a.backgroundColor,
+    textColor: a.textColor,
+    publicEmail: contact.email,
+    publicPhone: contact.phone,
+    publicAddress: contact.address,
+    showPublicEmail: a.showPublicEmail,
+    showPublicPhone: a.showPublicPhone,
+    showPublicAddress: a.showPublicAddress,
     heroImageUrl: a.heroImageUrl,
     tagline: a.tagline,
     taglineEs: a.taglineEs,
     aboutText: a.aboutText,
     aboutTextEs: a.aboutTextEs,
+    footerText: a.footerText,
     serviceArea: a.serviceArea,
     yearsInBusiness: a.yearsInBusiness,
     facebookUrl: a.facebookUrl,
     instagramUrl: a.instagramUrl,
+    hidePlatformBranding: a.hidePlatformBranding,
+    sectionLabels: parseSectionLabels(a.sectionLabelsJson),
     storefrontEnabled: a.storefrontEnabled,
-  template: a.template,
-  fontFamily: a.fontFamily,
-  headingFont: a.headingFont,
-  buttonRadius: a.buttonRadius,
-  // Only the PUBLISHED snippet is exposed publicly, and only when enabled.
-  // The draft is intentionally never sent to storefront visitors so an
-  // in-progress or broken snippet can't affect a live store.
-  embedCode: a.embedEnabled ? a.embedCode : null,
-  embedEnabled: a.embedEnabled,
-};
+    template: a.template,
+    fontFamily: a.fontFamily,
+    headingFont: a.headingFont,
+    buttonRadius: a.buttonRadius,
+    // Only the PUBLISHED snippet is exposed publicly, and only when enabled.
+    embedCode: a.embedEnabled ? a.embedCode : null,
+    embedEnabled: a.embedEnabled,
+  };
 }
 
 export type StorefrontAffiliate = ReturnType<typeof toPublicStorefront>;
@@ -305,6 +318,50 @@ async function resolveTargetAffiliateId(
   return mine.id;
 }
 
+async function assertCanEditStorefront(
+  ctx: { user: { id: number; role: string; email?: string | null } },
+  affiliateId?: number,
+): Promise<number> {
+  if (ctx.user.role === "admin") return resolveTargetAffiliateId(ctx, affiliateId);
+  const db = await getDb();
+  if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+  const access = await resolveAffiliateAccess(db, { ...ctx.user, email: ctx.user.email ?? null });
+  const decision = storefrontEditDecision({
+    role: ctx.user.role,
+    access: access
+      ? { affiliateId: access.affiliateId, isOwner: access.isOwner, accessDesigner: access.accessDesigner }
+      : null,
+    requestedAffiliateId: affiliateId,
+  });
+  if (!decision.ok) throw new TRPCError({ code: "FORBIDDEN", message: decision.message });
+  return decision.affiliateId;
+}
+
+function brandImageBytesMatch(buf: Buffer, contentType: string): boolean {
+  if (contentType === "image/png") return buf.length >= 8 && buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47;
+  if (contentType === "image/jpeg") return buf.length >= 3 && buf[0] === 0xff && buf[1] === 0xd8;
+  if (contentType === "image/gif") return buf.length >= 6 && buf.subarray(0, 3).toString() === "GIF";
+  if (contentType === "image/webp") return buf.length >= 12 && buf.subarray(0, 4).toString() === "RIFF" && buf.subarray(8, 12).toString() === "WEBP";
+  if (contentType === "image/svg+xml") return buf.subarray(0, Math.min(buf.length, 400)).toString("utf8").toLowerCase().includes("<svg");
+  return false;
+}
+
+function applyWhiteLabelWrite(set: Record<string, unknown>) {
+  if (set.sectionLabels && typeof set.sectionLabels === "object") {
+    set.sectionLabelsJson = JSON.stringify(cleanSectionLabels(set.sectionLabels as Parameters<typeof cleanSectionLabels>[0]));
+  }
+  delete set.sectionLabels;
+  const problem = validateWhiteLabelPatch({
+    primaryColor: set.primaryColor as string | null | undefined,
+    accentColor: set.accentColor as string | null | undefined,
+    backgroundColor: set.backgroundColor as string | null | undefined,
+    textColor: set.textColor as string | null | undefined,
+    fontFamily: set.fontFamily as string | null | undefined,
+    headingFont: set.headingFont as string | null | undefined,
+  });
+  if (problem) throw new TRPCError({ code: "BAD_REQUEST", message: problem });
+}
+
 const brandingInput = z.object({
   // (see resolveTargetAffiliateId above for how admin targeting works)
   logoUrl: z.string().max(512).nullable().optional(),
@@ -332,6 +389,23 @@ const brandingInput = z.object({
   // Draft snippet only. Publishing is a separate, explicit action so that
   // saving your work never changes what customers see.
   embedCodeDraft: z.string().max(EMBED_CODE_MAX_LENGTH).nullable().optional(),
+  logoDarkUrl: z.string().max(512).nullable().optional(),
+  faviconUrl: z.string().max(512).nullable().optional(),
+  backgroundColor: z.string().max(16).nullable().optional(),
+  textColor: z.string().max(16).nullable().optional(),
+  footerText: z.string().max(2000).nullable().optional(),
+  showPublicEmail: z.boolean().optional(),
+  showPublicPhone: z.boolean().optional(),
+  showPublicAddress: z.boolean().optional(),
+  hidePlatformBranding: z.boolean().optional(),
+  sectionLabels: z.object({
+    catalog: z.string().max(40).optional(),
+    surfaces: z.string().max(40).optional(),
+    closet: z.string().max(40).optional(),
+    designer: z.string().max(40).optional(),
+    quote: z.string().max(40).optional(),
+    cart: z.string().max(40).optional(),
+  }).optional(),
 });
 
 export const affiliatesRouter = router({
@@ -454,18 +528,35 @@ export const affiliatesRouter = router({
         storeName: names[input.template] ?? "Example Cabinets",
         slug: `preview-${input.template}`,
         contactName: "Demo Contact",
-        email: "demo@cabinetdealz.com",
-        phone: "(555) 000-0000",
+        email: null,
+        phone: null,
         website: null,
-        location: "Sarasota, FL",
+        location: null,
         referralCode: "DEMO",
         status: "active" as const,
         logoUrl: null,
+        logoDarkUrl: null,
+        faviconUrl: null,
         primaryColor: null,
         accentColor: null,
+        backgroundColor: null,
+        textColor: null,
         publicEmail: "hello@example.com",
         publicPhone: "(555) 000-0000",
         publicAddress: "Sarasota, FL",
+        showPublicEmail: true,
+        showPublicPhone: true,
+        showPublicAddress: true,
+        footerText: null,
+        hidePlatformBranding: false,
+        sectionLabels: {
+          catalog: "Catalog",
+          surfaces: "Surfaces & Fixtures",
+          closet: "Closet Studio",
+          designer: "3D Designer",
+          quote: "Get a Quote",
+          cart: "Cart",
+        },
         heroImageUrl: null,
         tagline: taglines[input.template] ?? "Quality Cabinets at Trade Prices.",
         taglineEs: null,
@@ -696,6 +787,7 @@ export const affiliatesRouter = router({
         set.email = email;
       }
       // Remove undefined keys so we only update provided fields.
+      applyWhiteLabelWrite(set);
       Object.keys(set).forEach((k) => set[k] === undefined && delete set[k]);
       if (Object.keys(set).length === 0) return { id };
       await db.update(affiliates).set(set).where(eq(affiliates.id, id));
@@ -924,8 +1016,9 @@ export const affiliatesRouter = router({
       const { affiliateId, ...fields } = input;
       // Admins can pass an explicit affiliateId so they edit the affiliate they
       // are actually viewing instead of falling back to the first row.
-      const targetId = await resolveTargetAffiliateId(ctx, affiliateId);
+      const targetId = await assertCanEditStorefront(ctx, affiliateId);
       const set: Record<string, unknown> = { ...fields };
+      applyWhiteLabelWrite(set);
       Object.keys(set).forEach((k) => set[k] === undefined && delete set[k]);
       if (Object.keys(set).length > 0) {
         await db.update(affiliates).set(set).where(eq(affiliates.id, targetId));
@@ -1731,11 +1824,12 @@ export const affiliatesRouter = router({
       contentType: z.string().regex(/^image\/(jpeg|png|webp|gif|svg\+xml)$/).default("image/png"),
       fileName: z.string().max(256).default("logo.png"),
       affiliateId: z.number().int().positive().optional(),
+      kind: z.enum(["logo", "logoDark", "favicon", "hero"]).default("logo"),
     }))
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
-      const targetId = await resolveTargetAffiliateId(ctx, input.affiliateId);
+      const targetId = await assertCanEditStorefront(ctx, input.affiliateId);
       const rows = await db
         .select({ slug: affiliates.slug })
         .from(affiliates)
@@ -1743,19 +1837,69 @@ export const affiliatesRouter = router({
         .limit(1);
       const slug = rows[0]?.slug ?? String(targetId);
       const buf = Buffer.from(input.imageBase64, "base64");
-      // Guard against oversized uploads reaching storage (base64 inflates ~33%).
-      if (buf.byteLength > 5 * 1024 * 1024) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "Logo must be 5MB or smaller." });
+      const maxBytes = input.kind === "favicon" ? 512 * 1024 : 5 * 1024 * 1024;
+      if (buf.byteLength > maxBytes) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: input.kind === "favicon" ? "Favicon must be 512KB or smaller." : "Image must be 5MB or smaller." });
+      }
+      if (!brandImageBytesMatch(buf, input.contentType)) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "The file contents do not match an allowed image type." });
       }
       const ext = input.contentType === "image/svg+xml" ? "svg" : (input.contentType.split("/")[1] ?? "png");
       const safeName = input.fileName.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 80);
+      const folder = input.kind === "logoDark" ? "affiliate-logo-dark" : input.kind === "favicon" ? "affiliate-favicon" : input.kind === "hero" ? "affiliate-hero" : "affiliate-logo";
       const { url } = await storagePut(
-        `affiliate-logo/${slug}_${Date.now()}_${safeName}.${ext}`,
+        `${folder}/${slug}_${Date.now()}_${safeName}.${ext}`,
         buf,
         input.contentType,
       );
-      await db.update(affiliates).set({ logoUrl: url }).where(eq(affiliates.id, targetId));
-      return { url };
+      const column = input.kind === "logoDark" ? "logoDarkUrl" : input.kind === "favicon" ? "faviconUrl" : input.kind === "hero" ? "heroImageUrl" : "logoUrl";
+      await db.update(affiliates).set({ [column]: url }).where(eq(affiliates.id, targetId));
+      return { url, kind: input.kind };
+    }),
+
+  catalogProducts: partnerProcedure
+    .input(z.object({
+      vendorKey: z.string().min(1).max(64),
+      affiliateId: z.number().int().positive().optional(),
+      search: z.string().max(80).optional(),
+      visibility: z.enum(["all", "shown", "hidden"]).default("all"),
+      limit: z.number().int().min(1).max(100).default(40),
+      offset: z.number().int().min(0).default(0),
+    }))
+    .query(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      const affiliateId = await assertCanEditStorefront(ctx, input.affiliateId);
+      return listAffiliateVendorProducts(db, affiliateId, input.vendorKey, input);
+    }),
+
+  setCatalogProductVisibility: partnerProcedure
+    .input(z.object({
+      vendorKey: z.string().min(1).max(64),
+      affiliateId: z.number().int().positive().optional(),
+      productKeys: z.array(z.string().min(1).max(128)).min(1).max(500),
+      shown: z.boolean(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      const affiliateId = await assertCanEditStorefront(ctx, input.affiliateId);
+      const vendor = parseCatalogVendorKey(input.vendorKey);
+      if (!vendor) throw new TRPCError({ code: "BAD_REQUEST", message: "Unknown catalog." });
+      return setAffiliateProductVisibility(db, affiliateId, vendor.kind, input.productKeys, input.shown);
+    }),
+
+  setVendorCatalogVisibility: partnerProcedure
+    .input(z.object({
+      vendorKey: z.string().min(1).max(64),
+      affiliateId: z.number().int().positive().optional(),
+      shown: z.boolean(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      const affiliateId = await assertCanEditStorefront(ctx, input.affiliateId);
+      return setAffiliateVendorVisibility(db, affiliateId, input.vendorKey, input.shown);
     }),
 
   // ─── Partner: request AI Concierge service ($100/hr front-page editing) ───────

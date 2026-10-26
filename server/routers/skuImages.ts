@@ -1,10 +1,11 @@
 import { z } from "zod";
 import { updateCabinetLogged } from "../lib/cabinetConfigHistory";
-import { and, eq, inArray, like, or, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { adminProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
 import { cabinets, distributors, doorStyles, distributorSkus } from "../../drizzle/schema";
 import { storagePut } from "../storage";
+import { orCabinetAliasMatch } from "../lib/cabinetAliasSearchSql";
 
 // ─── SKU-level image management (admin) ─────────────────────────────────────────
 // Images live at the SKU level (cabinet + door style). The storefront resolves an
@@ -44,14 +45,12 @@ export const skuImagesRouter = router({
       if (input.onlyMissing) conds.push(sql`${distributorSkus.imageUrl} IS NULL`);
       if (input.search) {
         const s = `%${input.search}%`;
-        conds.push(
-          or(
-            like(distributorSkus.platformSku, s),
-            like(cabinets.masterCode, s),
-            like(cabinets.description, s),
-            like(doorStyles.ourName, s)
-          )!
-        );
+        conds.push(orCabinetAliasMatch(sql`(
+          ${distributorSkus.platformSku} LIKE ${s}
+          OR ${cabinets.masterCode} LIKE ${s}
+          OR ${cabinets.description} LIKE ${s}
+          OR ${doorStyles.ourName} LIKE ${s}
+        )`, input.search));
       }
       const whereExpr = conds.length ? and(...conds) : undefined;
 
@@ -205,13 +204,11 @@ export const skuImagesRouter = router({
       if (input.category) conds.push(eq(cabinets.category, input.category) as any);
       if (input.search) {
         const s = `%${input.search}%`;
-        conds.push(
-          or(
-            like(cabinets.masterCode, s),
-            like(cabinets.description, s),
-            like(cabinets.category, s)
-          )! as any
-        );
+        conds.push(orCabinetAliasMatch(sql`(
+          ${cabinets.masterCode} LIKE ${s}
+          OR ${cabinets.description} LIKE ${s}
+          OR ${cabinets.category} LIKE ${s}
+        )`, input.search) as any);
       }
       const whereExpr = conds.length ? and(...conds) : undefined;
 
