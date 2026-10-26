@@ -16,6 +16,7 @@ import { cabinets, cabinetAliases, distributors, distributorSkus, distributorCab
 import { storagePut } from "../storage";
 import { logCabinetConfigChanges, snapshotCabinetBeforeEdit } from "../lib/cabinetConfigHistory";
 import { normalizeCode } from "../../shared/cabinetCodeMatch";
+import { aliasSearchOrder, orCabinetAliasMatch } from "../lib/cabinetAliasSearchSql";
 import {
   catalogNomenclatureIssueMessage,
   catalogNomenclatureIssues,
@@ -132,7 +133,7 @@ export const genericCabinetsRouter = router({
           })
           .from(cabinets)
           .where(where)
-          .orderBy(asc(cabinets.category), asc(cabinets.masterCode))
+          .orderBy(...aliasSearchOrder(input.search, asc(cabinets.category), asc(cabinets.masterCode)))
           .limit(input.pageSize)
           .offset(offset),
         db.select({ count: sql<number>`COUNT(*)` }).from(cabinets).where(where),
@@ -876,6 +877,7 @@ export const genericCabinetsRouter = router({
       const db = await getDb();
       if (!db) return [];
       const like_ = `%${input.q.trim()}%`;
+      const normalizedQuery = normalizeCode(input.q);
       const rows = await db
         .select({
           id: cabinets.id,
@@ -889,18 +891,12 @@ export const genericCabinetsRouter = router({
           altSku3: cabinets.altSku3,
         })
         .from(cabinets)
-        .where(
-          or(
-            like(cabinets.masterCode, like_),
-            like(cabinets.description, like_),
-            like(cabinets.sku, like_),
-            like(cabinets.vendorSku, like_),
-            like(cabinets.altSku1, like_),
-            like(cabinets.altSku2, like_),
-            like(cabinets.altSku3, like_)
-          )
-        )
-        .orderBy(asc(cabinets.masterCode))
+        .where(orCabinetAliasMatch(sql`(
+          ${cabinets.masterCode} LIKE ${like_}
+          OR ${cabinets.description} LIKE ${like_}
+          OR UPPER(REPLACE(REPLACE(REPLACE(${cabinets.masterCode}, '-', ''), ' ', ''), '_', '')) LIKE ${`%${normalizedQuery}%`}
+        )`, input.q))
+        .orderBy(...aliasSearchOrder(input.q, asc(cabinets.masterCode)))
         .limit(20);
       return rows.map((r) => ({
         id: r.id,
@@ -1122,6 +1118,7 @@ export const genericCabinetsRouter = router({
       const db = await getDb();
       if (!db) return [];
       const term = `%${input.search}%`;
+      const normalizedQuery = normalizeCode(input.search);
       const rows = await db
         .select({
           id: cabinets.id,
@@ -1135,16 +1132,12 @@ export const genericCabinetsRouter = router({
           isActive: cabinets.isActive,
         })
         .from(cabinets)
-        .where(
-          or(
-            like(cabinets.masterCode, term),
-            like(cabinets.description, term),
-            like(cabinets.altSku1, term),
-            like(cabinets.altSku2, term),
-            like(cabinets.altSku3, term)
-          )
-        )
-        .orderBy(asc(cabinets.masterCode))
+        .where(orCabinetAliasMatch(sql`(
+          ${cabinets.masterCode} LIKE ${term}
+          OR ${cabinets.description} LIKE ${term}
+          OR UPPER(REPLACE(REPLACE(REPLACE(${cabinets.masterCode}, '-', ''), ' ', ''), '_', '')) LIKE ${`%${normalizedQuery}%`}
+        )`, input.search))
+        .orderBy(...aliasSearchOrder(input.search, asc(cabinets.masterCode)))
         .limit(20);
       // Get SKU counts
       const results = [];

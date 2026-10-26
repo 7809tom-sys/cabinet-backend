@@ -17,8 +17,8 @@ import {
   affiliatePromoDiscounts,
   skuMasterAliases,
 } from "../../drizzle/schema";
-import { normalizeCode } from "../../shared/cabinetCodeMatch";
 import { filterCabinetSourceRows, loadAffiliateCatalogGate } from "../lib/affiliateCatalogGate";
+import { orderCabinetsByAliasRank, rankLoadedCabinetSearch } from "../lib/cabinetAliasSearch";
 import { resolveCanonicalCatalogSources } from "../lib/canonicalCatalogSources";
 import { loadAffiliateStorefrontPricing } from "../lib/affiliateStorefrontPricing";
 
@@ -628,7 +628,6 @@ export const storefrontRouter = router({
       ]);
 
       const search = input.search?.trim() ?? "";
-      const normalizedSearch = normalizeCode(search);
       const matchesFilter = (row: (typeof masters)[number] & { sourceMasterCode: string | null }) => {
         if (input.category && row.category !== input.category) return false;
         if (input.subCategory) {
@@ -636,10 +635,7 @@ export const storefrontRouter = router({
             if (accessoryGroupFor(row) !== input.subCategory) return false;
           } else if (row.subCategory !== input.subCategory) return false;
         }
-        if (!search) return true;
-        return row.masterCode.includes(search)
-          || (row.description ?? "").toLowerCase().includes(search.toLowerCase())
-          || normalizeCode(row.masterCode).includes(normalizedSearch);
+        return true;
       };
 
       // One storefront card per canonical master, with the selected family's
@@ -654,9 +650,13 @@ export const storefrontRouter = router({
         const existingCost = existing ? Number(existing.yourCost ?? existing.wholesalePrice ?? existing.listPrice ?? Infinity) : Infinity;
         if (!existing || cost < existingCost) byCabinet.set(row.id, row);
       }
-      const rows = Array.from(byCabinet.values()).sort((a, b) =>
-        `${a.category ?? ""}:${a.masterCode}`.localeCompare(`${b.category ?? ""}:${b.masterCode}`, undefined, { numeric: true }),
-      );
+      const catalogRows = Array.from(byCabinet.values());
+      const searchRanks = await rankLoadedCabinetSearch(db, catalogRows, search, aliases);
+      const rows = searchRanks
+        ? orderCabinetsByAliasRank(catalogRows, searchRanks, (a, b) =>
+            `${a.category ?? ""}:${a.masterCode}`.localeCompare(`${b.category ?? ""}:${b.masterCode}`, undefined, { numeric: true }))
+        : catalogRows.sort((a, b) =>
+            `${a.category ?? ""}:${a.masterCode}`.localeCompare(`${b.category ?? ""}:${b.masterCode}`, undefined, { numeric: true }));
 
       // CabinetDealz keeps its source-backed homeowner policy. An affiliate
       // storefront instead uses protected affiliate cost plus that affiliate's

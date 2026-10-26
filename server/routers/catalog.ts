@@ -44,6 +44,8 @@ import { resolveAffiliateAccess } from "../lib/affiliateAccess";
 import { canViewAffiliatePrivateCost } from "../lib/affiliatePrivateCost";
 import { normalizeCode } from "../../shared/cabinetCodeMatch";
 import { filterCabinetSourceRows, loadAffiliateCatalogGate } from "../lib/affiliateCatalogGate";
+import { orderCabinetsByAliasRank, rankLoadedCabinetSearch } from "../lib/cabinetAliasSearch";
+import { aliasSearchOrder, exactCabinetAliasOwnerSql, orCabinetAliasMatch } from "../lib/cabinetAliasSearchSql";
 import { priceLadder } from "@shared/pricing";
 import { resolveCanonicalCatalogSources } from "../lib/canonicalCatalogSources";
 import { designerCabinetReadinessBySku } from "../lib/designerCabinetReadiness";
@@ -1270,7 +1272,10 @@ export const doorStylesRouter = router({
       const normalizedCodeSearch = search ? normalizeCode(search) : "";
       const normalizedMasterCode = sql`UPPER(REPLACE(REPLACE(REPLACE(${cabinets.masterCode}, '-', ''), ' ', ''), '_', ''))`;
       const searchFilter = search
-        ? sql`(${cabinets.masterCode} LIKE ${`%${search}%`} OR ${cabinets.description} LIKE ${`%${search}%`} OR ${normalizedMasterCode} LIKE ${`%${normalizedCodeSearch}%`})`
+        ? orCabinetAliasMatch(
+            sql`(${cabinets.masterCode} LIKE ${`%${search}%`} OR ${cabinets.description} LIKE ${`%${search}%`} OR ${normalizedMasterCode} LIKE ${`%${normalizedCodeSearch}%`})`,
+            search,
+          )
         : undefined;
       const whereClause = searchFilter ? and(baseWhere, searchFilter) : baseWhere;
 
@@ -1304,7 +1309,7 @@ export const doorStylesRouter = router({
           .from(distributorSkus)
           .innerJoin(cabinets, eq(distributorSkus.cabinetId, cabinets.id))
           .where(whereClause)
-          .orderBy(asc(cabinets.masterCode))
+          .orderBy(...aliasSearchOrder(search, asc(cabinets.masterCode)))
           .limit(input.pageSize)
           .offset(offset),
         db
@@ -1452,17 +1457,21 @@ export const cabinetsRouter = router({
         if (canon) {
           orParts.push(sql`${canonCol} LIKE ${`%${canon}%`}`);
         }
-        conditions.push(sql`(${sql.join(orParts, sql` OR `)})`);
+        conditions.push(orCabinetAliasMatch(sql`(${sql.join(orParts, sql` OR `)})`, raw));
       }
 
       const limit = input?.limit ?? 50;
       const offset = input?.offset ?? 0;
 
+      const cabinetQuery = db
+        .select()
+        .from(cabinets)
+        .where(and(...conditions));
+      const orderedCabinets = input?.search?.trim()
+        ? cabinetQuery.orderBy(...aliasSearchOrder(input.search, asc(cabinets.masterCode)))
+        : cabinetQuery;
       const [items, countResult] = await Promise.all([
-        db
-          .select()
-          .from(cabinets)
-          .where(and(...conditions))
+        orderedCabinets
           .limit(limit)
           .offset(offset),
         db
@@ -1569,12 +1578,6 @@ export const cabinetsRouter = router({
       ]);
 
       const search = input.search?.trim() ?? "";
-      const normalizedSearch = normalizeCode(search);
-      const aliasMatchedMasterCodes = new Set(
-        aliases
-          .filter((alias) => normalizedSearch.length > 0 && normalizeCode(alias.aliasCode).includes(normalizedSearch))
-          .map((alias) => alias.masterCode),
-      );
       const matchesFilters = (row: (typeof masters)[number]) => {
         if (input.category && row.category !== input.category) return false;
         if (input.subCategory && row.subCategory !== input.subCategory) return false;
@@ -1583,11 +1586,7 @@ export const cabinetsRouter = router({
           const haystack = `${row.category ?? ""} ${row.subCategory ?? ""} ${row.description ?? ""}`.toLowerCase();
           if (!code.startsWith("ADA") && !haystack.includes("ada") && !haystack.includes("accessible")) return false;
         }
-        if (!search) return true;
-        return row.masterCode.includes(search)
-          || (row.description ?? "").toLowerCase().includes(search.toLowerCase())
-          || normalizeCode(row.masterCode).includes(normalizedSearch)
-          || aliasMatchedMasterCodes.has(row.masterCode);
+        return true;
       };
 
       const resolved = resolveCanonicalCatalogSources(sourceRows, aliases, masters)
@@ -1635,12 +1634,14 @@ export const cabinetsRouter = router({
         return skuCompare(a, b);
       };
 
-      const distinct = Array.from(allByCabinet.values())
-        .filter(matchesFilters)
-        .sort(sortItems);
+      const distinct = Array.from(allByCabinet.values()).filter(matchesFilters);
+      const searchRanks = await rankLoadedCabinetSearch(db, distinct, search, aliases);
+      const ordered = searchRanks
+        ? orderCabinetsByAliasRank(distinct, searchRanks, sortItems)
+        : distinct.sort(sortItems);
 
-      const total = distinct.length;
-      const page = distinct.slice(input.offset, input.offset + input.limit);
+      const total = ordered.length;
+      const page = ordered.slice(input.offset, input.offset + input.limit);
       return { items: page, total, categoryCounts };
     }),
 
@@ -1704,6 +1705,7 @@ export const cabinetsRouter = router({
           eq(cabinetAliases.alias, input.masterCode),
           eq(cabinetAliases.alias, normalizedCode),
           sql`${aliasCanon} = ${normalizedCode}`,
+          normalizedCode ? sql`CONCAT(';', ${aliasCanon}, ';') LIKE ${`%;${normalizedCode};%`}` : sql`false`,
         ))
         .limit(1);
       if (alias) {
@@ -1753,6 +1755,17 @@ export const cabinetsRouter = router({
         ))
         .limit(1);
       if (rows[0]) return scrubCabinet(rows[0]);
+
+      // Spreadsheet alias cells (sku, vendorSku, altSku1-3), including a
+      // semicolon-separated list, resolve here only when no item code matched.
+      if (normalizedCode) {
+        const [altOwner] = await db
+          .select()
+          .from(cabinets)
+          .where(and(exactCabinetAliasOwnerSql(normalizedCode), notInConflict()))
+          .limit(1);
+        if (altOwner) return scrubCabinet(altOwner);
+      }
 
       // Merged codes (master sheet 2026-10-03, rule 5: never deleted, only made
       // inactive — e.g. LS3612 → LSB36, ERB36 → BER36) live in
@@ -2936,9 +2949,10 @@ export const cabinetsRouter = router({
         const like = `%${search}%`;
         const normalizedCodeSearch = normalizeCode(search);
         const normalizedMasterCode = sql`UPPER(REPLACE(REPLACE(REPLACE(${cabinets.masterCode}, '-', ''), ' ', ''), '_', ''))`;
-        conditions.push(
-          sql`(${cabinets.masterCode} LIKE ${like} OR ${cabinets.description} LIKE ${like} OR ${normalizedMasterCode} LIKE ${`%${normalizedCodeSearch}%`})`
-        );
+        conditions.push(orCabinetAliasMatch(
+          sql`(${cabinets.masterCode} LIKE ${like} OR ${cabinets.description} LIKE ${like} OR ${normalizedMasterCode} LIKE ${`%${normalizedCodeSearch}%`})`,
+          search,
+        ));
       }
       if (input.category) {
         conditions.push(eq(cabinets.category, input.category));
@@ -2966,7 +2980,7 @@ export const cabinetsRouter = router({
           })
           .from(cabinets)
           .where(where)
-          .orderBy(asc(cabinets.masterCode))
+          .orderBy(...aliasSearchOrder(input.search, asc(cabinets.masterCode)))
           .limit(input.limit)
           .offset(input.page * input.limit),
         db
@@ -3015,7 +3029,10 @@ export const cabinetsRouter = router({
       const q = input.search?.trim();
       if (q) {
         const like = `%${q}%`;
-        base.push(sql`(${cabinets.masterCode} LIKE ${like} OR ${cabinets.description} LIKE ${like} OR ${distributorSkus.distributorSku} LIKE ${like})`);
+        base.push(orCabinetAliasMatch(
+          sql`(${cabinets.masterCode} LIKE ${like} OR ${cabinets.description} LIKE ${like} OR ${distributorSkus.distributorSku} LIKE ${like})`,
+          q,
+        ));
       }
       const onExpr = sql`(${distributorSkus.isAvailable} = true AND ${distributorSkus.isPublished} = true AND ${distributorSkus.status} = 'approved')`;
       const withState = [...base];
@@ -3042,7 +3059,7 @@ export const cabinetsRouter = router({
           .innerJoin(distributors, eq(distributors.id, distributorSkus.distributorId))
           .innerJoin(doorStyles, eq(doorStyles.id, distributorSkus.styleId))
           .where(where)
-          .orderBy(asc(distributors.name), asc(doorStyles.ourName), asc(cabinets.masterCode))
+          .orderBy(...aliasSearchOrder(q, asc(distributors.name), asc(doorStyles.ourName), asc(cabinets.masterCode)))
           .limit(input.limit)
           .offset(input.page * input.limit),
         db.select({
@@ -3149,11 +3166,14 @@ export const cabinetsRouter = router({
         conditions.push(eq(cabinets.category, input.category));
       }
       const where = and(...conditions);
-      const cabinetOrder = input.statusSort === "active-first"
-        ? [desc(cabinets.isActive), asc(cabinets.category), asc(cabinets.masterCode)]
-        : input.statusSort === "inactive-first"
-          ? [asc(cabinets.isActive), asc(cabinets.category), asc(cabinets.masterCode)]
-          : [asc(cabinets.category), asc(cabinets.masterCode)];
+      const cabinetOrder = aliasSearchOrder(
+        search,
+        ...(input.statusSort === "active-first"
+          ? [desc(cabinets.isActive), asc(cabinets.category), asc(cabinets.masterCode)]
+          : input.statusSort === "inactive-first"
+            ? [asc(cabinets.isActive), asc(cabinets.category), asc(cabinets.masterCode)]
+            : [asc(cabinets.category), asc(cabinets.masterCode)]),
+      );
       const [rows, countRows] = await Promise.all([
         db
           .select({
@@ -3276,11 +3296,11 @@ export const cabinetsRouter = router({
       if (search) {
         const like = `%${search}%`;
         const normalizedCodeSearch = normalizeCode(search);
-        conditions.push(sql`(
+        conditions.push(orCabinetAliasMatch(sql`(
           ${cabinets.masterCode} LIKE ${like}
           OR ${cabinets.description} LIKE ${like}
           OR UPPER(REPLACE(REPLACE(REPLACE(${cabinets.masterCode}, '-', ''), ' ', ''), '_', '')) LIKE ${`%${normalizedCodeSearch}%`}
-        )`);
+        )`, search));
       }
       const where = and(...conditions);
       const [rows, countRows] = await Promise.all([
@@ -3310,7 +3330,7 @@ export const cabinetsRouter = router({
         })
           .from(cabinets)
           .where(where)
-          .orderBy(asc(cabinets.category), asc(cabinets.masterCode))
+          .orderBy(...aliasSearchOrder(search, asc(cabinets.category), asc(cabinets.masterCode)))
           .limit(input.limit)
           .offset(input.page * input.limit),
         db.select({ count: sql<number>`COUNT(*)` }).from(cabinets).where(where),
@@ -3431,9 +3451,10 @@ export const cabinetsRouter = router({
         const like = `%${search}%`;
         const normalizedCodeSearch = normalizeCode(search);
         const normalizedMasterCode = sql`UPPER(REPLACE(REPLACE(REPLACE(${cabinets.masterCode}, '-', ''), ' ', ''), '_', ''))`;
-        conditions.push(
-          sql`(${cabinets.masterCode} LIKE ${like} OR ${cabinets.description} LIKE ${like} OR ${normalizedMasterCode} LIKE ${`%${normalizedCodeSearch}%`})`
-        );
+        conditions.push(orCabinetAliasMatch(
+          sql`(${cabinets.masterCode} LIKE ${like} OR ${cabinets.description} LIKE ${like} OR ${normalizedMasterCode} LIKE ${`%${normalizedCodeSearch}%`})`,
+          search,
+        ));
       }
       if (input.category) {
         conditions.push(eq(cabinets.category, input.category));
@@ -3448,7 +3469,7 @@ export const cabinetsRouter = router({
         })
         .from(cabinets)
         .where(and(...conditions))
-        .orderBy(asc(cabinets.masterCode));
+        .orderBy(...aliasSearchOrder(input.search, asc(cabinets.masterCode)));
 
       if (cabinetRows.length === 0) return { cabinets: [], styles: allStyles };
 
@@ -3642,7 +3663,10 @@ export const cabinetsRouter = router({
         const like = `%${search}%`;
         const normalizedCodeSearch = normalizeCode(search);
         const normalizedMasterCode = sql`UPPER(REPLACE(REPLACE(REPLACE(${cabinets.masterCode}, '-', ''), ' ', ''), '_', ''))`;
-        conds.push(sql`(${cabinets.masterCode} LIKE ${like} OR ${cabinets.description} LIKE ${like} OR ${normalizedMasterCode} LIKE ${`%${normalizedCodeSearch}%`})`);
+        conds.push(orCabinetAliasMatch(
+          sql`(${cabinets.masterCode} LIKE ${like} OR ${cabinets.description} LIKE ${like} OR ${normalizedMasterCode} LIKE ${`%${normalizedCodeSearch}%`})`,
+          search,
+        ));
       }
 
       const where = and(...conds);
@@ -3674,7 +3698,7 @@ export const cabinetsRouter = router({
           .innerJoin(doorStyles, eq(distributorSkus.styleId, doorStyles.id))
           .innerJoin(distributors, eq(distributorSkus.distributorId, distributors.id))
           .where(where)
-          .orderBy(asc(cabinets.category), asc(cabinets.masterCode), asc(doorStyles.styleCode))
+          .orderBy(...aliasSearchOrder(input.search, asc(cabinets.category), asc(cabinets.masterCode), asc(doorStyles.styleCode)))
           .limit(input.limit)
           .offset(input.offset),
         db
@@ -3715,7 +3739,7 @@ export const cabinetsRouter = router({
         const normalizedMasterCode = sql`UPPER(REPLACE(REPLACE(REPLACE(${cabinets.masterCode}, '-', ''), ' ', ''), '_', ''))`;
         const normalizedSupplierCode = sql`UPPER(REPLACE(REPLACE(REPLACE(${distributorSkus.distributorSku}, '-', ''), ' ', ''), '_', ''))`;
         const normalizedPlatformCode = sql`UPPER(REPLACE(REPLACE(REPLACE(${distributorSkus.platformSku}, '-', ''), ' ', ''), '_', ''))`;
-        conditions.push(sql`(
+        conditions.push(orCabinetAliasMatch(sql`(
           ${cabinets.masterCode} LIKE ${like}
           OR ${cabinets.description} LIKE ${like}
           OR ${distributorSkus.distributorSku} LIKE ${like}
@@ -3723,7 +3747,7 @@ export const cabinetsRouter = router({
           OR ${normalizedMasterCode} LIKE ${`%${normalizedCodeSearch}%`}
           OR ${normalizedSupplierCode} LIKE ${`%${normalizedCodeSearch}%`}
           OR ${normalizedPlatformCode} LIKE ${`%${normalizedCodeSearch}%`}
-        )`);
+        )`, search));
       }
       const where = and(...conditions);
       const [items, [totalRow]] = await Promise.all([
@@ -3751,7 +3775,7 @@ export const cabinetsRouter = router({
           .innerJoin(distributors, eq(distributorSkus.distributorId, distributors.id))
           .innerJoin(doorStyles, eq(distributorSkus.styleId, doorStyles.id))
           .where(where)
-          .orderBy(asc(distributorSkus.createdAt), asc(cabinets.masterCode))
+          .orderBy(...aliasSearchOrder(args.search, asc(distributorSkus.createdAt), asc(cabinets.masterCode)))
           .limit(args.limit ?? 100)
           .offset(args.offset ?? 0),
         db
