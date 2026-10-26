@@ -1411,6 +1411,10 @@ export type OrderLineItem = {
 export const orderRequests = mysqlTable("order_requests", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId"), // null for guest/email-only originators
+  // Unguessable guest confirmation credential. Null on orders created before
+  // this column existed; those rows are readable by the signed-in owner or an
+  // admin. New rows are not backfilled.
+  accessToken: varchar("accessToken", { length: 64 }),
   // A design-originated order can unlock detailed customer documents only for
   // this exact saved plan after an approved payment is recorded.
   kitchenDesignId: int("kitchenDesignId"),
