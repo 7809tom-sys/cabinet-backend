@@ -109,7 +109,7 @@ describe("referral attribution on createRequest", () => {
       ],
       notes: "vitest referral attribution",
     });
-    const row = await caller.orders.byId({ id: created.id });
+    const row = await caller.orders.byId({ id: created.id, accessToken: created.accessToken });
     expect(row?.referralCode).toBe("FIRSTCLASS");
     expect(row?.affiliateId).toBeGreaterThan(0);
   });
@@ -133,7 +133,7 @@ describe("referral attribution on createRequest", () => {
         },
       ],
     });
-    const row = await caller.orders.byId({ id: created.id });
+    const row = await caller.orders.byId({ id: created.id, accessToken: created.accessToken });
     expect(row?.affiliateId).toBeNull();
   });
 });

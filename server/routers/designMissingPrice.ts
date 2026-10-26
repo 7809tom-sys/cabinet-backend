@@ -174,6 +174,7 @@ export const designMissingPriceRouter = router({
         eq(cabinets.isActive, true),
         ne(cabinets.conflictStatus, "conflict"),
         eq(cabinets.showInDesigner, true),
+        eq(cabinets.designerEligible, true),
         eq(distributorSkus.styleId, input.styleId),
         eq(distributorSkus.isAvailable, true),
         eq(distributorSkus.isPublished, true),
