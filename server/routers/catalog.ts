@@ -42,6 +42,7 @@ import { filterStylesByAvailability } from "@shared/styleAvailability";
 import { resolveAffiliateAccess } from "../lib/affiliateAccess";
 import { canViewAffiliatePrivateCost } from "../lib/affiliatePrivateCost";
 import { normalizeCode } from "../../shared/cabinetCodeMatch";
+import { filterCabinetSourceRows, loadAffiliateCatalogGate } from "../lib/affiliateCatalogGate";
 import { priceLadder } from "@shared/pricing";
 import { resolveCanonicalCatalogSources } from "../lib/canonicalCatalogSources";
 import { designerCabinetReadinessBySku } from "../lib/designerCabinetReadiness";
@@ -1434,6 +1435,7 @@ export const cabinetsRouter = router({
         sort: z.enum(["sku-asc", "width-asc", "width-desc", "height-asc", "height-desc", "type-asc"]).default("sku-asc"),
         limit: z.number().min(1).max(1000).default(48),
         offset: z.number().min(0).default(0),
+        affiliateSlug: z.string().trim().max(64).optional(),
       })
     )
     .query(async ({ input }) => {
@@ -1451,9 +1453,11 @@ export const cabinetsRouter = router({
       // Pull all viable source rows for this style. A source can sit under a
       // retired format alias; it is resolved to its canonical master below so
       // the style keeps its own price/SKU while the shopper sees one product.
-      const sourceRows = await db
+      const loadedSourceRows = await db
         .select({
           sourceMasterCode: cabinets.masterCode,
+          sourceDistributorId: distributorSkus.distributorId,
+          sourceStyleId: distributorSkus.styleId,
           // Policy is a distributor overlay: canonical product facts stay on
           // the master while this selected supply line defines whether its
           // glass insert is included in the cabinet price.
@@ -1472,6 +1476,9 @@ export const cabinetsRouter = router({
           eq(distributorCabinetOverrides.cabinetId, distributorSkus.cabinetId),
         ))
         .where(and(...sourceConds));
+      const catalogGate = input.affiliateSlug ? await loadAffiliateCatalogGate(db, input.affiliateSlug) : null;
+      if (catalogGate?.disabledStyleIds.has(input.styleId)) return { items: [], total: 0, categoryCounts: {} as Record<string, number> };
+      const sourceRows = filterCabinetSourceRows(loadedSourceRows, catalogGate);
 
       const [aliases, masters] = await Promise.all([
         db
