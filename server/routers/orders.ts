@@ -3,6 +3,7 @@ import { eq, and, or, desc, inArray, like, sql, isNull } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { publicProcedure, protectedProcedure, adminProcedure, router } from "../_core/trpc";
 import { sendEmailViaSettings, emailSettingsReady } from "../email";
+import { ensureAffiliatePipelineDeal } from "../lib/crmPipelineAttach";
 import { resolvePresentation } from "../lib/presentation";
 import {
   buildNetsuiteOrderCsv,
@@ -1189,33 +1190,28 @@ export const ordersRouter = router({
       // outbound webhook is disabled or unavailable. The order id check makes
       // this safe if a retry reaches this block more than once.
       if (input.submit) {
-        const existingDeal = await db
-          .select({ id: crmDeals.id })
-          .from(crmDeals)
-          .where(eq(crmDeals.orderRequestId, insertId))
-          .limit(1);
-        if (existingDeal.length === 0) {
-          const dealResult = await db.insert(crmDeals).values({
-            affiliateId,
-            ownerUserId: ctx.user?.id ?? null,
-            title: `Order ${requestNumber}${input.originatorName ? ` — ${input.originatorName}` : ""}`,
-            stage: "qualified",
-            priority: "medium",
-            contactName: input.originatorName ?? ctx.user?.name ?? null,
-            contactEmail: input.originatorEmail ?? ctx.user?.email ?? null,
-            contactPhone: input.originatorPhone ?? null,
-            location: ([
-              input.shippingAddressLine1,
-              input.shippingAddressLine2,
-              input.shippingCity,
-              input.shippingState,
-              input.zip,
-            ].filter(Boolean).join(", ") || input.zip) || null,
-            estimatedValue: total > 0 ? total.toFixed(2) : null,
-            source: "order_request",
-            orderRequestId: insertId,
-            referralCode,
-          });
+        const ensuredDeal = await ensureAffiliatePipelineDeal(db, {
+          affiliateId,
+          match: "order",
+          orderRequestId: insertId,
+          ownerUserId: ctx.user?.id ?? null,
+          title: `Order ${requestNumber}${input.originatorName ? ` — ${input.originatorName}` : ""}`,
+          stage: "qualified",
+          contactName: input.originatorName ?? ctx.user?.name ?? null,
+          contactEmail: input.originatorEmail ?? ctx.user?.email ?? null,
+          contactPhone: input.originatorPhone ?? null,
+          location: ([
+            input.shippingAddressLine1,
+            input.shippingAddressLine2,
+            input.shippingCity,
+            input.shippingState,
+            input.zip,
+          ].filter(Boolean).join(", ") || input.zip) || null,
+          estimatedValue: total > 0 ? total.toFixed(2) : null,
+          source: "order_request",
+          referralCode,
+        });
+        if (ensuredDeal.created) {
           // An order placed without an explicit design id must still carry the
           // customer's design: fall back to the submitter's newest saved design in
           // the same store scope.
@@ -1240,7 +1236,7 @@ export const ordersRouter = router({
               .limit(1);
             if (savedDesign) {
               await db.insert(crmDealDesigns).values({
-                dealId: (dealResult as unknown as [{ insertId: number }])[0].insertId,
+                dealId: ensuredDeal.id,
                 designId: savedDesign.id,
                 designName: savedDesign.name,
                 linkedByUserId: ctx.user?.id ?? null,

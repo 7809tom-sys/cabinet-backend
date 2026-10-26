@@ -8,6 +8,8 @@ import {
   crmActivities,
   crmDealDesigns,
   crmEmailLog,
+  crmEmailDrafts,
+  affiliateEmailSettings,
   emailSettings,
   notificationSettings,
   kitchenDesigns,
@@ -20,15 +22,12 @@ import {
   users,
   designViewLog,
 } from "../../drizzle/schema";
-import nodemailer from "nodemailer";
-import { decryptEmailSettingsPassword } from "../lib/emailSettingsCrypto";
 import {
   CRM_STAGES,
   CRM_PRIORITIES,
   CRM_ACTIVITY_KINDS,
   CRM_LANGUAGES,
   isClosedStage,
-  crmEmailBlockedReason,
   crmEmailBodyToHtml,
   type CrmStage,
 } from "@shared/crm";
@@ -43,6 +42,8 @@ import { usableInvoicePrefill, verifiedFreightInvoicePrefill } from "../crmInvoi
 import { groupedDesignInvoiceMaterials } from "../crmDesignInvoice";
 import { crmCustomerImportIdentities, prepareCrmCustomerImport } from "@shared/crmCustomerListImport";
 import { sendEmailViaSettings } from "../email";
+import { deliverCrmMessage } from "../lib/crmOutboundMail";
+import { crmHtmlToText, crmMailboxVisible, resolveCrmOutbound, sanitizeCrmEmailHtml } from "@shared/crmMailbox";
 import {
   newlyRequestedCrmHelpKinds,
   recipientsForCrmHelpNotification,
@@ -90,6 +91,35 @@ async function recordSalesCommissionOnWon(
   } catch {
     // Unique violation under a race — another path already recorded it. Safe to ignore.
   }
+}
+
+async function loadCrmOutbound(
+  db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
+  dealAffiliateId: number | null,
+) {
+  const [platform] = await db.select().from(emailSettings).limit(1);
+  if (dealAffiliateId == null) {
+    return resolveCrmOutbound({
+      dealAffiliateId: null,
+      storeName: "Cabinet Dealz",
+      publicEmail: null,
+      affiliate: null,
+      platform: platform ?? null,
+    });
+  }
+  const [store] = await db.select({
+    storeName: affiliates.storeName,
+    publicEmail: affiliates.publicEmail,
+    email: affiliates.email,
+  }).from(affiliates).where(eq(affiliates.id, dealAffiliateId)).limit(1);
+  const [affiliate] = await db.select().from(affiliateEmailSettings).where(eq(affiliateEmailSettings.affiliateId, dealAffiliateId)).limit(1);
+  return resolveCrmOutbound({
+    dealAffiliateId,
+    storeName: store?.storeName ?? "Store",
+    publicEmail: store?.publicEmail || store?.email || null,
+    affiliate: affiliate ?? null,
+    platform: platform ?? null,
+  });
 }
 
 async function notifyCrmHelpTeam(
@@ -167,7 +197,7 @@ export type CrmScope =
  *  - partner with an affiliate → { kind: "affiliate", affiliateId }
  * Throws FORBIDDEN if a non-house/contractor caller has no affiliate.
  */
-async function resolveScope(ctx: Ctx): Promise<CrmScope> {
+export async function resolveScope(ctx: Ctx): Promise<CrmScope> {
   if (ctx.user.role === "admin") return { kind: "house" };
 
   const affiliateAccess = await resolveMyAffiliateAccess(ctx);
@@ -212,7 +242,7 @@ export function resolveBoardScope(scope: CrmScope, requestedAffiliateId?: number
 }
 
 // Verify a deal belongs to the caller's scope; returns the deal or throws.
-async function getOwnedDeal(
+export async function getOwnedDeal(
   ctx: Ctx,
   dealId: number,
 ) {
@@ -878,25 +908,43 @@ export const crmRouter = router({
     }),
 
   // ── SMTP readiness for the composer (no secrets returned) ────────────────────
-  emailReadiness: protectedProcedure.query(async ({ ctx }) => {
-    // Any CRM-scoped caller may check; scope is enforced on send.
-    await resolveScope(ctx);
-    const db = await getDb();
-    if (!db) return { configured: false, enabled: false, from: "" };
-    const rows = await db.select().from(emailSettings).limit(1);
-    const s = rows[0];
-    const configured = !!(s?.smtpHost && s?.smtpUser && s?.smtpPass);
-    return {
-      configured,
-      enabled: s?.enabled ?? false,
-      from: s?.smtpFrom || s?.smtpUser || "",
-    };
-  }),
+  // Affiliate deals report the affiliate mailbox when it is connected, otherwise
+  // the platform fallback. Passwords are never included.
+  emailReadiness: protectedProcedure
+    .input(z.object({ dealId: z.number().int().optional() }).optional())
+    .query(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) return { configured: false, enabled: false, from: "", channel: "platform" as const, replyTo: null as string | null };
+      let affiliateId: number | null = null;
+      if (input?.dealId) {
+        affiliateId = (await getOwnedDeal(ctx, input.dealId)).deal.affiliateId;
+      } else {
+        const scope = await resolveScope(ctx);
+        if (scope.kind === "affiliate") affiliateId = scope.affiliateId;
+      }
+      const plan = await loadCrmOutbound(db, affiliateId);
+      if (!plan.ok) {
+        return {
+          configured: plan.reason !== "not_configured",
+          enabled: false,
+          from: "",
+          channel: affiliateId == null ? "platform" as const : "platform_fallback" as const,
+          replyTo: null,
+        };
+      }
+      return {
+        configured: true,
+        enabled: true,
+        from: plan.from,
+        channel: plan.channel,
+        replyTo: plan.replyTo ?? null,
+      };
+    }),
 
-  // ── Send an email to the deal contact via the site's saved SMTP ──────────────
-  // Sends from the saved smtpFrom (e.g. sales@cabinetdealz.com), logs the email
-  // on the deal (crm_email_log) and drops an "email" activity on the timeline.
-  // Blocks with a helpful reason when SMTP is not configured or disabled.
+  // ── Send an email to a deal contact ─────────────────────────────────────────
+  // Affiliate deals use that affiliate's connected mailbox, or the platform
+  // SMTP with the store name and the affiliate public Reply-To. Every send is
+  // logged on the deal. Nothing is sent unless this procedure is called.
   sendEmail: protectedProcedure
     .input(
       z.object({
@@ -904,60 +952,25 @@ export const crmRouter = router({
         to: z.string().email(),
         subject: z.string().min(1).max(512),
         body: z.string().min(1).max(20000),
+        html: z.string().max(50000).optional(),
+        draftId: z.number().int().optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const { db, deal } = await getOwnedDeal(ctx, input.dealId);
-
-      // Load SMTP settings + evaluate readiness (shared, unit-tested guard).
-      const rows = await db.select().from(emailSettings).limit(1);
-      const s = rows[0];
-      const configured = !!(s?.smtpHost && s?.smtpUser && s?.smtpPass);
-      const blocked = crmEmailBlockedReason({ configured, enabled: s?.enabled ?? false });
-      if (blocked) {
-        throw new TRPCError({
-          code: "PRECONDITION_FAILED",
-          message: blocked, // "not_configured" | "disabled" — client maps to a friendly message
-        });
-      }
-
-      const from = (s!.smtpFrom || s!.smtpUser).trim();
+      const { db, scope, deal } = await getOwnedDeal(ctx, input.dealId);
+      const plan = await loadCrmOutbound(db, deal.affiliateId);
+      const html = sanitizeCrmEmailHtml(input.html?.trim() || crmEmailBodyToHtml(input.body));
+      const text = input.html ? crmHtmlToText(input.html) : input.body;
+      await deliverCrmMessage(plan, { to: input.to, subject: input.subject, text, html });
+      const from = plan.ok ? plan.from : "";
       const senderName = ctx.user.email ?? String(ctx.user.id);
 
-      // Send via nodemailer using the saved transport.
-      try {
-        const transport = nodemailer.createTransport({
-          host: s!.smtpHost,
-          port: s!.smtpPort,
-          secure: s!.smtpPort === 465,
-          auth: { user: s!.smtpUser, pass: decryptEmailSettingsPassword(s!.smtpPass) },
-        });
-        await transport.sendMail({
-          from,
-          to: input.to,
-          subject: input.subject,
-          text: input.body,
-          html: crmEmailBodyToHtml(input.body),
-        });
-      } catch (err: unknown) {
-        const raw = err instanceof Error ? err.message : String(err);
-        const code = (err as { code?: string })?.code;
-        const hint = code === "EAUTH" || /auth|credentials|535/i.test(raw)
-          ? "The mail server rejected the username or password. Check Email Settings (for Gmail or Microsoft use an app password)."
-          : code === "ECONNECTION" || code === "ETIMEDOUT" || code === "ESOCKET" || code === "ENOTFOUND"
-            ? "Could not reach the mail server. Check the host and port in Email Settings (465 uses SSL, 587 uses STARTTLS)."
-            : raw;
-        console.error("[CRM email] send failed", { code, raw });
-        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: `Send failed: ${hint}` });
-      }
-
-      // Persist a durable log row + timeline activity.
       await db.insert(crmEmailLog).values({
         dealId: deal.id,
         toEmail: input.to,
         fromEmail: from,
         subject: input.subject,
-        body: input.body,
+        body: input.html?.trim() || input.body,
         sentByUserId: ctx.user.id,
         sentByName: senderName,
       });
@@ -968,7 +981,15 @@ export const crmRouter = router({
         body: `Email sent to ${input.to} — ${input.subject}`,
       });
       await db.update(crmDeals).set({ updatedAt: new Date() }).where(eq(crmDeals.id, deal.id));
-      return { ok: true };
+      if (input.draftId) {
+        const [draft] = await db.select().from(crmEmailDrafts).where(eq(crmEmailDrafts.id, input.draftId)).limit(1);
+        const visible = draft != null && crmMailboxVisible(
+          scope.kind === "house" ? { kind: "house" } : scope.kind === "affiliate" ? { kind: "affiliate", affiliateId: scope.affiliateId } : { kind: "contractor", userId: scope.userId },
+          draft,
+        );
+        if (visible && draft) await db.delete(crmEmailDrafts).where(eq(crmEmailDrafts.id, draft.id));
+      }
+      return { ok: true, channel: plan.ok ? plan.channel : "platform" };
     }),
 
   // ── Send a final branded invoice PDF to the CRM lead contact ────────────────
@@ -992,11 +1013,7 @@ export const crmRouter = router({
         throw new TRPCError({ code: "PRECONDITION_FAILED", message: "missing_recipient" });
       }
 
-      const rows = await db.select().from(emailSettings).limit(1);
-      const s = rows[0];
-      const configured = !!(s?.smtpHost && s?.smtpUser && s?.smtpPass);
-      const blocked = crmEmailBlockedReason({ configured, enabled: s?.enabled ?? false });
-      if (blocked) throw new TRPCError({ code: "PRECONDITION_FAILED", message: blocked });
+      const plan = await loadCrmOutbound(db, deal.affiliateId);
 
       let linkedDesignName: string | null = null;
       if (input.linkedDesignId != null) {
@@ -1037,31 +1054,18 @@ export const crmRouter = router({
       };
       const pdf = await createCrmInvoicePdf(invoice);
       const subject = `${brand.storeName} invoice ${invoiceNumber}`;
-      const from = (s!.smtpFrom || s!.smtpUser).trim();
-
-      try {
-        const transport = nodemailer.createTransport({
-          host: s!.smtpHost,
-          port: s!.smtpPort,
-          secure: s!.smtpPort === 465,
-          auth: { user: s!.smtpUser, pass: s!.smtpPass },
-        });
-        await transport.sendMail({
-          from,
-          to,
-          subject,
-          text: `Your invoice ${invoiceNumber} from ${brand.storeName} is attached.`,
-          html: buildCrmInvoiceEmailHtml(invoice),
-          attachments: [{
-            filename: `${invoiceNumber}.pdf`,
-            content: pdf,
-            contentType: "application/pdf",
-          }],
-        });
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: `Send failed: ${msg}` });
-      }
+      const from = plan.ok ? plan.from : "";
+      await deliverCrmMessage(plan, {
+        to,
+        subject,
+        text: `Your invoice ${invoiceNumber} from ${brand.storeName} is attached.`,
+        html: buildCrmInvoiceEmailHtml(invoice),
+        attachments: [{
+          filename: `${invoiceNumber}.pdf`,
+          content: pdf,
+          contentType: "application/pdf",
+        }],
+      });
 
       await db.insert(crmEmailLog).values({
         dealId: deal.id,
