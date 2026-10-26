@@ -807,6 +807,7 @@ export const distributorPortalRouter = router({
 	          masterCode: cabinets.masterCode,
 	          isActive: cabinets.isActive,
 	          showInDesigner: cabinets.showInDesigner,
+	          designerEligible: cabinets.designerEligible,
 	          conflictStatus: cabinets.conflictStatus,
 	        })
 	        .from(cabinets),

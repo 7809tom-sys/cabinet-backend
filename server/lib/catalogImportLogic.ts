@@ -16,6 +16,7 @@ import { TRPCError } from "@trpc/server";
 import type { PafProduct } from "./pafXmlParser";
 import { mapCategory, mapPlacementType } from "./pafXmlParser";
 import { canonicalCatalogMasterCode, parseCatalogNomenclature } from "../../shared/catalogNomenclature";
+import { cabinetCanBeRenderedOrPlacedIn3d } from "../../shared/designerEligibility";
 
 export interface ImportStats {
   created: number;
@@ -236,6 +237,15 @@ export async function importPafProducts(
           isActive: true,
           showInCatalog: true,
           showInDesigner: true,
+          designerEligible: cabinetCanBeRenderedOrPlacedIn3d({
+            masterCode: code,
+            description: product.description,
+            category: mappedCategory,
+            placementType: mappedPlacementType,
+            width: product.width,
+            height: product.height,
+            depth: product.depth,
+          }),
           showIn2020: true,
           cabinetStyle: product.cabinetStyle || "closedDoors",
           productType: product.productType || "standard",
