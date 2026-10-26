@@ -2384,12 +2384,17 @@ export const designConsultations = mysqlTable("design_consultations", {
   status: mysqlEnum("status", ["requested", "confirmed", "completed", "cancelled"]).default("requested").notNull(),
   // CRM linkage created at booking time.
   dealId: int("dealId"),
+  // Affiliate store the customer booked through. Null is a Cabinet Dealz house
+  // booking and is visible to admins only. Never taken from the client as an id.
+  affiliateId: int("affiliateId"),
   // Read-only "share live with customer" follow link token + voice meeting URL.
   shareToken: varchar("shareToken", { length: 40 }),
   meetingUrl: varchar("meetingUrl", { length: 1000 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
-});
+}, (table) => ({
+  affiliateIdx: index("design_consultations_affiliate_idx").on(table.affiliateId),
+}));
 
 export type DesignConsultation = typeof designConsultations.$inferSelect;
 export type InsertDesignConsultation = typeof designConsultations.$inferInsert;
