@@ -44,4 +44,13 @@ export const ENV = {
   // ElevenLabs supports approved server-mediated audio workflows only. Never
   // publish this credential through Vite or return it from status procedures.
   elevenLabsApiKey: process.env.ELEVENLABS_API_KEY ?? "",
+  /**
+   * Named Pelican shipping-quote adapter. Pelican has no public rate API, so
+   * both values stay empty. The adapter returns "not configured" until Pelican
+   * publishes a contract and these are set in the server environment.
+   * Never expose either value to the browser.
+   */
+  pelicanShippingQuotesEnabled: process.env.PELICAN_SHIPPING_QUOTES_ENABLED === "true",
+  pelicanShippingQuoteApiKey: process.env.PELICAN_SHIPPING_QUOTE_API_KEY ?? "",
+  pelicanShippingQuoteApiUrl: process.env.PELICAN_SHIPPING_QUOTE_API_URL ?? "",
 };

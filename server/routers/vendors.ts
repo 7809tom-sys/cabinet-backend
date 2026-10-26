@@ -7,6 +7,7 @@ import { distributors, emailSettings, vendorLines, orders, orderItems } from "..
 import { pelicanProducts } from "../../drizzle/pelicanSchema";
 import { storagePut } from "../storage";
 import { approvedVendorLinkedDistributorIds, approvedVendorSourceDistributorId } from "../lib/approvedVendorAccess";
+import { redactVendorLineForClient } from "../../shared/shippingQuote";
 import { emailSettingsReady, sendEmailViaSettings } from "../email";
 import { buildSupplierPortalInvite } from "../supplierPortalInvite";
 
@@ -53,7 +54,7 @@ export const vendorsRouter = router({
             ? "ready"
             : "profile-only";
       return {
-        ...line,
+        ...redactVendorLineForClient(line),
         linkedDistributorIds,
         linkedDistributors,
         portalReadiness,
