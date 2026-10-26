@@ -17,6 +17,7 @@ import { emailSettingsReady, sendEmailViaSettings } from "../email";
 import { buildSalesDemoInvite, deliverInviteThenGrant, SALES_DEMO_AFFILIATE_SLUG, SALES_DEMO_TEAM_ACCESS } from "../salesDemoInvite";
 import { buildAffiliateSetupInvite } from "../affiliateSetupInvite";
 import { resolveAffiliateAccess } from "../lib/affiliateAccess";
+import { resolveConsultationViewer } from "../lib/consultationAffiliate";
 import { computeEarning, dollarsToCents, groupByWeek, isoWeekKey, isoWeekStart } from "@shared/earnings";
 import {
   normalizeReferralCode,
@@ -2072,19 +2073,42 @@ export const affiliatesRouter = router({
       });
     }),
 
-  // ─── Partner: view design consultations booked through their storefront ────────
+  // ─── Partner: design consultations booked through their storefront ───────────
+  // Owner, team member with CRM or designer access, or admin. Rows are limited
+  // to that affiliate. House bookings (affiliateId null) are admin-only. The
+  // customer follow-link token is not returned.
   myConsultations: partnerProcedure
-    .input(z.object({ status: z.enum(["requested", "confirmed", "completed", "cancelled", "all"]).default("all") }).optional())
+    .input(z.object({
+      status: z.enum(["requested", "confirmed", "completed", "cancelled", "all"]).default("all"),
+      affiliateId: z.number().int().positive().optional(),
+    }).optional())
     .query(async ({ ctx, input }) => {
       const db = await getDb();
-      if (!db) return [] as Array<typeof designConsultations.$inferSelect>;
+      if (!db) return [];
+      const viewer = await resolveConsultationViewer(db, ctx.user, input?.affiliateId);
       const status = input?.status ?? "all";
       const conds = [];
+      if (viewer.role !== "admin" || viewer.affiliateId != null) {
+        conds.push(eq(designConsultations.affiliateId, viewer.affiliateId!));
+      }
       if (status !== "all") conds.push(eq(designConsultations.status, status));
-      const rows = await db.select().from(designConsultations)
+      return db
+        .select({
+          id: designConsultations.id,
+          status: designConsultations.status,
+          startAt: designConsultations.startAt,
+          mode: designConsultations.mode,
+          topic: designConsultations.topic,
+          customerName: designConsultations.customerName,
+          customerEmail: designConsultations.customerEmail,
+          customerPhone: designConsultations.customerPhone,
+          designerName: designConsultations.designerName,
+          meetingUrl: designConsultations.meetingUrl,
+        })
+        .from(designConsultations)
         .where(conds.length ? and(...conds) : undefined)
-        .orderBy(desc(designConsultations.startAt)).limit(200);
-      return rows;
+        .orderBy(desc(designConsultations.startAt))
+        .limit(200);
     }),
   // ─── Payout Setup (stub — full implementation pending) ─────────────────────
   savePayoutBankInfo: partnerProcedure
