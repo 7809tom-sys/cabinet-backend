@@ -3406,3 +3406,57 @@ export const orderShipments = mysqlTable("order_shipments", {
   scopeStatusIdx: index("order_shipments_scope_status_idx").on(t.vendorScope, t.status),
 }));
 export type OrderShipment = typeof orderShipments.$inferSelect;
+
+// ─── CRM cleanup (admin preview, backup, audit) ──────────────────────────────
+// Preview rows store the exact id snapshot an admin reviewed. Confirm deletes
+// only that snapshot, and only after a fresh read still hashes to the same plan.
+// Backup rows keep a redacted JSON copy of every affected record.
+
+export const crmCleanupPreviews = mysqlTable("crm_cleanup_previews", {
+  id: int("id").autoincrement().primaryKey(),
+  actorUserId: int("actorUserId").notNull(),
+  planHash: varchar("planHash", { length: 64 }).notNull(),
+  keepUserIdsJson: json("keepUserIdsJson").$type<number[]>().notNull(),
+  alsoDeleteUserIdsJson: json("alsoDeleteUserIdsJson").$type<number[]>().notNull(),
+  deleteSupabaseAuth: boolean("deleteSupabaseAuth").default(false).notNull(),
+  snapshotJson: json("snapshotJson").$type<Record<string, unknown>>().notNull(),
+  countsJson: json("countsJson").$type<Record<string, unknown>>().notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  expiresAt: timestamp("expiresAt").notNull(),
+});
+
+export type CrmCleanupPreview = typeof crmCleanupPreviews.$inferSelect;
+
+export const crmCleanupAudit = mysqlTable("crm_cleanup_audit", {
+  id: int("id").autoincrement().primaryKey(),
+  previewId: int("previewId").notNull(),
+  actorUserId: int("actorUserId").notNull(),
+  actorName: varchar("actorName", { length: 256 }),
+  actorEmail: varchar("actorEmail", { length: 320 }),
+  status: mysqlEnum("status", ["running", "completed", "failed"]).notNull(),
+  keepUserIdsJson: json("keepUserIdsJson").$type<number[]>().notNull(),
+  countsJson: json("countsJson").$type<Record<string, unknown>>(),
+  supabaseOptIn: boolean("supabaseOptIn").default(false).notNull(),
+  supabaseDeleted: int("supabaseDeleted").default(0).notNull(),
+  supabaseFailed: int("supabaseFailed").default(0).notNull(),
+  errorMessage: text("errorMessage"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  finishedAt: timestamp("finishedAt"),
+}, (t) => ({
+  createdIdx: index("crm_cleanup_audit_created_idx").on(t.createdAt),
+}));
+
+export type CrmCleanupAudit = typeof crmCleanupAudit.$inferSelect;
+
+export const crmCleanupBackupRows = mysqlTable("crm_cleanup_backup_rows", {
+  id: int("id").autoincrement().primaryKey(),
+  auditId: int("auditId").notNull(),
+  tableName: varchar("tableName", { length: 64 }).notNull(),
+  rowPk: int("rowPk").notNull(),
+  rowJson: json("rowJson").$type<Record<string, unknown>>().notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (t) => ({
+  auditIdx: index("crm_cleanup_backup_rows_audit_idx").on(t.auditId),
+}));
+
+export type CrmCleanupBackupRow = typeof crmCleanupBackupRows.$inferSelect;
