@@ -88,7 +88,7 @@ describe("3D Designer eligibility", () => {
 });
 
 describe("designer eligibility migration", () => {
-  const sql = readFileSync(resolve(process.cwd(), "drizzle/0206_designer_eligible.sql"), "utf8");
+  const sql = readFileSync(resolve(process.cwd(), "drizzle/0207_designer_eligible.sql"), "utf8");
 
   it("adds the column once and backfills only untouched rows", () => {
     expect(sql).toContain("ADD COLUMN IF NOT EXISTS `designerEligible` boolean NULL");
