@@ -1,7 +1,31 @@
 import type { Express, Request, Response } from "express";
 import { Readable } from "stream";
 import { ENV } from "./env";
+import { sdk } from "./sdk";
 import { storageFetchObject } from "../storage";
+import { canReadStorageKey, type StorageActor } from "../lib/storageAccess";
+
+async function defaultStorageActor(req: Request): Promise<StorageActor | null> {
+  if (!req.headers.authorization) return null;
+  try {
+    const user = await sdk.authenticateRequest(req);
+    return {
+      id: user.id,
+      role: user.role,
+      email: user.email,
+      distributorId: user.distributorId ?? null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+let resolveStorageActor = defaultStorageActor;
+
+/** Tests replace the authenticator. Production uses the Supabase bearer session. */
+export function setStorageProxyAuthenticator(fn: ((req: Request) => Promise<StorageActor | null>) | null): void {
+  resolveStorageActor = fn ?? defaultStorageActor;
+}
 
 /** Storage may label extensionless media-library photos as octet-stream. */
 export function imageMimeFromBytes(bytes: Uint8Array): string | null {
@@ -14,9 +38,16 @@ export function imageMimeFromBytes(bytes: Uint8Array): string | null {
 }
 
 export function registerStorageProxy(app: Express) {
-  async function serveStorageKey(key: string | undefined, res: Response) {
+  async function serveStorageKey(key: string | undefined, req: Request, res: Response) {
     if (!key) {
       res.status(400).send("Missing storage key");
+      return;
+    }
+
+    const actor = await resolveStorageActor(req);
+    const allowed = await canReadStorageKey(key, actor);
+    if (!allowed) {
+      res.status(403).send("Forbidden");
       return;
     }
 
@@ -65,7 +96,10 @@ export function registerStorageProxy(app: Express) {
         ? imageMimeFromBytes(prefix) ?? upstreamType
         : upstreamType;
       const contentLength = imageResp.headers.get("content-length");
-      res.set("Cache-Control", "public, max-age=31536000, immutable");
+      const cacheControl = key.startsWith("affiliate-w9-id/") || key.startsWith("ocr-uploads/") || key.startsWith("fixture-uploads/") || key.startsWith("door-match-uploads/") || key.startsWith("distributor-catalogs/") || key.startsWith("vendor-products-source/")
+        ? "private, no-store"
+        : "public, max-age=31536000, immutable";
+      res.set("Cache-Control", cacheControl);
       res.set("Content-Type", contentType);
       if (contentLength) res.set("Content-Length", contentLength);
 
@@ -87,14 +121,14 @@ export function registerStorageProxy(app: Express) {
 
   // Retain the local legacy path, but the public platform redirects /manus-storage
   // to the CDN before Express can handle it. The distinct /api route reaches this app.
-  app.get("/manus-storage/*", (req, res) => serveStorageKey((req.params as Record<string, string>)[0], res));
+  app.get("/manus-storage/*", (req, res) => serveStorageKey((req.params as Record<string, string>)[0], req, res));
   const servePublicCatalogMedia = (req: Request, res: Response) => {
     const imageKey = req.params.imageKey;
     if (!/^[A-Za-z0-9][A-Za-z0-9_.-]*$/.test(imageKey)) {
       res.status(400).send("Invalid catalog media key");
       return;
     }
-    return serveStorageKey(`media-library/${imageKey}`, res);
+    return serveStorageKey(`media-library/${imageKey}`, req, res);
   };
   app.get("/api/door-style-photo/:imageKey", servePublicCatalogMedia);
   app.get("/api/catalog-media/:imageKey", servePublicCatalogMedia);
@@ -104,6 +138,6 @@ export function registerStorageProxy(app: Express) {
       res.status(400).send("Invalid catalog SKU image key");
       return;
     }
-    return serveStorageKey(`sku-images/${imageKey}`, res);
+    return serveStorageKey(`sku-images/${imageKey}`, req, res);
   });
 }

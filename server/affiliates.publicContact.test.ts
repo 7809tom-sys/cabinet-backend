@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 
 const schema = readFileSync(new URL("../drizzle/schema.ts", import.meta.url), "utf8");
 const router = readFileSync(new URL("./routers/affiliates.ts", import.meta.url), "utf8");
+const privacy = readFileSync(new URL("./lib/affiliatePrivacy.ts", import.meta.url), "utf8");
 const storefront = readFileSync(new URL("../client/src/pages/Storefront.tsx", import.meta.url), "utf8");
 
 describe("affiliate public contact setup", () => {
@@ -15,12 +16,15 @@ describe("affiliate public contact setup", () => {
     expect(router).toContain("publicAddress: z.string().max(256).nullable().optional()");
   });
 
-  it("prioritizes configured public contact details while retaining legacy storefront fallback data", () => {
-    expect(router).toContain("publicEmail: a.publicEmail");
-    expect(router).toContain("publicPhone: a.publicPhone");
-    expect(router).toContain("publicAddress: a.publicAddress");
-    expect(storefront).toContain("const storefrontEmail = data.publicEmail || data.email");
-    expect(storefront).toContain("const storefrontPhone = data.publicPhone || data.phone");
+  it("publishes only opt-in contact fields and never the login email or private phone", () => {
+    expect(privacy).toContain("publicEmail: a.publicEmail");
+    expect(privacy).toContain("publicPhone: a.publicPhone");
+    expect(privacy).toContain("publicAddress: a.publicAddress");
+    expect(privacy).toContain('"contactName", "email", "phone"');
+    expect(storefront).toContain("const storefrontEmail = data.publicEmail");
+    expect(storefront).toContain("const storefrontPhone = data.publicPhone");
+    expect(storefront).not.toContain("data.email");
+    expect(storefront).not.toContain("data.phone");
     expect(storefront).toContain("const storefrontLocation = data.publicAddress || data.serviceArea || data.location");
   });
 });

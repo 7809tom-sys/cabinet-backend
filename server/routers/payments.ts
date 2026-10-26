@@ -8,6 +8,7 @@ import { chargeOpaque, type AuthNetCredentials } from "../authorizeNet";
 import { ENV } from "../_core/env";
 import { resolveStripeCredentials } from "../stripeConfig";
 import { createHardwareCommissionSnapshot } from "../lib/hardwareCommissionSnapshot";
+import { canActAsOrderOwner, orderActorError, readOrderAccessToken } from "../lib/orderActorGuard";
 
 // Load the single payment_settings row (seeding an empty default row once).
 async function loadSettingsRow() {
@@ -185,6 +186,7 @@ export const paymentsRouter = router({
           dataDescriptor: z.string().min(1).max(128),
           dataValue: z.string().min(1).max(8192),
         }),
+        accessToken: z.string().min(1).max(256).optional(),
         // Deprecated client display value. The charge always uses the verified
         // freight amount persisted on the order request.
         freightCents: z.number().int().min(0).optional(),
@@ -196,7 +198,10 @@ export const paymentsRouter = router({
           .optional(),
       }),
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
+      if (!ctx.user && !input.accessToken) {
+        throw orderActorError("FORBIDDEN", "You cannot pay this order.");
+      }
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
 
@@ -214,6 +219,10 @@ export const paymentsRouter = router({
         .limit(1);
       const order = orderRows[0];
       if (!order) throw new TRPCError({ code: "NOT_FOUND", message: "Order request not found." });
+      const storedAccessToken = await readOrderAccessToken(db, order.id);
+      if (!canActAsOrderOwner(ctx.user, order, input.accessToken, storedAccessToken)) {
+        throw orderActorError("FORBIDDEN", "You cannot pay this order.");
+      }
 
       const merchandiseCents = Math.round(Number(order.totalAmount ?? 0) * 100);
       if (merchandiseCents <= 0) {

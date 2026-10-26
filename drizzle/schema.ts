@@ -1636,7 +1636,8 @@ export const affiliates = mysqlTable("affiliates", {
   w9LegalName: varchar("w9LegalName", { length: 256 }),        // Legal name on tax return
   w9BusinessName: varchar("w9BusinessName", { length: 256 }),  // DBA / business name (if different)
   w9EntityType: mysqlEnum("w9EntityType", ["individual", "sole_proprietor", "llc_single", "llc_partnership", "llc_corp", "c_corp", "s_corp", "partnership", "trust", "other"]),
-  w9TaxId: varchar("w9TaxId", { length: 64 }),                 // SSN or EIN (stored encrypted in practice)
+  w9TaxId: varchar("w9TaxId", { length: 512 }),               // AES-GCM envelope; never a plaintext SSN/EIN
+  w9TaxIdLast4: varchar("w9TaxIdLast4", { length: 4 }),       // display-only last four digits
   w9TaxIdType: mysqlEnum("w9TaxIdType", ["ssn", "ein"]),
   w9Address: varchar("w9Address", { length: 256 }),
   w9City: varchar("w9City", { length: 128 }),

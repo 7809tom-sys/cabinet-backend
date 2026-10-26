@@ -9,12 +9,15 @@
 
 import type { Express, Request, Response } from "express";
 import { createRequire } from "module";
+import { parse as parseCookie } from "cookie";
 const require = createRequire(import.meta.url);
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const OAuthClient = (require("intuit-oauth") as any).default ?? require("intuit-oauth");
 import { getDb } from "./db";
-import { qboTokens } from "../drizzle/schema";
+import { qboTokens, users } from "../drizzle/schema";
 import { eq } from "drizzle-orm";
+import { sdk } from "./_core/sdk";
+import { consumeQboOauthState, issueQboOauthState, QBO_OAUTH_STATE_COOKIE } from "./lib/qboOauthState";
 
 const QBO_CLIENT_ID = process.env.QBO_CLIENT_ID ?? "";
 const QBO_CLIENT_SECRET = process.env.QBO_CLIENT_SECRET ?? "";
@@ -37,24 +40,77 @@ function makeClient(redirectUri: string) {
   });
 }
 
+async function requireAdmin(req: Request) {
+  try {
+    const user = await sdk.authenticateRequest(req);
+    return user.role === "admin" ? user : null;
+  } catch {
+    return null;
+  }
+}
+
+function stateCookie(req: Request): string | undefined {
+  const header = req.headers.cookie;
+  if (!header) return undefined;
+  const value = parseCookie(header)[QBO_OAUTH_STATE_COOKIE];
+  return typeof value === "string" && value.length > 0 ? value : undefined;
+}
+
+function setStateCookie(req: Request, res: Response, state: string) {
+  res.cookie(QBO_OAUTH_STATE_COOKIE, state, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: req.secure,
+    path: "/api/qbo",
+    maxAge: 10 * 60 * 1000,
+  });
+}
+
 export function registerQboRoutes(app: Express) {
-  // ── Connect: redirect admin to Intuit authorization page ──────────────────
+  // ── Connect: admin session required, state bound to that admin ─────────────
   app.get("/api/qbo/connect", async (req: Request, res: Response) => {
+    const admin = await requireAdmin(req);
+    if (!admin) {
+      res.status(403).json({ error: "Admin session required." });
+      return;
+    }
     if (!QBO_CLIENT_ID || !QBO_CLIENT_SECRET) {
       res.status(400).json({ error: "QBO_CLIENT_ID and QBO_CLIENT_SECRET are not configured." });
       return;
     }
     const redirectUri = getRedirectUri(req);
     const client = makeClient(redirectUri);
-    const authUri = client.authorizeUri({
+    const state = issueQboOauthState(admin.id);
+    setStateCookie(req, res, state);
+    const authorizeUrl = client.authorizeUri({
       scope: [OAuthClient.scopes.Accounting],
-      state: "cabinet-dealz-qbo",
+      state,
     });
-    res.redirect(302, authUri);
+    const wantsJson = (req.headers.accept ?? "").includes("application/json");
+    if (wantsJson) {
+      res.json({ authorizeUrl });
+      return;
+    }
+    res.redirect(302, authorizeUrl);
   });
 
-  // ── Callback: exchange code for tokens and store them ────────────────────
+  // ── Callback: the browser must present the same state cookie the admin started with
   app.get("/api/qbo/callback", async (req: Request, res: Response) => {
+    const state = typeof req.query.state === "string" ? req.query.state : "";
+    const pending = consumeQboOauthState(state, stateCookie(req));
+    res.clearCookie(QBO_OAUTH_STATE_COOKIE, { path: "/api/qbo" });
+    if (!pending) {
+      res.status(403).json({ error: "QuickBooks connection state did not match this admin session." });
+      return;
+    }
+    const dbForAdmin = await getDb();
+    const [admin] = dbForAdmin
+      ? await dbForAdmin.select({ id: users.id, role: users.role }).from(users).where(eq(users.id, pending.userId)).limit(1)
+      : [];
+    if (!admin || admin.role !== "admin") {
+      res.status(403).json({ error: "Admin session required." });
+      return;
+    }
     const redirectUri = getRedirectUri(req);
     const client = makeClient(redirectUri);
     try {
@@ -105,7 +161,11 @@ export function registerQboRoutes(app: Express) {
   });
 
   // ── Status: is QBO connected? (used by admin UI) ─────────────────────────
-  app.get("/api/qbo/status", async (_req: Request, res: Response) => {
+  app.get("/api/qbo/status", async (req: Request, res: Response) => {
+    if (!(await requireAdmin(req))) {
+      res.status(403).json({ error: "Admin session required." });
+      return;
+    }
     try {
       const db = await getDb();
       if (!db) { res.json({ connected: false }); return; }
@@ -132,7 +192,11 @@ export function registerQboRoutes(app: Express) {
   });
 
   // ── Disconnect: remove stored tokens ─────────────────────────────────────
-  app.post("/api/qbo/disconnect", async (_req: Request, res: Response) => {
+  app.post("/api/qbo/disconnect", async (req: Request, res: Response) => {
+    if (!(await requireAdmin(req))) {
+      res.status(403).json({ error: "Admin session required." });
+      return;
+    }
     try {
       const db = await getDb();
       if (db) {
