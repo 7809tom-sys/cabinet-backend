@@ -6,8 +6,44 @@
 
 import type { Express, Request, Response } from "express";
 import express from "express";
+import type Stripe from "stripe";
 import { fulfillOrder, getStripe } from "./stripe";
-import { requireStripeCredentials } from "./stripeConfig";
+import { getDb } from "./db";
+import { createDbPaymentLinkContext, createDrizzleStripePaymentStore } from "./stripePaymentStore";
+import {
+  configuredWebhookSecrets,
+  recordStripeWebhookEvent,
+  redactSecrets,
+  type StripePaymentLineItem,
+} from "./stripePaymentRecords";
+
+function constructStripeEvent(body: Buffer, signature: string | string[] | undefined): Stripe.Event {
+  const stripe = getStripe();
+  const header = Array.isArray(signature) ? signature[0] : signature;
+  if (!header) throw new Error("Missing Stripe signature");
+  const secrets = configuredWebhookSecrets();
+  if (secrets.length === 0) throw new Error("Stripe webhook signing secret is not configured");
+  let lastMessage = "Signature verification failed";
+  for (const secret of secrets) {
+    try {
+      return stripe.webhooks.constructEvent(body, header, secret);
+    } catch (error) {
+      lastMessage = error instanceof Error ? error.message : lastMessage;
+    }
+  }
+  throw new Error(redactSecrets(lastMessage));
+}
+
+async function retrieveSessionLineItems(sessionId: string): Promise<StripePaymentLineItem[] | null> {
+  const stripe = getStripe();
+  const page = await stripe.checkout.sessions.listLineItems(sessionId, { limit: 100 });
+  const items = page.data.map((item) => ({
+    description: item.description ?? "Item",
+    quantity: item.quantity ?? 1,
+    amountCents: item.amount_total ?? item.amount_subtotal ?? 0,
+  }));
+  return items.length > 0 ? items : null;
+}
 
 export function registerStripeWebhook(app: Express): void {
   app.post(
@@ -16,21 +52,14 @@ export function registerStripeWebhook(app: Express): void {
     async (req: Request, res: Response) => {
       const sig = req.headers["stripe-signature"];
 
-      // ── Test event short-circuit ──────────────────────────────────────────
-      // Stripe's webhook test tool sends synthetic events with id starting
-      // "evt_test_". These bypass signature verification so the dashboard can
-      // confirm the endpoint is reachable.
-      let event: ReturnType<typeof getStripe>["webhooks"]["constructEvent"] extends (...args: any[]) => infer R ? R : never;
+      // Stripe's webhook test tool sends synthetic events whose ids start with
+      // "evt_test_". Signature is still verified. Those events only confirm the
+      // endpoint is reachable; they are not stored as payments.
+      let event: Stripe.Event;
       try {
-        const stripe = getStripe();
-        const credentials = requireStripeCredentials();
-        event = stripe.webhooks.constructEvent(
-          req.body as Buffer,
-          sig as string,
-          credentials.webhookSecret,
-        );
+        event = constructStripeEvent(req.body as Buffer, sig);
       } catch (err) {
-        const msg = err instanceof Error ? err.message : "Unknown error";
+        const msg = redactSecrets(err instanceof Error ? err.message : "Unknown error");
         console.error("[Stripe Webhook] Signature verification failed:", msg);
         res.status(400).send(`Webhook Error: ${msg}`);
         return;
@@ -71,11 +100,18 @@ export function registerStripeWebhook(app: Express): void {
           }
 
           default:
-            // Unhandled event types — log and acknowledge.
-            console.log(`[Stripe Webhook] Unhandled event type: ${event.type}`);
+            break;
         }
+
+        const db = await getDb();
+        if (!db) throw new Error("Database not available");
+        await recordStripeWebhookEvent(event, {
+          store: createDrizzleStripePaymentStore(db),
+          links: createDbPaymentLinkContext(db),
+          retrieveSessionLineItems,
+        });
       } catch (err) {
-        console.error("[Stripe Webhook] Handler error:", err);
+        console.error("[Stripe Webhook] Handler error:", redactSecrets(err instanceof Error ? err.message : "Unknown error"));
         res.status(500).send("Internal server error");
         return;
       }

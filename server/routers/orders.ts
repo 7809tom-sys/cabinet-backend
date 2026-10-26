@@ -2118,6 +2118,7 @@ export const ordersRouter = router({
         lineItems: stripeLines,
         customerEmail: order.originatorEmail ?? ctx.user.email ?? undefined,
         customerName: order.originatorName ?? ctx.user.name ?? undefined,
+        affiliateId: order.affiliateId,
         userId: ctx.user.id,
         successUrl: `${origin}${checkoutPathPrefix}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
         cancelUrl: `${origin}${checkoutPathPrefix}/checkout/cancelled?order=${order.id}`,

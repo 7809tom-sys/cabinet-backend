@@ -10,6 +10,7 @@ import { orderRequests } from "../drizzle/schema";
 import { eq } from "drizzle-orm";
 import { requireStripeCredentials } from "./stripeConfig";
 import { createHardwareCommissionSnapshot } from "./lib/hardwareCommissionSnapshot";
+import { buildHostedCheckoutPaymentFields, checkoutSessionMetadata } from "./stripePaymentRecords";
 
 // ─── Stripe client ────────────────────────────────────────────────────────────
 
@@ -34,6 +35,7 @@ export interface CreateCheckoutInput {
   customerEmail?: string;
   customerName?: string;
   userId: number;
+  affiliateId?: number | null;
   successUrl: string;
   cancelUrl: string;
 }
@@ -58,6 +60,22 @@ export async function createCheckoutSession(
       quantity: item.quantity,
     }));
 
+  const metadata = checkoutSessionMetadata({
+    orderId: input.orderId,
+    orderNumber: input.orderNumber,
+    userId: input.userId,
+    customerEmail: input.customerEmail,
+    customerName: input.customerName,
+    affiliateId: input.affiliateId,
+  });
+  // receipt_email sends a live-mode receipt even when Dashboard receipt emails
+  // are off. invoice_creation stores a Stripe invoice for the same payment.
+  // Test mode still does not email either of them.
+  const receiptFields = buildHostedCheckoutPaymentFields({
+    customerEmail: input.customerEmail,
+    orderNumber: input.orderNumber,
+    metadata,
+  });
   const session = await stripe.checkout.sessions.create({
     ui_mode: "hosted_page",
     mode: "payment",
@@ -73,13 +91,8 @@ export async function createCheckoutSession(
     line_items: stripeLineItems,
     success_url: input.successUrl,
     cancel_url: input.cancelUrl,
-    metadata: {
-      order_id: String(input.orderId),
-      order_number: input.orderNumber,
-      user_id: String(input.userId),
-      customer_email: input.customerEmail ?? "",
-      customer_name: input.customerName ?? "",
-    },
+    metadata,
+    ...receiptFields,
   });
 
   if (!session.url) {

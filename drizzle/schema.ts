@@ -2372,6 +2372,80 @@ export const affiliateInvoices = mysqlTable("affiliate_invoices", {
 export type AffiliateInvoice = typeof affiliateInvoices.$inferSelect;
 export type InsertAffiliateInvoice = typeof affiliateInvoices.$inferInsert;
 
+// ─── Stripe payment history ───────────────────────────────────────────────────
+// One row per Stripe payment (order checkout, affiliate membership, or any
+// other charge). Webhook events and the admin backfill upsert the same row
+// when they share a checkout session, payment intent, charge, or invoice id.
+// Affiliates never read this table; admin procedures are the only API.
+export type StripePaymentLineItem = {
+  description: string;
+  quantity: number;
+  amountCents: number;
+};
+
+export const stripePaymentRecords = mysqlTable("stripe_payment_records", {
+  id: int("id").autoincrement().primaryKey(),
+  livemode: boolean("livemode").default(false).notNull(),
+  stripeMode: mysqlEnum("stripeMode", ["live", "test"]).notNull(),
+  checkoutSessionId: varchar("checkoutSessionId", { length: 255 }),
+  paymentIntentId: varchar("paymentIntentId", { length: 255 }),
+  chargeId: varchar("chargeId", { length: 255 }),
+  invoiceId: varchar("invoiceId", { length: 255 }),
+  customerId: varchar("customerId", { length: 255 }),
+  subscriptionId: varchar("subscriptionId", { length: 255 }),
+  amountCents: int("amountCents").notNull(),
+  amountRefundedCents: int("amountRefundedCents").default(0).notNull(),
+  currency: varchar("currency", { length: 8 }).default("usd").notNull(),
+  status: mysqlEnum("status", ["paid", "refunded", "partially_refunded", "failed", "pending"]).notNull(),
+  customerName: varchar("customerName", { length: 255 }),
+  customerEmail: varchar("customerEmail", { length: 320 }),
+  purpose: mysqlEnum("purpose", ["order", "affiliate_membership", "other"]).default("other").notNull(),
+  description: text("description"),
+  lineItemsJson: json("lineItemsJson").$type<StripePaymentLineItem[]>(),
+  metadataJson: json("metadataJson").$type<Record<string, string>>(),
+  orderRequestId: int("orderRequestId"),
+  orderNumber: varchar("orderNumber", { length: 64 }),
+  affiliateId: int("affiliateId"),
+  affiliateInvoiceId: int("affiliateInvoiceId"),
+  receiptEmail: varchar("receiptEmail", { length: 320 }),
+  receiptUrl: text("receiptUrl"),
+  // True only when Stripe will email a receipt: live mode and receipt_email set.
+  // Test-mode charges never send that email, even when receipt_email is present.
+  receiptEmailSent: boolean("receiptEmailSent").default(false).notNull(),
+  // True only after an invoice.sent event. Creating an invoice is not proof
+  // that Stripe emailed it.
+  invoiceEmailSent: boolean("invoiceEmailSent").default(false).notNull(),
+  hostedInvoiceUrl: text("hostedInvoiceUrl"),
+  invoicePdfUrl: text("invoicePdfUrl"),
+  stripeDashboardUrl: varchar("stripeDashboardUrl", { length: 512 }),
+  occurredAt: timestamp("occurredAt").notNull(),
+  lastEventId: varchar("lastEventId", { length: 255 }),
+  lastEventType: varchar("lastEventType", { length: 128 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (t) => ({
+  sessionUnique: uniqueIndex("stripe_payment_records_session_uq").on(t.checkoutSessionId),
+  paymentIntentUnique: uniqueIndex("stripe_payment_records_pi_uq").on(t.paymentIntentId),
+  chargeUnique: uniqueIndex("stripe_payment_records_charge_uq").on(t.chargeId),
+  invoiceUnique: uniqueIndex("stripe_payment_records_invoice_uq").on(t.invoiceId),
+  affiliateOccurredIdx: index("stripe_payment_records_affiliate_occurred_idx").on(t.affiliateId, t.occurredAt),
+  occurredIdx: index("stripe_payment_records_occurred_idx").on(t.occurredAt),
+  statusIdx: index("stripe_payment_records_status_idx").on(t.status),
+}));
+
+export type StripePaymentRecord = typeof stripePaymentRecords.$inferSelect;
+export type InsertStripePaymentRecord = typeof stripePaymentRecords.$inferInsert;
+
+// Processed Stripe event ids. A replayed event updates nothing a second time.
+export const stripeWebhookEvents = mysqlTable("stripe_webhook_events", {
+  id: int("id").autoincrement().primaryKey(),
+  eventId: varchar("eventId", { length: 255 }).notNull().unique(),
+  eventType: varchar("eventType", { length: 128 }).notNull(),
+  processedAt: timestamp("processedAt").defaultNow().notNull(),
+});
+
+export type StripeWebhookEvent = typeof stripeWebhookEvents.$inferSelect;
+
 // ─── Sales-rep commissions ──────────────────────────────────────────────────────
 // A sales rep earns a flat one-time commission ($400) when a CRM deal they own
 // is marked "won". One commission row per deal (idempotent on dealId). Status
