@@ -1,0 +1,14 @@
+import mysql from 'mysql2/promise';
+import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: path.join(__dirname, '../.env') });
+const conn = await mysql.createConnection(process.env.DATABASE_URL);
+const [rows] = await conn.execute("SELECT id, ourName FROM door_styles WHERE ourName LIKE '%floral%' OR ourName LIKE '%floor%' OR ourName LIKE '%Floral%' ORDER BY ourName");
+const [allStyles] = await conn.execute("SELECT id, ourName FROM door_styles ORDER BY ourName LIMIT 50");
+console.log('All styles:'); allStyles.forEach(r => console.log(` [${r.id}] ${r.ourName}`));
+console.log('Floral/Floor styles:');
+rows.forEach(r => console.log(`  [${r.id}] ${r.ourName}`));
+if (rows.length === 0) console.log('  (none found - names already updated)');
+await conn.end();

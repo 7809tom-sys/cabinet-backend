@@ -1,0 +1,37 @@
+{
+  "base": "http://127.0.0.1:3000",
+  "placedCount": 7,
+  "fridge": {
+    "x": 109.25,
+    "width": 36,
+    "refrigeratorPanelMode": "both"
+  },
+  "panels": [
+    {
+      "masterCode": "REPV3096",
+      "cabinetId": 9390423,
+      "refrigeratorAssemblyRole": "left-panel",
+      "x": 108,
+      "y": 0,
+      "width": 0.75,
+      "depth": 24,
+      "height": 84,
+      "wallId": "top",
+      "wallOffset": 108
+    },
+    {
+      "masterCode": "REPV3096",
+      "cabinetId": 9390423,
+      "refrigeratorAssemblyRole": "right-panel",
+      "x": 145.75,
+      "y": 0,
+      "width": 0.75,
+      "depth": 24,
+      "height": 84,
+      "wallId": "top",
+      "wallOffset": 145.75
+    }
+  ],
+  "materialsHasTwoREPV3096": true,
+  "errors": []
+}

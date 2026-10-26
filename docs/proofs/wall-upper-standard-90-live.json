@@ -1,0 +1,30 @@
+{
+  "base": "https://www.cabinetdealz.com",
+  "standard90": {
+    "wall": "top",
+    "rows": [
+      {
+        "masterCode": "W1542",
+        "wallId": "top",
+        "wallOffset": 0,
+        "rotation": 0,
+        "width": 15,
+        "depth": 12
+      },
+      {
+        "masterCode": "W3042",
+        "wallId": "top",
+        "wallOffset": 16,
+        "rotation": 0,
+        "width": 30,
+        "depth": 12
+      }
+    ],
+    "rotateAndArrowNudge": {
+      "beforeOffset": 15.0,
+      "afterOffset": 16,
+      "rotation": 0
+    },
+    "errors": []
+  }
+}

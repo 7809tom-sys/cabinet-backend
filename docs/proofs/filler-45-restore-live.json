@@ -1,0 +1,71 @@
+{
+  "base": "https://www.cabinetdealz.com",
+  "tag": "live",
+  "bundles": [
+    "index-Cw7f0Rcm.js"
+  ],
+  "placedAfterRestore": [
+    {
+      "masterCode": "B24",
+      "x": 17.14733944377378,
+      "y": 34.11790219225092,
+      "rotation": 45,
+      "wallId": "diagonal",
+      "wallOffset": 48.25,
+      "fillerTransitionKind": null
+    },
+    {
+      "masterCode": "B24",
+      "x": 36,
+      "y": 68.125,
+      "rotation": 90,
+      "wallId": "straight",
+      "wallOffset": 8.125,
+      "fillerTransitionKind": null
+    },
+    {
+      "masterCode": "F342",
+      "x": 34.117902192250924,
+      "y": 51.08846494072806,
+      "rotation": 45,
+      "wallId": "diagonal",
+      "wallOffset": 72.25,
+      "fillerTransitionKind": "front-miter-pair"
+    },
+    {
+      "masterCode": "F342",
+      "x": 36,
+      "y": 68.12499999999999,
+      "rotation": 90,
+      "wallId": "straight",
+      "wallOffset": 8.125,
+      "fillerTransitionKind": "front-miter-pair"
+    }
+  ],
+  "miterFillerCount": 2,
+  "miterFillers": [
+    {
+      "masterCode": "F342",
+      "width": 2.661688245431421,
+      "height": 34.5,
+      "depth": 24,
+      "fillerTransitionPiece": "owner",
+      "fillerTransitionKind": "front-miter-pair",
+      "fillerMiterAngle": 22.5
+    },
+    {
+      "masterCode": "F342",
+      "width": 1.8161254969542853,
+      "height": 34.5,
+      "depth": 24,
+      "fillerTransitionPiece": "neighbor",
+      "fillerTransitionKind": "front-miter-pair",
+      "fillerMiterAngle": 22.5
+    }
+  ],
+  "materialsHasF342": true,
+  "applicationErrors": [],
+  "designerBundle": "DesignTool-CMVsgZsU.js",
+  "indexBundle": "index-Cw7f0Rcm.js",
+  "publishedAt": "2026-10-03T23:03:57-04:00"
+}

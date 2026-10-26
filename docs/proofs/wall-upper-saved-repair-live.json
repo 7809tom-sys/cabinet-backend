@@ -1,0 +1,18 @@
+{
+  "legacyInput": {
+    "rotation": 0,
+    "wallId": null,
+    "wallOffset": null
+  },
+  "restored": {
+    "masterCode": "W1542",
+    "wallId": "wall-45",
+    "wallOffset": 5.5,
+    "rotation": 45,
+    "x": 127.40380592228743,
+    "y": 3.8890872965260126,
+    "width": 15,
+    "depth": 12
+  },
+  "errors": []
+}

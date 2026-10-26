@@ -1,0 +1,12 @@
+{
+  "origin": "http://127.0.0.1:3000",
+  "viewport": {
+    "width": 390,
+    "height": 844
+  },
+  "cornerTabVisible": true,
+  "cornerContentCount": 23,
+  "appliancesTabVisible": true,
+  "applianceContentCount": 23,
+  "wizardLiveProof": "not included; mobile primary action is hidden at this viewport"
+}

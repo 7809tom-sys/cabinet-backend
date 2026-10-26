@@ -1,0 +1,15 @@
+{
+  "base": "https://www.cabinetdealz.com",
+  "checkedAtEpoch": 1791149561,
+  "indexBundles": [
+    "index-CsEKh73h.js"
+  ],
+  "designerBundles": [
+    "DesignTool-C0SA84QX.js"
+  ],
+  "rendererBundles": [
+    "InteractiveRoom3D-jm6biifD.js"
+  ],
+  "marker": "jump-to-peninsula-wizard",
+  "markerFound": true
+}

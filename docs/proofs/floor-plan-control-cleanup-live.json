@@ -1,0 +1,12 @@
+{
+  "rotateAtCanvasTopRight": true,
+  "rotationChangedVertices": true,
+  "rotationControl": {
+    "background": "oklab(0.999994 0.0000455678 0.0000200868 / 0.95)",
+    "color": "rgb(26, 39, 68)",
+    "top": 128,
+    "right": 300
+  },
+  "remoteShareAbsent": true,
+  "applicationErrors": []
+}

@@ -1,0 +1,22 @@
+{
+  "base": "https://www.cabinetdealz.com",
+  "tag": "live",
+  "bundles": [
+    "index-D5GiD2XG.js"
+  ],
+  "raisedBarPlanSegments": 2,
+  "has42BarLabel": true,
+  "barHeightIn": 42,
+  "heightAboveWorktopIn": 6,
+  "seatingProjectionIn": 15,
+  "mainRun": "main",
+  "returnRun": "return-45",
+  "materials": "Complete Materials & Parts List\n\nNumbered cabinets, panels, fillers, and cabinet trim first; all non-cabinet materials are alphabetized below. Use the red trash button at the left of each placed item to remove it from this design.\n\n180\" \u00d7 180\" \u00b7 Carbon Frost\n\nAdd priced items to cart (2)\nPrint\nExport CSV\nREMOVE\tNO.\tITEM CODE\tDESCRIPTION\tCATEGORY\tDISTRIBUTOR\tCOLOR / STYLE\tDIMENSIONS\tQTY\tUNIT PRICE\tLINE TOTAL\tNOTES\nNUMBERED CABINETS & CABINET PARTS\n\n\t1\tB24\t48 inch base cabinet\tCabinet\tPreston\tCarbon Frost\t50.91\" W \u00d7 34.5\" H \u00d7 50.91\" D\t1\t$304.70\t$304.70\tdouble hinge\n\n\t2\tB36\t72 inch base cabinet\tCabinet\tPreston\tCarbon Frost\t24\" W \u00d7 34.5\" H \u00d7 72\" D\t1\t$304.70\t$304.70\tdouble hinge\n\n\t3\tTK-8\tToe kick\tCabinet trim\tCabinet supplier / quote\tCarbon Frost\t\u2014\t2\tQuote required\tQuote required\tQuote required\nOTHER MATERIALS & PARTS \u2014 ALPHABETICAL\n\n\tA\tPONY-WALL\tPony wall construction\tLayout feature\tContractor / quote\t\u2014\t\u2014\t2\tQuote required\tQuote required\tQuote required\n\n\tB\tCOUNTERTOP-QUOTE\tWhite Quartz\tCountertop\tFabricator / quote\tWhite Quartz\t30.2 sq ft \u00b7 20 lin ft\t1\tQuote required\tQuote required\tEased edge profile\n3 cabinet & part rows \u00b7 2 other rows \u00b7 3 quote-required lines\nPriced total: $609.40\n\nQuote-required and unavailable lines remain on this materials list and are not added to the cart.\n\nClose",
+  "applicationErrors": [],
+  "deployedBundles": [
+    "index-D5GiD2XG.js",
+    "DesignTool-D4_4UP6M.js",
+    "InteractiveRoom3D-B7QVjxed.js"
+  ],
+  "publishedAtVerification": "2026-10-04 03:25 CT"
+}

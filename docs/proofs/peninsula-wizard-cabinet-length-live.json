@@ -1,0 +1,188 @@
+{
+  "base": "https://www.cabinetdealz.com",
+  "tag": "cabinet-length-live",
+  "bundles": [
+    "index-Bw0wuD6E.js"
+  ],
+  "disabledBeforeSequences": true,
+  "enabledAfterSequences": true,
+  "selectedCabinetSequence": [
+    "B30",
+    "B18"
+  ],
+  "straightSequence": "1. B30 \u00b7 30 in\nRemove\n2. B18 \u00b7 18 in\nRemove",
+  "returnSequence": "1. B30 \u00b7 30 in\nRemove\n2. B18 \u00b7 18 in\nRemove",
+  "totalLength": "Total selected peninsula cabinet length\n96\"\n\nStraight leg 48\" + 45\u00b0 return 48\". Cabinet widths only; real fillers and the miter joint are shown below.",
+  "totalAfterRemove": "Total selected peninsula cabinet length\n78\"\n\nStraight leg 48\" + 45\u00b0 return 30\". Cabinet widths only; real fillers and the miter joint are shown below.",
+  "spacePreview": "Cabinet totals & remaining space\n\nPRE-BUILD CHECK\n\nEach leg is measured directly from your cabinet list. The countertop follows that cabinet-supported length and stops at the last cabinet; it cannot extend through a room wall.\n\nStraight leg \u2014 wall to 45\u00b0 joint\nEnds at last cabinet\nClear: 48\"\nCabinets: 48\"\nEnds at: last cabinet\nSelected: B30 + B18 = 48\"\nThe separate 11\" 45\u00b0 joint envelope is reserved for the required two-piece 22.5\u00b0 catalog miter filler pair.\n45\u00b0 return \u2014 joint to last cabinet\nEnds at last cabinet\nClear: 48\"\nCabinets: 48\"\nEnds at: last cabinet\nSelected: B30 + B18 = 48\"\nThe separate 11\" 45\u00b0 joint envelope is reserved for the required two-piece 22.5\u00b0 catalog miter filler pair.",
+  "primaryPreview": "Straight leg \u2014 wall to 45\u00b0 joint\nEnds at last cabinet\nClear: 48\"\nCabinets: 48\"\nEnds at: last cabinet\nSelected: B30 + B18 = 48\"\nThe separate 11\" 45\u00b0 joint envelope is reserved for the required two-piece 22.5\u00b0 catalog miter filler pair.",
+  "returnPreview": "45\u00b0 return \u2014 joint to last cabinet\nEnds at last cabinet\nClear: 48\"\nCabinets: 48\"\nEnds at: last cabinet\nSelected: B30 + B18 = 48\"\nThe separate 11\" 45\u00b0 joint envelope is reserved for the required two-piece 22.5\u00b0 catalog miter filler pair.",
+  "baseItems": [
+    {
+      "masterCode": "B30",
+      "width": 30,
+      "wallId": "peninsula_wizard_mutuvmp7",
+      "wallOffset": 0
+    },
+    {
+      "masterCode": "B18",
+      "width": 18,
+      "wallId": "peninsula_wizard_mutuvmp7",
+      "wallOffset": 30
+    },
+    {
+      "masterCode": "B30",
+      "width": 30,
+      "wallId": "peninsula_wizard_mutuvmp7_45_end",
+      "wallOffset": 11
+    },
+    {
+      "masterCode": "B18",
+      "width": 18,
+      "wallId": "peninsula_wizard_mutuvmp7_45_end",
+      "wallOffset": 41
+    }
+  ],
+  "miterFillers": [
+    {
+      "masterCode": "F342",
+      "width": 1.058874503045729,
+      "fillerTransitionKind": "front-miter-pair",
+      "fillerMiterAngle": 22.5
+    },
+    {
+      "masterCode": "F342",
+      "width": 1.0588745030457147,
+      "fillerTransitionKind": "front-miter-pair",
+      "fillerMiterAngle": 22.5
+    }
+  ],
+  "peninsulaRuns": [
+    {
+      "id": "peninsula_wizard_mutuvmp7",
+      "parentWall": "top",
+      "startOffset": 108,
+      "turn": 90,
+      "direction": "right",
+      "length": 59,
+      "height": 34.5,
+      "cabinetSide": "left",
+      "countertopSeatingOverhang": 0,
+      "countertopRaisedBar": true,
+      "countertopRaisedBarOverhang": 15,
+      "countertopWaterfallEnd": false,
+      "label": "Peninsula \u00b7 straight"
+    },
+    {
+      "id": "peninsula_wizard_mutuvmp7_45_end",
+      "parentRunId": "peninsula_wizard_mutuvmp7",
+      "startOffset": 0,
+      "turn": 45,
+      "direction": "right",
+      "length": 59,
+      "height": 34.5,
+      "cabinetSide": "left",
+      "countertopSeatingOverhang": 0,
+      "countertopRaisedBar": true,
+      "countertopRaisedBarOverhang": 15,
+      "countertopWaterfallEnd": false,
+      "label": "Peninsula end \u00b7 45\u00b0 right"
+    }
+  ],
+  "ponyWalls": [
+    {
+      "uid": "pw-peninsula-back-1791120463593-4xznx",
+      "x": 108,
+      "y": 0,
+      "width": 59,
+      "depth": 4.5,
+      "height": 40.5,
+      "label": "Drywall pony wall \u00b7 behind peninsula",
+      "peninsulaRunId": "peninsula_wizard_mutuvmp7",
+      "peninsulaEnd": "start",
+      "peninsulaTurn": 0,
+      "peninsulaDirection": "right",
+      "peninsulaPlacement": "behind-cabinets",
+      "finish": "drywall",
+      "drywallColor": "#e7e1d5",
+      "drywallTexture": "smooth"
+    },
+    {
+      "uid": "pw-peninsula-back-1791120463593-qu5j4",
+      "x": 108,
+      "y": 59,
+      "width": 59,
+      "depth": 4.5,
+      "height": 40.5,
+      "label": "Drywall pony wall \u00b7 behind peninsula",
+      "peninsulaRunId": "peninsula_wizard_mutuvmp7_45_end",
+      "peninsulaEnd": "start",
+      "peninsulaTurn": 0,
+      "peninsulaDirection": "right",
+      "peninsulaPlacement": "behind-cabinets",
+      "finish": "drywall",
+      "drywallColor": "#e7e1d5",
+      "drywallTexture": "smooth"
+    }
+  ],
+  "furniture": [
+    {
+      "uid": "peninsula-stool:peninsula_wizard_mutuvmp7:0",
+      "defId": "stool-counter",
+      "x": 139.5,
+      "y": 11.666666666666664,
+      "rotation": 90
+    },
+    {
+      "uid": "peninsula-stool:peninsula_wizard_mutuvmp7:1",
+      "defId": "stool-counter",
+      "x": 139.5,
+      "y": 31.333333333333336,
+      "rotation": 90
+    }
+  ],
+  "oppositeSideStools": [
+    {
+      "uid": "peninsula-stool:peninsula_wizard_mutuvmp7:0",
+      "defId": "stool-counter",
+      "x": 139.5,
+      "y": 11.666666666666664,
+      "rotation": 90
+    },
+    {
+      "uid": "peninsula-stool:peninsula_wizard_mutuvmp7:1",
+      "defId": "stool-counter",
+      "x": 139.5,
+      "y": 31.333333333333336,
+      "rotation": 90
+    }
+  ],
+  "stoolsAfterRefresh": [
+    {
+      "uid": "peninsula-stool:peninsula_wizard_mutuvmp7:0",
+      "defId": "stool-counter",
+      "x": 139.5,
+      "y": 11.666666666666664,
+      "rotation": 90
+    },
+    {
+      "uid": "peninsula-stool:peninsula_wizard_mutuvmp7:1",
+      "defId": "stool-counter",
+      "x": 139.5,
+      "y": 31.333333333333336,
+      "rotation": 90
+    }
+  ],
+  "actualBaseSequence": [
+    "B30",
+    "B18",
+    "B30",
+    "B18"
+  ],
+  "matchesUserSequenceExactly": true,
+  "hasRaisedBar": true,
+  "raisedSupportCount": 2,
+  "materialsHaveSelectedCabinets": true,
+  "materialsHaveMiterFiller": true,
+  "applicationErrors": []
+}

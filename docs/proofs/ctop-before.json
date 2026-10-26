@@ -1,0 +1,15 @@
+{
+  "base": "http://127.0.0.1:3000",
+  "tag": "before",
+  "cases": {
+    "std": {
+      "errors": []
+    },
+    "std-nopony": {
+      "errors": []
+    },
+    "cw": {
+      "errors": []
+    }
+  }
+}

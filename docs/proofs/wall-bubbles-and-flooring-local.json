@@ -1,0 +1,11 @@
+{
+  "wallBubbleTransforms": [
+    "translate(244.79999999999998 0) rotate(0)",
+    "translate(612 122.39999999999999) rotate(45)",
+    "translate(734.4 489.59999999999997) rotate(90)",
+    "translate(367.2 734.4) rotate(0)"
+  ],
+  "flooringMaterialIdAfterRemoval": null,
+  "flooringSurfaceCountAfterRemoval": 0,
+  "consoleErrors": []
+}

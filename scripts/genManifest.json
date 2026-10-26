@@ -1,0 +1,551 @@
+[
+  {
+    "id": 30031,
+    "name": "Aero Alba",
+    "family": "Slim Shaker",
+    "wood": "Solid Birch",
+    "color": "SW 3118 White Oak",
+    "panel": "5-Piece Solid Wood with MDF Center Panel",
+    "slug": "aero-alba"
+  },
+  {
+    "id": 30027,
+    "name": "Aero Blanc",
+    "family": "Slim Shaker",
+    "wood": "Solid Birch",
+    "color": "SW 7001 Marshmallow",
+    "panel": "5-Piece Solid Wood with MDF Center Panel",
+    "slug": "aero-blanc"
+  },
+  {
+    "id": 30029,
+    "name": "Aero Obsidian",
+    "family": "Slim Shaker",
+    "wood": "Solid Birch",
+    "color": "SW 6258 Tricorn Black",
+    "panel": "MDF Center Panel",
+    "slug": "aero-obsidian"
+  },
+  {
+    "id": 30028,
+    "name": "Aero Relic",
+    "family": "Slim Shaker",
+    "wood": "Solid Birch",
+    "color": "SW 7015 Repose Gray",
+    "panel": "5-Piece Solid Wood with MDF Center Panel",
+    "slug": "aero-relic"
+  },
+  {
+    "id": 30030,
+    "name": "Aero Solstice",
+    "family": "Slim Shaker",
+    "wood": "Solid Birch",
+    "color": "SW 3125 Autumn Oak",
+    "panel": "MDF Center Panel",
+    "slug": "aero-solstice"
+  },
+  {
+    "id": 30043,
+    "name": "Aura Blanc",
+    "family": "Shaker",
+    "wood": "HDF",
+    "color": "SW 7004 Snowbound",
+    "panel": "Engineered HDF",
+    "slug": "aura-blanc"
+  },
+  {
+    "id": 30002,
+    "name": "Aura Cream",
+    "family": "Shaker",
+    "wood": "Solid Maple / Birch",
+    "color": "SW 7012 Creamy",
+    "panel": "Engineered HDF",
+    "slug": "aura-cream"
+  },
+  {
+    "id": 30020,
+    "name": "Aurum Vault",
+    "family": "Shaker",
+    "wood": "Solid Birch",
+    "color": "SW 6130 Manila",
+    "panel": "MDF Center Panel",
+    "slug": "aurum-vault"
+  },
+  {
+    "id": 30011,
+    "name": "Blanc Core",
+    "family": "Shaker",
+    "wood": "Solid Birch",
+    "color": "SW 7006 Extra White",
+    "panel": "MDF Center Panel",
+    "slug": "blanc-core"
+  },
+  {
+    "id": 30040,
+    "name": "Bloom Blanc",
+    "family": "Shaker",
+    "wood": "Solid Birch",
+    "color": "SW 7006 Extra White",
+    "panel": "MDF Center Panel",
+    "slug": "bloom-blanc"
+  },
+  {
+    "id": 30041,
+    "name": "Bloom Cinder",
+    "family": "Shaker",
+    "wood": "Solid Birch",
+    "color": "SW 7015 Repose Gray",
+    "panel": "MDF Center Panel",
+    "slug": "bloom-cinder"
+  },
+  {
+    "id": 30042,
+    "name": "Bloom Umbra",
+    "family": "Shaker",
+    "wood": "Solid Birch",
+    "color": "SW 2750 Espresso",
+    "panel": "MDF Center Panel",
+    "slug": "bloom-umbra"
+  },
+  {
+    "id": 30023,
+    "name": "Carbon Frost",
+    "family": "Shaker",
+    "wood": "Solid Birch",
+    "color": "SW 7068 Grizzle Gray",
+    "panel": "MDF Center Panel",
+    "slug": "carbon-frost"
+  },
+  {
+    "id": 30055,
+    "name": "Casselberry Blanc",
+    "family": "Casselberry",
+    "wood": "HDF",
+    "color": "SW 7004 Snowbound",
+    "panel": "Engineered HDF",
+    "slug": "casselberry-blanc"
+  },
+  {
+    "id": 30056,
+    "name": "Casselberry Saddle",
+    "family": "Casselberry",
+    "wood": "Solid Birch",
+    "color": "SW 3127 Saddle",
+    "panel": "Solid Birch Center Panel",
+    "slug": "casselberry-saddle"
+  },
+  {
+    "id": 30012,
+    "name": "Cinder Core",
+    "family": "Shaker",
+    "wood": "Solid Birch",
+    "color": "SW 7015 Repose Gray",
+    "panel": "MDF Center Panel",
+    "slug": "cinder-core"
+  },
+  {
+    "id": 30051,
+    "name": "Cinder Core",
+    "family": "Shaker",
+    "wood": "Solid Birch",
+    "color": "SW 7018 Dovetail",
+    "panel": "MDF Center Panel",
+    "slug": "cinder-core-2"
+  },
+  {
+    "id": 30014,
+    "name": "Cobalt Abyss",
+    "family": "Shaker",
+    "wood": "Solid Birch",
+    "color": "SW 6244 Naval",
+    "panel": "MDF Center Panel",
+    "slug": "cobalt-abyss"
+  },
+  {
+    "id": 30025,
+    "name": "Dual Blanc",
+    "family": "Double Shaker",
+    "wood": "Solid Birch",
+    "color": "SW 7001 Marshmallow",
+    "panel": "MDF Center Panel",
+    "slug": "dual-blanc"
+  },
+  {
+    "id": 30024,
+    "name": "Dual Vesper",
+    "family": "Double Shaker",
+    "wood": "Solid Birch",
+    "color": "SW 7017 Dorian Gray",
+    "panel": "MDF Center Panel",
+    "slug": "dual-vesper"
+  },
+  {
+    "id": 30052,
+    "name": "Edge Blanc",
+    "family": "Edgeline",
+    "wood": "HDF",
+    "color": "SW 7006 Extra White",
+    "panel": "Engineered HDF",
+    "slug": "edge-blanc"
+  },
+  {
+    "id": 30061,
+    "name": "Essence Oak",
+    "family": "Shaker",
+    "wood": "Solid Birch",
+    "color": "SW 3130 Essence Oak",
+    "panel": "MDF Center Panel",
+    "slug": "essence-oak"
+  },
+  {
+    "id": 30032,
+    "name": "Glace Blanc",
+    "family": "Slab",
+    "wood": "Solid Birch",
+    "color": "SW 7006 Extra White",
+    "panel": "MDF Center Panel",
+    "slug": "glace-blanc"
+  },
+  {
+    "id": 30033,
+    "name": "Glace Cinder",
+    "family": "Slab",
+    "wood": "Solid Birch",
+    "color": "SW 7015 Repose Gray",
+    "panel": "MDF Center Panel",
+    "slug": "glace-cinder"
+  },
+  {
+    "id": 30057,
+    "name": "Haven Dune",
+    "family": "Haven",
+    "wood": "HDF",
+    "color": "SW 6037 Temperate Taupe",
+    "panel": "Engineered HDF",
+    "slug": "haven-dune"
+  },
+  {
+    "id": 30060,
+    "name": "Haven Ember",
+    "family": "Haven",
+    "wood": "Solid Birch",
+    "color": "SW 3129 Ember",
+    "panel": "MDF Center Panel",
+    "slug": "haven-ember"
+  },
+  {
+    "id": 30026,
+    "name": "Haven White",
+    "family": "Shaker",
+    "wood": "Solid Birch",
+    "color": "SW 7006 Extra White",
+    "panel": "MDF Center Panel",
+    "slug": "haven-white"
+  },
+  {
+    "id": 30050,
+    "name": "Honey Core",
+    "family": "Shaker",
+    "wood": "Solid Birch",
+    "color": "SW 3122 Honey",
+    "panel": "MDF Center Panel",
+    "slug": "honey-core"
+  },
+  {
+    "id": 30047,
+    "name": "Ivy Core",
+    "family": "Shaker",
+    "wood": "HDF",
+    "color": "SW 6194 Basil",
+    "panel": "Engineered HDF",
+    "slug": "ivy-core"
+  },
+  {
+    "id": 30022,
+    "name": "Lumina Blanc",
+    "family": "Shaker",
+    "wood": "Solid Birch",
+    "color": "SW 7006 Extra White",
+    "panel": "MDF Center Panel",
+    "slug": "lumina-blanc"
+  },
+  {
+    "id": 30001,
+    "name": "Lumina White",
+    "family": "Raised Panel",
+    "wood": "Solid Maple / Birch",
+    "color": "SW 7006 Extra White",
+    "panel": "Engineered HDF",
+    "slug": "lumina-white"
+  },
+  {
+    "id": 30048,
+    "name": "Navy Core",
+    "family": "Shaker",
+    "wood": "HDF",
+    "color": "SW 6244 Naval",
+    "panel": "Engineered HDF",
+    "slug": "navy-core"
+  },
+  {
+    "id": 30044,
+    "name": "Nimbus Blanc",
+    "family": "Shaker",
+    "wood": "HDF",
+    "color": "SW 7001 Marshmallow",
+    "panel": "Engineered HDF",
+    "slug": "nimbus-blanc"
+  },
+  {
+    "id": 30009,
+    "name": "Nimbus Grey",
+    "family": "Shaker",
+    "wood": "Solid Maple / Birch",
+    "color": "SW 7066 Gray Matters",
+    "panel": "Engineered HDF",
+    "slug": "nimbus-grey"
+  },
+  {
+    "id": 30039,
+    "name": "Nocturne Glass",
+    "family": "Slab",
+    "wood": "Solid Birch",
+    "color": "N/A",
+    "panel": "MDF Center Panel",
+    "slug": "nocturne-glass"
+  },
+  {
+    "id": 30046,
+    "name": "Nova Blanc",
+    "family": "Shaker",
+    "wood": "HDF",
+    "color": "SW 7006 Extra White",
+    "panel": "Engineered HDF",
+    "slug": "nova-blanc"
+  },
+  {
+    "id": 30010,
+    "name": "Nova White",
+    "family": "Shaker",
+    "wood": "Solid Maple / Birch",
+    "color": "SW 7006 Extra White",
+    "panel": "Engineered HDF",
+    "slug": "nova-white"
+  },
+  {
+    "id": 30016,
+    "name": "Obsidian Forge",
+    "family": "Shaker",
+    "wood": "Solid Birch",
+    "color": "SW 6258 Tricorn Black",
+    "panel": "MDF Center Panel",
+    "slug": "obsidian-forge"
+  },
+  {
+    "id": 30049,
+    "name": "Onyx Core",
+    "family": "Shaker",
+    "wood": "HDF",
+    "color": "SW 6258 Tricorn Black",
+    "panel": "Engineered HDF",
+    "slug": "onyx-core"
+  },
+  {
+    "id": 30006,
+    "name": "Onyx Shadow",
+    "family": "Shaker",
+    "wood": "Solid Maple / Birch",
+    "color": "SW 6258 Tricorn Black",
+    "panel": "Engineered HDF",
+    "slug": "onyx-shadow"
+  },
+  {
+    "id": 30053,
+    "name": "Oxford Blanc",
+    "family": "Oxford",
+    "wood": "HDF",
+    "color": "SW 7006 Extra White",
+    "panel": "Engineered HDF",
+    "slug": "oxford-blanc"
+  },
+  {
+    "id": 30058,
+    "name": "Oxford Mist",
+    "family": "Oxford",
+    "wood": "Solid Birch",
+    "color": "SW 6232 Misty",
+    "panel": "MDF Center Panel",
+    "slug": "oxford-mist"
+  },
+  {
+    "id": 30054,
+    "name": "Oxford Sage",
+    "family": "Oxford",
+    "wood": "HDF",
+    "color": "SW 2860 Sage",
+    "panel": "Engineered HDF",
+    "slug": "oxford-sage"
+  },
+  {
+    "id": 30059,
+    "name": "Oxford Toffee",
+    "family": "Oxford",
+    "wood": "Solid Birch",
+    "color": "SW 3128 Toffee",
+    "panel": "MDF Center Panel",
+    "slug": "oxford-toffee"
+  },
+  {
+    "id": 30038,
+    "name": "Prism Clear",
+    "family": "Slab",
+    "wood": "Solid Birch",
+    "color": "N/A",
+    "panel": "MDF Center Panel",
+    "slug": "prism-clear"
+  },
+  {
+    "id": 30018,
+    "name": "Selene Gray",
+    "family": "Shaker",
+    "wood": "Solid Birch",
+    "color": "SW 7016 Mindful Gray",
+    "panel": "MDF Center Panel",
+    "slug": "selene-gray"
+  },
+  {
+    "id": 30005,
+    "name": "Silva Shaker",
+    "family": "Shaker",
+    "wood": "Solid Hickory",
+    "color": "SW 3123 Hickory",
+    "panel": "Solid Wood Veneer",
+    "slug": "silva-shaker"
+  },
+  {
+    "id": 30045,
+    "name": "Slate Core",
+    "family": "Shaker",
+    "wood": "HDF",
+    "color": "SW 7015 Repose Gray",
+    "panel": "Engineered HDF",
+    "slug": "slate-core"
+  },
+  {
+    "id": 30007,
+    "name": "Slate Echo",
+    "family": "Shaker",
+    "wood": "Solid Maple / Birch",
+    "color": "SW 7018 Dovetail",
+    "panel": "Engineered HDF",
+    "slug": "slate-echo"
+  },
+  {
+    "id": 30036,
+    "name": "Solis Oak",
+    "family": "Slab",
+    "wood": "Solid Birch",
+    "color": "SW 3124 Blonde",
+    "panel": "MDF Center Panel",
+    "slug": "solis-oak"
+  },
+  {
+    "id": 30008,
+    "name": "Sterling Pulse",
+    "family": "Shaker",
+    "wood": "Solid Maple / Birch",
+    "color": "SW 7057 Silver Drop",
+    "panel": "Engineered HDF",
+    "slug": "sterling-pulse"
+  },
+  {
+    "id": 30021,
+    "name": "Sylvan Rust",
+    "family": "Shaker",
+    "wood": "Solid Birch",
+    "color": "SW 3111 Rustic",
+    "panel": "MDF Center Panel",
+    "slug": "sylvan-rust"
+  },
+  {
+    "id": 30003,
+    "name": "Terra Shaker",
+    "family": "Shaker",
+    "wood": "Solid Maple / Birch",
+    "color": "SW 7732 Lemongrass",
+    "panel": "Engineered HDF",
+    "slug": "terra-shaker"
+  },
+  {
+    "id": 30037,
+    "name": "Umbra Oak",
+    "family": "Slab",
+    "wood": "Solid Birch",
+    "color": "SW 3126 Shade",
+    "panel": "MDF Center Panel",
+    "slug": "umbra-oak"
+  },
+  {
+    "id": 30013,
+    "name": "Umbra Shaker",
+    "family": "Shaker",
+    "wood": "Solid Birch",
+    "color": "SW 2750 Espresso",
+    "panel": "MDF Center Panel",
+    "slug": "umbra-shaker"
+  },
+  {
+    "id": 30035,
+    "name": "Vellum Crema",
+    "family": "Slab",
+    "wood": "Solid Birch",
+    "color": "SW 7012 Creamy",
+    "panel": "MDF Center Panel",
+    "slug": "vellum-crema"
+  },
+  {
+    "id": 30034,
+    "name": "Vellum Noir",
+    "family": "Slab",
+    "wood": "Solid Birch",
+    "color": "SW 6258 Tricorn Black",
+    "panel": "MDF Center Panel",
+    "slug": "vellum-noir"
+  },
+  {
+    "id": 30017,
+    "name": "Vesper Ash",
+    "family": "Shaker",
+    "wood": "Solid Birch",
+    "color": "SW 7017 Dorian Gray",
+    "panel": "MDF Center Panel",
+    "slug": "vesper-ash"
+  },
+  {
+    "id": 30015,
+    "name": "Virid Echo",
+    "family": "Shaker",
+    "wood": "Solid Birch",
+    "color": "SW 6194 Basil",
+    "panel": "MDF Center Panel",
+    "slug": "virid-echo"
+  },
+  {
+    "id": 30004,
+    "name": "Zenith Sage",
+    "family": "Shaker",
+    "wood": "Solid Maple / Birch",
+    "color": "SW 2860 Sage",
+    "panel": "Engineered HDF",
+    "slug": "zenith-sage"
+  },
+  {
+    "id": 30019,
+    "name": "Zephyr Sage",
+    "family": "Shaker",
+    "wood": "Solid Birch",
+    "color": "SW 6191 Rosemary",
+    "panel": "MDF Center Panel",
+    "slug": "zephyr-sage"
+  }
+]

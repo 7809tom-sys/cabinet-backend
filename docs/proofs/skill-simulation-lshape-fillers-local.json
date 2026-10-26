@@ -1,0 +1,48 @@
+{
+  "base": "http://127.0.0.1:3000",
+  "tag": "local",
+  "bundles": [],
+  "fixture": {
+    "shape": "L-shaped custom-wall room",
+    "angledWall": "diagonal 45\u00b0",
+    "baseCabinets": [
+      "B24",
+      "B24"
+    ],
+    "manualFiller": "F342 stock 3 in, cut 1.5 in",
+    "returnWallCabinet": "W1542"
+  },
+  "miterFillerCount": 2,
+  "miterFillers": [
+    {
+      "masterCode": "F696",
+      "placement": "base",
+      "width": 2.9116882454314066,
+      "height": 34.5,
+      "fillerTransitionPiece": "owner",
+      "fillerMiterAngle": 22.5,
+      "fillerTransitionKind": "front-miter-pair"
+    },
+    {
+      "masterCode": "F696",
+      "placement": "base",
+      "width": 1.058874503045729,
+      "height": 34.5,
+      "fillerTransitionPiece": "neighbor",
+      "fillerMiterAngle": 22.5,
+      "fillerTransitionKind": "front-miter-pair"
+    }
+  ],
+  "customFiller": {
+    "masterCode": "F342",
+    "width": 1.5,
+    "height": 42,
+    "fillerStockWidthIn": 3,
+    "fillerInstalledCutWidthIn": 1.5,
+    "wallId": "return",
+    "wallOffset": 30
+  },
+  "materialsHasF342": true,
+  "materialsHasW1542": true,
+  "applicationErrors": []
+}

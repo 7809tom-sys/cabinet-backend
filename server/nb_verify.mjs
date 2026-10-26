@@ -1,0 +1,23 @@
+import 'dotenv/config';
+import mysql from 'mysql2/promise';
+const conn = await mysql.createConnection(process.env.DATABASE_URL);
+const [ds] = await conn.query("SELECT id, styleCode, ourName, distributorName, doorStyle FROM door_styles WHERE distributorId=2 AND styleCode='DN'");
+console.log("DN door_style:", JSON.stringify(ds[0]));
+const styleId = ds[0].id;
+const [tot] = await conn.query("SELECT COUNT(*) n, SUM(isPublished) pub FROM distributor_skus WHERE distributorId=2 AND styleId=?", [styleId]);
+console.log("DN skus total:", tot[0].n, "published:", tot[0].pub);
+const [samp] = await conn.query("SELECT ds.distributorSku, ds.listPrice, ds.yourCost, ds.isPublished, c.masterCode, c.conflictStatus FROM distributor_skus ds JOIN cabinets c ON ds.cabinetId=c.id WHERE ds.styleId=? AND ds.isPublished=1 LIMIT 5", [styleId]);
+console.log("\nSample published DN SKUs (matched to real cabinets):");
+for (const s of samp) console.log(`  ${s.distributorSku} -> cab ${s.masterCode} list=${s.listPrice} cost=${s.yourCost} conflict=${s.conflictStatus}`);
+const [conf] = await conn.query("SELECT COUNT(*) n FROM cabinets WHERE conflictStatus='conflict' AND descriptionSource='Clark And Son sheet (DN)'");
+console.log("\nDN conflict placeholder cabinets:", conf[0].n);
+// sample sell price check using pricing_settings
+const [ps] = await conn.query("SELECT * FROM pricing_settings WHERE id=1");
+const s = ps[0];
+const one = samp[0];
+const cost = Number(one.yourCost);
+console.log(`\nSample sell price for ${one.distributorSku} (cost ${cost}):`);
+console.log(`  homeowner = ${(cost*s.homeownerMarkupBps/10000).toFixed(2)}`);
+console.log(`  contractor= ${(cost*s.contractorMarkupBps/10000).toFixed(2)}`);
+console.log(`  wholesale = ${(cost*s.wholesaleMarkupBps/10000).toFixed(2)}`);
+await conn.end();

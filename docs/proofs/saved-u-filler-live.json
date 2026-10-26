@@ -1,0 +1,203 @@
+[
+  {
+    "id": 11790001,
+    "name": "carbon frost 12x16",
+    "beforeFillers": [
+      {
+        "uid": "cmupmgt2v_14",
+        "masterCode": "FRIDGE-36",
+        "code": null,
+        "width": 36,
+        "height": 70,
+        "depth": 30,
+        "rotation": 0,
+        "wallId": "top",
+        "wallOffset": 24,
+        "fillerTransitionKind": null,
+        "fillerTransitionPiece": null,
+        "fillerMiterAngle": null
+      }
+    ],
+    "afterFillers": [
+      {
+        "uid": "cmupmgt2v_14",
+        "masterCode": "FRIDGE-36",
+        "code": null,
+        "width": 36,
+        "height": 70,
+        "depth": 30,
+        "rotation": 0,
+        "wallId": "top",
+        "wallOffset": 24,
+        "fillerTransitionKind": null,
+        "fillerTransitionPiece": null,
+        "fillerMiterAngle": null
+      }
+    ],
+    "addedFillers": [],
+    "placedBefore": 22,
+    "placedAfter": 22,
+    "materialsFillerCodes": [
+      "FRIDGE-36"
+    ],
+    "applicationErrors": []
+  },
+  {
+    "id": 11220001,
+    "name": "reaaves cabinets",
+    "beforeFillers": [
+      {
+        "uid": "cmuhe0wuh_2",
+        "masterCode": "FRIDGE-36",
+        "code": null,
+        "width": 36,
+        "height": 70,
+        "depth": 30,
+        "rotation": 0,
+        "wallId": null,
+        "wallOffset": null,
+        "fillerTransitionKind": null,
+        "fillerTransitionPiece": null,
+        "fillerMiterAngle": null
+      },
+      {
+        "uid": "cmuhh3oi1_3",
+        "masterCode": "WF642",
+        "code": null,
+        "width": 2,
+        "height": 34.5,
+        "depth": 12,
+        "rotation": 180,
+        "wallId": null,
+        "wallOffset": null,
+        "fillerTransitionKind": null,
+        "fillerTransitionPiece": null,
+        "fillerMiterAngle": null
+      },
+      {
+        "uid": "cmuhh3oi1_4",
+        "masterCode": "WF642",
+        "code": null,
+        "width": 2,
+        "height": 34.5,
+        "depth": 12,
+        "rotation": 180,
+        "wallId": null,
+        "wallOffset": null,
+        "fillerTransitionKind": null,
+        "fillerTransitionPiece": null,
+        "fillerMiterAngle": null
+      }
+    ],
+    "afterFillers": [
+      {
+        "uid": "cmuhe0wuh_2",
+        "masterCode": "FRIDGE-36",
+        "code": null,
+        "width": 36,
+        "height": 70,
+        "depth": 30,
+        "rotation": 0,
+        "wallId": "top",
+        "wallOffset": 30,
+        "fillerTransitionKind": null,
+        "fillerTransitionPiece": null,
+        "fillerMiterAngle": null
+      },
+      {
+        "uid": "cmuhh3oi1_3",
+        "masterCode": "WF642",
+        "code": null,
+        "width": 2,
+        "height": 34.5,
+        "depth": 24,
+        "rotation": 180,
+        "wallId": null,
+        "wallOffset": null,
+        "fillerTransitionKind": null,
+        "fillerTransitionPiece": null,
+        "fillerMiterAngle": null
+      },
+      {
+        "uid": "cmuhh3oi1_4",
+        "masterCode": "WF642",
+        "code": null,
+        "width": 2,
+        "height": 34.5,
+        "depth": 24,
+        "rotation": 180,
+        "wallId": null,
+        "wallOffset": null,
+        "fillerTransitionKind": null,
+        "fillerTransitionPiece": null,
+        "fillerMiterAngle": null
+      },
+      {
+        "uid": "cmutich0m_1",
+        "masterCode": "F342",
+        "code": null,
+        "width": 1.0588745030457147,
+        "height": 34.5,
+        "depth": 24,
+        "rotation": 225,
+        "wallId": "peninsula_return_muh8hclf",
+        "wallOffset": 10,
+        "fillerTransitionKind": "front-miter-pair",
+        "fillerTransitionPiece": "owner",
+        "fillerMiterAngle": 22.5
+      },
+      {
+        "uid": "cmutich0m_2",
+        "masterCode": "F342",
+        "code": null,
+        "width": 1.058874503045729,
+        "height": 34.5,
+        "depth": 24,
+        "rotation": 180,
+        "wallId": "peninsula_muh8h1ev",
+        "wallOffset": 109,
+        "fillerTransitionKind": "front-miter-pair",
+        "fillerTransitionPiece": "neighbor",
+        "fillerMiterAngle": 22.5
+      }
+    ],
+    "addedFillers": [
+      {
+        "uid": "cmutich0m_1",
+        "masterCode": "F342",
+        "code": null,
+        "width": 1.0588745030457147,
+        "height": 34.5,
+        "depth": 24,
+        "rotation": 225,
+        "wallId": "peninsula_return_muh8hclf",
+        "wallOffset": 10,
+        "fillerTransitionKind": "front-miter-pair",
+        "fillerTransitionPiece": "owner",
+        "fillerMiterAngle": 22.5
+      },
+      {
+        "uid": "cmutich0m_2",
+        "masterCode": "F342",
+        "code": null,
+        "width": 1.058874503045729,
+        "height": 34.5,
+        "depth": 24,
+        "rotation": 180,
+        "wallId": "peninsula_muh8h1ev",
+        "wallOffset": 109,
+        "fillerTransitionKind": "front-miter-pair",
+        "fillerTransitionPiece": "neighbor",
+        "fillerMiterAngle": 22.5
+      }
+    ],
+    "placedBefore": 28,
+    "placedAfter": 30,
+    "materialsFillerCodes": [
+      "F342",
+      "FRIDGE-36",
+      "WF642"
+    ],
+    "applicationErrors": []
+  }
+]

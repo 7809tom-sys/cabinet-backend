@@ -1,0 +1,28 @@
+{
+  "fixture": "locked 45-degree measured-wall return with exact 11-inch cabinet holds",
+  "countertopExpected": "two cabinet-supported slabs meet at one clean 45-degree miter, with no spike or overlap",
+  "savedWallOffsets": [
+    {
+      "uid": "diagonal-base",
+      "wallId": "diagonal",
+      "wallOffset": 49.875
+    },
+    {
+      "uid": "straight-base",
+      "wallId": "straight",
+      "wallOffset": 11
+    },
+    {
+      "uid": "cmuqzp4vo_1",
+      "wallId": "diagonal",
+      "wallOffset": 73.875
+    },
+    {
+      "uid": "cmuqzp4vp_2",
+      "wallId": "straight",
+      "wallOffset": 10
+    }
+  ],
+  "threeDOpen": true,
+  "applicationErrors": []
+}

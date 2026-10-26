@@ -1,0 +1,13 @@
+{
+  "base": "http://127.0.0.1:3000",
+  "viewport": {
+    "width": 1440,
+    "height": 1000
+  },
+  "url": "http://127.0.0.1:3000/kitchen-planning",
+  "faqCount": 12,
+  "designLinks": 5,
+  "packageLinks": 1,
+  "noHorizontalOverflow": true,
+  "applicationErrors": []
+}

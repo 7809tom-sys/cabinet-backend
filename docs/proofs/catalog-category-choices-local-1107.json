@@ -1,0 +1,88 @@
+{
+  "base": "http://127.0.0.1:3000",
+  "viewport": {
+    "width": 1107,
+    "height": 537
+  },
+  "row": {
+    "box": {
+      "x": 238.5,
+      "y": 149,
+      "width": 630,
+      "height": 40
+    },
+    "metrics": {
+      "clientWidth": 628,
+      "scrollWidth": 628,
+      "scrollHeight": 39,
+      "clientHeight": 38
+    },
+    "afterScrollLeft": 0
+  },
+  "buttons": [
+    {
+      "text": "All",
+      "box": {
+        "x": 243.5,
+        "y": 153,
+        "width": 38.95,
+        "height": 32
+      }
+    },
+    {
+      "text": "Base",
+      "box": {
+        "x": 286.45,
+        "y": 153,
+        "width": 51.89,
+        "height": 32
+      }
+    },
+    {
+      "text": "Corner",
+      "box": {
+        "x": 342.34,
+        "y": 153,
+        "width": 64.2,
+        "height": 32
+      }
+    },
+    {
+      "text": "Wall",
+      "box": {
+        "x": 410.55,
+        "y": 153,
+        "width": 49.14,
+        "height": 32
+      }
+    },
+    {
+      "text": "Tall",
+      "box": {
+        "x": 463.69,
+        "y": 153,
+        "width": 43.83,
+        "height": 32
+      }
+    },
+    {
+      "text": "Appliances",
+      "box": {
+        "x": 511.52,
+        "y": 153,
+        "width": 87.59,
+        "height": 32
+      }
+    },
+    {
+      "text": "Accessories",
+      "box": {
+        "x": 603.11,
+        "y": 153,
+        "width": 91.75,
+        "height": 32
+      }
+    }
+  ],
+  "applicationErrors": []
+}

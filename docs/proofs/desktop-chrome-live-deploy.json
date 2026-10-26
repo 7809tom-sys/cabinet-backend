@@ -1,0 +1,21 @@
+{
+  "verifiedAtUtc": "2026-10-05T22:16:59.108869+00:00",
+  "origin": "https://www.cabinetdealz.com",
+  "bundles": {
+    "index": "index-D5pz9139.js",
+    "DoorStyles": "DoorStyles-jUAbVKfp.js",
+    "Family": "Family-CC-5h-MI.js",
+    "DesignTool": "DesignTool-CkfyRwiU.js",
+    "catalogSkuRecovery": true,
+    "doorStyleUniqueRetry": true,
+    "savedStyleWarning": true,
+    "familyCardRecovery": true
+  },
+  "supplierPhoto": {
+    "status": 200,
+    "mime": "image/jpeg",
+    "sha256": "ae7099bd3b2086c60030c84327e4002055138d828ef733c8e62f8e559f0c7375",
+    "bytes": 56522
+  },
+  "note": "Bundle and HTTP source verification only; separate public real-browser image proof still required."
+}

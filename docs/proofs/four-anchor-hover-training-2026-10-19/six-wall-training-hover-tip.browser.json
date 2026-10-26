@@ -1,0 +1,77 @@
+[
+  {
+    "at": "2026-10-19T22:44:22.421Z",
+    "kind": "navigation",
+    "url": "https://3000-iiiccrm83w0u12z611siq-33db4eec.us1.manus.computer/design?qaFourAnchorTraining=1"
+  },
+  {
+    "at": "2026-10-19T22:44:22.576Z",
+    "kind": "console",
+    "type": "debug",
+    "text": "[vite] connecting..."
+  },
+  {
+    "at": "2026-10-19T22:44:22.586Z",
+    "kind": "console",
+    "type": "debug",
+    "text": "[Manus] Debug collector initialized (no rrweb, UI events only)"
+  },
+  {
+    "at": "2026-10-19T22:44:22.625Z",
+    "kind": "console",
+    "type": "debug",
+    "text": "[vite] connected."
+  },
+  {
+    "at": "2026-10-19T22:44:23.060Z",
+    "kind": "console",
+    "type": "info",
+    "text": "%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold"
+  },
+  {
+    "at": "2026-10-19T22:44:53.221Z",
+    "kind": "console",
+    "type": "warning",
+    "text": "THREE.WebGLShadowMap: PCFSoftShadowMap has been deprecated. Using PCFShadowMap instead."
+  },
+  {
+    "at": "2026-10-19T22:45:00.188Z",
+    "kind": "console",
+    "type": "warning",
+    "text": "THREE.WebGLShadowMap: PCFSoftShadowMap has been deprecated. Using PCFShadowMap instead."
+  },
+  {
+    "at": "2026-10-19T22:45:15.952Z",
+    "kind": "result",
+    "url": "https://3000-iiiccrm83w0u12z611siq-33db4eec.us1.manus.computer/design?qaFourAnchorTraining=1",
+    "labels": [
+      {
+        "label": "Wall 1",
+        "title": "Wall 1 — measure from the matching colored dot."
+      },
+      {
+        "label": "Wall 2",
+        "title": "Wall 2 — measure from the matching colored dot."
+      },
+      {
+        "label": "Wall 3",
+        "title": "Wall 3 — measure from the matching colored dot."
+      },
+      {
+        "label": "Wall 4",
+        "title": "Wall 4 — measure from the matching colored dot."
+      },
+      {
+        "label": "Wall 5",
+        "title": "Wall 5 — measure from the matching colored dot."
+      },
+      {
+        "label": "Wall 6",
+        "title": "Wall 6 — measure from the matching colored dot."
+      }
+    ],
+    "tooltip": "Wall 1 — measure from the matching colored dot.",
+    "trainingButton": 1,
+    "pageClosed": false
+  }
+]

@@ -1,0 +1,39 @@
+{
+  "builderInput": [
+    [
+      "120",
+      null
+    ],
+    [
+      "67.875",
+      "45\u00b0 right"
+    ],
+    [
+      "67.875",
+      "90\u00b0 right"
+    ],
+    [
+      "120",
+      "45\u00b0 right"
+    ],
+    [
+      "96",
+      "90\u00b0 right"
+    ]
+  ],
+  "wallCount": 5,
+  "wallTargetCaps": [
+    "butt",
+    "butt",
+    "butt",
+    "butt",
+    "butt"
+  ],
+  "roomContextVisible": true,
+  "viewsCaptured": [
+    "floor plan",
+    "3D",
+    "elevation"
+  ],
+  "applicationErrors": []
+}

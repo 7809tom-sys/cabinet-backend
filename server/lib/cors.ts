@@ -16,6 +16,9 @@ export function parseAllowedOrigins(raw: string | undefined): string[] {
     .filter(Boolean);
 }
 
+// Always allowed, in addition to CORS_ALLOWED_ORIGINS: the Vercel deployment URL.
+const BUILT_IN_ORIGINS = ["https://cabinet-frontend.vercel.app"];
+
 const LOCAL_ORIGIN = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i;
 
 export function isOriginAllowed(
@@ -47,7 +50,10 @@ const PREFLIGHT_MAX_AGE_SECONDS = 86400;
 export function corsMiddleware(
   options: { allowedOrigins?: string; allowLocal?: boolean } = {},
 ): RequestHandler {
-  const allowed = parseAllowedOrigins(options.allowedOrigins ?? process.env.CORS_ALLOWED_ORIGINS);
+  const allowed = [
+    ...BUILT_IN_ORIGINS,
+    ...parseAllowedOrigins(options.allowedOrigins ?? process.env.CORS_ALLOWED_ORIGINS),
+  ];
   const allowLocal = options.allowLocal ?? process.env.NODE_ENV !== "production";
 
   return (req: Request, res, next) => {

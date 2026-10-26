@@ -1,0 +1,68 @@
+# Skyline DB Trim Items (65 total, all have images)
+# Format: masterCode | distSku | subCategory
+
+ACM-8 | ACM8 | Trim & Molding
+ALRM-8 | ALRM8 | Trim & Molding
+BAM | BAM | Trim & Molding
+BCM-8 | BCM8(DCM) | Trim & Molding
+BDEP | BDEP | Decorative End Panel
+BSV | BSV | Skin Panel
+CB-9 | CB9 | Countertop Support Bracket
+CBT | CBT | Trim & Molding
+CLDL | CLDL | Decorative Leg
+CM-2 | CM2 | Trim & Molding
+CM-4 | CM4 | Trim & Molding
+CM-8 | CM8 | Trim & Molding
+COV | COV | Trim & Molding
+CTRAY-33 | CHROME TRAY33 | Tray Base
+CTRAY-36 | CHROME TRAY36 | Tray Base
+DCSF-42 | DCSF42 | Hardware / Misc
+DWR-3 | DWR3 | Decorative End Panel
+F-1.5 | F1.5 | Trim & Molding
+F-3-42 | F342 | Trim & Molding
+F-3-96 | F396 | Trim & Molding
+F-6-42 | F642 | Trim & Molding
+F-6-96 | F696 | Trim & Molding
+FBM | FBM | Trim & Molding
+FLDL | FLDL | Decorative Leg
+FPL-24-96 | FPL2496 | Full Height Panel
+FPL-37-96 | FPL3796 | Full Height Panel
+FPV-42-96 | FPV4296 | Skin Panel
+FS-24 | FS24 | Floating Shelf
+FS-30 | FS30 | Floating Shelf
+FS-36 | FS36 | Floating Shelf
+LRM | LRM | Trim & Molding
+LRM-8 | LRM8 | Trim & Molding
+MINI | MINI | Sample / Misc
+OCM-8 | OCM8 | Trim & Molding
+PR-30-15 | PR3015 | Hardware / Misc
+RCM-4S | RCM4S(LCM) | Trim & Molding
+REPV-24-96 | REPV2496 | Decorative End Panel
+REPV-27-96 | REPV2796 | Decorative End Panel
+RS-18 | RS18 | Roll Out Shelf
+RS-21 | RS21 | Roll Out Shelf
+RS-24 | RS24 | Roll Out Shelf
+RS-27 | RS27 | Roll Out Shelf
+RS-30 | RS30 | Roll Out Shelf
+RS-33 | RS33 | Roll Out Shelf
+RS-36 | RS36 | Roll Out Shelf
+S-24-96 | S2496 | Skin Panel
+SHM | SHM | Trim & Molding
+SM-8 | SM8(SCR) | Trim & Molding
+TDEP-24-84 | TDEP2484 | Decorative End Panel
+TDEP-24-90 | TDEP2490 | Decorative End Panel
+TDEP-24-96 | TDEP2496 | Decorative End Panel
+TK-8 | TKC | Trim & Molding
+TUK | TUK | Hardware / Misc
+USV-24-96 | USV2496 | Skin Panel
+VA-48 | VA48 | Trim & Molding
+VDEP | VDEP | Decorative End Panel
+WDEP-30 | WDEP30 | Decorative End Panel
+WDEP-36 | WDEP36 | Decorative End Panel
+WDEP-42 | WDEP42 | Decorative End Panel
+WOOD TRAY | WOOD TRAY | Wood Tray Insert
+WSV-24 | WSV24 | Skin Panel
+WSV-30 | WSV30 | Skin Panel
+WSV-36 | WSV36 | Skin Panel
+WSV-42 | WSV42 | Skin Panel
+Waste Bin | Waste Bin | Waste Bin Insert

@@ -1,0 +1,60 @@
+{
+  "base": "https://www.cabinetdealz.com",
+  "tag": "peninsula-wizard-edit-live",
+  "email": "peninsula-wizard-edit-peninsula-wizard-edit-live@cabinetdealz.test",
+  "bundles": [
+    "index-Bk9GIrB8.js"
+  ],
+  "rootId": "peninsula_wizard_muu9d3ol",
+  "editHeading": "Edit Peninsula Wizard",
+  "reopenedPrimarySequence": "1. B18 \u00b7 18 in\nRemove",
+  "reopenedReturnSequence": "1. B24 \u00b7 24 in\nRemove",
+  "originalOwnedUids": [
+    "cmuu9d3om_1",
+    "cmuu9d3oo_2",
+    "cmuu9d3or_3",
+    "cmuu9d3or_4"
+  ],
+  "updatedOwnedUids": [
+    "cmuu9eawm_1",
+    "cmuu9eawm_2",
+    "cmuu9eawo_3",
+    "cmuu9eawo_4"
+  ],
+  "ordinaryCabinet": {
+    "uid": "cmuu9d68j_5",
+    "masterCode": "SPB6",
+    "wallId": "left",
+    "wallOffset": 0,
+    "peninsulaWizardId": null
+  },
+  "updatedRecipe": {
+    "schemaVersion": 1,
+    "parentWall": "top",
+    "startOffset": 108,
+    "endTurn": 45,
+    "endDirection": "right",
+    "cabinetSide": "left",
+    "applianceCode": "none",
+    "seatingOverhang": 0,
+    "waterfall": false,
+    "addPonyWall": false,
+    "ponyWallLength": 36,
+    "ponyWallHeight": 34.5,
+    "primaryCabinetIds": [
+      9390004
+    ],
+    "returnCabinetIds": [
+      9390004
+    ],
+    "countertopTreatment": "split-level",
+    "showBarStools": true
+  },
+  "updatedRunCount": 2,
+  "updatedStoolUids": [
+    "peninsula-stool:peninsula_wizard_muu9d3ol:0"
+  ],
+  "materialsHasOrdinarySPB6": true,
+  "materialsHasUpdatedReturnB18": true,
+  "applicationErrors": []
+}

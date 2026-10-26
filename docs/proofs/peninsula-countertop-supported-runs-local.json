@@ -1,0 +1,15 @@
+{
+  "fixture": "96 inch peninsula run with B30 supports at 0\u201330 and 66\u201396",
+  "expectedCountertopRuns": [
+    {
+      "startIn": 0,
+      "lengthIn": 30
+    },
+    {
+      "startIn": 66,
+      "lengthIn": 30
+    }
+  ],
+  "unsupportedGapIn": 36,
+  "applicationErrors": []
+}

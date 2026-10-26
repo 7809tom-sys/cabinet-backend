@@ -1,0 +1,40 @@
+{
+  "base": "http://127.0.0.1:3000",
+  "tag": "local",
+  "bundles": [],
+  "fixture": "untagged physical 45-degree wall turn; first B24 restored, second B24 added by real catalog click",
+  "directCabinet": {
+    "masterCode": "B24",
+    "wallId": "straight",
+    "wallOffset": 11,
+    "rotation": 90,
+    "width": 24,
+    "depth": 24
+  },
+  "miterFillerCount": 2,
+  "miterFillers": [
+    {
+      "masterCode": "F696",
+      "placement": "base",
+      "width": 1.058874503045729,
+      "height": 34.5,
+      "fillerTransitionPiece": "owner",
+      "fillerMiterAngle": 22.5,
+      "fillerTransitionKind": "front-miter-pair"
+    },
+    {
+      "masterCode": "F696",
+      "placement": "base",
+      "width": 2.9116882454314066,
+      "height": 34.5,
+      "fillerTransitionPiece": "neighbor",
+      "fillerMiterAngle": 22.5,
+      "fillerTransitionKind": "front-miter-pair"
+    }
+  ],
+  "materials": {
+    "hasB24": true,
+    "hasAutomaticFiller": true
+  },
+  "applicationErrors": []
+}

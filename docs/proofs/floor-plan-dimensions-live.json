@@ -1,0 +1,11 @@
+{
+  "outerWallLines": 5,
+  "runSegments": 5,
+  "wall101AndRunLabels": {
+    "has101": true,
+    "has36": true,
+    "has30_1_16": true
+  },
+  "liveDragGaps": "\u2190 0\"4 15/16\" \u2192",
+  "applicationErrors": []
+}

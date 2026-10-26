@@ -1,0 +1,58 @@
+{
+  "base": "http://127.0.0.1:3000",
+  "tag": "peninsula-wizard-edit-local",
+  "email": "peninsula-wizard-edit-peninsula-wizard-edit-local@cabinetdealz.test",
+  "bundles": [],
+  "rootId": "peninsula_wizard_muu8zi8j",
+  "editHeading": "Edit Peninsula Wizard",
+  "reopenedPrimarySequence": "1. B18 \u00b7 18 in\nRemove",
+  "reopenedReturnSequence": "1. B24 \u00b7 24 in\nRemove",
+  "originalOwnedUids": [
+    "cmuu8zi8l_1",
+    "cmuu8zi8n_2",
+    "cmuu8zi8q_3",
+    "cmuu8zi8q_4"
+  ],
+  "updatedOwnedUids": [
+    "cmuu90zss_1",
+    "cmuu90zst_2",
+    "cmuu90zsv_3",
+    "cmuu90zsv_4"
+  ],
+  "ordinaryCabinet": {
+    "uid": "cmuu8zrnu_5",
+    "masterCode": "SPB6",
+    "wallId": "left",
+    "wallOffset": 0,
+    "peninsulaWizardId": null
+  },
+  "updatedRecipe": {
+    "schemaVersion": 1,
+    "parentWall": "top",
+    "startOffset": 108,
+    "endTurn": 45,
+    "endDirection": "right",
+    "cabinetSide": "left",
+    "applianceCode": "none",
+    "seatingOverhang": 0,
+    "waterfall": false,
+    "addPonyWall": false,
+    "ponyWallLength": 36,
+    "ponyWallHeight": 34.5,
+    "primaryCabinetIds": [
+      9390004
+    ],
+    "returnCabinetIds": [
+      9390004
+    ],
+    "countertopTreatment": "split-level",
+    "showBarStools": true
+  },
+  "updatedRunCount": 2,
+  "updatedStoolUids": [
+    "peninsula-stool:peninsula_wizard_muu8zi8j:0"
+  ],
+  "materialsHasOrdinarySPB6": true,
+  "materialsHasUpdatedReturnB18": true,
+  "applicationErrors": []
+}

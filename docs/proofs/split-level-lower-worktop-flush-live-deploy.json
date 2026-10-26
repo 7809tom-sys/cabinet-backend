@@ -1,0 +1,15 @@
+{
+  "base": "https://www.cabinetdealz.com",
+  "checkedAtEpoch": 1791138595,
+  "indexBundles": [
+    "index-C_DMxPLs.js"
+  ],
+  "designerBundles": [
+    "DesignTool-TeKOV5F7.js"
+  ],
+  "rendererBundles": [
+    "InteractiveRoom3D-CoXTTWCP.js"
+  ],
+  "marker": "lowerWorktopExtensionIn",
+  "markerFound": true
+}

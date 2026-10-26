@@ -1,0 +1,9 @@
+{
+  "visuals": {
+    "gas": "/manus-storage/layout-visual-gas-cooktop_ab66b595.jpg",
+    "electric": "/manus-storage/layout-visual-electric-coil-cooktop_642f511d.jpg",
+    "smooth-top": "/manus-storage/layout-visual-smooth-glass-cooktop_216fe453.jpg"
+  },
+  "noProductOrPriceCopy": true,
+  "applicationErrors": []
+}

@@ -1,0 +1,32 @@
+{
+  "outerWallLines": 5,
+  "runSegments": 5,
+  "wall101AndRunLabels": {
+    "has101": true,
+    "has36": true,
+    "has30_1_16": true
+  },
+  "openingDimensionLabels": [
+    "Window 18\" \u00b7 30\" / 30\" to ends"
+  ],
+  "clearWallSpanLabels": [
+    "Open 4 15/16\""
+  ],
+  "liveDragGaps": "0\"4 15/16\"",
+  "liveBubbleCount": 2,
+  "liveBubbleAttributes": [
+    {
+      "fill": "white",
+      "fillOpacity": "0.98",
+      "width": "46",
+      "height": "20"
+    },
+    {
+      "fill": "white",
+      "fillOpacity": "0.98",
+      "width": "85",
+      "height": "20"
+    }
+  ],
+  "applicationErrors": []
+}

@@ -1,0 +1,40 @@
+{
+  "upperCount": 2,
+  "upperDetails": [
+    {
+      "title": "W-1542 \u2014 15\" \u00d7 42\" \u00d7 12\" Wall Cabinet \u2014 1 Door, 3 Adjustable Shelves",
+      "left": "620.392px",
+      "top": "54.6018px",
+      "width": "77.1429px",
+      "height": "61.7143px",
+      "transform": "rotate(45deg)"
+    },
+    {
+      "title": "W-1542 \u2014 15\" \u00d7 42\" \u00d7 12\" Wall Cabinet \u2014 1 Door, 3 Adjustable Shelves",
+      "left": "739.97px",
+      "top": "257.82px",
+      "width": "77.1429px",
+      "height": "61.7143px",
+      "transform": "rotate(135deg)"
+    }
+  ],
+  "persistedUppers": [
+    {
+      "uid": "cmurn14be_1",
+      "x": 118.5857864376269,
+      "y": 7.0710678118654755,
+      "rotation": 45,
+      "wallId": "wall-45",
+      "wallOffset": 10
+    },
+    {
+      "uid": "cmurn1577_2",
+      "x": 141.83704909609776,
+      "y": 46.58578643762691,
+      "rotation": 135,
+      "wallId": "wall-135",
+      "wallOffset": 10
+    }
+  ],
+  "errors": []
+}

@@ -1,0 +1,13 @@
+{
+  "imperial101": true,
+  "metric101": true,
+  "metricB36": true,
+  "savedMetric": {
+    "unitSystem": "metric"
+  },
+  "returnedImperial": true,
+  "savedImperial": {
+    "unitSystem": "imperial"
+  },
+  "applicationErrors": []
+}

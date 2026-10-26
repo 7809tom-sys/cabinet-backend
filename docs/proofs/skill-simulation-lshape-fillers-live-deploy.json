@@ -1,0 +1,15 @@
+{
+  "base": "https://www.cabinetdealz.com",
+  "checkedAtEpoch": 1791107943,
+  "indexBundles": [
+    "index-BGuBYmhQ.js"
+  ],
+  "designerBundles": [
+    "DesignTool-CBvYsdpw.js"
+  ],
+  "rendererBundles": [
+    "InteractiveRoom3D-BSohr7dr.js"
+  ],
+  "marker": "Fitted fillers",
+  "markerFound": true
+}

@@ -1,0 +1,54 @@
+{
+  "origin": "http://127.0.0.1:3000",
+  "tag": "local-zenith-sku-first-failure",
+  "failedOriginalRequests": true,
+  "items": [
+    {
+      "code": "B12",
+      "image": "/api/catalog-sku-photo/1784390003470_ASP-B12_738a416d.jpg?cd-image-retry-nonce=1791237936909-w5i7lyyn0q",
+      "width": 800,
+      "fallback": false
+    },
+    {
+      "code": "B15",
+      "image": "/api/catalog-sku-photo/1784393809475_ASP-B15_e1d5c5c8.jpg?cd-image-retry-nonce=1791237936909-0yl4ov3yf8zi",
+      "width": 800,
+      "fallback": false
+    },
+    {
+      "code": "B18",
+      "image": "/api/catalog-sku-photo/1784393826892_ASP-B18_51605b2d.jpg?cd-image-retry-nonce=1791237936909-vvi865gc738",
+      "width": 800,
+      "fallback": false
+    },
+    {
+      "code": "B21",
+      "image": "/api/catalog-sku-photo/1784389955389_ASP-B21_0818bcf5.jpg?cd-image-retry-nonce=1791237936910-7nhje6ejtcc",
+      "width": 800,
+      "fallback": false
+    }
+  ],
+  "appResponses": [
+    {
+      "url": "http://127.0.0.1:3000/api/catalog-sku-photo/1784390003470_ASP-B12_738a416d.jpg?cd-image-retry-nonce=1791237936909-w5i7lyyn0q",
+      "status": 200,
+      "mime": "image/jpeg"
+    },
+    {
+      "url": "http://127.0.0.1:3000/api/catalog-sku-photo/1784393809475_ASP-B15_e1d5c5c8.jpg?cd-image-retry-nonce=1791237936909-0yl4ov3yf8zi",
+      "status": 200,
+      "mime": "image/jpeg"
+    },
+    {
+      "url": "http://127.0.0.1:3000/api/catalog-sku-photo/1784389955389_ASP-B21_0818bcf5.jpg?cd-image-retry-nonce=1791237936910-7nhje6ejtcc",
+      "status": 200,
+      "mime": "image/jpeg"
+    },
+    {
+      "url": "http://127.0.0.1:3000/api/catalog-sku-photo/1784393826892_ASP-B18_51605b2d.jpg?cd-image-retry-nonce=1791237936909-vvi865gc738",
+      "status": 200,
+      "mime": "image/jpeg"
+    }
+  ],
+  "pageErrors": []
+}

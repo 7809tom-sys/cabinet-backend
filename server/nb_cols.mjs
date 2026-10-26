@@ -1,0 +1,10 @@
+import { getDb } from "./db.ts";
+import { sql } from "drizzle-orm";
+const db = await getDb();
+const r = await db.execute(sql.raw(`SHOW COLUMNS FROM cabinets;`));
+console.log("keys:", Object.keys(r));
+console.log("isArray:", Array.isArray(r));
+const rows = Array.isArray(r) ? r[0] : r.rows ?? r;
+console.log("rowsType:", Array.isArray(rows));
+if (Array.isArray(rows)) console.log(rows.map(c=>c.Field).join(", "));
+process.exit(0);

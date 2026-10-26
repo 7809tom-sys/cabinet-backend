@@ -1,0 +1,33 @@
+{
+  "erbCountertop": {
+    "points": [
+      {
+        "x": 192,
+        "y": 0
+      },
+      {
+        "x": 192,
+        "y": 36
+      },
+      {
+        "x": 156,
+        "y": 36
+      },
+      {
+        "x": 156,
+        "y": 12
+      },
+      {
+        "x": 168,
+        "y": 12
+      },
+      {
+        "x": 168,
+        "y": 0
+      }
+    ],
+    "pointCount": 6
+  },
+  "pantryCrownSegments": 0,
+  "refrigeratorBridgeCrownSegments": 0
+}

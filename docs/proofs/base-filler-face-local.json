@@ -1,0 +1,24 @@
+{
+  "fixture": {
+    "filler": "F342",
+    "stock": "3 in",
+    "cut": "3 in",
+    "baseFace": "4.5\u201334.5 in"
+  },
+  "savedPlaced": [
+    {
+      "uid": "base-36",
+      "masterCode": "B36",
+      "height": 34.5,
+      "wallOffset": 3
+    },
+    {
+      "uid": "filler-3",
+      "masterCode": "F342",
+      "height": 34.5,
+      "wallOffset": 0
+    }
+  ],
+  "threeDOpen": true,
+  "applicationErrors": []
+}

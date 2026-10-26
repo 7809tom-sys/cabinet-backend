@@ -1,0 +1,27 @@
+{
+  "url": "http://127.0.0.1:3000",
+  "catalogCard": "BEC24\nSquare Double-Door Base End Cabinet\n24\"W \u00d7 34\u00bd\"H",
+  "placed": [
+    {
+      "masterCode": "BEC24",
+      "description": "24\" W x 34-1/2\" H x 24\" D Base End Cabinet \u2014 Quarter-Octagon Shape, 2 Doors (17-1/2\" W x 29\" H each); shelves by distributor Looks like: 2 doors on a quarter-octagon front; door style and edge profile per selected line.",
+      "placement": "base",
+      "cabinetId": 9390014,
+      "numberOfDoors": 2,
+      "numberOfDrawers": 0,
+      "ovenType": null,
+      "openingType": null,
+      "openingWidth": null,
+      "openingHeight": null,
+      "layoutSpec": null,
+      "facePattern": null,
+      "glassDoor": false,
+      "catalogImageUrl": "/manus-storage/media-library/1790702210668_bec24_ea0370d8",
+      "width": 24,
+      "depth": 24,
+      "cornerType": null,
+      "customProfile": "base-end-quarter-octagon"
+    }
+  ],
+  "errors": []
+}

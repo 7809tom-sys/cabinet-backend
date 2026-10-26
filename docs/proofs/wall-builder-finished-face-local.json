@@ -1,0 +1,22 @@
+{
+  "origin": "http://127.0.0.1:3000",
+  "savedDraftOnly": true,
+  "room": "open clockwise wall path with a +45-degree second wall",
+  "wallId": "wall-45",
+  "cabinets": [
+    {
+      "uid": "base-45",
+      "masterCode": "B30",
+      "wallOffset": 12,
+      "backFaceDistanceToAuthoredWallIn": 2.6e-05
+    },
+    {
+      "uid": "upper-45",
+      "masterCode": "W3030",
+      "wallOffset": 12,
+      "backFaceDistanceToAuthoredWallIn": 1.3e-05
+    }
+  ],
+  "roomFacingWallThicknessIn": 4.5,
+  "pageErrors": []
+}

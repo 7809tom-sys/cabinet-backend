@@ -1,0 +1,1024 @@
+[
+  {
+    "internal_name": "Aero Alba",
+    "finish_match": "exact",
+    "notes": "Found exact match for Slim White Oak. Room scene and door images are clean without watermarks.",
+    "room_file": "aero-alba-room.webp",
+    "door_file": "aero-alba-door.webp",
+    "room_dims": [
+      1500,
+      844
+    ],
+    "door_dims": [
+      192,
+      340
+    ],
+    "room_src": "https://www.wholesalecabinets.com/media/catalog/category/Slim-White-Oak-RTA-Cabinets-Gallery.webp",
+    "door_src": "https://www.wholesalecabinets.com/media/catalog/category/Slim-White-Oak-Door-Front.webp"
+  },
+  {
+    "internal_name": "Aero Blanc",
+    "finish_match": "exact",
+    "notes": "Room scene has a faint watermark at the bottom. Color matches the requested white slim shaker style.",
+    "room_file": "aero-blanc-room.jpg",
+    "door_file": "aero-blanc-door.jpg",
+    "room_dims": [
+      1024,
+      1024
+    ],
+    "door_dims": [
+      1024,
+      1024
+    ],
+    "room_src": "https://buywholesalecabinets.com/wp-content/uploads/2024/03/43-Slim-Shaker-White-1-1024x1024.jpg",
+    "door_src": "https://buywholesalecabinets.com/wp-content/uploads/2025/06/dove-slim-shaker-white-1.png"
+  },
+  {
+    "internal_name": "Aero Obsidian",
+    "finish_match": "exact",
+    "notes": "Clean images without watermarks. The room scene shows the Slim Iron Black cabinets in a kitchen setting, and the door image shows a close-up of the door style.",
+    "room_file": "aero-obsidian-room.webp",
+    "door_file": "aero-obsidian-door.webp",
+    "room_dims": [
+      1888,
+      1888
+    ],
+    "door_dims": [
+      1080,
+      1080
+    ],
+    "room_src": "https://homecabinets.com/cdn/shop/files/slim-iron-black-shaker-sample-doorsib-sd-1479466.jpg?v=1776646710",
+    "door_src": "https://homecabinets.com/cdn/shop/files/slim-iron-black-shaker-10x10-kitchensib-1010-4061579.png?v=1776339790"
+  },
+  {
+    "internal_name": "Aero Relic",
+    "finish_match": "close",
+    "notes": "Slim Antique Grey not found as exact name. Room scene from Granite Expo Outlet M28 Antique Gray (grey antique-style kitchen, close match). Door from CabinetDIY Slim Shaker Thunder Grey (dark grey slim shaker door). Both are grey painted slim shaker style, close to SW 7015 Repose Gray.",
+    "room_file": "aero-relic-room.webp",
+    "door_file": "aero-relic-door.jpg",
+    "room_dims": [
+      700,
+      500
+    ],
+    "door_dims": [
+      750,
+      750
+    ],
+    "room_src": "https://img1.wsimg.com/isteam/ip/e52a1bfa-801d-45d1-ba55-47faf021e524/M28-1-1-9d3a07f.jpg",
+    "door_src": "https://www.cabinetdiy.com/image/cache/catalog/Doors/slim%20shaker%20Thunder%20Grey%20kitchen%20cabinets%20-%20Door%20-%201-750x750.jpg"
+  },
+  {
+    "internal_name": "Aero Solstice",
+    "finish_match": "exact",
+    "notes": "Found room scene and door image for Slim Amber Oak (SAO) on Swift Cabinetry. The style name is slightly different (Amber vs Autumn) but it matches the SAO code.",
+    "room_file": "aero-solstice-room.webp",
+    "door_file": "aero-solstice-door.webp",
+    "room_dims": [
+      1135,
+      1284
+    ],
+    "door_dims": [
+      1086,
+      1448
+    ],
+    "room_src": "https://www.swiftcabinetry.net/cdn/shop/files/SAO.png?v=1773714587&width=1400",
+    "door_src": "https://www.swiftcabinetry.net/cdn/shop/collections/ChatGPT_Image_May_23_2026_07_30_36_PM.png?v=1779579054&width=1200"
+  },
+  {
+    "internal_name": "Aura Blanc",
+    "finish_match": "exact",
+    "notes": "Found clean, unwatermarked images for both room scene and door close-up. The room scene clearly shows the Shaker Antique White finish.",
+    "room_file": "aura-blanc-room.webp",
+    "door_file": "aura-blanc-door.webp",
+    "room_dims": [
+      1200,
+      1200
+    ],
+    "door_dims": [
+      1200,
+      1200
+    ],
+    "room_src": "https://www.primecabinetry.com/media/igallery/shaker_antique_white_2_1.jpg",
+    "door_src": "https://cdn.kitchencabinetkings.com/media/catalog/product/cache/1/image/650x/040ec09b1e35df139433887a97daa66f/s/h/shaker-antique-white-door.jpg"
+  },
+  {
+    "internal_name": "Aura Cream",
+    "finish_match": "exact",
+    "notes": "Found room scene and door image for Classic Cream Shaker. The room scene image is a styled kitchen photo.",
+    "room_file": "aura-cream-room.png",
+    "door_file": "aura-cream-door.jpg",
+    "room_dims": [
+      1920,
+      1080
+    ],
+    "door_dims": [
+      1920,
+      1080
+    ],
+    "room_src": "https://discountcustomcabinets.com/wp-content/uploads/2026/01/Faircrest-Classic-Cream-Shaker-IG-Post-1920-x-1080-px.png",
+    "door_src": "https://discountcustomcabinets.com/wp-content/uploads/2026/01/classic-cream_1-1.jpeg"
+  },
+  {
+    "internal_name": "Aurum Vault",
+    "finish_match": "exact",
+    "notes": "Images are from Like Cabinets. The door image is a single door base cabinet. The room scene is a full kitchen. No visible watermarks.",
+    "room_file": "aurum-vault-room.webp",
+    "door_file": "aurum-vault-door.webp",
+    "room_dims": [
+      2390,
+      1800
+    ],
+    "door_dims": [
+      1000,
+      1000
+    ],
+    "room_src": "https://likecabinets.com/cdn/shop/files/Treasure_Chest_-_lifestyle_images_1_4f3ec546-2945-4e90-a4f6-66c097493af7.webp?v=1761704770&width=2390",
+    "door_src": "https://likecabinets.com/cdn/shop/files/TC-B12-C_697ed9fb-fffb-4ad2-b274-5c5a71a9875a.webp?v=1761704770&width=1000"
+  },
+  {
+    "internal_name": "Blanc Core",
+    "finish_match": "exact",
+    "notes": "Images sourced from US Cabinet Depot. Room scene is a styled kitchen photo. No visible watermarks.",
+    "room_file": "blanc-core-room.webp",
+    "door_file": "blanc-core-door.webp",
+    "room_dims": [
+      800,
+      600
+    ],
+    "door_dims": [
+      800,
+      600
+    ],
+    "room_src": "https://www.uscabinetdepot.com/media/wysiwyg/cms-images/gallery/SW_Capital_Series_Card.jpg",
+    "door_src": "https://www.uscabinetdepot.com/media/wysiwyg/cms-images/SW_Door.jpg"
+  },
+  {
+    "internal_name": "Bloom Blanc",
+    "finish_match": "exact",
+    "notes": "Found exact match for Floral White Shaker cabinets. Images are from Finecraft NJ, which carries Spring Forest Cabinetry's Builder Grade line. No visible watermarks.",
+    "room_file": "bloom-blanc-room.webp",
+    "door_file": "bloom-blanc-door.webp",
+    "room_dims": [
+      1024,
+      853
+    ],
+    "door_dims": [
+      1024,
+      853
+    ],
+    "room_src": "https://i0.wp.com/finecraftnj.com/wp-content/uploads/2025/08/Floral-White-Kitchen.jpg",
+    "door_src": "https://i0.wp.com/finecraftnj.com/wp-content/uploads/2025/08/Floral-White-e1755438460281.jpg"
+  },
+  {
+    "internal_name": "Bloom Cinder",
+    "finish_match": "exact",
+    "notes": "Found matching room scene (bathroom) and door close-up on cmooutlet.com. No visible watermarks.",
+    "room_file": "bloom-cinder-room.jpg",
+    "door_file": "bloom-cinder-door.jpg",
+    "room_dims": [
+      800,
+      800
+    ],
+    "door_dims": [
+      800,
+      800
+    ],
+    "room_src": "https://www.cmooutlet.com/wp-content/uploads/2024/10/Slim-Shaker-Collection-Floral-Gray-Bathroom.jpg",
+    "door_src": "https://www.cmooutlet.com/wp-content/uploads/2024/10/Slim-Shaker-Collection-Floral-Gray.jpg"
+  },
+  {
+    "internal_name": "Bloom Umbra",
+    "finish_match": "exact",
+    "notes": "Found a styled kitchen photo and a door close-up. No watermarks. Color matches perfectly.",
+    "room_file": "bloom-umbra-room.webp",
+    "door_file": "bloom-umbra-door.jpg",
+    "room_dims": [
+      1024,
+      819
+    ],
+    "door_dims": [
+      400,
+      750
+    ],
+    "room_src": "https://i0.wp.com/finecraftnj.com/wp-content/uploads/2025/08/Floral-Espresso-Kitchen.jpg",
+    "door_src": "https://d2xsxph8kpxj0f.cloudfront.net/310519663043588293/353vL5sR2enn3cPaLVENF8/floral-espresso-clean_2d57c899.jpg"
+  },
+  {
+    "internal_name": "Carbon Frost",
+    "finish_match": "exact",
+    "notes": "Images found on Tree House Cabinets. No visible watermarks. Color matches Aspen Charcoal.",
+    "room_file": "carbon-frost-room.png",
+    "door_file": "carbon-frost-door.jpg",
+    "room_dims": [
+      961,
+      803
+    ],
+    "door_dims": [
+      206,
+      366
+    ],
+    "room_src": "https://kitchen365-b2c-public-client-prod-treehousecabinets.s3.us-east-1.amazonaws.com/media/catalog/category/AC-Kitchen_1.PNG",
+    "door_src": "https://kitchen365-b2c-public-client-prod-treehousecabinets.s3.us-east-1.amazonaws.com/media/catalog/category/AC-SD-Front.jpg"
+  },
+  {
+    "internal_name": "Casselberry Blanc",
+    "finish_match": "exact",
+    "notes": "Found high-quality room scene and door sample images from RTA Wood Cabinets. No watermarks visible. Color matches Antique White description.",
+    "room_file": "casselberry-blanc-room.webp",
+    "door_file": "casselberry-blanc-door.webp",
+    "room_dims": [
+      1200,
+      600
+    ],
+    "door_dims": [
+      2486,
+      3840
+    ],
+    "room_src": "https://rtawoodcabinets.com/cdn/shop/collections/Casselberry_white-304524.jpg?v=1720540159",
+    "door_src": "https://rtawoodcabinets.com/cdn/shop/products/CW-SD.jpg?v=1682090219"
+  },
+  {
+    "internal_name": "Casselberry Saddle",
+    "finish_match": "exact",
+    "notes": "Found exact match for room scene and door sample on Kabinet King. No visible watermarks.",
+    "room_file": "casselberry-saddle-room.jpg",
+    "door_file": "casselberry-saddle-door.png",
+    "room_dims": null,
+    "door_dims": null,
+    "room_src": "https://s.turbifycdn.com/aah/yhst-23195497405989/casselberry-saddle-kitchen-cabinets-118.jpg",
+    "door_src": "https://s.turbifycdn.com/aah/yhst-23195497405989/casselberry-saddle-sample-door-5.jpg"
+  },
+  {
+    "internal_name": "Cinder Core Gray",
+    "finish_match": "exact",
+    "notes": "Found exact match for Shaker Gray. The room scene is a 10-foot run cabinet set showing the cabinets in a kitchen setting. The door image is a close-up sample.",
+    "room_file": "cinder-core-gray-room.webp",
+    "door_file": "cinder-core-gray-door.webp",
+    "room_dims": [
+      2696,
+      1432
+    ],
+    "door_dims": [
+      2696,
+      1432
+    ],
+    "room_src": "https://www.kabinetdepot.com/cdn/shop/files/k4-shaker_gray.png?v=1728152079",
+    "door_src": "https://cdn.kitchencabinetkings.com/media/catalog/product/cache/1/image/650x/040ec09b1e35df139433887a97daa66f/s/h/shaker-gray-door.jpg"
+  },
+  {
+    "internal_name": "Cinder Core",
+    "finish_match": "exact",
+    "notes": "Found high-quality room scene and door close-up images from Waverly Cabinets. No visible watermarks. Color matches Shaker Cinder.",
+    "room_file": "cinder-core-room.jpg",
+    "door_file": "cinder-core-door.jpg",
+    "room_dims": [
+      2560,
+      1440
+    ],
+    "door_dims": [
+      1201,
+      1870
+    ],
+    "room_src": "https://www.waverlycabinets.com/wp-content/uploads/2018/12/Shaker-Cinder-Kitchen-scaled.jpg",
+    "door_src": "https://www.waverlycabinets.com/wp-content/uploads/2021/04/Shaker-cinder.jpg"
+  },
+  {
+    "internal_name": "Cobalt Abyss",
+    "finish_match": "exact",
+    "notes": "Images are from RTA Cabinet Store. The room scene is a full kitchen and the door image is a close-up of the door. No watermarks visible.",
+    "room_file": "cobalt-abyss-room.jpg",
+    "door_file": "cobalt-abyss-door.jpg",
+    "room_dims": [
+      1200,
+      740
+    ],
+    "door_dims": [
+      158,
+      310
+    ],
+    "room_src": "https://rtacabinetstore.blob.core.windows.net/store/0011851_navy-blue-shaker.jpg",
+    "door_src": "https://rtacabinetstore.blob.core.windows.net/store/0066305_navy-blue-shaker-frameless-kitchen-cabinets.jpeg"
+  },
+  {
+    "internal_name": "Dual Blanc",
+    "finish_match": "exact",
+    "notes": "Found exact match room scene and door images on homecabinets.com. Images are clean without watermarks.",
+    "room_file": "dual-blanc-room.webp",
+    "door_file": "dual-blanc-door.webp",
+    "room_dims": [
+      1024,
+      968
+    ],
+    "door_dims": [
+      1024,
+      970
+    ],
+    "room_src": "https://homecabinets.com/cdn/shop/files/double-dove-white-shaker-10x10-kitchenddw-1010-3681368.png",
+    "door_src": "https://homecabinets.com/cdn/shop/files/double-dove-white-slim-dove-white-shaker-sample-squareddw-sq-3100882.png"
+  },
+  {
+    "internal_name": "Dual Vesper",
+    "finish_match": "exact",
+    "notes": "Found exact match room scene and door close-up for Double Smokey Gray Shaker cabinets on homecabinets.com. Images are clean without watermarks.",
+    "room_file": "dual-vesper-room.webp",
+    "door_file": "dual-vesper-door.webp",
+    "room_dims": [
+      1550,
+      1550
+    ],
+    "door_dims": [
+      1701,
+      1701
+    ],
+    "room_src": "https://homecabinets.com/cdn/shop/files/DSG-KITCHEN-01_1433ee6e-145f-4b2f-8ee6-68a15b413a7e.jpg?v=1758514072",
+    "door_src": "https://homecabinets.com/cdn/shop/files/Double_Smokey_Gray_f2408a0e-5d8f-4c56-9f4d-a77eb7f637a2.jpg?v=1744023561"
+  },
+  {
+    "internal_name": "Edge Blanc",
+    "finish_match": "exact",
+    "notes": "Found high-quality room scene and door close-up for Edgeline White. No watermarks visible. Color matches the white finish.",
+    "room_file": "edge-blanc-room.webp",
+    "door_file": "edge-blanc-door.webp",
+    "room_dims": [
+      1200,
+      600
+    ],
+    "door_dims": [
+      1200,
+      600
+    ],
+    "room_src": "https://rtawoodcabinets.com/cdn/shop/collections/Edgeline_white.png?v=1726162362",
+    "door_src": "https://rtawoodcabinets.com/cdn/shop/files/edgelinewhite.png?v=1726165000"
+  },
+  {
+    "internal_name": "Essence Oak",
+    "finish_match": "exact",
+    "notes": "Found high-quality unwatermarked images from Waverly Cabinets. Room scene shows a full kitchen in the correct finish.",
+    "room_file": "essence-oak-room.jpg",
+    "door_file": "essence-oak-door.webp",
+    "room_dims": [
+      2560,
+      1440
+    ],
+    "door_dims": [
+      1448,
+      2241
+    ],
+    "room_src": "https://www.waverlycabinets.com/wp-content/uploads/uscd_shaker-essence-oak_kitchen-full-scaled.jpg",
+    "door_src": "https://www.waverlycabinets.com/wp-content/uploads/uscd_shaker-essence-oak_sample-door.jpg"
+  },
+  {
+    "internal_name": "Glace Blanc",
+    "finish_match": "exact",
+    "notes": "Clean images, no watermarks. Room scene is a styled kitchen, door image is a product photo of a base cabinet showing the slab high gloss white door.",
+    "room_file": "glace-blanc-room.webp",
+    "door_file": "glace-blanc-door.webp",
+    "room_dims": [
+      2048,
+      2048
+    ],
+    "door_dims": [
+      2000,
+      2000
+    ],
+    "room_src": "https://cdn.shopify.com/s/files/1/0690/8113/7365/files/high-glossy-white-10x10-kitchenhw-1010-3376247.jpg",
+    "door_src": "https://homecabinets.com/cdn/shop/files/B12_af9fc74b-0fac-446a-a1a5-fcddef370a5f.jpg"
+  },
+  {
+    "internal_name": "Glace Cinder",
+    "finish_match": "exact",
+    "notes": "Found matching room scene and door sample for High Glossy Gray. No visible watermarks.",
+    "room_file": "glace-cinder-room.webp",
+    "door_file": "glace-cinder-door.webp",
+    "room_dims": [
+      2048,
+      2048
+    ],
+    "door_dims": [
+      150,
+      150
+    ],
+    "room_src": "https://homecabinets.com/cdn/shop/files/high-glossy-gray-10x10-kitchenhgg-1010-8170338.jpg?v=1776341084",
+    "door_src": "https://buywholesalecabinets.com/wp-content/uploads/2025/08/HG-150x150-1.webp"
+  },
+  {
+    "internal_name": "Haven Dune",
+    "finish_match": "exact",
+    "notes": "Images found on USA Cabinets. Room scene is a styled kitchen, door image is a close-up sample. Both match the Haven Dune style perfectly.",
+    "room_file": "haven-dune-room.webp",
+    "door_file": "haven-dune-door.webp",
+    "room_dims": [
+      2560,
+      1441
+    ],
+    "door_dims": [
+      2560,
+      1441
+    ],
+    "room_src": "https://usacabinets.com/wp-content/uploads/2025/10/Haven-Dune-Photo-I-scaled.jpg",
+    "door_src": "https://usacabinets.com/wp-content/uploads/2025/03/Dune-Sample.jpg"
+  },
+  {
+    "internal_name": "Haven Ember",
+    "finish_match": "exact",
+    "notes": "Images are from RTA Wood Cabinets. The room scene is a styled kitchen photo. The door image is a close-up of the sample door. No watermarks visible.",
+    "room_file": "haven-ember-room.webp",
+    "door_file": "haven-ember-door.webp",
+    "room_dims": [
+      1200,
+      600
+    ],
+    "door_dims": [
+      1200,
+      600
+    ],
+    "room_src": "https://rtawoodcabinets.com/cdn/shop/collections/Haven_ember_rev2.png?v=1761864238",
+    "door_src": "https://rtawoodcabinets.com/cdn/shop/files/havenember.png?v=1761869830"
+  },
+  {
+    "internal_name": "Haven White",
+    "finish_match": "exact",
+    "notes": "Found excellent room scene and door close-up for Charleston White. No watermarks. Color is an exact match.",
+    "room_file": "haven-white-room.jpg",
+    "door_file": "haven-white-door.jpg",
+    "room_dims": [
+      800,
+      456
+    ],
+    "door_dims": [
+      800,
+      456
+    ],
+    "room_src": "https://s.turbifycdn.com/aah/yhst-23195497405989/charleston-white-kitchen-cabinets-81.jpg",
+    "door_src": "https://s.turbifycdn.com/aah/yhst-23195497405989/charleston-white-kitchen-cabinets-85.jpg"
+  },
+  {
+    "internal_name": "Honey Core",
+    "finish_match": "exact",
+    "notes": "Found high-quality, unwatermarked images for both room scene and door close-up from Kitchen Cabinet Kings. Color matches the Shaker Honey description perfectly.",
+    "room_file": "honey-core-room.webp",
+    "door_file": "honey-core-door.webp",
+    "room_dims": [
+      465,
+      315
+    ],
+    "door_dims": [
+      465,
+      315
+    ],
+    "room_src": "https://kitchencabinetkings.com/media/category/kitchens/shaker-honey.webp",
+    "door_src": "https://kitchencabinetkings.com/media/category/doors/shaker-honey.webp"
+  },
+  {
+    "internal_name": "Ivy Core",
+    "finish_match": "exact",
+    "notes": "Found matching room scene and door images. No visible watermarks.",
+    "room_file": "ivy-core-room.webp",
+    "door_file": "ivy-core-door.webp",
+    "room_dims": [
+      800,
+      800
+    ],
+    "door_dims": [
+      800,
+      800
+    ],
+    "room_src": "https://cdn-ilehkkg.nitrocdn.com/BSUUDAGIdZbzrHcnuGMHmZnAEzJzxQWn/assets/images/optimized/rev-5f00263/cabinetselect.com/cswp/wp-content/uploads/2025/10/Shaker-Ivy-Kitchen.jpg",
+    "door_src": "https://rtawoodcabinets.com/cdn/shop/files/highlandivy.png?v=1760578669&width=170"
+  },
+  {
+    "internal_name": "Lumina Blanc",
+    "finish_match": "exact",
+    "notes": "Images are clean without watermarks. Room scene and door sample clearly show the bright white shaker style.",
+    "room_file": "lumina-blanc-room.webp",
+    "door_file": "lumina-blanc-door.jpg",
+    "room_dims": [
+      1500,
+      1100
+    ],
+    "door_dims": [
+      394,
+      794
+    ],
+    "room_src": "https://countrykitchensonline.com/cdn/shop/files/aspen-white-kitchen-cabinets-1.jpg?v=1689597138",
+    "door_src": "https://static.wixstatic.com/media/4c7bc3_e25af217681f4c61bc1a19c417fd00ce~mv2.jpg/v1/fill/w_394,h_794,al_c,q_80/Aspen%20White%20Shaker%20Door%20and%20Drawer%20Front%20Sample%20Image.jpg"
+  },
+  {
+    "internal_name": "Lumina White",
+    "finish_match": "exact",
+    "notes": "Images sourced from The RTA Store. Room scene shows Aspen White Shaker kitchen. Door image is a close-up of the door. No visible watermarks.",
+    "room_file": "lumina-white-room.webp",
+    "door_file": "lumina-white-door.webp",
+    "room_dims": [
+      1600,
+      1200
+    ],
+    "door_dims": [
+      1118,
+      1200
+    ],
+    "room_src": "https://www.thertastore.com/media/catalog/product/a/s/aspen_design_-_decodoor_and_island_-_aspen_white-min_cat_127492.jpg",
+    "door_src": "https://www.thertastore.com/media/catalog/product/a/s/aspen_white_shaker_sm-2_2.jpg"
+  },
+  {
+    "internal_name": "Navy Core",
+    "finish_match": "exact",
+    "notes": "Images sourced from Prime Cabinetry. The room scene is a styled kitchen photo. The door image is a close-up of the cabinet door.",
+    "room_file": "navy-core-room.webp",
+    "door_file": "navy-core-door.webp",
+    "room_dims": [
+      1200,
+      1200
+    ],
+    "door_dims": [
+      198,
+      396
+    ],
+    "room_src": "https://www.primecabinetry.com/media/igallery/Shaker_Navy_1.jpg",
+    "door_src": "https://www.primecabinetry.com/media/igallery/resize/198x/Shaker-Blue.png"
+  },
+  {
+    "internal_name": "Nimbus Blanc",
+    "finish_match": "exact",
+    "notes": "Images are clean without watermarks. Room scene is a styled kitchen matching the light grey/dove color. Door image is a close-up of the Shaker Dove sample door.",
+    "room_file": "nimbus-blanc-room.webp",
+    "door_file": "nimbus-blanc-door.webp",
+    "room_dims": [
+      485,
+      323
+    ],
+    "door_dims": [
+      650,
+      650
+    ],
+    "room_src": "https://rtadirect.com/cdn/shop/products/Shaker_Dove_Rtadirect.com_720x_2a51f782-ed4a-41bd-85bf-43eb6a572ffd.jpg",
+    "door_src": "https://countrykitchensonline.com/cdn/shop/files/shakerdovegreydoor.jpg"
+  },
+  {
+    "internal_name": "Nimbus Grey",
+    "finish_match": "exact",
+    "notes": "Clean images, no watermarks. Color matches the grey shaker description.",
+    "room_file": "nimbus-grey-room.jpg",
+    "door_file": "nimbus-grey-door.webp",
+    "room_dims": [
+      834,
+      667
+    ],
+    "door_dims": [
+      1000,
+      1000
+    ],
+    "room_src": "https://discountcustomcabinets.com/wp-content/uploads/2025/05/West-Point-Grey-kitchen.jpg",
+    "door_src": "https://countrykitchensonline.com/cdn/shop/files/West_Point_Grey.jpg?v=1677986085"
+  },
+  {
+    "internal_name": "Nocturne Glass",
+    "finish_match": "exact",
+    "notes": "Found exact match for Midnight Glass door and room scene. No watermarks.",
+    "room_file": "nocturne-glass-room.webp",
+    "door_file": "nocturne-glass-door.webp",
+    "room_dims": [
+      1086,
+      1086
+    ],
+    "door_dims": [
+      1408,
+      1408
+    ],
+    "room_src": "https://homecabinets.com/cdn/shop/files/MG2.png?v=1779778420",
+    "door_src": "https://homecabinets.com/cdn/shop/files/MG-SD.jpg?v=1779765686"
+  },
+  {
+    "internal_name": "Nova Blanc",
+    "finish_match": "exact",
+    "notes": "No visible watermarks. Color matches Shaker White perfectly.",
+    "room_file": "nova-blanc-room.webp",
+    "door_file": "nova-blanc-door.webp",
+    "room_dims": [
+      870,
+      489
+    ],
+    "door_dims": [
+      1170,
+      658
+    ],
+    "room_src": "https://www.lilyanncabinets.com/media/igallery/w/h/white_shaker_elite_2_.jpg",
+    "door_src": "https://www.lilyanncabinets.com/media/igallery/w/h/white-shaker-elite-4-base-cabinet.jpg"
+  },
+  {
+    "internal_name": "Nova White",
+    "finish_match": "exact",
+    "notes": "Found excellent high-res images from Waverly Cabinets for US Cabinet Depot Shaker White. No watermarks.",
+    "room_file": "nova-white-room.jpg",
+    "door_file": "nova-white-door.webp",
+    "room_dims": [
+      2560,
+      1440
+    ],
+    "door_dims": [
+      2560,
+      1440
+    ],
+    "room_src": "https://www.waverlycabinets.com/wp-content/uploads/2024/05/SW-Kitchen-scaled.jpg",
+    "door_src": "https://www.waverlycabinets.com/wp-content/uploads/2024/05/SW-Bathroom-scaled.jpg"
+  },
+  {
+    "internal_name": "Obsidian Forge",
+    "finish_match": "exact",
+    "notes": "Room scene has a HomeCabinets watermark in the bottom right corner. Both images match the Iron Black Shaker style.",
+    "room_file": "obsidian-forge-room.jpg",
+    "door_file": "obsidian-forge-door.webp",
+    "room_dims": [
+      1080,
+      1080
+    ],
+    "door_dims": [
+      1000,
+      1030
+    ],
+    "room_src": "https://scontent-ord5-1.cdninstagram.com/v/t39.30808-6/677051978_122221032530349457_4458756312415107452_n.jpg?stp=dst-jpg_e35_tt6&_nc_cat=111&ig_cache_key=Mzg3ODg0MTExMjU2MzE5Nzk2NQ%3D%3D.3-ccb7-5&ccb=7-5&_nc_sid=58cdad&efg=eyJ2ZW5jb2RlX3RhZyI6IkZFRUQueHBpZHMuMTA4MC5zZHIucmVndWxhcl9waG90by5DMyJ9&_nc_ohc=VrMh1WF5saYQ7kNvwGvrRip&_nc_oc=Adpqufd5drT_258UVmVnx2Ue3Hb_RWEsGO3gGj6JnhDlYzU_p8l3RSO-xSknYeSznIQ&_nc_zt=23&_nc_ht=scontent-ord5-1.cdninstagram.com&_nc_gid=91eXtZo1MvrbA8i2XFlXOg&_nc_ss=7b689&oh=00_Af8HoDtLnfRNYOxXOIi0R_IEfEVOUTBrd-oL0sxNm-k_Rw&oe=6A3EBEB9",
+    "door_src": "https://homecabinets.com/cdn/shop/collections/iron-black-shaker-1080590.png?v=1763366984&width=1000"
+  },
+  {
+    "internal_name": "Onyx Core",
+    "finish_match": "exact",
+    "notes": "Found exact match for Shaker Black on cabinetselect.com. Images are clean without watermarks.",
+    "room_file": "onyx-core-room.jpg",
+    "door_file": "onyx-core-door.jpg",
+    "room_dims": [
+      800,
+      800
+    ],
+    "door_dims": [
+      800,
+      800
+    ],
+    "room_src": "https://cabinetselect.com/cswp/wp-content/uploads/2022/06/Black-Shaker-kitchen.jpg",
+    "door_src": "https://cabinetselect.com/cswp/wp-content/uploads/2022/06/Black-Shaker-Kitchen-Cabinet.jpg"
+  },
+  {
+    "internal_name": "Onyx Shadow",
+    "finish_match": "exact",
+    "notes": "Found exact match room scene and door images for Midnight Black Shaker. No watermarks visible.",
+    "room_file": "onyx-shadow-room.webp",
+    "door_file": "onyx-shadow-door.jpg",
+    "room_dims": [
+      1667,
+      1250
+    ],
+    "door_dims": [
+      206,
+      366
+    ],
+    "room_src": "https://countrykitchensonline.com/cdn/shop/files/midnight-black-shaker-kitchen.jpg?v=1707223989",
+    "door_src": "https://www.faircrestcabinets.com/media/catalog/category/resized/150/Midnight_Black-Shaker-face-resize_web.jpg"
+  },
+  {
+    "internal_name": "Oxford Blanc",
+    "finish_match": "exact",
+    "notes": "Found exact match room scene and door image for Oxford White from RTA Wood Cabinets. No visible watermarks.",
+    "room_file": "oxford-blanc-room.webp",
+    "door_file": "oxford-blanc-door.webp",
+    "room_dims": [
+      1200,
+      600
+    ],
+    "door_dims": [
+      300,
+      464
+    ],
+    "room_src": "https://rtawoodcabinets.com/cdn/shop/collections/Oxford_white.png?v=1720539758",
+    "door_src": "https://rtawoodcabinets.com/cdn/shop/files/Oxfordwhite.png?v=1712856183"
+  },
+  {
+    "internal_name": "Oxford Mist",
+    "finish_match": "exact",
+    "notes": "Found high-quality unwatermarked images for both room scene and door close-up. Color matches the expected grey/mist finish.",
+    "room_file": "oxford-mist-room.webp",
+    "door_file": "oxford-mist-door.webp",
+    "room_dims": [
+      1200,
+      600
+    ],
+    "door_dims": [
+      1201,
+      1856
+    ],
+    "room_src": "https://rtawoodcabinets.com/cdn/shop/collections/Oxford_Mist_banner.jpg?v=1720539636",
+    "door_src": "https://rtawoodcabinets.com/cdn/shop/files/OxfordMistOM_2.jpg?v=1695403505"
+  },
+  {
+    "internal_name": "Oxford Sage",
+    "finish_match": "exact",
+    "notes": "Found exact match for Oxford Sage room scene and door close-up on RTA Wood Cabinets. Images are clean without watermarks.",
+    "room_file": "oxford-sage-room.webp",
+    "door_file": "oxford-sage-door.webp",
+    "room_dims": [
+      1200,
+      600
+    ],
+    "door_dims": [
+      1200,
+      600
+    ],
+    "room_src": "https://rtawoodcabinets.com/cdn/shop/collections/Oxford_Sage.png?v=1724697949",
+    "door_src": "https://rtawoodcabinets.com/cdn/shop/files/oxford_sage_door_drawer.png?v=1723081938"
+  },
+  {
+    "internal_name": "Oxford Toffee",
+    "finish_match": "exact",
+    "notes": "Found high-quality, watermark-free room scene and door images from CabinetSelect and DiscountCustomCabinets. The color matches the requested toffee stain.",
+    "room_file": "oxford-toffee-room.jpg",
+    "door_file": "oxford-toffee-door.jpg",
+    "room_dims": [
+      2560,
+      1440
+    ],
+    "door_dims": [
+      800,
+      800
+    ],
+    "room_src": "https://discountcustomcabinets.com/wp-content/uploads/2025/04/OT-Kitchen-2-scaled.jpg",
+    "door_src": "https://cabinetselect.com/cswp/wp-content/uploads/2023/10/Oxford-Toffee-Kitchen-Cabinet-Line.jpg"
+  },
+  {
+    "internal_name": "Prism Clear",
+    "finish_match": "exact",
+    "notes": "Found exact match for clear glass aluminum frame (Crystal Glass) on homecabinets.com. No watermarks.",
+    "room_file": "prism-clear-room.jpg",
+    "door_file": "prism-clear-door.webp",
+    "room_dims": null,
+    "door_dims": [
+      320,
+      320
+    ],
+    "room_src": "https://homecabinets.com/cdn/shop/files/CG1.png?v=1779778394&width=320",
+    "door_src": "https://homecabinets.com/cdn/shop/files/GG-SD.jpg?v=1779765685&width=320"
+  },
+  {
+    "internal_name": "Selene Gray",
+    "finish_match": "exact",
+    "notes": "Clean images without watermarks. Exact match for Lunar Gray Shaker.",
+    "room_file": "selene-gray-room.webp",
+    "door_file": "selene-gray-door.webp",
+    "room_dims": [
+      1000,
+      500
+    ],
+    "door_dims": [
+      170,
+      263
+    ],
+    "room_src": "https://rtawoodcabinets.com/cdn/shop/collections/essex_lunar_040ce1f7-7b13-486a-8519-5fe1ea20cf54-454251.jpg?v=1724697890&width=1000",
+    "door_src": "https://rtawoodcabinets.com/cdn/shop/products/Essex-Lunar-180894.png?v=1671230880&width=170"
+  },
+  {
+    "internal_name": "Silva Shaker",
+    "finish_match": "exact",
+    "notes": "Found exact match for Hickory Shaker cabinets. Room scene and door close-up images are from Discount Custom Cabinets. No visible watermarks.",
+    "room_file": "silva-shaker-room.jpg",
+    "door_file": "silva-shaker-door.jpg",
+    "room_dims": [
+      800,
+      800
+    ],
+    "door_dims": [
+      800,
+      800
+    ],
+    "room_src": "https://discountcustomcabinets.com/wp-content/uploads/2024/11/hickory-web_2.jpg",
+    "door_src": "https://discountcustomcabinets.com/wp-content/uploads/2024/11/hickory_double_door_walls_b_4-1.jpg"
+  },
+  {
+    "internal_name": "Slate Core",
+    "finish_match": "exact",
+    "notes": "Clean images without watermarks. Color matches Shaker Grey.",
+    "room_file": "slate-core-room.webp",
+    "door_file": "slate-core-door.webp",
+    "room_dims": [
+      600,
+      600
+    ],
+    "door_dims": [
+      600,
+      600
+    ],
+    "room_src": "https://cdn-ilehkkg.nitrocdn.com/BSUUDAGIdZbzrHcnuGMHmZnAEzJzxQWn/assets/images/optimized/rev-5f00263/cabinetselect.com/cswp/wp-content/uploads/2020/02/SG-Kitchen.jpg",
+    "door_src": "https://cdn-ilehkkg.nitrocdn.com/BSUUDAGIdZbzrHcnuGMHmZnAEzJzxQWn/assets/images/optimized/rev-5f00263/cabinetselect.com/cswp/wp-content/uploads/2020/02/Shaker-Grey-1.jpg"
+  },
+  {
+    "internal_name": "Slate Echo",
+    "finish_match": "exact",
+    "notes": "Found exact match room scene and door image on Columbus Cabinetry. No watermarks visible.",
+    "room_file": "slate-echo-room.jpg",
+    "door_file": "slate-echo-door.jpg",
+    "room_dims": [
+      960,
+      1050
+    ],
+    "door_dims": [
+      159,
+      282
+    ],
+    "room_src": "https://kitchen365-b2c-public-client-prod-columbuscabinetryrta.s3.us-east-1.amazonaws.com/media/catalog/category/winchester_pic.jpeg",
+    "door_src": "https://kitchen365-b2c-public-client-prod-columbuscabinetryrta.s3.us-east-1.amazonaws.com/media/catalog/category/Winchester-Grey-door22_1.jpeg"
+  },
+  {
+    "internal_name": "Solis Oak",
+    "finish_match": "exact",
+    "notes": "Images are from HomeCabinets.com. Room scene and door close-up match the Oak Blonde slab style. No visible watermarks.",
+    "room_file": "solis-oak-room.webp",
+    "door_file": "solis-oak-door.webp",
+    "room_dims": [
+      1563,
+      1563
+    ],
+    "door_dims": [
+      1080,
+      1080
+    ],
+    "room_src": "https://homecabinets.com/cdn/shop/files/oak-blonde-10x10-kitchenob-1010-8614359.png?v=1776338723",
+    "door_src": "https://homecabinets.com/cdn/shop/files/oak-blonde-10x10-kitchenob-1010-4812725.png?v=1776338722"
+  },
+  {
+    "internal_name": "Sterling Pulse",
+    "finish_match": "exact",
+    "notes": "Found high-quality room scene and clear door sample. No watermarks visible. Color matches the requested Platinum Shaker (grey).",
+    "room_file": "sterling-pulse-room.jpg",
+    "door_file": "sterling-pulse-door.jpg",
+    "room_dims": [
+      1000,
+      800
+    ],
+    "door_dims": [
+      206,
+      366
+    ],
+    "room_src": "https://discountcustomcabinets.com/wp-content/uploads/2024/11/IMG_0120_edited-4.jpg",
+    "door_src": "https://kitchen365-b2c-public-client-prod-columbuscabinetryrta.s3.us-east-1.amazonaws.com/media/catalog/product/p/l/platinumm-shaker-door_1.jpg"
+  },
+  {
+    "internal_name": "Sylvan Rust",
+    "finish_match": "exact",
+    "notes": "Found a room scene and a door image for Rustic Wood Shaker on HomeCabinets. No visible watermarks.",
+    "room_file": "sylvan-rust-room.webp",
+    "door_file": "sylvan-rust-door.webp",
+    "room_dims": [
+      1254,
+      1254
+    ],
+    "door_dims": [
+      1080,
+      1080
+    ],
+    "room_src": "https://homecabinets.com/cdn/shop/files/2026_03_02_28_PM.png?v=1778673336",
+    "door_src": "https://homecabinets.com/cdn/shop/files/RW.jpg?v=1779776913"
+  },
+  {
+    "internal_name": "Terra Shaker",
+    "finish_match": "exact",
+    "notes": "Images are clear, no watermarks, color matches the Carmel Shaker style.",
+    "room_file": "terra-shaker-room.jpg",
+    "door_file": "terra-shaker-door.jpg",
+    "room_dims": [
+      684,
+      547
+    ],
+    "door_dims": [
+      371,
+      706
+    ],
+    "room_src": "https://cabinetsdoortodoor.com/wp-content/uploads/2026/01/carmel-kitchen.jpg",
+    "door_src": "https://cabinetsdoortodoor.com/wp-content/uploads/2026/01/carmel-door.jpg"
+  },
+  {
+    "internal_name": "Umbra Oak",
+    "finish_match": "exact",
+    "notes": "Clean images without watermarks. Color matches the dark oak shade description.",
+    "room_file": "umbra-oak-room.webp",
+    "door_file": "umbra-oak-door.webp",
+    "room_dims": [
+      1882,
+      1882
+    ],
+    "door_dims": [
+      1080,
+      1080
+    ],
+    "room_src": "https://homecabinets.com/cdn/shop/files/oak-shade-10x10-kitchenos-1010-7168619.png?v=1776338722",
+    "door_src": "https://homecabinets.com/cdn/shop/files/oak-shade-10x10-kitchenos-1010-9914769.png?v=1776338723"
+  },
+  {
+    "internal_name": "Umbra Shaker",
+    "finish_match": "exact",
+    "notes": "Found excellent high-res room scene and door close-up from Lily Ann Cabinets. No watermarks. Color matches Shaker Espresso perfectly.",
+    "room_file": "umbra-shaker-room.webp",
+    "door_file": "umbra-shaker-door.gif",
+    "room_dims": [
+      870,
+      489
+    ],
+    "door_dims": [
+      250,
+      215
+    ],
+    "room_src": "https://www.lilyanncabinets.com/media/igallery/s/h/shaker_espresso.jpg",
+    "door_src": "https://www.lilyanncabinets.com/media/catalog/product/cache/1/image/9df78eab33525d08d6e5fb8d27136e95/s/h/shaker_espresso_door_1.jpg"
+  },
+  {
+    "internal_name": "Vellum Crema",
+    "finish_match": "exact",
+    "notes": "Found exact match for Matte Ivory Slab cabinets. Images are clean without watermarks.",
+    "room_file": "vellum-crema-room.webp",
+    "door_file": "vellum-crema-door.webp",
+    "room_dims": [
+      1708,
+      1708
+    ],
+    "door_dims": [
+      1080,
+      1080
+    ],
+    "room_src": "https://homecabinets.com/cdn/shop/files/matte-ivory-10x10-kitchenmi-1010-6623078.png",
+    "door_src": "https://homecabinets.com/cdn/shop/files/matte-ivory-10x10-kitchenmi-1010-9634424.png"
+  },
+  {
+    "internal_name": "Vellum Noir",
+    "finish_match": "exact",
+    "notes": "Found exact match for Matte Black Slab on CabinetShowroom. No watermarks. Room scene is a styled kitchen photo.",
+    "room_file": "vellum-noir-room.webp",
+    "door_file": "vellum-noir-door.webp",
+    "room_dims": [
+      1920,
+      1080
+    ],
+    "door_dims": [
+      1920,
+      1080
+    ],
+    "room_src": "https://www.cabinetshowroom.com/media/catalog/category/Slab-Matte-Black.jpg",
+    "door_src": "https://www.cabinetshowroom.com/media/catalog/category/Slab_Matte_Black.webp"
+  },
+  {
+    "internal_name": "Vesper Ash",
+    "finish_match": "exact",
+    "notes": "Images are clean and match the Smokey Ash finish. Room scene is a styled kitchen photo.",
+    "room_file": "vesper-ash-room.webp",
+    "door_file": "vesper-ash-door.webp",
+    "room_dims": [
+      2000,
+      1506
+    ],
+    "door_dims": [
+      250,
+      500
+    ],
+    "room_src": "https://likecabinets.com/cdn/shop/files/Smokey_Ash_-_Lifestyle_Images_2_767db95e-6f8b-46de-a67d-4b4f7f2c90d3.webp?v=1761032627&width=2000",
+    "door_src": "https://www.discountkitchendirect.com/wp-content/uploads/2025/11/smokey-ash-250x500.jpg"
+  },
+  {
+    "internal_name": "Virid Echo",
+    "finish_match": "exact",
+    "notes": "Found exact match for Aston Green Shaker cabinets. Room scene and door sample images are clear and without watermarks.",
+    "room_file": "virid-echo-room.jpg",
+    "door_file": "virid-echo-door.jpg",
+    "room_dims": null,
+    "door_dims": null,
+    "room_src": "https://homecabinets.com/cdn/shop/files/Aston-Green-Shaker-Kitchen-Cabinets-1.jpg",
+    "door_src": "https://homecabinets.com/cdn/shop/files/SAG-Sample-Door.png"
+  },
+  {
+    "internal_name": "Zenith Sage",
+    "finish_match": "exact",
+    "notes": "Found matching room scene and door close-up for Fresh Sage Shaker. Images are direct URLs without visible watermarks.",
+    "room_file": "zenith-sage-room.png",
+    "door_file": "zenith-sage-door.png",
+    "room_dims": [
+      720,
+      452
+    ],
+    "door_dims": [
+      800,
+      800
+    ],
+    "room_src": "https://discountcustomcabinets.com/wp-content/uploads/2025/01/sage-kitchen_1_.png",
+    "door_src": "https://discountcustomcabinets.com/wp-content/uploads/2025/01/Faircrest-Fresh-Sage-Shaker-Cabinet-Profile.png"
+  },
+  {
+    "internal_name": "Zephyr Sage",
+    "finish_match": "exact",
+    "notes": "Found exact match for Sage Breeze Shaker. Room scene and door image are from aboutkitchenandbath.com. No visible watermarks.",
+    "room_file": "zephyr-sage-room.webp",
+    "door_file": "zephyr-sage-door.webp",
+    "room_dims": [
+      1080,
+      1080
+    ],
+    "door_dims": [
+      1080,
+      1080
+    ],
+    "room_src": "https://aboutkitchenandbath.com/wp-content/uploads/2026/04/Sage-Breeze-1.png",
+    "door_src": "https://aboutkitchenandbath.com/wp-content/uploads/2026/04/Sage-Breeze.png"
+  }
+]

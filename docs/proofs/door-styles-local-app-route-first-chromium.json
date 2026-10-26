@@ -1,0 +1,361 @@
+{
+  "url": "http://127.0.0.1:3000/styles?chrome-image-proof=1791235982",
+  "failMode": "first",
+  "images": [
+    {
+      "style": "Aura Cream (Ashford)",
+      "src": "/api/door-style-photo/1785260582020_classic_cream_room_scene_18c5ad57?cd-image-retry-nonce=1791235984027-5qrvlit3tpv",
+      "absoluteSrc": "http://127.0.0.1:3000/api/door-style-photo/1785260582020_classic_cream_room_scene_18c5ad57?cd-image-retry-nonce=1791235984027-5qrvlit3tpv",
+      "naturalWidth": 1920,
+      "complete": true,
+      "alt": "Classic Cream kitchen",
+      "hasSwatch": false,
+      "fallbackText": null
+    },
+    {
+      "style": "Zenith Sage (Ashford)",
+      "src": "/api/door-style-photo/1785261123212_fresh_sage_room_scene_88505a88?cd-image-retry-nonce=1791235984027-4uqjm9y4h6o",
+      "absoluteSrc": "http://127.0.0.1:3000/api/door-style-photo/1785261123212_fresh_sage_room_scene_88505a88?cd-image-retry-nonce=1791235984027-4uqjm9y4h6o",
+      "naturalWidth": 776,
+      "complete": true,
+      "alt": "Fresh Sage kitchen",
+      "hasSwatch": false,
+      "fallbackText": null
+    },
+    {
+      "style": "Terra Shaker (Ashford)",
+      "src": "/api/door-style-photo/1785262411480_carmel_shaker_room_scene_d06d8919?cd-image-retry-nonce=1791235984027-84edvxgs4cr",
+      "absoluteSrc": "http://127.0.0.1:3000/api/door-style-photo/1785262411480_carmel_shaker_room_scene_d06d8919?cd-image-retry-nonce=1791235984027-84edvxgs4cr",
+      "naturalWidth": 684,
+      "complete": true,
+      "alt": "Carmel Shaker kitchen",
+      "hasSwatch": false,
+      "fallbackText": null
+    },
+    {
+      "style": "Serene Harbor (Madison)",
+      "src": "/api/door-style-photo/1789887991361_harbor__hh__madison_15b88c3c?cd-image-retry-nonce=1791235984027-3kryl3qsqbr",
+      "absoluteSrc": "http://127.0.0.1:3000/api/door-style-photo/1789887991361_harbor__hh__madison_15b88c3c?cd-image-retry-nonce=1791235984027-3kryl3qsqbr",
+      "naturalWidth": 1376,
+      "complete": true,
+      "alt": "Haven Harbor kitchen",
+      "hasSwatch": false,
+      "fallbackText": null
+    },
+    {
+      "style": "Nova Blanc (Madison)",
+      "src": "/api/door-style-photo/1785771742207_shaker_white_2_08f9cd43?cd-image-retry-nonce=1791235984027-653ghbizxlw",
+      "absoluteSrc": "http://127.0.0.1:3000/api/door-style-photo/1785771742207_shaker_white_2_08f9cd43?cd-image-retry-nonce=1791235984027-653ghbizxlw",
+      "naturalWidth": 1417,
+      "complete": true,
+      "alt": "Shaker White kitchen",
+      "hasSwatch": false,
+      "fallbackText": null
+    },
+    {
+      "style": "Cobalt Abyss (Preston)",
+      "src": "/api/door-style-photo/1789958452492_cobalt_blue_d94df091?cd-image-retry-nonce=1791235984027-towfwdn5yan",
+      "absoluteSrc": "http://127.0.0.1:3000/api/door-style-photo/1789958452492_cobalt_blue_d94df091?cd-image-retry-nonce=1791235984027-towfwdn5yan",
+      "naturalWidth": 720,
+      "complete": true,
+      "alt": "Navy Blue kitchen",
+      "hasSwatch": false,
+      "fallbackText": null
+    },
+    {
+      "style": "Stone Gray (Preston)",
+      "src": "/api/door-style-photo/1785260405189_shaker_gray_room_scene_ccb728ee?cd-image-retry-nonce=1791235984027-5q7oatmagnh",
+      "absoluteSrc": "http://127.0.0.1:3000/api/door-style-photo/1785260405189_shaker_gray_room_scene_ccb728ee?cd-image-retry-nonce=1791235984027-5q7oatmagnh",
+      "naturalWidth": 2000,
+      "complete": true,
+      "alt": "Shaker Gray kitchen",
+      "hasSwatch": false,
+      "fallbackText": null
+    },
+    {
+      "style": "Edge Blanc (Madison)",
+      "src": "/api/door-style-photo/1785772098895_edgeline_white_room_b00f1b8c?cd-image-retry-nonce=1791235984027-znuxziikgt",
+      "absoluteSrc": "http://127.0.0.1:3000/api/door-style-photo/1785772098895_edgeline_white_room_b00f1b8c?cd-image-retry-nonce=1791235984027-znuxziikgt",
+      "naturalWidth": 1416,
+      "complete": true,
+      "alt": "Edgeline White kitchen",
+      "hasSwatch": false,
+      "fallbackText": null
+    },
+    {
+      "style": "Onyx Core (Madison)",
+      "src": "/api/door-style-photo/1785510309136_shaker_black_2_8f2c5493?cd-image-retry-nonce=1791235984041-i189zw2xpvr",
+      "absoluteSrc": "http://127.0.0.1:3000/api/door-style-photo/1785510309136_shaker_black_2_8f2c5493?cd-image-retry-nonce=1791235984041-i189zw2xpvr",
+      "naturalWidth": 1416,
+      "complete": true,
+      "alt": "Shaker Black kitchen",
+      "hasSwatch": false,
+      "fallbackText": null
+    },
+    {
+      "style": "Honey Core (Madison)",
+      "src": "/api/door-style-photo/1785512235443_shaker_honey_2_a9173b1e?cd-image-retry-nonce=1791235984043-ui4la94t6x",
+      "absoluteSrc": "http://127.0.0.1:3000/api/door-style-photo/1785512235443_shaker_honey_2_a9173b1e?cd-image-retry-nonce=1791235984043-ui4la94t6x",
+      "naturalWidth": 1416,
+      "complete": true,
+      "alt": "Shaker Honey kitchen",
+      "hasSwatch": false,
+      "fallbackText": null
+    },
+    {
+      "style": "Carbon Frost",
+      "src": "/api/door-style-photo/1790962388862_screenshot_2026_10_02_123013_e430afd4?cd-image-retry-nonce=1791235984043-ccpynnwzfnp",
+      "absoluteSrc": "http://127.0.0.1:3000/api/door-style-photo/1790962388862_screenshot_2026_10_02_123013_e430afd4?cd-image-retry-nonce=1791235984043-ccpynnwzfnp",
+      "naturalWidth": 1225,
+      "complete": true,
+      "alt": "Aspen Charcoal kitchen",
+      "hasSwatch": false,
+      "fallbackText": null
+    },
+    {
+      "style": "Virid Echo (Preston)",
+      "src": "/api/door-style-photo/1785772670109_aston_green_shaker_room_scene_05374f9b?cd-image-retry-nonce=1791235984043-2x01130n6pj",
+      "absoluteSrc": "http://127.0.0.1:3000/api/door-style-photo/1785772670109_aston_green_shaker_room_scene_05374f9b?cd-image-retry-nonce=1791235984043-2x01130n6pj",
+      "naturalWidth": 1072,
+      "complete": true,
+      "alt": "Aston Green kitchen",
+      "hasSwatch": false,
+      "fallbackText": null
+    },
+    {
+      "style": "Casselberry Blanc (Madison)",
+      "src": "/api/door-style-photo/1790014689711_casselberry_antique_white_2_4c071602?cd-image-retry-nonce=1791235984048-xxrt0xtes8k",
+      "absoluteSrc": "http://127.0.0.1:3000/api/door-style-photo/1790014689711_casselberry_antique_white_2_4c071602?cd-image-retry-nonce=1791235984048-xxrt0xtes8k",
+      "naturalWidth": 1418,
+      "complete": true,
+      "alt": "Casselberry Antique White kitchen",
+      "hasSwatch": false,
+      "fallbackText": null
+    },
+    {
+      "style": "Walnut Haven (Madison)",
+      "src": "/api/door-style-photo/1785772781400_casselberry_saddle_2_875b26b1?cd-image-retry-nonce=1791235984048-3pe9tztt6ms",
+      "absoluteSrc": "http://127.0.0.1:3000/api/door-style-photo/1785772781400_casselberry_saddle_2_875b26b1?cd-image-retry-nonce=1791235984048-3pe9tztt6ms",
+      "naturalWidth": 1416,
+      "complete": true,
+      "alt": "Casselberry Saddle kitchen",
+      "hasSwatch": false,
+      "fallbackText": null
+    },
+    {
+      "style": "Natura Maple (Ashford)",
+      "src": "/api/door-style-photo/1785437985088_designer_natural_room_scene_1a9d196d?cd-image-retry-nonce=1791235984343-zbkjmsqlb9i",
+      "absoluteSrc": "http://127.0.0.1:3000/api/door-style-photo/1785437985088_designer_natural_room_scene_1a9d196d?cd-image-retry-nonce=1791235984343-zbkjmsqlb9i",
+      "naturalWidth": 1672,
+      "complete": true,
+      "alt": "Designer Natural kitchen",
+      "hasSwatch": false,
+      "fallbackText": null
+    }
+  ],
+  "detail": {
+    "name": "Aura Cream (Ashford)Shaker",
+    "images": [
+      {
+        "src": "/api/door-style-photo/1785260582020_classic_cream_room_scene_18c5ad57?cd-image-retry-nonce=1791235988409-9ekgrctgiyf",
+        "naturalWidth": 1920,
+        "complete": true,
+        "alt": "Classic Cream kitchen"
+      },
+      {
+        "src": "/api/door-style-photo/1785260616500_classic_cream_door_3f7be09d?cd-image-retry-nonce=1791235988410-ofnwopp97po",
+        "naturalWidth": 203,
+        "complete": true,
+        "alt": "Classic Cream door sample"
+      }
+    ],
+    "fallbackCount": 0
+  },
+  "imageResponses": [
+    {
+      "url": "http://127.0.0.1:3000/api/door-style-photo/1785773093378_white_shaker_room_scene_057407e0?cd-image-retry-nonce=1791235984017-94woime5vpc",
+      "status": 200,
+      "type": "image/jpeg"
+    },
+    {
+      "url": "http://127.0.0.1:3000/api/door-style-photo/1785262411480_carmel_shaker_room_scene_d06d8919?cd-image-retry-nonce=1791235984027-84edvxgs4cr",
+      "status": 200,
+      "type": "image/jpeg"
+    },
+    {
+      "url": "http://127.0.0.1:3000/api/door-style-photo/1789887991361_harbor__hh__madison_15b88c3c?cd-image-retry-nonce=1791235984027-3kryl3qsqbr",
+      "status": 200,
+      "type": "image/png"
+    },
+    {
+      "url": "http://127.0.0.1:3000/api/door-style-photo/1785261123212_fresh_sage_room_scene_88505a88?cd-image-retry-nonce=1791235984027-4uqjm9y4h6o",
+      "status": 200,
+      "type": "image/jpeg"
+    },
+    {
+      "url": "http://127.0.0.1:3000/api/door-style-photo/1785260582020_classic_cream_room_scene_18c5ad57?cd-image-retry-nonce=1791235984027-5qrvlit3tpv",
+      "status": 200,
+      "type": "image/jpeg"
+    },
+    {
+      "url": "http://127.0.0.1:3000/api/door-style-photo/1785771742207_shaker_white_2_08f9cd43?cd-image-retry-nonce=1791235984027-653ghbizxlw",
+      "status": 200,
+      "type": "image/png"
+    },
+    {
+      "url": "http://127.0.0.1:3000/api/door-style-photo/1785260405189_shaker_gray_room_scene_ccb728ee?cd-image-retry-nonce=1791235984027-5q7oatmagnh",
+      "status": 200,
+      "type": "image/webp"
+    },
+    {
+      "url": "http://127.0.0.1:3000/api/door-style-photo/1789958452492_cobalt_blue_d94df091?cd-image-retry-nonce=1791235984027-towfwdn5yan",
+      "status": 200,
+      "type": "image/webp"
+    },
+    {
+      "url": "http://127.0.0.1:3000/api/door-style-photo/1785772098895_edgeline_white_room_b00f1b8c?cd-image-retry-nonce=1791235984027-znuxziikgt",
+      "status": 200,
+      "type": "image/png"
+    },
+    {
+      "url": "http://127.0.0.1:3000/api/door-style-photo/1785510309136_shaker_black_2_8f2c5493?cd-image-retry-nonce=1791235984041-i189zw2xpvr",
+      "status": 200,
+      "type": "image/png"
+    },
+    {
+      "url": "http://127.0.0.1:3000/api/door-style-photo/1790962388862_screenshot_2026_10_02_123013_e430afd4?cd-image-retry-nonce=1791235984043-ccpynnwzfnp",
+      "status": 200,
+      "type": "image/png"
+    },
+    {
+      "url": "http://127.0.0.1:3000/api/door-style-photo/1785772670109_aston_green_shaker_room_scene_05374f9b?cd-image-retry-nonce=1791235984043-2x01130n6pj",
+      "status": 200,
+      "type": "image/webp"
+    },
+    {
+      "url": "http://127.0.0.1:3000/api/door-style-photo/1785512235443_shaker_honey_2_a9173b1e?cd-image-retry-nonce=1791235984043-ui4la94t6x",
+      "status": 200,
+      "type": "image/png"
+    },
+    {
+      "url": "http://127.0.0.1:3000/api/door-style-photo/1790014689711_casselberry_antique_white_2_4c071602?cd-image-retry-nonce=1791235984048-xxrt0xtes8k",
+      "status": 200,
+      "type": "image/png"
+    },
+    {
+      "url": "http://127.0.0.1:3000/api/door-style-photo/1785772781400_casselberry_saddle_2_875b26b1?cd-image-retry-nonce=1791235984048-3pe9tztt6ms",
+      "status": 200,
+      "type": "image/png"
+    },
+    {
+      "url": "http://127.0.0.1:3000/api/door-style-photo/1785437985088_designer_natural_room_scene_1a9d196d?cd-image-retry-nonce=1791235984343-zbkjmsqlb9i",
+      "status": 200,
+      "type": "image/png"
+    },
+    {
+      "url": "http://127.0.0.1:3000/api/door-style-photo/1785262740490_double_dove_white_room_scene_02a29a7f?cd-image-retry-nonce=1791235984426-nsgxvn3b94b",
+      "status": 200,
+      "type": "image/jpeg"
+    },
+    {
+      "url": "http://127.0.0.1:3000/api/door-style-photo/1788664040186_espresso_sept_5_23c198f8?cd-image-retry-nonce=1791235984427-hh8v5dhpbss",
+      "status": 200,
+      "type": "image/png"
+    },
+    {
+      "url": "http://127.0.0.1:3000/api/door-style-photo/1785262831217_double_smokey_gray_room_scene_d0cbd321?cd-image-retry-nonce=1791235984427-pxds7wil9e",
+      "status": 200,
+      "type": "image/jpeg"
+    },
+    {
+      "url": "http://127.0.0.1:3000/api/door-style-photo/1785263427028_greek_villa_room_scene_38964326?cd-image-retry-nonce=1791235984427-supp9e9x5hr",
+      "status": 200,
+      "type": "image/jpeg"
+    },
+    {
+      "url": "http://127.0.0.1:3000/api/door-style-photo/1789923999472_haven_sage_78847564?cd-image-retry-nonce=1791235984427-z0p8kx9dn2e",
+      "status": 200,
+      "type": "image/png"
+    },
+    {
+      "url": "http://127.0.0.1:3000/api/door-style-photo/1785263630890_haven_dune_2_cd1433c9?cd-image-retry-nonce=1791235984427-0f1bog7ov92p",
+      "status": 200,
+      "type": "image/png"
+    },
+    {
+      "url": "http://127.0.0.1:3000/api/door-style-photo/1785261606525_hickory_shaker_room_scene_9511fe0c?cd-image-retry-nonce=1791235984427-aktgnj7gkl",
+      "status": 200,
+      "type": "image/jpeg"
+    },
+    {
+      "url": "http://127.0.0.1:3000/api/door-style-photo/1785263841441_hign_gloss_gray_room_scene_c5688733?cd-image-retry-nonce=1791235984427-gihnraumj5b",
+      "status": 200,
+      "type": "image/jpeg"
+    },
+    {
+      "url": "http://127.0.0.1:3000/api/door-style-photo/1785263939184_high_gloss_white_room_scene_0cc987a9?cd-image-retry-nonce=1791235984427-62g7otbw89q",
+      "status": 200,
+      "type": "image/jpeg"
+    },
+    {
+      "url": "http://127.0.0.1:3000/api/door-style-photo/1785437053982_iron_black_2_1efcc586?cd-image-retry-nonce=1791235984427-bvlzttmmft9",
+      "status": 200,
+      "type": "image/jpeg"
+    },
+    {
+      "url": "http://127.0.0.1:3000/api/door-style-photo/1785773384138_lunar_gray_room_192eb74b?cd-image-retry-nonce=1791235984427-jfynrkelh3",
+      "status": 200,
+      "type": "image/png"
+    },
+    {
+      "url": "http://127.0.0.1:3000/api/door-style-photo/1785260582020_classic_cream_room_scene_18c5ad57?cd-image-retry-nonce=1791235988409-9ekgrctgiyf",
+      "status": 200,
+      "type": "image/jpeg"
+    },
+    {
+      "url": "http://127.0.0.1:3000/api/door-style-photo/1785260616500_classic_cream_door_3f7be09d?cd-image-retry-nonce=1791235988410-ofnwopp97po",
+      "status": 200,
+      "type": "image/png"
+    }
+  ],
+  "badResponses": [],
+  "blockedRequests": [
+    "http://127.0.0.1:3000/api/door-style-photo/1785773093378_white_shaker_room_scene_057407e0",
+    "http://127.0.0.1:3000/manus-storage/media-library/1785773080642_white_shaker_door_d2b8c1e4",
+    "http://127.0.0.1:3000/manus-storage/catalog-images/1784682553083_Edgeline_White_62ca7dca.webp",
+    "http://127.0.0.1:3000/manus-storage/media-library/1785771706716_shaker_white_door_219edf23",
+    "http://127.0.0.1:3000/manus-storage/media-library/1785262748765_double_dove_white_door_e3607993",
+    "http://127.0.0.1:3000/manus-storage/media-library/1785263945346_high_gloss_white_door_8ad1a475",
+    "http://127.0.0.1:3000/manus-storage/media-library/1785528407210_slim_dove_white_door_b0df5275",
+    "http://127.0.0.1:3000/api/door-style-photo/1785260582020_classic_cream_room_scene_18c5ad57",
+    "http://127.0.0.1:3000/api/door-style-photo/1785261123212_fresh_sage_room_scene_88505a88",
+    "http://127.0.0.1:3000/api/door-style-photo/1785262411480_carmel_shaker_room_scene_d06d8919",
+    "http://127.0.0.1:3000/api/door-style-photo/1789887991361_harbor__hh__madison_15b88c3c",
+    "http://127.0.0.1:3000/api/door-style-photo/1785771742207_shaker_white_2_08f9cd43",
+    "http://127.0.0.1:3000/api/door-style-photo/1789958452492_cobalt_blue_d94df091",
+    "http://127.0.0.1:3000/api/door-style-photo/1785260405189_shaker_gray_room_scene_ccb728ee",
+    "http://127.0.0.1:3000/api/door-style-photo/1785772098895_edgeline_white_room_b00f1b8c",
+    "http://127.0.0.1:3000/api/door-style-photo/1785510309136_shaker_black_2_8f2c5493",
+    "http://127.0.0.1:3000/api/door-style-photo/1785512235443_shaker_honey_2_a9173b1e",
+    "http://127.0.0.1:3000/api/door-style-photo/1790962388862_screenshot_2026_10_02_123013_e430afd4",
+    "http://127.0.0.1:3000/api/door-style-photo/1785772670109_aston_green_shaker_room_scene_05374f9b",
+    "http://127.0.0.1:3000/api/door-style-photo/1790014689711_casselberry_antique_white_2_4c071602",
+    "http://127.0.0.1:3000/api/door-style-photo/1785772781400_casselberry_saddle_2_875b26b1",
+    "http://127.0.0.1:3000/api/door-style-photo/1785437985088_designer_natural_room_scene_1a9d196d",
+    "http://127.0.0.1:3000/api/door-style-photo/1785262740490_double_dove_white_room_scene_02a29a7f",
+    "http://127.0.0.1:3000/api/door-style-photo/1785262831217_double_smokey_gray_room_scene_d0cbd321",
+    "http://127.0.0.1:3000/api/door-style-photo/1785263427028_greek_villa_room_scene_38964326",
+    "http://127.0.0.1:3000/api/door-style-photo/1785263630890_haven_dune_2_cd1433c9",
+    "http://127.0.0.1:3000/api/door-style-photo/1788664040186_espresso_sept_5_23c198f8",
+    "http://127.0.0.1:3000/api/door-style-photo/1789923999472_haven_sage_78847564",
+    "http://127.0.0.1:3000/api/door-style-photo/1785261606525_hickory_shaker_room_scene_9511fe0c",
+    "http://127.0.0.1:3000/api/door-style-photo/1785263841441_hign_gloss_gray_room_scene_c5688733",
+    "http://127.0.0.1:3000/api/door-style-photo/1785263939184_high_gloss_white_room_scene_0cc987a9",
+    "http://127.0.0.1:3000/api/door-style-photo/1785437053982_iron_black_2_1efcc586",
+    "http://127.0.0.1:3000/api/door-style-photo/1785773384138_lunar_gray_room_192eb74b",
+    "http://127.0.0.1:3000/api/door-style-photo/1785260582020_classic_cream_room_scene_18c5ad57",
+    "http://127.0.0.1:3000/api/door-style-photo/1785260616500_classic_cream_door_3f7be09d",
+    "http://127.0.0.1:3000/manus-storage/media-library/1786710006445_11201_93d61e10"
+  ],
+  "browserErrors": []
+}

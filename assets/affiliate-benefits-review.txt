@@ -1,0 +1,21 @@
+Affiliate PDF review notes (2026-06-25)
+
+Source file: /home/ubuntu/cabinet-dealz/assets/Cabinet-Dealz-Affiliate-Benefits.pdf
+
+Key findings:
+- Overall visual style is strong and on-brand: navy/gold cover, professional serif/sans pairing, readable tables, and clean hierarchy.
+- Content coverage is good: store overview, affiliate membership meaning, buying-group/co-op explanation, storefront templates, CRM, and step-by-step design-tool usage are all present.
+- The PDF currently renders as 5 pages.
+- Page 3 has significant unused whitespace after the CRM section.
+- The forced page break before "How to Use the Kitchen Design Tool" is the primary cause of the blank space and should likely be removed to tighten the layout.
+- The cover and first two pages look polished and client-ready.
+- The design-tool walkthrough on pages 4-5 is readable and useful.
+- Consider adding one short sentence with the current active door-style count (62) to strengthen the catalog value proposition.
+- Consider keeping the final version to 4 pages if possible by removing the manual page break and slightly tightening spacing.
+
+Recommended next edit:
+1. Remove the explicit page break before the design-tool section.
+2. Add a brief catalog-scale sentence in the opening overview.
+3. Re-render and verify the new page count/layout.
+
+End of review.

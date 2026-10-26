@@ -1,0 +1,33 @@
+{
+  "origin": "https://www.cabinetdealz.com",
+  "tag": "live-zenith-sku-normal",
+  "failedOriginalRequests": false,
+  "items": [
+    {
+      "code": "B12",
+      "image": "/manus-storage/sku-images/1784390003470_ASP-B12_738a416d.jpg",
+      "width": 800,
+      "fallback": false
+    },
+    {
+      "code": "B15",
+      "image": "/manus-storage/sku-images/1784393809475_ASP-B15_e1d5c5c8.jpg",
+      "width": 800,
+      "fallback": false
+    },
+    {
+      "code": "B18",
+      "image": "/manus-storage/sku-images/1784393826892_ASP-B18_51605b2d.jpg",
+      "width": 800,
+      "fallback": false
+    },
+    {
+      "code": "B21",
+      "image": "/manus-storage/sku-images/1784389955389_ASP-B21_0818bcf5.jpg",
+      "width": 800,
+      "fallback": false
+    }
+  ],
+  "appResponses": [],
+  "pageErrors": []
+}

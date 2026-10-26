@@ -1,0 +1,11 @@
+{
+  "baselinePlaced": 1,
+  "afterAdd": 2,
+  "afterUndo": 1,
+  "afterRedo": 2,
+  "wallWidthAfterChange": 168,
+  "wallWidthAfterUndo": 144,
+  "wallWidthAfterRedo": 168,
+  "undoDisabledAtBaseline": true,
+  "consoleErrors": []
+}
