@@ -1211,6 +1211,8 @@ export const designRouter = router({
           adjustedListPrice: distributorSkus.adjustedListPrice,
           yourCost: distributorSkus.yourCost,
           retailPriceBasis: distributors.retailPriceBasis,
+          vendorWholesale: distributorSkus.vendorWholesale,
+          vendorMarkupPercent: distributors.markupPercent,
         })
         // NOTE: yourCost is required so sellPriceForTier can compute the
         // correct tier price (cost × markup).
@@ -1718,6 +1720,14 @@ export const designRouter = router({
         threeDPresentation: z.any().optional(),
         selectedStyleId: z.number().optional(),
         selectedDistributorId: z.number().optional(),
+        trimSettings: z.object({
+          crown: z.boolean().optional(),
+          toeKick: z.boolean().optional(),
+          batten: z.boolean().optional(),
+          lightRail: z.boolean().optional(),
+          valance: z.boolean().optional(),
+          qty: z.record(z.string(), z.number()).optional(),
+        }).optional(),
         // Master Project grouping (all optional / backward-compatible).
         projectName: z.string().max(255).optional(),
         roomLabel: z.string().max(255).optional(),
@@ -1767,6 +1777,7 @@ export const designRouter = router({
 	              threeDPresentation: input.threeDPresentation ?? null,
 	              selectedStyleId: input.selectedStyleId,
 	              selectedDistributorId: input.selectedDistributorId,
+	              trimSettings: input.trimSettings ?? null,
 	              projectName: input.projectName ?? null,
 	              roomLabel: input.roomLabel ?? null,
 	              roomType: input.roomType ?? null,
@@ -1791,6 +1802,7 @@ export const designRouter = router({
         threeDPresentation: input.threeDPresentation ?? null,
         selectedStyleId: input.selectedStyleId,
         selectedDistributorId: input.selectedDistributorId,
+        trimSettings: input.trimSettings ?? null,
         projectName: input.projectName ?? null,
         roomLabel: input.roomLabel ?? null,
         roomType: input.roomType ?? null,
@@ -1843,6 +1855,14 @@ export const designRouter = router({
       threeDPresentation: z.any().optional(),
       selectedStyleId: z.number().optional(),
       selectedDistributorId: z.number().optional(),
+      trimSettings: z.object({
+        crown: z.boolean().optional(),
+        toeKick: z.boolean().optional(),
+        batten: z.boolean().optional(),
+        lightRail: z.boolean().optional(),
+        valance: z.boolean().optional(),
+        qty: z.record(z.string(), z.number()).optional(),
+      }).optional(),
       roomType: z.string().max(32).optional(),
     }))
     .mutation(async ({ input, ctx }) => {
@@ -1882,6 +1902,7 @@ export const designRouter = router({
         threeDPresentation: input.threeDPresentation ?? null,
         selectedStyleId: input.selectedStyleId,
         selectedDistributorId: input.selectedDistributorId,
+        trimSettings: input.trimSettings ?? null,
         roomType: input.roomType ?? null,
       }).where(ownership);
 
@@ -2844,6 +2865,8 @@ Return an empty actions array ONLY if the user asked a pure question with no wal
           adjustedListPrice: distributorSkus.adjustedListPrice,
           listPrice: distributorSkus.listPrice,
           retailPriceBasis: distributors.retailPriceBasis,
+          vendorWholesale: distributorSkus.vendorWholesale,
+          vendorMarkupPercent: distributors.markupPercent,
         })
         .from(cabinets)
         .innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))
@@ -3134,6 +3157,8 @@ Return an empty actions array ONLY if the user asked a pure question with no wal
           wholesalePrice: distributorSkus.wholesalePrice,
           adjustedListPrice: distributorSkus.adjustedListPrice,
           retailPriceBasis: distributors.retailPriceBasis,
+          vendorWholesale: distributorSkus.vendorWholesale,
+          vendorMarkupPercent: distributors.markupPercent,
         })
         .from(distributorSkus)
         .innerJoin(cabinets, eq(cabinets.id, distributorSkus.cabinetId))
@@ -3232,6 +3257,8 @@ Return an empty actions array ONLY if the user asked a pure question with no wal
           homeownerPrice: distributorSkus.homeownerPrice,
           adjustedListPrice: distributorSkus.adjustedListPrice,
           retailPriceBasis: distributors.retailPriceBasis,
+          vendorWholesale: distributorSkus.vendorWholesale,
+          vendorMarkupPercent: distributors.markupPercent,
         })
         .from(distributorSkus)
         .innerJoin(cabinets, eq(cabinets.id, distributorSkus.cabinetId))

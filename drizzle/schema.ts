@@ -362,6 +362,8 @@ export const distributors = mysqlTable("distributors", {
   inventoryForecastLowRateBps: int("inventoryForecastLowRateBps"),
   inventoryForecastHighRateBps: int("inventoryForecastHighRateBps"),
   leadTimeDays: int("leadTimeDays").default(7),
+  inventoryLastSyncAt: timestamp("inventoryLastSyncAt"),
+  inventoryLastSyncSource: varchar("inventoryLastSyncSource", { length: 16 }),
   // ─── Fulfillment / order routing ───────────────────────────────────────────
   // Where confirmed purchase orders for this line are SENT. orderEmail is the
   // distributor's order-intake inbox; ccEmails is an optional comma-separated
@@ -836,6 +838,18 @@ export const distributorSkus = mysqlTable("distributor_skus", {
   // Optional vendor-fed current inventory. Null means the supplier has not
   // supplied on-hand data; zero remains a valid reported inventory level.
   onHandQty: int("onHandQty"),
+  leadTimeDays: int("leadTimeDays"),
+  inventoryNotes: varchar("inventoryNotes", { length: 512 }),
+  discontinued: boolean("discontinued").default(false).notNull(),
+  backorder: boolean("backorder").default(false).notNull(),
+  minimumOrderQty: int("minimumOrderQty"),
+  restockDate: varchar("restockDate", { length: 10 }),
+  outOfStock: boolean("outOfStock").default(false).notNull(),
+  inventoryUpdatedAt: timestamp("inventoryUpdatedAt"),
+  inventorySyncSource: varchar("inventorySyncSource", { length: 16 }),
+  importLockedFields: json("importLockedFields").$type<string[]>(),
+  /** Vendor-entered wholesale. Retail is this × pricing_settings.homeownerMarkupBps at read time. */
+  vendorWholesale: decimal("vendorWholesale", { precision: 10, scale: 2 }),
   isAvailable: boolean("isAvailable").default(true).notNull(),
   isPublished: boolean("isPublished").default(true).notNull(), // distributor visibility toggle
   // SKU-level image (per cabinet + door style). Falls back to door-style image, then drawing.
@@ -886,6 +900,18 @@ export const vendorProducts = mysqlTable("vendor_products", {
   hardwareConfigurationLabel: varchar("hardwareConfigurationLabel", { length: 512 }),
   listPrice: decimal("listPrice", { precision: 10, scale: 2 }),
   yourCost: decimal("yourCost", { precision: 10, scale: 2 }),
+  vendorWholesale: decimal("vendorWholesale", { precision: 10, scale: 2 }),
+  onHandQty: int("onHandQty"),
+  leadTimeDays: int("leadTimeDays"),
+  inventoryNotes: varchar("inventoryNotes", { length: 512 }),
+  discontinued: boolean("discontinued").default(false).notNull(),
+  backorder: boolean("backorder").default(false).notNull(),
+  minimumOrderQty: int("minimumOrderQty"),
+  restockDate: varchar("restockDate", { length: 10 }),
+  outOfStock: boolean("outOfStock").default(false).notNull(),
+  inventoryUpdatedAt: timestamp("inventoryUpdatedAt"),
+  inventorySyncSource: varchar("inventorySyncSource", { length: 16 }),
+  importLockedFields: json("importLockedFields").$type<string[]>(),
   imageUrl: varchar("imageUrl", { length: 512 }),
   pkgLength: decimal("pkgLength", { precision: 6, scale: 2 }),
   pkgWidth: decimal("pkgWidth", { precision: 6, scale: 2 }),
@@ -1166,6 +1192,15 @@ export const kitchenDesigns = mysqlTable("kitchen_designs", {
   threeDPresentation: json("threeDPresentation").$type<object>(),
   selectedStyleId: int("selectedStyleId"),
   selectedDistributorId: int("selectedDistributorId"),
+  /** Optional trim toggles and stick-count overrides. Absent on older plans. */
+  trimSettings: json("trimSettings").$type<{
+    crown?: boolean;
+    toeKick?: boolean;
+    batten?: boolean;
+    lightRail?: boolean;
+    valance?: boolean;
+    qty?: Partial<Record<"crown" | "toeKick" | "batten" | "lightRail" | "valance", number>>;
+  }>(),
   thumbnailUrl: varchar("thumbnailUrl", { length: 512 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
@@ -1410,7 +1445,10 @@ export type OrderLineItem = {
   /** Exact supplier line used for freight and fulfillment when a cart selected one. */
   distributorId?: number | null;
   /** Non-cabinet catalog products use their own verified shipping contracts. */
-  productKind?: "surface" | "hardware" | null;
+  productKind?: "surface" | "hardware" | "sample" | null;
+  /** Back-office sample order. Not a public catalog row. */
+  sampleOfferId?: number | null;
+  sampleKitId?: number | null;
   /** Exact Pelican catalog row required to verify the shipment profile used for freight. */
   pelicanProductId?: number | null;
   /** Exact Hardware Resources vendor-product row; never inferred from an SKU string. */
@@ -1446,6 +1484,9 @@ export const orderRequests = mysqlTable("order_requests", {
   shippingCity: varchar("shippingCity", { length: 128 }),
   shippingState: varchar("shippingState", { length: 64 }),
   source: mysqlEnum("source", ["ocr", "csv", "design", "manual", "barcode"]).default("manual").notNull(),
+  /** standard catalog orders, or sample for back-office sample and kit orders. */
+  orderKind: varchar("orderKind", { length: 16 }).default("standard").notNull(),
+  projectLabel: varchar("projectLabel", { length: 256 }),
   status: mysqlEnum("status", ["draft", "submitted", "confirmed", "cancelled"]).default("draft").notNull(),
   styleId: int("styleId"), // default door style applied across lines
   styleName: varchar("styleName", { length: 128 }),
@@ -2125,6 +2166,11 @@ export const pricingSettings = mysqlTable("pricing_settings", {
   homeownerMarkupBps: int("homeownerMarkupBps").default(10000).notNull(),
   contractorMarkupBps: int("contractorMarkupBps").default(10000).notNull(),
   wholesaleMarkupBps: int("wholesaleMarkupBps").default(10000).notNull(),
+  /**
+   * Owner decision. When true, a vendor wholesale increase waits in the
+   * upcoming-price-increase queue. Decreases and first prices still apply.
+   */
+  wholesaleIncreaseRequiresApproval: boolean("wholesaleIncreaseRequiresApproval").default(true).notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   updatedByOpenId: varchar("updatedByOpenId", { length: 64 }),
 });
@@ -3415,6 +3461,125 @@ export const orderShipments = mysqlTable("order_shipments", {
   scopeStatusIdx: index("order_shipments_scope_status_idx").on(t.vendorScope, t.status),
 }));
 export type OrderShipment = typeof orderShipments.$inferSelect;
+
+// ─── Sales forecast close-rate brackets ───────────────────────────────────────
+// Placeholder defaults are seeded by the migration when the table is empty.
+// Age is measured from kitchen_designs.updatedAt. maxDays null means open-ended.
+export const salesForecastCloseBrackets = mysqlTable("sales_forecast_close_brackets", {
+  id: int("id").autoincrement().primaryKey(),
+  minDays: int("minDays").notNull(),
+  maxDays: int("maxDays"),
+  closePercent: int("closePercent").notNull(),
+  sortOrder: int("sortOrder").default(0).notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export const pricingSettingAudit = mysqlTable("pricing_setting_audit", {
+  id: int("id").autoincrement().primaryKey(),
+  field: varchar("field", { length: 64 }).notNull(),
+  oldValue: varchar("oldValue", { length: 64 }),
+  newValue: varchar("newValue", { length: 64 }),
+  userId: int("userId"),
+  openId: varchar("openId", { length: 64 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export const vendorInventoryApiKeys = mysqlTable("vendor_inventory_api_keys", {
+  id: int("id").autoincrement().primaryKey(),
+  vendorScope: varchar("vendorScope", { length: 32 }).notNull(),
+  keyPrefix: varchar("keyPrefix", { length: 16 }).notNull(),
+  keyHash: varchar("keyHash", { length: 64 }).notNull(),
+  createdByUserId: int("createdByUserId"),
+  revokedAt: timestamp("revokedAt"),
+  lastUsedAt: timestamp("lastUsedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (t) => ({
+  hashUnique: uniqueIndex("vendor_inventory_api_keys_hash_uq").on(t.keyHash),
+  scopeIdx: index("vendor_inventory_api_keys_scope_idx").on(t.vendorScope),
+}));
+
+export const vendorPriceIncreases = mysqlTable("vendor_price_increases", {
+  id: int("id").autoincrement().primaryKey(),
+  vendorScope: varchar("vendorScope", { length: 32 }).notNull(),
+  productTable: varchar("productTable", { length: 32 }).notNull(),
+  productId: int("productId").notNull(),
+  sku: varchar("sku", { length: 128 }).notNull(),
+  scope: mysqlEnum("scope", ["product", "category", "style", "catalog"]).default("product").notNull(),
+  currentWholesale: decimal("currentWholesale", { precision: 10, scale: 2 }),
+  nextWholesale: decimal("nextWholesale", { precision: 10, scale: 2 }).notNull(),
+  effectiveDate: varchar("effectiveDate", { length: 10 }),
+  note: varchar("note", { length: 512 }),
+  status: mysqlEnum("status", ["pending", "acknowledged", "applied", "dismissed"]).default("pending").notNull(),
+  createdByUserId: int("createdByUserId"),
+  reviewedByUserId: int("reviewedByUserId"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  reviewedAt: timestamp("reviewedAt"),
+});
+
+export const vendorAdminUpdates = mysqlTable("vendor_admin_updates", {
+  id: int("id").autoincrement().primaryKey(),
+  vendorScope: varchar("vendorScope", { length: 32 }).notNull(),
+  type: mysqlEnum("type", ["inventory_sync", "low_stock", "price_increase", "out_of_stock"]).notNull(),
+  title: varchar("title", { length: 255 }).notNull(),
+  body: text("body"),
+  sku: varchar("sku", { length: 128 }),
+  readAt: timestamp("readAt"),
+  acknowledgedAt: timestamp("acknowledgedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export const vendorCatalogEditLog = mysqlTable("vendor_catalog_edit_log", {
+  id: int("id").autoincrement().primaryKey(),
+  vendorScope: varchar("vendorScope", { length: 32 }).notNull(),
+  productTable: varchar("productTable", { length: 32 }).notNull(),
+  productId: int("productId").notNull(),
+  field: varchar("field", { length: 64 }).notNull(),
+  oldValue: text("oldValue"),
+  newValue: text("newValue"),
+  userId: int("userId"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export const doorStyleSampleOffers = mysqlTable("door_style_sample_offers", {
+  id: int("id").autoincrement().primaryKey(),
+  distributorId: int("distributorId").notNull(),
+  styleId: int("styleId").notNull(),
+  available: boolean("available").default(false).notNull(),
+  /** Linked existing catalog sample door. Never a newly created public cabinet. */
+  catalogCabinetId: int("catalogCabinetId"),
+  sampleSku: varchar("sampleSku", { length: 128 }),
+  price: decimal("price", { precision: 10, scale: 2 }),
+  leadTimeDays: int("leadTimeDays"),
+  notes: varchar("notes", { length: 512 }),
+  updatedByUserId: int("updatedByUserId"),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (t) => ({
+  styleUnique: uniqueIndex("door_style_sample_offers_style_uq").on(t.distributorId, t.styleId),
+}));
+
+export const sampleKits = mysqlTable("sample_kits", {
+  id: int("id").autoincrement().primaryKey(),
+  distributorId: int("distributorId").notNull(),
+  name: varchar("name", { length: 191 }).notNull(),
+  description: text("description"),
+  /** Customer charge as entered, including 0 for free. Not a wholesale input. */
+  price: decimal("price", { precision: 10, scale: 2 }),
+  isFree: boolean("isFree").default(false).notNull(),
+  active: boolean("active").default(true).notNull(),
+  imageUrl: varchar("imageUrl", { length: 512 }),
+  createdByUserId: int("createdByUserId"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export const sampleKitItems = mysqlTable("sample_kit_items", {
+  id: int("id").autoincrement().primaryKey(),
+  kitId: int("kitId").notNull(),
+  styleId: int("styleId").notNull(),
+  qty: int("qty").default(1).notNull(),
+}, (t) => ({
+  kitStyleUnique: uniqueIndex("sample_kit_items_kit_style_uq").on(t.kitId, t.styleId),
+}));
 
 // ─── CRM cleanup (admin preview, backup, audit) ──────────────────────────────
 // Preview rows store the exact id snapshot an admin reviewed. Confirm deletes

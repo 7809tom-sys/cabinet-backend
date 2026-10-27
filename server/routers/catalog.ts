@@ -1081,6 +1081,8 @@ export const doorStylesRouter = router({
           skuImageUrl: distributorSkus.imageUrl,
           distributorId: distributorSkus.distributorId,
           retailPriceBasis: distributors.retailPriceBasis,
+          vendorWholesale: distributorSkus.vendorWholesale,
+          vendorMarkupPercent: distributors.markupPercent,
         })
         .from(distributorSkus)
         .innerJoin(cabinets, eq(distributorSkus.cabinetId, cabinets.id))
@@ -2905,6 +2907,8 @@ export const cabinetsRouter = router({
           listPrice: distributorSkus.listPrice,
           yourCost: distributorSkus.yourCost,
           retailPriceBasis: distributors.retailPriceBasis,
+          vendorWholesale: distributorSkus.vendorWholesale,
+          vendorMarkupPercent: distributors.markupPercent,
         })
         .from(cabinets)
         .innerJoin(
@@ -4263,6 +4267,8 @@ export const pricingRouter = router({
           leadTimeDays: distributors.leadTimeDays,
           distributorId: distributorSkus.distributorId,
           retailPriceBasis: distributors.retailPriceBasis,
+          vendorWholesale: distributorSkus.vendorWholesale,
+          vendorMarkupPercent: distributors.markupPercent,
           glassIncluded: distributors.glassIncluded,
           // Shipping pkg dims: distributor override first, fall back to master cabinet
           pkgLength: sql<string | null>`COALESCE(${distributorCabinetOverrides.pkgLength}, ${cabinets.pkgLength})`,
@@ -4426,10 +4432,11 @@ export const pricingRouter = router({
         homeownerMarkupBps: z.number().int().min(0).max(110000).optional(),
         contractorMarkupBps: z.number().int().min(0).max(110000).optional(),
         wholesaleMarkupBps: z.number().int().min(0).max(110000).optional(),
+        wholesaleIncreaseRequiresApproval: z.boolean().optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
-      await updatePricingSettings(input, ctx.user?.openId);
+      await updatePricingSettings(input, ctx.user?.openId, ctx.user?.id);
       const settings = await getPricingSettings();
       const recalculation = await recalculateStoredTierPrices(settings);
       return { ...settings, recalculation };

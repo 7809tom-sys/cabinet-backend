@@ -46,6 +46,7 @@ import { affiliateStyleBranding } from "../../drizzle/schema";
 import { loadAffiliateStorefrontPricing } from "../lib/affiliateStorefrontPricing";
 import { buildAffiliateOrderPersistence } from "@shared/affiliateOrderAlias";
 import { createCheckoutSession } from "../stripe";
+import { canPlaceSampleOrder, lineClaimsSample } from "../../shared/samples";
 import { resolveAffiliateAccess } from "../lib/affiliateAccess";
 import { freightItemsHash, freightQuoteDestinationAddressHash, verifyFreightQuoteToken } from "../_core/freightQuoteToken";
 import { freightQuoteItemsForOrder } from "../lib/freightQuoteOrderIdentity";
@@ -433,6 +434,8 @@ export const ordersRouter = router({
         adjustedListPrice: distributorSkus.adjustedListPrice,
         listPrice: distributorSkus.listPrice,
         retailPriceBasis: distributors.retailPriceBasis,
+        vendorWholesale: distributorSkus.vendorWholesale,
+        vendorMarkupPercent: distributors.markupPercent,
       };
       const gate = and(
         eq(cabinets.isActive, true),
@@ -561,6 +564,8 @@ export const ordersRouter = router({
           adjustedListPrice: distributorSkus.adjustedListPrice,
           listPrice: distributorSkus.listPrice,
           retailPriceBasis: distributors.retailPriceBasis,
+          vendorWholesale: distributorSkus.vendorWholesale,
+          vendorMarkupPercent: distributors.markupPercent,
           category: cabinets.category,
         })
         .from(distributorSkus)
@@ -1210,9 +1215,25 @@ export const ordersRouter = router({
         }
       }
 
+      const sampleClaim = normalizedLines.some((line) => lineClaimsSample(line));
+      if (sampleClaim) {
+        const affiliateAccess = ctx.user ? await resolveAffiliateAccess(db, ctx.user) : null;
+        if (!canPlaceSampleOrder({
+          role: ctx.user?.role ?? null,
+          affiliateId: affiliateAccess?.affiliateId ?? null,
+          isAffiliateMember: Boolean(affiliateAccess),
+        })) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Sample and sample kit orders are placed from the admin or affiliate back office.",
+          });
+        }
+      }
+
       const requestNumber = makeRequestNumber();
       const accessToken = generateOrderAccessToken();
       const result = await db.insert(orderRequests).values({
+        orderKind: sampleClaim ? "sample" : "standard",
         userId: ctx.user?.id ?? null,
         accessToken,
         kitchenDesignId,
