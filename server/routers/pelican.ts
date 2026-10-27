@@ -9,7 +9,7 @@ import { pelicanProducts, pelicanShippingProfiles } from "../../drizzle/pelicanS
 import { distributors, pelicanCategoryMarkups, vendorLines } from "../../drizzle/schema";
 import { normalizeCode } from "../../shared/cabinetCodeMatch";
 import { positiveAuthorizedSurfaceBase } from "../../shared/surfacePricing";
-import { auditPelicanDesignerReadiness, isPelicanDesignerReady, isPelicanDesignerSelectable } from "../lib/pelicanDesignerReadiness";
+import { auditPelicanDesignerReadiness, isPelicanDesignerSelectable, pelicanDesignerRenderFlags } from "../lib/pelicanDesignerReadiness";
 import { comparisonProfileForPelicanProduct } from "../../shared/pelicanComparablePackaging";
 import { loadAffiliateStorefrontPricing } from "../lib/affiliateStorefrontPricing";
 import { resolveMarkupBps } from "../../shared/affiliateBranding";
@@ -97,6 +97,15 @@ export function computeSellPrice(
   if (cost == null) return null;
   const bps = markupBpsFor(map, product.category);
   return Math.round(cost * (1 + bps / 10000) * 100) / 100;
+}
+
+function withDesignerRenderFlags<T extends { category: string; subCategory?: string | null; pelicanCode?: string | null; name?: string | null; description?: string | null; materialImageUrl?: string | null }>(product: T) {
+  return { ...product, ...pelicanDesignerRenderFlags(product) };
+}
+
+/** Designer flooring keeps the catalog-photo requirement. The swatch is separate. */
+function isDesignerFlooringCard(row: { category: string; imageUrl?: string | null }): boolean {
+  return row.category !== "Flooring" || Boolean(row.imageUrl?.trim());
 }
 
 function withPricing<T extends { listPrice: string | null; yourCost: string | null; retailPrice?: string | null; category: string }>(
@@ -187,7 +196,7 @@ export const pelicanRouter = router({
           .where(and(...conds));
         const counts = new Map<string, number>();
         for (const row of readyRows) {
-          if (!isPelicanDesignerSelectable(row)) continue;
+          if (!isPelicanDesignerSelectable(row) || !isDesignerFlooringCard(row)) continue;
           counts.set(row.category, (counts.get(row.category) ?? 0) + 1);
         }
         return Array.from(counts, ([category, count]) => ({ category, count })).sort((a, b) => b.count - a.count);
@@ -251,15 +260,15 @@ export const pelicanRouter = router({
           .from(pelicanProducts)
           .where(where)
           .orderBy(desc(pelicanProducts.isPopular), asc(pelicanProducts.popularRank), asc(pelicanProducts.name));
-        const readyRows = designerRows.filter(isPelicanDesignerSelectable);
+        const readyRows = designerRows.filter((row) => isPelicanDesignerSelectable(row) && isDesignerFlooringCard(row));
         const suggested = input.search || input.subCategory || input.offset > 0
           ? []
           : readyRows.filter((row) => row.isPopular).slice(0, 12);
         const page = readyRows.slice(input.offset, input.offset + input.limit);
         const subCategories = Array.from(new Set(readyRows.map((row) => row.subCategory).filter((value): value is string => Boolean(value))));
         return {
-          suggested: suggested.map((r) => withPricing(r, markupMap, affiliateBps(r.category))),
-          items: page.map((r) => withPricing(r, markupMap, affiliateBps(r.category))),
+          suggested: suggested.map((r) => withDesignerRenderFlags(withPricing(r, markupMap, affiliateBps(r.category)))),
+          items: page.map((r) => withDesignerRenderFlags(withPricing(r, markupMap, affiliateBps(r.category)))),
           total: readyRows.length,
           subCategories,
         };
@@ -294,8 +303,8 @@ export const pelicanRouter = router({
           eq(pelicanProducts.showInCatalog, true),
         ));
       return {
-        suggested: suggestedRows.map((r) => withPricing(r, markupMap, affiliateBps(r.category))),
-        items: itemRows.map((r) => withPricing(r, markupMap, affiliateBps(r.category))),
+        suggested: suggestedRows.map((r) => withDesignerRenderFlags(withPricing(r, markupMap, affiliateBps(r.category)))),
+        items: itemRows.map((r) => withDesignerRenderFlags(withPricing(r, markupMap, affiliateBps(r.category)))),
         total: Number(total),
         subCategories: subs.map((s) => s.subCategory).filter(Boolean) as string[],
       };
