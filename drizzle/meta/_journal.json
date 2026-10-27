@@ -1485,6 +1485,13 @@
       "when": 1793400000000,
       "tag": "0211_sales_forecast_vendor_portal",
       "breakpoints": true
+    },
+    {
+      "idx": 213,
+      "version": "5",
+      "when": 1793500000000,
+      "tag": "0212_vendor_cabinet_flag",
+      "breakpoints": true
     }
   ]
 }

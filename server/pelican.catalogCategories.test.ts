@@ -530,6 +530,8 @@ describe("cabinet My Catalog categories", () => {
         { id: 8, distributorId: 8, cabinetId: 16, styleId: 1, platformSku: "V1", distributorSku: "V1", status: "approved", isPublished: true },
       ],
       door_styles: [{ id: 1, ourName: "Shaker" }],
+      distributors: [{ id: 7, code: "LINE", name: "Line", isActive: true }],
+      vendor_lines: [{ id: 70, sourceKey: "dist:7", isApproved: true, isCabinetVendor: true, linkedDistributorIds: null }],
     });
     const caller = appRouter.createCaller(ctx({
       id: 7,
@@ -538,7 +540,7 @@ describe("cabinet My Catalog categories", () => {
       email: "line@example.test",
       role: "distributor",
       distributorId: 7,
-      approvedVendorLineId: null,
+      approvedVendorLineId: 70,
     }));
     const page = await caller.distributorPortal.catalog({ category: "Wall", limit: 1, offset: 0 });
     expect(page.items).toHaveLength(1);

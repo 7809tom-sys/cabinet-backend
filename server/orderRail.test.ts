@@ -27,7 +27,7 @@ describe("official affiliate-distributor order rail", () => {
   });
 
   it("requires a distributor inventory confirmation and updated invoice before final affiliate approval", () => {
-    expect(distributor).toContain("confirmInventoryAndInvoice: distributorProcedure");
+    expect(distributor).toContain('confirmInventoryAndInvoice: withVendorFeature("cabinet_catalog")');
     expect(distributor).toContain('orderRailStatus: "affiliate_invoice_review"');
     expect(distributor).toContain("distributorInvoiceReference");
     expect(orders).toContain("affiliateApproveDistributorInvoice: protectedProcedure");

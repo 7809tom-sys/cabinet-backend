@@ -2703,6 +2703,12 @@ export const vendorLines = mysqlTable("vendor_lines", {
   contactEmail: varchar("contactEmail", { length: 255 }).default("").notNull(),
   contactPhone: varchar("contactPhone", { length: 64 }).default("").notNull(),
   isApproved: boolean("isApproved").default(true).notNull(),
+  /**
+   * Administrator's choice for every vendor on Approve Vendors.
+   * true = cabinet vendor, false = non-cabinet (Pelican is the current example),
+   * null = not chosen yet. Saunders Closets is inserted unset on purpose.
+   */
+  isCabinetVendor: boolean("isCabinetVendor"),
   totalSalesCents: int("totalSalesCents").default(0).notNull(),
   salesUpdatedAt: timestamp("salesUpdatedAt"),
   notes: text("notes"),

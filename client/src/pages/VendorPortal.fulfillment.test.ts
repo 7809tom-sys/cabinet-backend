@@ -14,15 +14,25 @@ describe("Vendor portal Fulfillment wiring", () => {
     expect(portal).toContain("<VendorFulfillmentQueue");
   });
 
-  it("gives a Pelican vendor forecast, inventory, and pricing, and keeps cabinet samples off that portal", () => {
-    expect(portal).toContain('new Set<VendorPage>(["overview", "supplier-profile", "catalog", "inventory", "forecast", "pricing", "shipping", "fulfillment"])');
-    expect(portal).toContain("NAV_ITEMS.filter((item) => PELICAN_NAV_IDS.has(item.id))");
-    expect(portal).not.toContain('"samples", "shipping"');
+  it("limits portal pages with the shared vendor feature map", () => {
+    expect(portal).toContain(".filter((item) => vendorCanOpenPortalPage(portalVendor, item.id))");
+    expect(portal).toContain('from "@shared/vendorFeatures"');
   });
 
-  it("does not trap a Pelican vendor on the profile-only page, and sends cabinet-only deep links home", () => {
-    expect(portal).toContain("!isPelicanVendor");
-    expect(portal).toContain('isPelicanVendor && !PELICAN_NAV_IDS.has(page) ? "overview" : page');
+  it("gives a non-cabinet vendor forecast, inventory, and pricing, and keeps cabinet samples off that menu until access allows them", () => {
+    expect(portal).toContain('id: "inventory"');
+    expect(portal).toContain('id: "forecast"');
+    expect(portal).toContain('id: "pricing"');
+    expect(portal).toContain('id: "samples"');
+    expect(portal).toContain('item.id !== "samples" || sampleAccess.data?.enabled');
+    expect(portal).toContain("actingDistributorId");
+    expect(portal).not.toContain("PELICAN_NAV_IDS");
+  });
+
+  it("does not trap a chosen non-cabinet vendor on the supplier profile, and sends a disallowed section home", () => {
+    expect(portal).toContain("vendorCanOpenPortalPage(featureVendor, page)");
+    expect(portal).toContain(': "overview"');
+    expect(portal).not.toContain("PELICAN_NAV_IDS");
   });
 
   it("decides Pelican identity on the server, never from a display name", () => {

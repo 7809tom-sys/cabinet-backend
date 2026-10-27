@@ -41,6 +41,7 @@ import { VendorCodeUpload } from "@/components/vendor/VendorCodeUpload";
 import { PelicanShippingProfilesPanel } from "@/components/admin/ShippingAdmin";
 import { designerFrameCompliance } from "@/lib/doorFrameMetrics";
 import { US_CABINET_DEPOT_AVAILABILITY_SOURCES, US_CABINET_DEPOT_WAREHOUSES } from "@/lib/vendorWarehouseNetwork";
+import { hasVendorFeature, vendorCanOpenPortalPage, vendorKind, vendorKindLabel } from "@shared/vendorFeatures";
 
 // ─── Admin Distributor Context ───────────────────────────────────────────────
 const AdminDistributorContext = createContext<number | undefined>(undefined);
@@ -108,9 +109,9 @@ const NAV_ITEMS: { id: VendorPage; label: string; icon: typeof LayoutDashboard }
   { id: "payments", label: "Payments", icon: CreditCard },
 ];
 
-// Pelican has no cabinet supply line, so its portal is limited to the pages that
-// apply to surfaces and fixtures.
-const PELICAN_NAV_IDS: ReadonlySet<VendorPage> = new Set<VendorPage>(["overview", "supplier-profile", "catalog", "inventory", "forecast", "pricing", "shipping", "fulfillment"]);
+// Which pages a vendor sees comes from shared/vendorFeatures.ts (the cabinet
+// checkbox), not from the absence of a distributor line. Pelican-specific
+// screens are still chosen from the server fulfillment scope below.
 // ─── Pelican Vendor Catalog Page ─────────────────────────────────────────────
 function PelicanVendorCatalogPage({ initialCategory }: { initialCategory?: string } = {}) {
   const utils = trpc.useUtils();
@@ -4434,16 +4435,11 @@ export default function VendorPortal() {
     { enabled: Boolean(user) && (isAdmin === true || user?.role === "distributor") },
   );
   const isPelicanVendor = (fulfillmentScopes.data ?? []).some((option) => option.scope === "pelican");
-  const supplierProfileOnly = Boolean(
-    !isPelicanVendor
-    && ((isAdmin && adminApprovedVendorLineId != null && adminDistributorId == null)
-    || (!isAdmin
-      && user?.role === "distributor"
-      && user.distributorId == null
-      && user.approvedVendorLineId != null))
-  );
   const distList = trpc.distributors.list.useQuery(undefined, { enabled: isAdmin === true || user?.role === "distributor" });
   const approvedVendors = trpc.vendors.list.useQuery(undefined, { enabled: isAdmin === true });
+  const myFeatures = trpc.vendors.portalFeatures.useQuery(undefined, {
+    enabled: Boolean(user) && user?.role === "distributor",
+  });
   const ownProfile = trpc.distributorPortal.supplierProfile.useQuery(undefined, { enabled: user?.role === "distributor" });
   const ownLinkedLines = ownProfile.data?.linkedDistributors ?? [];
   const requestedLineId = asParam && Number.isSafeInteger(Number(asParam)) ? Number(asParam) : null;
@@ -4468,16 +4464,18 @@ export default function VendorPortal() {
     const distributorId = vendor.linkedDistributor?.id ?? null;
     setAdminApprovedVendorLineId(vendor.id);
     setAdminDistributorId(distributorId);
-    if (!distributorId) setPage("supplier-profile");
+    const nextPage: VendorPage = vendorKind(vendor) == null
+      ? "supplier-profile"
+      : vendorCanOpenPortalPage(vendor, page) ? page : "overview";
+    setPage(nextPage);
     const url = new URL(window.location.href);
     url.searchParams.set("vendor", String(vendor.id));
     if (distributorId) url.searchParams.set("as", String(distributorId));
-    else {
-      url.searchParams.delete("as");
-      url.searchParams.set("section", "supplier-profile");
-    }
+    else url.searchParams.delete("as");
+    if (nextPage === "overview") url.searchParams.delete("section");
+    else url.searchParams.set("section", nextPage);
     window.history.replaceState({}, "", url.toString());
-  }, []);
+  }, [page]);
 
   if (loading) {
     return (
@@ -4508,6 +4506,16 @@ export default function VendorPortal() {
     );
   }
 
+  const portalVendor = isAdmin
+    ? (approvedVendors.data ?? []).find((vendor) => vendor.id === adminApprovedVendorLineId) ?? null
+    : myFeatures.data ?? null;
+  const featureVendor = portalVendor ?? { isCabinetVendor: null as boolean | null };
+  const visiblePage: VendorPage = vendorCanOpenPortalPage(featureVendor, page)
+    ? page
+    : vendorKind(featureVendor) == null
+      ? "supplier-profile"
+      : "overview";
+
   // Admin must select a vendor to view as
   if (isAdmin && !adminDistributorId && !adminApprovedVendorLineId) {
     return (
@@ -4526,9 +4534,9 @@ export default function VendorPortal() {
                 className="w-full justify-start gap-2"
                 onClick={() => switchAdminVendor(vendor)}
               >
-                <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">{vendor.linkedDistributor?.code ?? "PROFILE"}</span>
+                <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">{vendor.linkedDistributor?.code ?? (vendorKind(vendor) === "non_cabinet" ? "VENDOR" : "PROFILE")}</span>
                 <span>{vendor.name}</span>
-                {!vendor.linkedDistributor && <span className="ml-auto text-xs text-muted-foreground">Profile only</span>}
+                <span className="ml-auto text-xs text-muted-foreground">{vendorKindLabel(vendor)}</span>
               </Button>
             ))}
           </div>
@@ -4541,11 +4549,20 @@ export default function VendorPortal() {
     );
   }
 
+  if ((isAdmin && adminApprovedVendorLineId && approvedVendors.isLoading) || (!isAdmin && myFeatures.isLoading)) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
   return (
     <VendorPortalDashboard
       user={user}
-      page={supplierProfileOnly ? "supplier-profile" : isPelicanVendor && !PELICAN_NAV_IDS.has(page) ? "overview" : page}
+      page={visiblePage}
       isPelicanVendor={isPelicanVendor}
+      portalVendor={featureVendor}
       setPage={navigateToPage}
       isAdmin={isAdmin}
       adminDistributorId={adminDistributorId}
@@ -4555,7 +4572,6 @@ export default function VendorPortal() {
       onSwitchVendor={switchAdminVendor}
       distList={distList.data ?? []}
       approvedVendorList={approvedVendors.data ?? []}
-      supplierProfileOnly={supplierProfileOnly}
     />
   );
 }
@@ -4565,6 +4581,8 @@ type PortalApprovedVendorOption = {
   id: number;
   name: string;
   isApproved: boolean;
+  isCabinetVendor?: boolean | null;
+  sourceKey?: string | null;
   portalReadiness: "not-approved" | "email-required" | "profile-only" | "ready";
   linkedDistributor: PortalDistributorOption | null;
 };
@@ -4614,7 +4632,7 @@ function AdminVendorQuickSwitch({
         <SelectContent>
           {approvedVendorList.filter((vendor) => vendor.isApproved).map((vendor) => (
             <SelectItem key={vendor.id} value={String(vendor.id)}>
-              {vendor.linkedDistributor?.code ?? "PROFILE"} — {vendor.name}{vendor.linkedDistributor ? "" : " (profile only)"}
+              {vendor.linkedDistributor?.code ?? (vendorKind(vendor) === "non_cabinet" ? "VENDOR" : "PROFILE")} — {vendor.name} ({vendorKindLabel(vendor)})
             </SelectItem>
           ))}
         </SelectContent>
@@ -4636,12 +4654,13 @@ function VendorPortalDashboard({
   onSwitchVendor,
   distList,
   approvedVendorList,
-  supplierProfileOnly = false,
+  portalVendor = null,
   isPelicanVendor = false,
 }: {
   user: any;
   page: VendorPage;
   isPelicanVendor?: boolean;
+  portalVendor?: { isCabinetVendor?: boolean | null; sourceKey?: string | null } | null;
   setPage: (p: VendorPage) => void;
   isAdmin: boolean;
   adminDistributorId: number | null;
@@ -4651,24 +4670,20 @@ function VendorPortalDashboard({
   onSwitchVendor: (vendor: PortalApprovedVendorOption) => void;
   distList: PortalDistributorOption[];
   approvedVendorList: PortalApprovedVendorOption[];
-  supplierProfileOnly?: boolean;
 }) {
   const actingDistributorId = isAdmin ? adminDistributorId : vendorDistributorId;
   const activeDistributorId = actingDistributorId;
   const activeDistCode = activeDistributorId
     ? (distList.find((d: any) => d.id === activeDistributorId)?.code ?? undefined)
     : undefined;
-  const isPelican = activeDistCode === PEL_DIST_CODE || isPelicanVendor;
+  const isPelican = activeDistCode === PEL_DIST_CODE || isPelicanVendor || portalVendor?.sourceKey?.trim().toLowerCase() === "pelican";
   const sampleAccess = trpc.vendorSamples.access.useQuery({
     distributorId: actingDistributorId ?? undefined,
     approvedVendorLineId: isAdmin ? adminApprovedVendorLineId ?? undefined : undefined,
-  }, { enabled: !supplierProfileOnly && !isPelicanVendor });
-  const portalItems = (supplierProfileOnly
-    ? NAV_ITEMS.filter((item) => item.id === "supplier-profile")
-    : isPelicanVendor
-      ? NAV_ITEMS.filter((item) => PELICAN_NAV_IDS.has(item.id))
-      : NAV_ITEMS
-  ).filter((item) => item.id !== "samples" || sampleAccess.data?.enabled);
+  }, { enabled: hasVendorFeature(portalVendor, "samples") });
+  const portalItems = NAV_ITEMS
+    .filter((item) => vendorCanOpenPortalPage(portalVendor, item.id))
+    .filter((item) => item.id !== "samples" || sampleAccess.data?.enabled);
   const [pelicanCategoryFilter, setPelicanCategoryFilter] = useState<string | undefined>(undefined);
 
   const handleNavigateToCatalog = useCallback((category?: string) => {
@@ -4771,7 +4786,7 @@ function VendorPortalDashboard({
 	        )}
 	        {page === "overview" && (isPelican ? <PelicanVendorOverviewPage onNavigateToCatalog={handleNavigateToCatalog} /> : <OverviewPage onNavigate={setPage} />)}
 	        {page === "supplier-profile" && <SupplierProfilePage />}
-	        {page === "catalog" && (isPelican ? <PelicanVendorCatalogPage initialCategory={pelicanCategoryFilter} /> : <CatalogPage />)}
+	        {page === "catalog" && (isPelican ? <PelicanVendorCatalogPage initialCategory={pelicanCategoryFilter} /> : hasVendorFeature(portalVendor, "cabinet_catalog") ? <CatalogPage /> : <p className="text-sm text-muted-foreground">This non-cabinet supplier uses a category catalog. Pelican is the category catalog available in the portal today.</p>)}
         {page === "inventory" && <VendorInventory distributorId={actingDistributorId ?? undefined} approvedVendorLineId={isAdmin ? adminApprovedVendorLineId ?? undefined : undefined} />}
         {page === "forecast" && <VendorSalesForecast distributorId={actingDistributorId ?? undefined} approvedVendorLineId={isAdmin ? adminApprovedVendorLineId ?? undefined : undefined} />}
         {page === "pricing" && <VendorPricing distributorId={actingDistributorId ?? undefined} approvedVendorLineId={isAdmin ? adminApprovedVendorLineId ?? undefined : undefined} />}
