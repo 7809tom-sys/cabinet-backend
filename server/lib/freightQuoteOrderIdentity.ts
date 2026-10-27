@@ -13,7 +13,7 @@ export type FreightQuoteOrderLine = {
   masterCode?: string | null;
   styleId?: number | null;
   distributorId?: number | null;
-  productKind?: "surface" | "hardware" | null;
+  productKind?: "surface" | "hardware" | "sample" | null;
   pelicanProductId?: number | null;
   vendorProductId?: number | null;
   qty: number;

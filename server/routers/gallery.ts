@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { eq, and, asc } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
-import { distributorProcedure, publicProcedure, router } from "../_core/trpc";
+import { publicProcedure, router } from "../_core/trpc";
+import { withVendorFeature } from "../lib/vendorFeatureProcedure";
 import { getDb } from "../db";
 import { productGalleryImages, distributorSkus } from "../../drizzle/schema";
 import { storagePut } from "../storage";
@@ -38,7 +39,7 @@ export const galleryRouter = router({
     }),
 
   /** List all gallery images for a distributor (vendor portal overview). */
-  listByDistributor: distributorProcedure
+  listByDistributor: withVendorFeature("room_scenes")
     .input(z.object({ distributorId: z.number().optional() }).optional())
     .query(async ({ ctx, input }) => {
       const db = await getDb();
@@ -52,7 +53,7 @@ export const galleryRouter = router({
     }),
 
   /** Upload a gallery image for a product SKU. */
-  upload: distributorProcedure
+  upload: withVendorFeature("room_scenes")
     .input(
       z.object({
         distributorId: z.number().optional(),
@@ -104,7 +105,7 @@ export const galleryRouter = router({
     }),
 
   /** Delete a gallery image. */
-  delete: distributorProcedure
+  delete: withVendorFeature("room_scenes")
     .input(z.object({ id: z.number(), distributorId: z.number().optional() }))
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
@@ -117,7 +118,7 @@ export const galleryRouter = router({
     }),
 
   /** Update caption or sort order. */
-  update: distributorProcedure
+  update: withVendorFeature("room_scenes")
     .input(
       z.object({
         id: z.number(),

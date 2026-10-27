@@ -102,6 +102,7 @@ describe("vendors router", () => {
       sourceKey: "pelican",
       category: "Surfaces & Fixtures",
       isApproved: true,
+      isCabinetVendor: false,
     });
     expect(created.success).toBe(true);
     expect(created.id).toBeGreaterThan(0);

@@ -14,6 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { toast } from "sonner";
 import { Plus, Trash2, Truck, Plug, ShieldCheck, Activity, X, ChevronDown, ChevronUp, AlertTriangle, CheckCircle2, PackageSearch, Search } from "lucide-react";
 import FreightTestLab from "./FreightTestLab";
+import { PelicanCatalogWeightCompare } from "@/components/shipping/ShippingQuoteBox";
 import { isValidZipPrefix, normalizeZipPrefix, parseZipPrefixes, serializeZipPrefixes } from "@/lib/shippingZipPrefixes";
 
 // Dollars <-> cents helpers (we edit dollars, store cents).
@@ -963,7 +964,7 @@ export function PelicanShippingProfilesPanel({ isAdmin = true }: { isAdmin?: boo
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [draft, setDraft] = useState<PelicanShippingProfileDraft | null>(null);
   const profilesQuery = trpc.pelican.adminShippingProfiles.useQuery({ search: search.trim() || undefined, limit: 200 });
-  const profiles = (profilesQuery.data ?? []) as PelicanShippingProfileRow[];
+  const profiles = (profilesQuery.data?.items ?? []) as PelicanShippingProfileRow[];
   const selected = profiles.find((row) => row.productId === selectedId) ?? null;
   const saveProfile = trpc.pelican.saveShippingProfile.useMutation({
     onSuccess: () => {
@@ -1035,6 +1036,7 @@ export function PelicanShippingProfilesPanel({ isAdmin = true }: { isAdmin?: boo
             {applyComparable.isPending ? "Applying…" : "Apply comparison estimates"}
           </Button>
         </div>}
+        {isAdmin && <PelicanCatalogWeightCompare />}
         <div className="relative max-w-xl">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input value={search} onChange={(event) => setSearch(event.target.value)} className="pl-9" placeholder="Find Pelican SKU, product name, or category" aria-label="Find Pelican product shipping profile" />

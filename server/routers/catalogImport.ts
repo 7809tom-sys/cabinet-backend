@@ -5,6 +5,7 @@ import { TRPCError } from "@trpc/server";
 import { getDb } from "../db";
 import { catalogImports, cabinets } from "../../drizzle/schema";
 import { importPafProducts } from "../lib/catalogImportLogic";
+import { omitImportLockedFields } from "@shared/cabinetConflictFlags";
 import type { PafProduct } from "../lib/pafXmlParser";
 import { emailSettings } from "../../drizzle/schema";
 import { sendEmailViaSettings, emailSettingsReady, sendEmail, isEmailConfigured } from "../email";
@@ -610,14 +611,22 @@ export const catalogImportRouter = router({
         const numberOfDrawers = toInt(drawCol);
         const graphicType = toStr(gtCol);
 
+        const [existing] = await db
+          .select({ id: cabinets.id, importLockedFields: cabinets.importLockedFields })
+          .from(cabinets)
+          .where(eq(cabinets.masterCode, code))
+          .limit(1);
+        if (!existing) {
+          notFound++;
+          if (notFoundCodes.length < 20) notFoundCodes.push(code);
+          continue;
+        }
         if (input.dryRun) {
-          // Just check if the cabinet exists
-          const existing = await db.select({ id: cabinets.id }).from(cabinets).where(eq(cabinets.masterCode, code)).limit(1);
-          if (existing.length > 0) { updated++; } else { notFound++; notFoundCodes.push(code); }
+          updated++;
           continue;
         }
 
-        const result = await db.update(cabinets).set({
+        const patch = omitImportLockedFields({
           ...(description !== null && { description }),
           ...(category !== null && { category }),
           subCategory,
@@ -627,7 +636,10 @@ export const catalogImportRouter = router({
           ...(numberOfDoors !== null && { numberOfDoors }),
           ...(numberOfDrawers !== null && { numberOfDrawers }),
           graphicType,
-        }).where(eq(cabinets.masterCode, code));
+        }, existing.importLockedFields);
+        if (Object.keys(patch).length === 0) { skipped++; continue; }
+
+        const result = await db.update(cabinets).set(patch).where(eq(cabinets.masterCode, code));
 
         if ((result as any)[0]?.affectedRows > 0 || result) {
           updated++;

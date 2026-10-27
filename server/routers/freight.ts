@@ -1629,6 +1629,8 @@ async function savedDesignFreightInput(designId: number) {
       adjustedListPrice: distributorSkus.adjustedListPrice,
       listPrice: distributorSkus.listPrice,
       retailPriceBasis: distributors.retailPriceBasis,
+      vendorWholesale: distributorSkus.vendorWholesale,
+      vendorMarkupPercent: distributors.markupPercent,
     })
     .from(distributorSkus)
     .innerJoin(distributors, eq(distributors.id, distributorSkus.distributorId))

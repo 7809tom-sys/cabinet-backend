@@ -1,7 +1,5 @@
--- Migration 0216. Place the journal entry immediately after 0215.
--- Rebase this branch after migrations through 0215 merge so this file runs after them.
--- Apply with the repo's existing operator path: `pnpm exec drizzle-kit migrate`
--- (or `pnpm db:push` once the journal order is rebased). Do not auto-run on Railway boot.
+-- Migration 0216. Journal idx 215, immediately after idx 214 `0213_vendor_shipping_quotes`.
+-- Apply with `pnpm exec drizzle-kit migrate` (or `pnpm db:push`). Do not auto-run on Railway boot.
 ALTER TABLE `kitchen_designs` ADD `recordKind` enum('customer','suggested') NOT NULL DEFAULT 'customer';--> statement-breakpoint
 ALTER TABLE `kitchen_designs` ADD `suggestionOfDesignId` int;--> statement-breakpoint
 ALTER TABLE `kitchen_designs` ADD `assistLabel` varchar(160);--> statement-breakpoint
