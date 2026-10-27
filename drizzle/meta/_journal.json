@@ -1541,6 +1541,13 @@
       "when": 1794200000000,
       "tag": "0221_vendor_onboarding_exceptions",
       "breakpoints": true
+    },
+    {
+      "idx": 221,
+      "version": "5",
+      "when": 1794300000000,
+      "tag": "0222_door_style_auto_room_scene",
+      "breakpoints": true
     }
   ]
 }
