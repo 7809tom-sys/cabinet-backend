@@ -70,6 +70,7 @@ import { affiliateLiteratureRouter } from "./routers/affiliateLiterature";
 import { affiliateGeneratedImagesRouter } from "./routers/affiliateGeneratedImages";
 import { hardwareRouter } from "./routers/hardware";
 import { stripeInvoicesRouter } from "./routers/stripeInvoices";
+import { shippingQuotesRouter } from "./routers/shippingQuotes";
 import { salesForecastRouter } from "./routers/salesForecast";
 import { vendorInventoryRouter } from "./routers/vendorInventory";
 import { vendorSamplesRouter } from "./routers/vendorSamples";
@@ -176,6 +177,7 @@ export const appRouter = router({
   affiliateGeneratedImages: affiliateGeneratedImagesRouter,
   hardware: hardwareRouter,
   stripeInvoices: stripeInvoicesRouter,
+  shippingQuotes: shippingQuotesRouter,
   salesForecast: salesForecastRouter,
   vendorInventory: vendorInventoryRouter,
   vendorSamples: vendorSamplesRouter,

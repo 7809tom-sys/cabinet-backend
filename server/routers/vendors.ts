@@ -7,6 +7,7 @@ import { catalogImports, distributorSkus, distributors, emailSettings, vendorApp
 import { pelicanProducts } from "../../drizzle/pelicanSchema";
 import { storagePut } from "../storage";
 import { approvedVendorLinkedDistributorIds, approvedVendorMatchesDistributor, approvedVendorSourceDistributorId } from "../lib/approvedVendorAccess";
+import { redactVendorLineForClient } from "../../shared/shippingQuote";
 import { buildPendingVendorReview } from "../lib/pendingVendorReview";
 import { emailSettingsReady, sendEmailViaSettings } from "../email";
 import { buildSupplierPortalInvite } from "../supplierPortalInvite";
@@ -64,7 +65,7 @@ export const vendorsRouter = router({
         .map((candidate) => ({ id: candidate.id, code: candidate.code, name: candidate.name }));
       const portalReadiness = vendorPortalReadiness(line, Boolean(distributor));
       return {
-        ...line,
+        ...redactVendorLineForClient(line),
         linkedDistributorIds,
         linkedDistributors,
         portalReadiness,

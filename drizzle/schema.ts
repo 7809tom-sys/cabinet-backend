@@ -770,6 +770,8 @@ export const distributorIntegrations = mysqlTable(
     authHeaderName: varchar("authHeaderName", { length: 128 }),
     environment: mysqlEnum("environment", ["sandbox", "production"]).default("production").notNull(),
     isEnabled: boolean("isEnabled").default(false).notNull(),
+    /** Administrator gate for customer-facing live quotes. Vendors cannot set this. */
+    adminEnabled: boolean("adminEnabled").default(false).notNull(),
     lastVerifiedAt: timestamp("lastVerifiedAt"),
     lastError: varchar("lastError", { length: 512 }),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
@@ -2717,6 +2719,20 @@ export const vendorLines = mysqlTable("vendor_lines", {
   catalogPdfUrl: varchar("catalogPdfUrl", { length: 512 }),
   /** Source PDF specification book URL, either vendor-hosted or stored in managed file storage. */
   specBookPdfUrl: varchar("specBookPdfUrl", { length: 512 }),
+  /**
+   * Vendor-owned shipping codes for live quote requests. These are not the
+   * site-wide estimator freight class or freight_zones rates.
+   */
+  shippingServiceCodes: json("shippingServiceCodes").$type<string[]>(),
+  shippingFreightClass: varchar("shippingFreightClass", { length: 8 }),
+  shipFromZip: varchar("shipFromZip", { length: 16 }),
+  shippingQuoteProvider: mysqlEnum("shippingQuoteProvider", ["none", "http", "pelican", "carrier_ltl"]).default("none").notNull(),
+  shippingQuoteUrl: varchar("shippingQuoteUrl", { length: 512 }),
+  shippingQuoteAuthHeaderName: varchar("shippingQuoteAuthHeaderName", { length: 128 }),
+  /** Encrypted vendor quote secret. Never selected into a client response. */
+  shippingQuoteSecretEncrypted: varchar("shippingQuoteSecretEncrypted", { length: 2048 }),
+  shippingQuoteAdminEnabled: boolean("shippingQuoteAdminEnabled").default(false).notNull(),
+  shippingQuoteVendorEnabled: boolean("shippingQuoteVendorEnabled").default(false).notNull(),
   inviteToken: varchar("inviteToken", { length: 64 }).unique(),
   inviteCreatedAt: timestamp("inviteCreatedAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),

@@ -376,6 +376,7 @@ export const distributorPortalRouter = router({
 	        baseUrl: distributorIntegrations.baseUrl, accountNumber: distributorIntegrations.accountNumber,
 	        clientId: distributorIntegrations.clientId, authHeaderName: distributorIntegrations.authHeaderName,
 	        environment: distributorIntegrations.environment, isEnabled: distributorIntegrations.isEnabled,
+	        adminEnabled: distributorIntegrations.adminEnabled,
 	        lastVerifiedAt: distributorIntegrations.lastVerifiedAt, lastError: distributorIntegrations.lastError,
 	        hasApiKey: sql<boolean>`${distributorIntegrations.apiKeyEncrypted} is not null`,
 	        hasClientSecret: sql<boolean>`${distributorIntegrations.clientSecretEncrypted} is not null`,
