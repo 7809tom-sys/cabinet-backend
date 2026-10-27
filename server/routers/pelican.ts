@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { and, asc, desc, eq, gt, isNull, like, lte, not, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, isNull, like, lte, not, notInArray, or, sql } from "drizzle-orm";
+import { UNAUTHED_ERR_MSG } from "@shared/const";
+import { hiddenNumericIds, loadAffiliateCatalogGate } from "../lib/affiliateCatalogGate";
 import { router, publicProcedure, adminProcedure, supplierProfileProcedure } from "../_core/trpc";
 import { getDb } from "../db";
 import { pelicanProducts, pelicanShippingProfiles } from "../../drizzle/pelicanSchema";
@@ -12,16 +14,14 @@ import { comparisonProfileForPelicanProduct } from "../../shared/pelicanComparab
 import { loadAffiliateStorefrontPricing } from "../lib/affiliateStorefrontPricing";
 import { resolveMarkupBps } from "../../shared/affiliateBranding";
 
-const CategoryEnum = z.enum([
-  "Sinks & Faucets",
-  "Flooring",
-  "Shower & Bath",
-  "Toilets & Bidets",
-  "Tile & Mosaic",
-  "Quartz Slabs (Countertops)",
-  "Samples",
-  "Marketing & Merchandise",
-]);
+/**
+ * Any stored pelican_products.category. The value is trimmed and capped at the
+ * column length (64). Names outside the original storefront list, including
+ * "Range Tops", are valid filters. A name that is not stored matches no rows.
+ * Designer placement is unchanged: designer scope still keeps only products
+ * with an exact supported Designer role.
+ */
+const StoredPelicanCategory = z.string().trim().min(1).max(64);
 
 const DEFAULT_MARKUP_BPS: Record<string, number> = {
   Flooring: 6500,
@@ -151,11 +151,29 @@ function hasCatalogPriceOrQuoteReference() {
 
 export const pelicanRouter = router({
   categories: publicProcedure
-    .input(z.object({ scope: z.enum(["designer", "catalog", "all"]).default("catalog") }).optional())
-    .query(async ({ input }) => {
+    .input(z.object({ scope: z.enum(["designer", "catalog", "all", "admin"]).default("catalog") }).optional())
+    .query(async ({ input, ctx }) => {
+      const scope = input?.scope ?? "catalog";
+      // Admin counts every stored row, including inactive and unpriced products,
+      // so Overview and My Catalog share one list. Shopper scopes stay public.
+      if (scope === "admin") {
+        if (!ctx.user) throw new TRPCError({ code: "UNAUTHORIZED", message: UNAUTHED_ERR_MSG });
+        const db = await getDb();
+        if (!db) return [] as { category: string; count: number }[];
+        await requirePelicanVendor(db, {
+          user: ctx.user,
+          distributorId: ctx.user.distributorId,
+          approvedVendorLineId: ctx.user.approvedVendorLineId,
+        });
+        const rows = await db
+          .select({ category: pelicanProducts.category, count: sql<number>`count(*)` })
+          .from(pelicanProducts)
+          .groupBy(pelicanProducts.category)
+          .orderBy(desc(sql`count(*)`));
+        return rows.map((r) => ({ category: r.category, count: Number(r.count) }));
+      }
       const db = await getDb();
       if (!db) return [] as { category: string; count: number }[];
-      const scope = input?.scope ?? "catalog";
       const conds = [
         eq(pelicanProducts.isActive, true),
         (scope === "catalog" ? hasCatalogPriceOrQuoteReference() : hasPriceData()) as any,
@@ -185,7 +203,7 @@ export const pelicanRouter = router({
   byCategory: publicProcedure
     .input(
       z.object({
-        category: CategoryEnum,
+        category: StoredPelicanCategory,
         scope: z.enum(["designer", "catalog", "all"]).default("catalog"),
         search: z.string().trim().optional(),
         subCategory: z.string().trim().optional(),
@@ -210,6 +228,8 @@ export const pelicanRouter = router({
       if (input.scope === "designer") conds.push(eq(pelicanProducts.showInDesigner, true));
       if (input.scope === "catalog") conds.push(eq(pelicanProducts.showInCatalog, true));
       if (input.subCategory) conds.push(eq(pelicanProducts.subCategory, input.subCategory));
+      const hiddenSurfaces = hiddenNumericIds(await loadAffiliateCatalogGate(db, input.affiliateSlug), "surface");
+      if (hiddenSurfaces.length > 0) conds.push(notInArray(pelicanProducts.id, hiddenSurfaces));
       if (input.search) {
         const search = input.search.trim();
         const q = `%${search}%`;
@@ -296,6 +316,8 @@ export const pelicanRouter = router({
         ))
         .limit(1);
       if (!row) return null;
+      const hiddenSurfaces = hiddenNumericIds(await loadAffiliateCatalogGate(db, input.affiliateSlug), "surface");
+      if (hiddenSurfaces.includes(row.id)) return null;
       const markupMap = await loadMarkupMap(db);
       const affiliatePricing = await loadAffiliateStorefrontPricing(input.affiliateSlug);
       const priced = withPricing(row, markupMap, affiliatePricing
@@ -323,6 +345,7 @@ export const pelicanRouter = router({
       else return [];
       const markupMap = await loadMarkupMap(db);
       const affiliatePricing = await loadAffiliateStorefrontPricing(input.affiliateSlug);
+      const hiddenSurfaces = new Set(hiddenNumericIds(await loadAffiliateCatalogGate(db, input.affiliateSlug), "surface"));
       const rows = await db
         .select()
         .from(pelicanProducts)
@@ -338,6 +361,7 @@ export const pelicanRouter = router({
         .orderBy(desc(pelicanProducts.isPopular), asc(pelicanProducts.popularRank))
         .limit(input.limit);
       return rows
+        .filter((r) => !hiddenSurfaces.has(r.id))
         .map((r) => withPricing(r, markupMap, affiliatePricing
           ? resolveMarkupBps(affiliatePricing.markup, { categoryKey: r.category })
           : undefined))
@@ -347,9 +371,10 @@ export const pelicanRouter = router({
   adminList: supplierProfileProcedure
     .input(
       z.object({
-        category: CategoryEnum.optional(),
+        category: StoredPelicanCategory.optional(),
         search: z.string().trim().optional(),
         unpricedOnly: z.boolean().default(false),
+        isActive: z.boolean().optional(),
         limit: z.number().min(1).max(500).default(100),
         offset: z.number().min(0).default(0),
       })
@@ -361,6 +386,7 @@ export const pelicanRouter = router({
       const markupMap = await loadMarkupMap(db);
       const conds = [] as any[];
       if (input.category) conds.push(eq(pelicanProducts.category, input.category));
+      if (input.isActive !== undefined) conds.push(eq(pelicanProducts.isActive, input.isActive));
       if (input.unpricedOnly) conds.push(lacksPriceData() as any);
       if (input.search) {
         const search = input.search.trim();
@@ -381,7 +407,7 @@ export const pelicanRouter = router({
         .select()
         .from(pelicanProducts)
         .where(where)
-        .orderBy(asc(pelicanProducts.category), asc(pelicanProducts.name))
+        .orderBy(asc(pelicanProducts.name), asc(pelicanProducts.id))
         .limit(input.limit)
         .offset(input.offset);
       const [{ total }] = await db
@@ -398,17 +424,21 @@ export const pelicanRouter = router({
    * source reference for that exact catalog row.
    */
   adminShippingProfiles: supplierProfileProcedure
-    .input(z.object({ search: z.string().trim().optional(), limit: z.number().min(1).max(500).default(200) }))
+    .input(z.object({
+      search: z.string().trim().optional(),
+      limit: z.number().min(1).max(500).default(200),
+      offset: z.number().min(0).default(0),
+    }))
     .query(async ({ input, ctx }) => {
       const db = await getDb();
-      if (!db) return [];
+      if (!db) return { items: [], total: 0 };
       await requirePelicanVendor(db, ctx);
       const query = input.search?.trim();
       const q = query ? `%${query}%` : null;
       const where = q
         ? or(like(pelicanProducts.name, q), like(pelicanProducts.pelicanCode, q), like(pelicanProducts.category, q))
         : undefined;
-      return db
+      const items = await db
         .select({
           productId: pelicanProducts.id,
           pelicanCode: pelicanProducts.pelicanCode,
@@ -435,7 +465,13 @@ export const pelicanRouter = router({
         .leftJoin(pelicanShippingProfiles, eq(pelicanShippingProfiles.pelicanProductId, pelicanProducts.id))
         .where(where)
         .orderBy(asc(pelicanProducts.category), asc(pelicanProducts.pelicanCode))
-        .limit(input.limit);
+        .limit(input.limit)
+        .offset(input.offset);
+      const [{ total }] = await db
+        .select({ total: sql<number>`count(*)` })
+        .from(pelicanProducts)
+        .where(where);
+      return { items, total: Number(total) };
     }),
 
   saveShippingProfile: supplierProfileProcedure

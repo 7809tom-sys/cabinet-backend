@@ -1,5 +1,4 @@
--- Migration 0213. Journal idx 212 assumes reserved migrations 0206–0212
--- occupy idx 205–211. Rebase this journal entry after those migrations merge.
+-- Migration 0213. Journal idx 214, when 1793600000000, after 0212_vendor_cabinet_flag.
 ALTER TABLE `vendor_lines` ADD `shippingServiceCodes` json;
 --> statement-breakpoint
 ALTER TABLE `vendor_lines` ADD `shippingFreightClass` varchar(8);

@@ -397,32 +397,35 @@ export async function synchronizeApprovedVendorLogin<T extends { id: number; rol
 }
 
 // ─── Pricing & Margins ────────────────────────────────────────────────────────
-import { pricingSettings, type PricingSettings } from "../drizzle/schema";
+import { pricingSettingAudit, pricingSettings, type PricingSettings } from "../drizzle/schema";
 
 const DEFAULT_PRICING_SETTINGS = {
   globalMarkupBps: 10000,
   homeownerMarkupBps: 10000,
   contractorMarkupBps: 10000,
   wholesaleMarkupBps: 10000,
+  wholesaleIncreaseRequiresApproval: true,
 };
+
+export type PricingSettingsView = Pick<
+  PricingSettings,
+  | "globalMarkupBps"
+  | "homeownerMarkupBps"
+  | "contractorMarkupBps"
+  | "wholesaleMarkupBps"
+  | "wholesaleIncreaseRequiresApproval"
+> & { updatedAt: Date | null };
 
 // Read the single pricing-settings row, seeding defaults if the table is empty.
 // Falls back to in-memory defaults when no DB is configured (local tooling/tests).
-export async function getPricingSettings(): Promise<
-  Pick<
-    PricingSettings,
-    | "globalMarkupBps"
-    | "homeownerMarkupBps"
-    | "contractorMarkupBps"
-    | "wholesaleMarkupBps"
-  >
-> {
+// homeownerMarkupBps is the site-wide retail multiplier (10000 = ×1).
+export async function getPricingSettings(): Promise<PricingSettingsView> {
   const db = await getDb();
-  if (!db) return { ...DEFAULT_PRICING_SETTINGS };
+  if (!db) return { ...DEFAULT_PRICING_SETTINGS, updatedAt: null };
   const rows = await db.select().from(pricingSettings).limit(1);
   if (rows.length === 0) {
     await db.insert(pricingSettings).values({ ...DEFAULT_PRICING_SETTINGS });
-    return { ...DEFAULT_PRICING_SETTINGS };
+    return { ...DEFAULT_PRICING_SETTINGS, updatedAt: null };
   }
   const r = rows[0];
   return {
@@ -430,6 +433,8 @@ export async function getPricingSettings(): Promise<
     homeownerMarkupBps: r.homeownerMarkupBps,
     contractorMarkupBps: r.contractorMarkupBps,
     wholesaleMarkupBps: r.wholesaleMarkupBps,
+    wholesaleIncreaseRequiresApproval: r.wholesaleIncreaseRequiresApproval,
+    updatedAt: r.updatedAt ?? null,
   };
 }
 
@@ -441,18 +446,35 @@ export async function updatePricingSettings(
       | "homeownerMarkupBps"
       | "contractorMarkupBps"
       | "wholesaleMarkupBps"
+      | "wholesaleIncreaseRequiresApproval"
     >
   >,
   updatedByOpenId?: string,
+  userId?: number,
 ): Promise<void> {
   const db = await getDb();
   if (!db) return;
   const rows = await db.select().from(pricingSettings).limit(1);
   const values = { ...patch, updatedByOpenId: updatedByOpenId ?? null };
-  if (rows.length === 0) {
+  const previous = rows[0];
+  if (!previous) {
     await db.insert(pricingSettings).values({ ...DEFAULT_PRICING_SETTINGS, ...values });
   } else {
-    await db.update(pricingSettings).set(values).where(eq(pricingSettings.id, rows[0].id));
+    await db.update(pricingSettings).set(values).where(eq(pricingSettings.id, previous.id));
+    const changes: { field: string; oldValue: string | null; newValue: string | null }[] = [];
+    for (const field of Object.keys(patch) as (keyof typeof patch)[]) {
+      const next = patch[field];
+      const old = previous[field];
+      if (next === undefined || String(old) === String(next)) continue;
+      changes.push({ field, oldValue: old == null ? null : String(old), newValue: String(next) });
+    }
+    if (changes.length > 0) {
+      await db.insert(pricingSettingAudit).values(changes.map((change) => ({
+        ...change,
+        userId: userId ?? null,
+        openId: updatedByOpenId ?? null,
+      })));
+    }
   }
 }
 
@@ -535,6 +557,17 @@ export async function recalculateStoredTierPrices(
     .update(distributorSkus)
     .set({ isAvailable: false, isPublished: false })
     .where(lacksAuthorizedBase);
+
+  // Rows with a vendor wholesale keep homeowner retail = wholesale × the
+  // site-wide key × the distributor's existing markupPercent. Read-time
+  // sellPriceForTier uses the same formula. This only refreshes the stored
+  // homeowner cache so legacy readers do not drift after a multiplier change.
+  await db.execute(sql`
+    UPDATE distributor_skus s
+    INNER JOIN distributors d ON d.id = s.distributorId
+    SET s.homeownerPrice = ROUND(s.vendorWholesale * ${homeownerMultiplier} * (1 + COALESCE(d.markupPercent, 0)), 2)
+    WHERE s.vendorWholesale IS NOT NULL AND s.vendorWholesale > 0
+  `);
 
   return {
     updated,
@@ -623,6 +656,8 @@ export type SplitPantryPartPrices = {
   homeownerPrice: string | null;
   yourCost: string | null;
   retailPriceBasis: "cost_plus_tier" | "source_list";
+  vendorWholesale?: string | null;
+  vendorMarkupPercent?: string | null;
 };
 
 export type SplitPantryBundleRow = {
@@ -658,6 +693,8 @@ async function loadPartPrices(
       homeownerPrice: distributorSkus.homeownerPrice,
       yourCost: distributorSkus.yourCost,
       retailPriceBasis: distributors.retailPriceBasis,
+      vendorWholesale: distributorSkus.vendorWholesale,
+      vendorMarkupPercent: distributors.markupPercent,
     })
     .from(distributorSkus)
     .innerJoin(cabinets, eq(cabinets.id, distributorSkus.cabinetId))

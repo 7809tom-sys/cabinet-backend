@@ -964,7 +964,7 @@ export function PelicanShippingProfilesPanel({ isAdmin = true }: { isAdmin?: boo
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [draft, setDraft] = useState<PelicanShippingProfileDraft | null>(null);
   const profilesQuery = trpc.pelican.adminShippingProfiles.useQuery({ search: search.trim() || undefined, limit: 200 });
-  const profiles = (profilesQuery.data ?? []) as PelicanShippingProfileRow[];
+  const profiles = (profilesQuery.data?.items ?? []) as PelicanShippingProfileRow[];
   const selected = profiles.find((row) => row.productId === selectedId) ?? null;
   const saveProfile = trpc.pelican.saveShippingProfile.useMutation({
     onSuccess: () => {

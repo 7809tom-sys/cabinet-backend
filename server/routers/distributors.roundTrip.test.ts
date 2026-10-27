@@ -19,6 +19,8 @@ describe("administrator distributor round-trip workflow", () => {
     const commitBlock = source.slice(commitStart, commitEnd);
     expect(commitBlock).not.toContain("distributorSkus");
     expect(commitBlock).not.toContain("listPrice");
+    expect(commitBlock).not.toContain("description:");
+    expect(commitBlock).not.toContain("numberOfDrawers");
   });
 
   it("blocks unknown items, conflicting aliases, and inactive distributor codes before commit", () => {
