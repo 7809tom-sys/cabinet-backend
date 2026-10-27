@@ -14,6 +14,7 @@ import {
   distributors,
   doorStyles,
   doorStyleRoomScenes,
+  doorStyleRoomSceneGenerations,
   distributorSkus,
   cabinetDistributorEligibility,
   costChangeLog,
@@ -37,6 +38,8 @@ import { invokeLLM } from "../_core/llm";
 import sharp from "sharp";
 import { generateImage } from "../_core/imageGeneration";
 import { rankDoorMatches, type DoorCandidate, type DoorVisionResult } from "@shared/doorPhotoMatch";
+import { nextSampleVerifiedFlag } from "@shared/doorStyleRoomSceneGeneration";
+import { scheduleDoorStyleRoomSceneGeneration } from "../doorStyleRoomSceneGeneration";
 import { changedLockableFields, HIDDEN_CONFLICT_STATUS, locksAfterResolve, omitImportLockedFields, PUBLIC_CATALOG_REVIEW_STATUS } from "@shared/cabinetConflictFlags";
 import { parsePriceAuditQuery } from "@shared/priceAuditLookup";
 import { filterStylesByAvailability } from "@shared/styleAvailability";
@@ -494,6 +497,7 @@ export const doorStylesRouter = router({
         doorSampleImageUrl: doorStyles.doorSampleImageUrl,
         drawerSampleImageUrl: doorStyles.drawerSampleImageUrl,
         doorSampleVerified: doorStyles.doorSampleVerified,
+        drawerSampleVerified: doorStyles.drawerSampleVerified,
         roomSceneImageUrl: doorStyles.roomSceneImageUrl,
         thumbnailImageUrl: doorStyles.thumbnailImageUrl,
         isFeatured: doorStyles.isFeatured,
@@ -526,7 +530,23 @@ export const doorStylesRouter = router({
     const scenes = ids.length === 0 ? [] : await db.select().from(doorStyleRoomScenes)
       .where(inArray(doorStyleRoomScenes.styleId, ids))
       .orderBy(asc(doorStyleRoomScenes.sortOrder), asc(doorStyleRoomScenes.id));
-    return rows.map((row) => ({ ...row, roomScenes: scenes.filter((scene) => scene.styleId === row.id) }));
+    const jobs = ids.length === 0 ? [] : await db.select({
+      styleId: doorStyleRoomSceneGenerations.styleId,
+      status: doorStyleRoomSceneGenerations.status,
+      errorMessage: doorStyleRoomSceneGenerations.errorMessage,
+      sceneId: doorStyleRoomSceneGenerations.sceneId,
+      imageUrl: doorStyleRoomSceneGenerations.imageUrl,
+      doorImageUrl: doorStyleRoomSceneGenerations.doorImageUrl,
+      drawerImageUrl: doorStyleRoomSceneGenerations.drawerImageUrl,
+      attemptCount: doorStyleRoomSceneGenerations.attemptCount,
+      updatedAt: doorStyleRoomSceneGenerations.updatedAt,
+    }).from(doorStyleRoomSceneGenerations).where(inArray(doorStyleRoomSceneGenerations.styleId, ids));
+    const jobsByStyle = new Map(jobs.map((job) => [job.styleId, job]));
+    return rows.map((row) => ({
+      ...row,
+      roomScenes: scenes.filter((scene) => scene.styleId === row.id),
+      autoRoomScene: jobsByStyle.get(row.id) ?? null,
+    }));
   }),
 
   // Admin: toggle a style into the featured homepage set. Each style has its own
@@ -618,6 +638,8 @@ export const doorStylesRouter = router({
         profileDescription: z.string().nullable().optional(),
         sourceSpecification: z.string().max(512).nullable().optional(),
         cornerSwatchImageUrl: z.string().max(512).nullable().optional(),
+        doorSampleVerified: z.boolean().optional(),
+        drawerSampleVerified: z.boolean().optional(),
         isActive: z.boolean().optional(),
       })
     )
@@ -661,10 +683,28 @@ export const doorStylesRouter = router({
       if (fields.cornerSwatchImageUrl !== undefined) patch.cornerSwatchImageUrl = fields.cornerSwatchImageUrl?.trim() || null;
       if (fields.isActive !== undefined) patch.isActive = fields.isActive;
       const currentImages = await db
-        .select({ doorSampleImageUrl: doorStyles.doorSampleImageUrl, thumbnailImageUrl: doorStyles.thumbnailImageUrl })
+        .select({
+          doorSampleImageUrl: doorStyles.doorSampleImageUrl,
+          drawerSampleImageUrl: doorStyles.drawerSampleImageUrl,
+          thumbnailImageUrl: doorStyles.thumbnailImageUrl,
+        })
         .from(doorStyles)
         .where(eq(doorStyles.id, id))
         .limit(1);
+      const doorVerified = nextSampleVerifiedFlag({
+        isAdmin: true,
+        previousUrl: currentImages[0]?.doorSampleImageUrl ?? null,
+        nextUrl: fields.doorSampleImageUrl,
+        explicitVerified: fields.doorSampleVerified,
+      });
+      const drawerVerified = nextSampleVerifiedFlag({
+        isAdmin: true,
+        previousUrl: currentImages[0]?.drawerSampleImageUrl ?? null,
+        nextUrl: fields.drawerSampleImageUrl,
+        explicitVerified: fields.drawerSampleVerified,
+      });
+      if (doorVerified !== undefined) patch.doorSampleVerified = doorVerified;
+      if (drawerVerified !== undefined) patch.drawerSampleVerified = drawerVerified;
       const submittedDoorSample = fields.doorSampleImageUrl?.trim() || currentImages[0]?.doorSampleImageUrl || null;
       if (submittedDoorSample && !currentImages[0]?.thumbnailImageUrl && !fields.thumbnailImageUrl) patch.thumbnailImageUrl = submittedDoorSample;
       if (Object.keys(patch).length === 0) return { ok: true };
@@ -686,6 +726,14 @@ export const doorStylesRouter = router({
         if (fields.isActive === false && current[0]?.isFeatured) patch.isFeatured = false;
       }
       await db.update(doorStyles).set(patch).where(eq(doorStyles.id, id));
+      if (
+        fields.doorSampleImageUrl !== undefined
+        || fields.drawerSampleImageUrl !== undefined
+        || fields.doorSampleVerified !== undefined
+        || fields.drawerSampleVerified !== undefined
+      ) {
+        scheduleDoorStyleRoomSceneGeneration(id);
+      }
       return { ok: true };
     }),
 
@@ -810,6 +858,7 @@ export const doorStylesRouter = router({
           .update(doorStyles)
           .set({ doorSampleImageUrl: url, doorSampleVerified: true, roomSceneImageUrl: null })
           .where(eq(doorStyles.id, input.styleId));
+        scheduleDoorStyleRoomSceneGeneration(input.styleId);
       }
 
       return {
@@ -907,8 +956,82 @@ export const doorStylesRouter = router({
           .update(doorStyles)
           .set({ doorSampleImageUrl: corr.imageUrl, doorSampleVerified: true, roomSceneImageUrl: null })
           .where(eq(doorStyles.id, corr.styleId));
+        scheduleDoorStyleRoomSceneGeneration(corr.styleId);
       }
       return { ok: true, approved: input.approve };
+    }),
+
+  /** Admin confirms a door or drawer-front photo without uploading a replacement. */
+  setSampleImageVerified: adminProcedure
+    .input(z.object({
+      styleId: z.number().int().positive(),
+      image: z.enum(["door", "drawer"]),
+      verified: z.boolean(),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      const [style] = await db.select({
+        id: doorStyles.id,
+        doorSampleImageUrl: doorStyles.doorSampleImageUrl,
+        drawerSampleImageUrl: doorStyles.drawerSampleImageUrl,
+      }).from(doorStyles).where(eq(doorStyles.id, input.styleId)).limit(1);
+      if (!style) throw new TRPCError({ code: "NOT_FOUND", message: "Door style not found." });
+      const imageUrl = input.image === "door" ? style.doorSampleImageUrl : style.drawerSampleImageUrl;
+      if (input.verified && !imageUrl?.trim()) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Upload the photo before verifying it." });
+      }
+      await db.update(doorStyles).set(
+        input.image === "door"
+          ? { doorSampleVerified: input.verified }
+          : { drawerSampleVerified: input.verified },
+      ).where(eq(doorStyles.id, input.styleId));
+      scheduleDoorStyleRoomSceneGeneration(input.styleId);
+      return { ok: true };
+    }),
+
+  autoRoomSceneStatus: adminProcedure
+    .input(z.object({ styleId: z.number().int().positive() }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return null;
+      const [job] = await db.select({
+        styleId: doorStyleRoomSceneGenerations.styleId,
+        status: doorStyleRoomSceneGenerations.status,
+        errorMessage: doorStyleRoomSceneGenerations.errorMessage,
+        sceneId: doorStyleRoomSceneGenerations.sceneId,
+        imageUrl: doorStyleRoomSceneGenerations.imageUrl,
+        doorImageUrl: doorStyleRoomSceneGenerations.doorImageUrl,
+        drawerImageUrl: doorStyleRoomSceneGenerations.drawerImageUrl,
+        attemptCount: doorStyleRoomSceneGenerations.attemptCount,
+        updatedAt: doorStyleRoomSceneGenerations.updatedAt,
+      }).from(doorStyleRoomSceneGenerations).where(eq(doorStyleRoomSceneGenerations.styleId, input.styleId)).limit(1);
+      return job ?? null;
+    }),
+
+  /** Retry a failed automatic room scene. Re-verification of the same photos does not retry on its own. */
+  retryAutoRoomScene: adminProcedure
+    .input(z.object({ styleId: z.number().int().positive() }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      const [job] = await db.select({
+        status: doorStyleRoomSceneGenerations.status,
+      }).from(doorStyleRoomSceneGenerations).where(eq(doorStyleRoomSceneGenerations.styleId, input.styleId)).limit(1);
+      if (!job || job.status !== "failed") {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Only a failed automatic room scene can be retried." });
+      }
+      const [style] = await db.select({
+        doorSampleImageUrl: doorStyles.doorSampleImageUrl,
+        drawerSampleImageUrl: doorStyles.drawerSampleImageUrl,
+        doorSampleVerified: doorStyles.doorSampleVerified,
+        drawerSampleVerified: doorStyles.drawerSampleVerified,
+      }).from(doorStyles).where(eq(doorStyles.id, input.styleId)).limit(1);
+      if (!style?.doorSampleVerified || !style.drawerSampleVerified || !style.doorSampleImageUrl?.trim() || !style.drawerSampleImageUrl?.trim()) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Verify both the door and drawer photos before retrying." });
+      }
+      scheduleDoorStyleRoomSceneGeneration(input.styleId, { forceRetry: true });
+      return { ok: true, status: "pending" as const };
     }),
 
   // Public: upload a real-world door photo and let the vision model rank the
