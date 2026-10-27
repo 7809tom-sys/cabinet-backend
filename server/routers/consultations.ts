@@ -16,7 +16,16 @@ import {
   crmActivities,
   users,
   kitchenDesigns,
+  affiliates,
 } from "../../drizzle/schema";
+import { affiliateSlugFromHostCandidates } from "../lib/affiliateSubdomain";
+import {
+  CONSULTATION_AFFILIATE_SLUG_COOKIE,
+  CONSULTATION_REFERRAL_COOKIE,
+  ConsultationAttributionError,
+  readRequestCookie,
+  resolveBookedConsultationAffiliate,
+} from "../lib/consultationAffiliate";
 
 const MODES = ["video", "phone", "in_person"] as const;
 
@@ -79,8 +88,8 @@ export const consultationsRouter = router({
   // ── Public/visitor: book an open slot ───────────────────────────────────────
   // Anyone (guest or logged in) may book. We claim the slot transactionally
   // (guarding against double-booking), snapshot the time, create the
-  // consultation, and spawn a HOUSE CRM deal + a meeting activity so the team
-  // manages it from the existing pipeline.
+  // consultation, and spawn a CRM deal in the referring store (or the house
+  // pipeline when no store resolves) plus a meeting activity.
   book: publicProcedure
     .input(
       z.object({
@@ -91,6 +100,10 @@ export const consultationsRouter = router({
         topic: z.string().max(1000).optional(),
         designId: z.number().int().optional(),
         designName: z.string().max(256).optional(),
+        // Storefront path (/store/:slug) and the persisted referral code.
+        // Both are looked up server-side. A numeric affiliate id is not accepted.
+        affiliateSlug: z.string().trim().max(255).optional(),
+        referralCode: z.string().trim().max(64).optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -111,6 +124,74 @@ export const consultationsRouter = router({
         throw new TRPCError({ code: "BAD_REQUEST", message: "That time has already passed." });
       }
 
+      const hostSlug = affiliateSlugFromHostCandidates([
+        ctx.req.headers["x-original-host"],
+        ctx.req.headers["x-forwarded-host"],
+        ctx.req.headers["x-host"],
+        ctx.req.hostname,
+        ctx.req.headers.host,
+      ]);
+      const cookieHeader = ctx.req.headers.cookie;
+      let affiliateId: number | null = null;
+      try {
+        affiliateId = await resolveBookedConsultationAffiliate(
+          {
+            findBySlug: async (slug) => {
+              const rows = await db
+                .select({
+                  id: affiliates.id,
+                  status: affiliates.status,
+                  storefrontEnabled: affiliates.storefrontEnabled,
+                  referralCode: affiliates.referralCode,
+                })
+                .from(affiliates)
+                .where(eq(affiliates.slug, slug))
+                .limit(1);
+              return rows[0] ?? null;
+            },
+            findByReferralCode: async (code) => {
+              const rows = await db
+                .select({
+                  id: affiliates.id,
+                  status: affiliates.status,
+                  referralCode: affiliates.referralCode,
+                })
+                .from(affiliates)
+                .where(eq(affiliates.referralCode, code))
+                .limit(1);
+              return rows[0] ?? null;
+            },
+          },
+          {
+            affiliateSlug: input.affiliateSlug,
+            referralCode: input.referralCode,
+            hostSlug,
+            cookieSlug: readRequestCookie(cookieHeader, CONSULTATION_AFFILIATE_SLUG_COOKIE),
+            cookieReferralCode: readRequestCookie(cookieHeader, CONSULTATION_REFERRAL_COOKIE),
+          },
+        );
+      } catch (error) {
+        if (error instanceof ConsultationAttributionError) {
+          throw new TRPCError({ code: error.code, message: error.message });
+        }
+        throw error;
+      }
+
+      if (input.designId) {
+        const designRows = await db
+          .select({ affiliateId: kitchenDesigns.affiliateId })
+          .from(kitchenDesigns)
+          .where(eq(kitchenDesigns.id, input.designId))
+          .limit(1);
+        const design = designRows[0];
+        if (design && (design.affiliateId ?? null) !== affiliateId) {
+          throw new TRPCError({
+            code: "PRECONDITION_FAILED",
+            message: "This saved plan and referral belong to different stores.",
+          });
+        }
+      }
+
       // Claim the slot; the WHERE status='open' guard makes this idempotent under
       // a race — only one booking can flip it.
       const claim = await db
@@ -122,9 +203,9 @@ export const consultationsRouter = router({
         throw new TRPCError({ code: "CONFLICT", message: "Sorry, that time was just booked. Please pick another." });
       }
 
-      // Spawn a house CRM deal for the consultation.
+      // Spawn the CRM deal in the store that referred this booking.
       const dealRes = await db.insert(crmDeals).values({
-        affiliateId: null,
+        affiliateId,
         ownerUserId: slot.designerUserId,
         title: `Design consult — ${input.customerName}`,
         stage: "new",
@@ -155,6 +236,7 @@ export const consultationsRouter = router({
         topic: input.topic ?? null,
         status: "requested",
         dealId,
+        affiliateId,
       });
       const consultationId = (consRes as unknown as [{ insertId: number }])[0].insertId;
 
@@ -241,6 +323,9 @@ export const consultationsRouter = router({
     }),
 
   // ── Designer: list consultations booked against my slots ────────────────────
+  // Designer or admin only. A designer sees rows assigned to them. An admin sees
+  // every designer booking (the internal Consultations screen). This is not the
+  // affiliate Appointments feed; that query is affiliates.myConsultations.
   myConsultations: designerProcedure
     .input(z.object({ status: z.enum(["requested", "confirmed", "completed", "cancelled", "all"]).default("all") }).optional())
     .query(async ({ ctx, input }) => {

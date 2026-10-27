@@ -22,6 +22,7 @@ import { StorefrontSocialIcons } from "@/components/storefront/StorefrontSocialI
 import type { PublicAffiliateSocialLink } from "@shared/affiliateSocialLinks";
 import type { AffiliateStorefrontTemplate } from "@shared/affiliateStorefrontTemplates";
 import { affiliateDashboardPath } from "@/lib/affiliateStorefrontUrl";
+import { storefrontCssVars } from "@shared/affiliateStorefrontControls";
 
 const PLATFORM_NAVY = "#1a2b4a";
 const PLATFORM_GOLD = "#c9a227";
@@ -182,9 +183,9 @@ export default function Storefront({ slug, previewData, focusShop = false }: { s
   const heroImg = data.heroImageUrl || KITCHEN_SCENES["shaker-white"];
   // New storefront-specific fields take precedence, while existing affiliates
   // retain their already-published contact information without a forced update.
-  const storefrontPhone = data.publicPhone || data.phone;
-  const storefrontEmail = data.publicEmail || data.email;
-  const storefrontLocation = data.publicAddress || data.serviceArea || data.location;
+  const storefrontPhone = data.showPublicPhone ? data.publicPhone : null;
+  const storefrontEmail = data.showPublicEmail ? data.publicEmail : null;
+  const storefrontLocation = data.showPublicAddress ? data.publicAddress : data.serviceArea;
 
   const valueProps = [
     { icon: Ruler, title: t("value_free_design"), sub: t("value_free_design_sub") },
@@ -243,7 +244,7 @@ export default function Storefront({ slug, previewData, focusShop = false }: { s
   );
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
+    <div className="min-h-screen flex flex-col bg-background" style={{ ...storefrontCssVars(data), background: "var(--sf-bg, transparent)", color: "var(--sf-text, inherit)", fontFamily: "var(--sf-font-body, inherit)" }}>
       {/* ─── Header + Hero (varies by template) ──────────────────────────── */}
       {template === "classic" && (
         <ClassicHeader {...{ data: localizedData, brand, t, withRef, headlineFont, LangToggle, Logo }} />
@@ -338,6 +339,7 @@ export default function Storefront({ slug, previewData, focusShop = false }: { s
                     <PackageOpen className="h-4 w-4" /> View Kitchen Packages <ArrowRight className="h-4 w-4" />
                   </Button>
                 </Link>
+                <FeaturedKitchenPackages affiliateId={data.id} slug={data.slug} withRef={withRef} />
               </div>
               <div className="flex-1 grid grid-cols-2 gap-3">
                 {[
@@ -456,7 +458,10 @@ export default function Storefront({ slug, previewData, focusShop = false }: { s
             <div>
               <div className={`${headlineFont} text-xl font-bold text-white mb-3`}>{data.storeName}</div>
               {localizedData.aboutText && <p className="text-sm leading-relaxed mb-4">{localizedData.aboutText}</p>}
-              <StorefrontSocialIcons links={data.socialLinks ?? []} iconClassName="text-white/80 hover:text-white" />
+              {data.footerText && <p className="text-sm leading-relaxed mb-4">{data.footerText}</p>}
+              <div data-testid="social-links-slot">
+                <StorefrontSocialIcons links={data.socialLinks ?? []} iconClassName="text-white/80 hover:text-white" />
+              </div>
             </div>
             <div>
               <div className="font-semibold text-white mb-3">{t("footer_contact")}</div>
@@ -526,6 +531,23 @@ type HeaderProps = {
   Logo: (props: { light?: boolean }) => React.ReactElement;
 };
 
+function FeaturedKitchenPackages({ affiliateId, slug, withRef }: { affiliateId: number; slug: string; withRef: (path: string) => string }) {
+  const bundles = trpc.priceShop.listPublishedBundles.useQuery({ affiliateId }, { retry: false });
+  const featured = (bundles.data ?? []).filter((bundle) => bundle.featuredOnHome);
+  if (featured.length === 0) return null;
+  return (
+    <div className="mt-6 grid gap-3 sm:grid-cols-2">
+      {featured.slice(0, 2).map((bundle) => (
+        <Link key={bundle.id} href={withRef(`/store/${slug}/bundles`)} className="rounded-xl border border-border bg-card p-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Featured kitchen</p>
+          <p className="mt-1 font-semibold">{bundle.name}</p>
+          {bundle.displayPrice && <p className="text-sm mt-1">${Number(bundle.displayPrice).toLocaleString()}</p>}
+        </Link>
+      ))}
+    </div>
+  );
+}
+
 function NavLinks({
   t,
   withRef,
@@ -554,6 +576,9 @@ function NavLinks({
       </Link>
       <Link href={withRef(`/design?affiliate=${slug}`)} className="hidden sm:block">
         <Button variant="ghost" size="sm" className={cls}>{t("nav_design")}</Button>
+      </Link>
+      <Link href={withRef(`/store/${slug}/account`)}>
+        <Button variant="ghost" size="sm" className={cls}>Account</Button>
       </Link>
       <Link href={withRef(`/store/${slug}/cart`)} aria-label="Cart">
         <Button variant="ghost" size="sm" className={`relative ${cls}`}>

@@ -1,25 +1,64 @@
 import { z } from "zod";
-import { eq, and, desc, lte, gte, isNull, or } from "drizzle-orm";
+import { eq, and, desc, lte, gte, isNull, or, inArray } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { distributorProcedure, publicProcedure, router } from "../_core/trpc";
+import { resolveVendorCatalogLineId } from "../lib/approvedVendorAccess";
 import { getDb } from "../db";
-import { vendorPromotions, doorStyles } from "../../drizzle/schema";
+import { vendorPromotions, doorStyles, distributorSkus, cabinets } from "../../drizzle/schema";
+import { vendorDiscountError, vendorPromotionWindowError, type VendorDiscountType } from "@shared/vendorPromotions";
 
 function resolveLineId(
   ctxDistributorId: number | null,
   isAdmin: boolean,
-  inputDistributorId?: number | null
+  inputDistributorId?: number | null,
+  linkedDistributorIds?: readonly number[] | null,
 ): number {
-  if (!isAdmin) {
-    if (ctxDistributorId == null) {
-      throw new TRPCError({ code: "FORBIDDEN", message: "No supply line linked." });
+  return resolveVendorCatalogLineId(isAdmin, ctxDistributorId, inputDistributorId, linkedDistributorIds);
+}
+
+async function assertOwnPromotionScope(
+  db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
+  lineId: number,
+  scope: { skuIds?: number[] | null; styleId?: number | null; category?: string | null },
+) {
+  if (scope.styleId != null) {
+    const [style] = await db.select({ id: doorStyles.id }).from(doorStyles)
+      .where(and(eq(doorStyles.id, scope.styleId), eq(doorStyles.distributorId, lineId))).limit(1);
+    if (!style) throw new TRPCError({ code: "FORBIDDEN", message: "That door style is not in your catalog." });
+  }
+  const skuIds = scope.skuIds ?? [];
+  if (skuIds.length > 0) {
+    const owned = await db.select({
+      id: distributorSkus.id,
+      styleId: distributorSkus.styleId,
+      category: cabinets.category,
+    }).from(distributorSkus)
+      .leftJoin(cabinets, eq(cabinets.id, distributorSkus.cabinetId))
+      .where(and(eq(distributorSkus.distributorId, lineId), inArray(distributorSkus.id, skuIds)));
+    if (owned.length !== skuIds.length) {
+      throw new TRPCError({ code: "FORBIDDEN", message: "A promotion can only discount items in your own catalog." });
     }
-    return ctxDistributorId;
+    if (scope.styleId != null && owned.some((row) => row.styleId !== scope.styleId)) {
+      throw new TRPCError({ code: "BAD_REQUEST", message: "Every selected item must belong to the chosen door style." });
+    }
+    if (scope.category && owned.some((row) => row.category !== scope.category)) {
+      throw new TRPCError({ code: "BAD_REQUEST", message: "Every selected item must belong to the chosen category." });
+    }
   }
-  if (inputDistributorId == null) {
-    throw new TRPCError({ code: "BAD_REQUEST", message: "Admins must specify distributorId." });
+  if (scope.category) {
+    const [match] = await db.select({ id: distributorSkus.id }).from(distributorSkus)
+      .innerJoin(cabinets, eq(cabinets.id, distributorSkus.cabinetId))
+      .where(and(eq(distributorSkus.distributorId, lineId), eq(cabinets.category, scope.category)))
+      .limit(1);
+    if (!match) throw new TRPCError({ code: "BAD_REQUEST", message: "That category is not in your catalog." });
   }
-  return inputDistributorId;
+}
+
+function assertDiscount(discountType: VendorDiscountType, discountValue: number, startsAt?: string | null, endsAt?: string | null) {
+  const discountError = vendorDiscountError(discountType, discountValue);
+  if (discountError) throw new TRPCError({ code: "BAD_REQUEST", message: discountError });
+  const windowError = vendorPromotionWindowError(startsAt, endsAt);
+  if (windowError) throw new TRPCError({ code: "BAD_REQUEST", message: windowError });
 }
 
 export const promotionsRouter = router({
@@ -29,7 +68,7 @@ export const promotionsRouter = router({
     .query(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) return [];
-      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input?.distributorId);
+      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input?.distributorId, ctx.linkedDistributorIds);
       return db
         .select()
         .from(vendorPromotions)
@@ -46,8 +85,8 @@ export const promotionsRouter = router({
         skuIds: z.array(z.number()).optional(),
         styleId: z.number().optional(),
         category: z.string().max(128).optional(),
-        discountType: z.enum(["percent", "fixed_price"]),
-        discountValue: z.number().positive(),
+        discountType: z.enum(["percent", "fixed_amount", "fixed_price"]),
+        discountValue: z.number(),
         startsAt: z.string().datetime().optional(),
         endsAt: z.string().datetime().optional(),
       })
@@ -55,12 +94,15 @@ export const promotionsRouter = router({
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
-      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId);
+      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId, ctx.linkedDistributorIds);
+      assertDiscount(input.discountType, input.discountValue, input.startsAt, input.endsAt);
+      const skuIds = input.skuIds?.length ? Array.from(new Set(input.skuIds)) : null;
+      await assertOwnPromotionScope(db, lineId, { skuIds, styleId: input.styleId ?? null, category: input.category || null });
 
       await db.insert(vendorPromotions).values({
         distributorId: lineId,
         name: input.name,
-        skuIds: input.skuIds && input.skuIds.length > 0 ? input.skuIds : null,
+        skuIds,
         styleId: input.styleId ?? null,
         category: input.category || null,
         discountType: input.discountType,
@@ -82,8 +124,8 @@ export const promotionsRouter = router({
         skuIds: z.array(z.number()).optional(),
         styleId: z.number().nullable().optional(),
         category: z.string().max(128).nullable().optional(),
-        discountType: z.enum(["percent", "fixed_price"]).optional(),
-        discountValue: z.number().positive().optional(),
+        discountType: z.enum(["percent", "fixed_amount", "fixed_price"]).optional(),
+        discountValue: z.number().optional(),
         startsAt: z.string().datetime().nullable().optional(),
         endsAt: z.string().datetime().nullable().optional(),
         isActive: z.boolean().optional(),
@@ -92,11 +134,27 @@ export const promotionsRouter = router({
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
-      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId);
+      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId, ctx.linkedDistributorIds);
+      const [existing] = await db.select().from(vendorPromotions)
+        .where(and(eq(vendorPromotions.id, input.id), eq(vendorPromotions.distributorId, lineId))).limit(1);
+      if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "That promotion is not on your line." });
+      const discountType = input.discountType ?? existing.discountType;
+      const discountValue = input.discountValue ?? Number(existing.discountValue);
+      const startsAt = input.startsAt === undefined ? existing.startsAt?.toISOString() ?? null : input.startsAt;
+      const endsAt = input.endsAt === undefined ? existing.endsAt?.toISOString() ?? null : input.endsAt;
+      assertDiscount(discountType, discountValue, startsAt, endsAt);
+      const skuIds = input.skuIds === undefined
+        ? (Array.isArray(existing.skuIds) ? existing.skuIds.filter((id): id is number => typeof id === "number") : null)
+        : (input.skuIds.length > 0 ? Array.from(new Set(input.skuIds)) : null);
+      await assertOwnPromotionScope(db, lineId, {
+        skuIds,
+        styleId: input.styleId === undefined ? existing.styleId : input.styleId,
+        category: input.category === undefined ? existing.category : input.category,
+      });
 
       const patch: Record<string, unknown> = {};
       if (input.name !== undefined) patch.name = input.name;
-      if (input.skuIds !== undefined) patch.skuIds = input.skuIds.length > 0 ? input.skuIds : null;
+      if (input.skuIds !== undefined) patch.skuIds = skuIds;
       if (input.styleId !== undefined) patch.styleId = input.styleId;
       if (input.category !== undefined) patch.category = input.category;
       if (input.discountType !== undefined) patch.discountType = input.discountType;
@@ -120,7 +178,7 @@ export const promotionsRouter = router({
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
-      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId);
+      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId, ctx.linkedDistributorIds);
       await db
         .delete(vendorPromotions)
         .where(and(eq(vendorPromotions.id, input.id), eq(vendorPromotions.distributorId, lineId)));
@@ -133,7 +191,7 @@ export const promotionsRouter = router({
     .query(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) return [];
-      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input?.distributorId);
+      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input?.distributorId, ctx.linkedDistributorIds);
       const now = new Date();
       const all = await db
         .select()

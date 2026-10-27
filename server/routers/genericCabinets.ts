@@ -16,6 +16,8 @@ import { cabinets, cabinetAliases, distributors, distributorSkus, distributorCab
 import { storagePut } from "../storage";
 import { logCabinetConfigChanges, snapshotCabinetBeforeEdit } from "../lib/cabinetConfigHistory";
 import { normalizeCode } from "../../shared/cabinetCodeMatch";
+import { HIDDEN_CONFLICT_STATUS, omitImportLockedFields, PUBLIC_CATALOG_REVIEW_STATUS } from "../../shared/cabinetConflictFlags";
+import { aliasSearchOrder, orCabinetAliasMatch } from "../lib/cabinetAliasSearchSql";
 import {
   catalogNomenclatureIssueMessage,
   catalogNomenclatureIssues,
@@ -23,6 +25,7 @@ import {
   designerFriendlyDescription,
   hasPositiveCatalogPrice,
 } from "../../shared/catalogNomenclature";
+import { cabinetCanBeRenderedOrPlacedIn3d } from "../../shared/designerEligibility";
 
 export const genericCabinetsRouter = router({
   /**
@@ -95,7 +98,7 @@ export const genericCabinetsRouter = router({
       }
 
       if (input.conflictOnly) {
-        conditions.push(eq(cabinets.conflictStatus, "conflict"));
+        conditions.push(inArray(cabinets.conflictStatus, [HIDDEN_CONFLICT_STATUS, PUBLIC_CATALOG_REVIEW_STATUS]));
       }
 
       const where = conditions.length > 0 ? and(...conditions) : undefined;
@@ -127,12 +130,13 @@ export const genericCabinetsRouter = router({
             constructionMethod: cabinets.constructionMethod,
             conflictStatus: cabinets.conflictStatus,
             showInDesigner: cabinets.showInDesigner,
+            designerEligible: cabinets.designerEligible,
             showInCatalog: cabinets.showInCatalog,
             isActive: cabinets.isActive,
           })
           .from(cabinets)
           .where(where)
-          .orderBy(asc(cabinets.category), asc(cabinets.masterCode))
+          .orderBy(...aliasSearchOrder(input.search, asc(cabinets.category), asc(cabinets.masterCode)))
           .limit(input.pageSize)
           .offset(offset),
         db.select({ count: sql<number>`COUNT(*)` }).from(cabinets).where(where),
@@ -239,6 +243,7 @@ export const genericCabinetsRouter = router({
           altSku3: cabinets.altSku3,
           isActive: cabinets.isActive,
           showInDesigner: cabinets.showInDesigner,
+          designerEligible: cabinets.designerEligible,
           showInCatalog: cabinets.showInCatalog,
         })
         .from(cabinets)
@@ -297,6 +302,7 @@ export const genericCabinetsRouter = router({
         hingeSide: z.string().trim().max(16).nullable().optional(),
         toeKickHeight: z.number().min(0).max(24).nullable().optional(),
         graphicType: z.string().trim().max(64).nullable().optional(),
+        designerEligible: z.boolean().optional(),
         isCornerCabinet: z.boolean().default(false),
         cornerSide: z.string().trim().max(16).nullable().optional(),
         cornerType: z.string().trim().max(50).nullable().optional(),
@@ -430,6 +436,16 @@ export const genericCabinetsRouter = router({
         isActive: publish,
         showInCatalog: publish,
         showInDesigner: publish,
+        designerEligible: input.designerEligible ?? (publish && cabinetCanBeRenderedOrPlacedIn3d({
+          masterCode,
+          description,
+          category,
+          subCategory: input.subCategory,
+          placementType: input.placementType,
+          width: input.width,
+          height: input.height,
+          depth: input.depth,
+        })),
         showIn2020: publish,
         conflictStatus: "none",
       };
@@ -642,6 +658,7 @@ export const genericCabinetsRouter = router({
         catalogImageUrl: z.string().nullable().optional(),
         conflictStatus: z.enum(["none", "conflict"]).optional(),
         showInDesigner: z.boolean().optional(),
+        designerEligible: z.boolean().optional(),
         showInCatalog: z.boolean().optional(),
         isActive: z.boolean().optional(),
       })
@@ -664,7 +681,7 @@ export const genericCabinetsRouter = router({
 
       if (Object.keys(update).length === 0) return { ok: true };
 
-      const requiresPublicPrice = input.isActive === true || input.showInCatalog === true || input.showInDesigner === true;
+      const requiresPublicPrice = input.isActive === true || input.showInCatalog === true || input.showInDesigner === true || input.designerEligible === true;
       const changesTruthFields = input.description !== undefined
         || input.category !== undefined
         || input.subCategory !== undefined
@@ -802,7 +819,7 @@ export const genericCabinetsRouter = router({
 
       for (const row of input) {
         const existing = await db
-          .select({ id: cabinets.id })
+          .select({ id: cabinets.id, importLockedFields: cabinets.importLockedFields })
           .from(cabinets)
           .where(eq(cabinets.masterCode, row.masterCode))
           .limit(1);
@@ -828,9 +845,12 @@ export const genericCabinetsRouter = router({
         if (row.stainColor !== undefined) update.stainColor = row.stainColor;
         if (row.constructionMethod !== undefined) update.constructionMethod = row.constructionMethod;
 
+        const unlocked = omitImportLockedFields(update, existing[0].importLockedFields);
+        if (Object.keys(unlocked).length === 0) continue;
+
         // Aliases are purely informational cross-references.
         // Visibility is controlled exclusively by admin via showInCatalog/showInDesigner toggles.
-        await db.update(cabinets).set(update).where(eq(cabinets.id, existing[0].id));
+        await db.update(cabinets).set(unlocked).where(eq(cabinets.id, existing[0].id));
         updated++;
       }
 
@@ -876,6 +896,7 @@ export const genericCabinetsRouter = router({
       const db = await getDb();
       if (!db) return [];
       const like_ = `%${input.q.trim()}%`;
+      const normalizedQuery = normalizeCode(input.q);
       const rows = await db
         .select({
           id: cabinets.id,
@@ -889,18 +910,12 @@ export const genericCabinetsRouter = router({
           altSku3: cabinets.altSku3,
         })
         .from(cabinets)
-        .where(
-          or(
-            like(cabinets.masterCode, like_),
-            like(cabinets.description, like_),
-            like(cabinets.sku, like_),
-            like(cabinets.vendorSku, like_),
-            like(cabinets.altSku1, like_),
-            like(cabinets.altSku2, like_),
-            like(cabinets.altSku3, like_)
-          )
-        )
-        .orderBy(asc(cabinets.masterCode))
+        .where(orCabinetAliasMatch(sql`(
+          ${cabinets.masterCode} LIKE ${like_}
+          OR ${cabinets.description} LIKE ${like_}
+          OR UPPER(REPLACE(REPLACE(REPLACE(${cabinets.masterCode}, '-', ''), ' ', ''), '_', '')) LIKE ${`%${normalizedQuery}%`}
+        )`, input.q))
+        .orderBy(...aliasSearchOrder(input.q, asc(cabinets.masterCode)))
         .limit(20);
       return rows.map((r) => ({
         id: r.id,
@@ -1122,6 +1137,7 @@ export const genericCabinetsRouter = router({
       const db = await getDb();
       if (!db) return [];
       const term = `%${input.search}%`;
+      const normalizedQuery = normalizeCode(input.search);
       const rows = await db
         .select({
           id: cabinets.id,
@@ -1135,16 +1151,12 @@ export const genericCabinetsRouter = router({
           isActive: cabinets.isActive,
         })
         .from(cabinets)
-        .where(
-          or(
-            like(cabinets.masterCode, term),
-            like(cabinets.description, term),
-            like(cabinets.altSku1, term),
-            like(cabinets.altSku2, term),
-            like(cabinets.altSku3, term)
-          )
-        )
-        .orderBy(asc(cabinets.masterCode))
+        .where(orCabinetAliasMatch(sql`(
+          ${cabinets.masterCode} LIKE ${term}
+          OR ${cabinets.description} LIKE ${term}
+          OR UPPER(REPLACE(REPLACE(REPLACE(${cabinets.masterCode}, '-', ''), ' ', ''), '_', '')) LIKE ${`%${normalizedQuery}%`}
+        )`, input.search))
+        .orderBy(...aliasSearchOrder(input.search, asc(cabinets.masterCode)))
         .limit(20);
       // Get SKU counts
       const results = [];

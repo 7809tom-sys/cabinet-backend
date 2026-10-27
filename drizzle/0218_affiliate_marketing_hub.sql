@@ -1,5 +1,5 @@
--- Migration 0218. On this branch the journal entry is appended after 0205.
--- Rebase after earlier migrations through 0217 merge so this entry follows 0217.
+-- Migration 0218. Journal entry follows 0217_affiliate_crm_email (idx 216, when 1793800000000).
+-- This entry is idx 217, when 1793900000000. The 0218 snapshot prevId is the 0217 snapshot.
 -- No Cura printed-material catalog exists in this repo. Printed materials use
 -- affiliate_resources rows of type pdf; an admin uploads the files later.
 -- Example rows below are unpublished drafts. They are structure only.

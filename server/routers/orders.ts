@@ -3,6 +3,7 @@ import { eq, and, or, desc, inArray, like, sql, isNull } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { publicProcedure, protectedProcedure, adminProcedure, router } from "../_core/trpc";
 import { sendEmailViaSettings, emailSettingsReady } from "../email";
+import { ensureAffiliatePipelineDeal } from "../lib/crmPipelineAttach";
 import { resolvePresentation } from "../lib/presentation";
 import {
   buildNetsuiteOrderCsv,
@@ -16,6 +17,7 @@ import {
   doorStyles,
   distributors,
   orderRequests,
+  users,
   kitchenDesigns,
   crmDealDesigns,
   affiliates,
@@ -45,6 +47,7 @@ import { affiliateStyleBranding } from "../../drizzle/schema";
 import { loadAffiliateStorefrontPricing } from "../lib/affiliateStorefrontPricing";
 import { buildAffiliateOrderPersistence } from "@shared/affiliateOrderAlias";
 import { createCheckoutSession } from "../stripe";
+import { canPlaceSampleOrder, lineClaimsSample } from "../../shared/samples";
 import { resolveAffiliateAccess } from "../lib/affiliateAccess";
 import { freightItemsHash, freightQuoteDestinationAddressHash, verifyFreightQuoteToken } from "../_core/freightQuoteToken";
 import { freightQuoteItemsForOrder } from "../lib/freightQuoteOrderIdentity";
@@ -53,6 +56,9 @@ import { calcSalesTax } from "@shared/usSalesTax";
 import { isTemporaryOneDollarCheckoutTestItem, isTemporaryOneDollarFreeShippingOrder } from "@shared/temporaryCheckoutTest";
 import { isStagingTestHost } from "@shared/stagingTestMode";
 import { HARDWARE_LINE_CODE, hardwareProfileIsComplete, hardwareRetailCents, hardwareVendorOriginZip } from "@shared/hardwareCommerce";
+import { callerCanReadOrder, generateOrderAccessToken } from "../lib/orderAccess";
+import { choosePromotedPrice, type PricedCandidate } from "@shared/vendorPromotions";
+import { loadActivePromotionRules, loadPublishedCabinetPriceRows, priceLineWithPromotion } from "../vendorPromotionPricing";
 
 // Map the order tierEnum to the shared PricingTier.
 const orderTier = (t: "Wholesale" | "Contractor" | "Homeowner") =>
@@ -429,6 +435,8 @@ export const ordersRouter = router({
         adjustedListPrice: distributorSkus.adjustedListPrice,
         listPrice: distributorSkus.listPrice,
         retailPriceBasis: distributors.retailPriceBasis,
+        vendorWholesale: distributorSkus.vendorWholesale,
+        vendorMarkupPercent: distributors.markupPercent,
       };
       const gate = and(
         eq(cabinets.isActive, true),
@@ -543,18 +551,22 @@ export const ordersRouter = router({
       const isAdmin = ctx.user?.role === "admin";
       const db = await getDb();
       if (!db || input.cabinetIds.length === 0) {
-        return { prices: [] as { cabinetId: number; unitPrice: number | null; myCost: number | null }[] };
+        return { prices: [] as { cabinetId: number; unitPrice: number | null; originalUnitPrice: number | null; promoName: string | null; myCost: number | null }[] };
       }
       const ps = await getPricingSettings();
       const rows = await db
         .select({
           cabinetId: distributorSkus.cabinetId,
+          skuId: distributorSkus.id,
+          distributorId: distributorSkus.distributorId,
           yourCost: distributorSkus.yourCost,
           wholesalePrice: distributorSkus.wholesalePrice,
           contractorPrice: distributorSkus.contractorPrice,
           adjustedListPrice: distributorSkus.adjustedListPrice,
           listPrice: distributorSkus.listPrice,
           retailPriceBasis: distributors.retailPriceBasis,
+          vendorWholesale: distributorSkus.vendorWholesale,
+          vendorMarkupPercent: distributors.markupPercent,
           category: cabinets.category,
         })
         .from(distributorSkus)
@@ -582,8 +594,12 @@ export const ordersRouter = router({
       // price selection is source cost → protected affiliate cost → that
       // affiliate's global/category/style markup, exactly as catalog and cart.
       const best = new Map<number, number>();
+      const promoted = new Map<number, { unitPrice: number; originalUnitPrice: number; promoName: string | null }>();
+      const candidates = new Map<number, PricedCandidate[]>();
       // Best (lowest) WHOLESALE floor per cabinet — owner-only "My Cost".
       const bestCost = new Map<number, number>();
+      const applyVendorPromo = !affiliatePricing && !requestedAffiliateScope;
+      const promos = applyVendorPromo ? await loadActivePromotionRules(db) : [];
       for (const r of rows) {
         if (r.cabinetId == null) continue;
         const sourceCostCents = r.yourCost == null ? null : Math.round(Number(r.yourCost) * 100);
@@ -596,8 +612,20 @@ export const ordersRouter = router({
             ? null
             : sellPriceForTier(r, ps, orderTier(input.tier));
         if (price !== null && Number.isFinite(price)) {
-          const cur = best.get(r.cabinetId);
-          if (cur === undefined || price < cur) best.set(r.cabinetId, price);
+          if (applyVendorPromo) {
+            const current = candidates.get(r.cabinetId) ?? [];
+            current.push({
+              distributorId: r.distributorId,
+              skuId: r.skuId,
+              styleId: input.styleId,
+              category: r.category,
+              basePrice: price,
+            });
+            candidates.set(r.cabinetId, current);
+          } else {
+            const cur = best.get(r.cabinetId);
+            if (cur === undefined || price < cur) best.set(r.cabinetId, price);
+          }
         }
         if (isAdmin) {
           const cost = Number(r.yourCost ?? r.wholesalePrice ?? r.contractorPrice);
@@ -607,13 +635,27 @@ export const ordersRouter = router({
           }
         }
       }
+      if (applyVendorPromo) {
+        for (const [cabinetId, cabinetCandidates] of Array.from(candidates.entries())) {
+          const choice = choosePromotedPrice(cabinetCandidates, promos);
+          if (!choice) continue;
+          promoted.set(cabinetId, {
+            unitPrice: choice.unitPrice,
+            originalUnitPrice: choice.originalPrice,
+            promoName: choice.promo?.name ?? null,
+          });
+        }
+      }
 
       return {
         prices: input.cabinetIds.map((id) => {
-          let unitPrice = best.has(id) ? best.get(id)! : null;
+          const promo = promoted.get(id);
+          const unitPrice = promo?.unitPrice ?? (best.has(id) ? best.get(id)! : null);
           return {
             cabinetId: id,
             unitPrice,
+            originalUnitPrice: promo?.promoName ? promo.originalUnitPrice : null,
+            promoName: promo?.promoName ?? null,
             // Only the owner/admin ever receives a non-null cost.
             myCost: isAdmin && bestCost.has(id) ? bestCost.get(id)! : null,
           };
@@ -890,6 +932,31 @@ export const ordersRouter = router({
           };
         });
       }
+      // Vendor promotions are an additional discount on the CabinetDealz sell
+      // price. Affiliate storefront prices stay on their protected markup path.
+      if (!affiliatePricing) {
+        const promoCabinetIds = Array.from(new Set(normalizedLines
+          .map((line) => line.productKind === "hardware" || line.productKind === "surface" ? null : line.cabinetId)
+          .filter((id): id is number => typeof id === "number" && id > 0)));
+        const promoStyleIds = Array.from(new Set(normalizedLines
+          .map((line) => line.styleId ?? input.styleId ?? null)
+          .filter((id): id is number => typeof id === "number" && id > 0)));
+        if (promoCabinetIds.length > 0 && promoStyleIds.length > 0) {
+          const [promoRules, promoRows, promoSettings] = await Promise.all([
+            loadActivePromotionRules(db),
+            loadPublishedCabinetPriceRows(db, promoCabinetIds, promoStyleIds),
+            getPricingSettings(),
+          ]);
+          normalizedLines = normalizedLines.map((line) => priceLineWithPromotion(
+            line,
+            promoRows,
+            promoRules,
+            promoSettings,
+            orderTier(resolvedTier),
+            input.styleId ?? null,
+          ));
+        }
+      }
       // Cart intentionally retains every placed Designer cabinet, including a
       // rare line whose source-price refresh has not settled yet. Preserve that
       // line for review, but never persist an unpriced order, CRM record,
@@ -1149,9 +1216,27 @@ export const ordersRouter = router({
         }
       }
 
+      const sampleClaim = normalizedLines.some((line) => lineClaimsSample(line));
+      if (sampleClaim) {
+        const affiliateAccess = ctx.user ? await resolveAffiliateAccess(db, ctx.user) : null;
+        if (!canPlaceSampleOrder({
+          role: ctx.user?.role ?? null,
+          affiliateId: affiliateAccess?.affiliateId ?? null,
+          isAffiliateMember: Boolean(affiliateAccess),
+        })) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Sample and sample kit orders are placed from the admin or affiliate back office.",
+          });
+        }
+      }
+
       const requestNumber = makeRequestNumber();
+      const accessToken = generateOrderAccessToken();
       const result = await db.insert(orderRequests).values({
+        orderKind: sampleClaim ? "sample" : "standard",
         userId: ctx.user?.id ?? null,
+        accessToken,
         kitchenDesignId,
         requestNumber,
         originatorName: input.originatorName ?? ctx.user?.name ?? null,
@@ -1189,33 +1274,28 @@ export const ordersRouter = router({
       // outbound webhook is disabled or unavailable. The order id check makes
       // this safe if a retry reaches this block more than once.
       if (input.submit) {
-        const existingDeal = await db
-          .select({ id: crmDeals.id })
-          .from(crmDeals)
-          .where(eq(crmDeals.orderRequestId, insertId))
-          .limit(1);
-        if (existingDeal.length === 0) {
-          const dealResult = await db.insert(crmDeals).values({
-            affiliateId,
-            ownerUserId: ctx.user?.id ?? null,
-            title: `Order ${requestNumber}${input.originatorName ? ` — ${input.originatorName}` : ""}`,
-            stage: "qualified",
-            priority: "medium",
-            contactName: input.originatorName ?? ctx.user?.name ?? null,
-            contactEmail: input.originatorEmail ?? ctx.user?.email ?? null,
-            contactPhone: input.originatorPhone ?? null,
-            location: ([
-              input.shippingAddressLine1,
-              input.shippingAddressLine2,
-              input.shippingCity,
-              input.shippingState,
-              input.zip,
-            ].filter(Boolean).join(", ") || input.zip) || null,
-            estimatedValue: total > 0 ? total.toFixed(2) : null,
-            source: "order_request",
-            orderRequestId: insertId,
-            referralCode,
-          });
+        const ensuredDeal = await ensureAffiliatePipelineDeal(db, {
+          affiliateId,
+          match: "order",
+          orderRequestId: insertId,
+          ownerUserId: ctx.user?.id ?? null,
+          title: `Order ${requestNumber}${input.originatorName ? ` — ${input.originatorName}` : ""}`,
+          stage: "qualified",
+          contactName: input.originatorName ?? ctx.user?.name ?? null,
+          contactEmail: input.originatorEmail ?? ctx.user?.email ?? null,
+          contactPhone: input.originatorPhone ?? null,
+          location: ([
+            input.shippingAddressLine1,
+            input.shippingAddressLine2,
+            input.shippingCity,
+            input.shippingState,
+            input.zip,
+          ].filter(Boolean).join(", ") || input.zip) || null,
+          estimatedValue: total > 0 ? total.toFixed(2) : null,
+          source: "order_request",
+          referralCode,
+        });
+        if (ensuredDeal.created) {
           // An order placed without an explicit design id must still carry the
           // customer's design: fall back to the submitter's newest saved design in
           // the same store scope.
@@ -1240,7 +1320,7 @@ export const ordersRouter = router({
               .limit(1);
             if (savedDesign) {
               await db.insert(crmDealDesigns).values({
-                dealId: (dealResult as unknown as [{ insertId: number }])[0].insertId,
+                dealId: ensuredDeal.id,
                 designId: savedDesign.id,
                 designName: savedDesign.name,
                 linkedByUserId: ctx.user?.id ?? null,
@@ -1281,7 +1361,7 @@ export const ordersRouter = router({
       // to the distributor with copies to affiliates, and confirmed by the
       // originator/affiliate. That email step is DEFERRED until distributor email
       // is wired. For now we only persist the request.
-      return { id: insertId, requestNumber, freightCents: freightQuoteCents };
+      return { id: insertId, requestNumber, freightCents: freightQuoteCents, accessToken };
     }),
 
   // ─── Originator confirmation ───────────────────────────────────────────────
@@ -1359,17 +1439,38 @@ export const ordersRouter = router({
     }),
 
   // ─── Read one request ──────────────────────────────────────────────────────
+  // Sequential ids are guessable, and the row carries customer contact and
+  // shipping details. Return it only to an admin, the signed-in owner, or a
+  // holder of the unguessable token issued when the order was created. Missing
+  // and unauthorized lookups share one not-found error so a guess cannot
+  // confirm that an id exists. The token itself is never echoed back.
   byId: publicProcedure
-    .input(z.object({ id: z.number() }))
-    .query(async ({ input }) => {
+    .input(z.object({
+      id: z.number().int().positive(),
+      accessToken: z.string().min(1).max(128).optional(),
+    }))
+    .query(async ({ input, ctx }) => {
       const db = await getDb();
-      if (!db) return null;
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
       const rows = await db
         .select()
         .from(orderRequests)
         .where(eq(orderRequests.id, input.id))
         .limit(1);
-      return rows[0] ?? null;
+      const order = rows[0];
+      const allowed = order != null && await callerCanReadOrder(ctx.user, order, input.accessToken, async (userId) => {
+        const [owner] = await db
+          .select({ openId: users.openId })
+          .from(users)
+          .where(eq(users.id, userId))
+          .limit(1);
+        return owner?.openId;
+      });
+      if (!order || !allowed) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Order not found" });
+      }
+      const { accessToken: _accessToken, ...detail } = order;
+      return detail;
     }),
 
   // ─── My requests (authenticated) ───────────────────────────────────────────
