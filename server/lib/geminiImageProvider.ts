@@ -1,4 +1,5 @@
 import { ENV } from "../_core/env";
+import { ROOM_SCENE_3D_REFERENCE_RULE, finalizeRoomScenePrompt } from "./roomScenePromptRules";
 
 export const GEMINI_NANO_BANANA_MODEL = "gemini-3.1-flash-image";
 const GEMINI_INTERACTIONS_URL = "https://generativelanguage.googleapis.com/v1beta/interactions";
@@ -7,6 +8,8 @@ export const GEMINI_IMAGE_TEST_TIMEOUT_MS = 90_000;
 
 type GeminiImageTestInput = {
   prompt: string;
+  /** Free-form caller text. Appended after the cabinetry rule as styling only. */
+  clientStyling?: string | null;
   sourceImageBase64: string;
   sourceMimeType: "image/jpeg";
   /** Database material pictures (countertop, backsplash, door, floor) sent after the plan image. */
@@ -66,6 +69,13 @@ function imageFromInteraction(payload: GeminiInteractionImageResponse) {
   return toImageOutput(image?.data, image?.mime_type);
 }
 
+function lockedPlanPrompt(input: GeminiImageTestInput) {
+  return finalizeRoomScenePrompt(input.prompt, {
+    clientStyling: input.clientStyling,
+    reference: "3d-render",
+  });
+}
+
 function imageFromGenerateContent(payload: GeminiGenerateContentResponse) {
   const image = payload.candidates?.flatMap((candidate) => candidate.content?.parts ?? [])
     .map((part) => part.inlineData)
@@ -104,7 +114,8 @@ export async function startGeminiExactPlanTest(input: GeminiImageTestInput): Pro
       body: JSON.stringify({
         model: GEMINI_NANO_BANANA_MODEL,
         input: [
-          { type: "text", text: input.prompt },
+          { type: "text", text: lockedPlanPrompt(input) },
+          { type: "text", text: `IMAGE 1 — THE LOCKED KITCHEN PLAN. ${ROOM_SCENE_3D_REFERENCE_RULE}` },
           { type: "image", mime_type: input.sourceMimeType, data: input.sourceImageBase64 },
         ],
         response_format: { type: "image", mime_type: "image/jpeg", aspect_ratio: "16:9", image_size: "1K" },
@@ -177,8 +188,8 @@ export async function generateGeminiExactPlanTest(input: GeminiImageTestInput): 
       signal: AbortSignal.timeout(GEMINI_IMAGE_TEST_TIMEOUT_MS),
       body: JSON.stringify({
         contents: [{ parts: [
-          { text: input.prompt },
-          { text: "IMAGE 1 — THE LOCKED KITCHEN PLAN. This is the only layout. Copy its cabinets exactly." },
+          { text: lockedPlanPrompt(input) },
+          { text: `IMAGE 1 — THE LOCKED KITCHEN PLAN. ${ROOM_SCENE_3D_REFERENCE_RULE}` },
           { inlineData: { mimeType: input.sourceMimeType, data: input.sourceImageBase64 } },
           ...(input.references ?? []).flatMap((reference, index) => [
             { text: `IMAGE ${index + 2} — MATERIAL SAMPLE ONLY: ${reference.label}. Use this only as the surface finish of the matching part of image 1. Do not copy its layout and do not add anything from it.` },

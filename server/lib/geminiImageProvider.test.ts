@@ -54,6 +54,11 @@ describe("Gemini Nano Banana provider status", () => {
       }),
     );
     expect(GEMINI_IMAGE_TEST_TIMEOUT_MS).toBe(90_000);
+    const body = JSON.parse(String(fetchSpy.mock.calls[0]?.[1]?.body));
+    const text = body.contents[0].parts.filter((part: { text?: string }) => part.text).map((part: { text: string }) => part.text).join("\n");
+    expect(text).toContain("must NEVER add extra cabinets");
+    expect(text).toContain("Preserve the reference's cabinetry pixel-faithfully, in the same positions.");
+    expect(text.indexOf("must NEVER add extra cabinets")).toBeLessThan(text.indexOf("Keep the exact locked plan."));
   });
 
   it("accepts the official generateContent image output without returning the provider response", async () => {

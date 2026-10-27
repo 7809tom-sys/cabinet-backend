@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { ROOM_SCENE_3D_REFERENCE_RULE, ROOM_SCENE_CABINETRY_RULE } from "../lib/roomScenePromptRules";
 import { canonicalizeDeterministicRenderProvenance, exactPlanPrompt, normalizePhotoQualityMaterialUrl, photoQualityLeadSchema, photoRenderProvenanceSchema, photoRenderProvenanceSummary, readJpegDimensions } from "./designPhotoRenders";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
@@ -11,6 +12,10 @@ describe("design photo render safeguards", () => {
     expect(prompt).toContain("do not add, remove, move, rotate, resize, substitute, merge, hide, or invent");
     expect(prompt).toContain("Do not change the camera angle, crop, viewpoint, or room dimensions");
     expect(prompt).toContain("Use the following reference images only to improve physically plausible surface appearance");
+    expect(prompt.startsWith(ROOM_SCENE_CABINETRY_RULE)).toBe(true);
+    expect(prompt).toContain(ROOM_SCENE_3D_REFERENCE_RULE);
+    expect(prompt).toContain("Preserve the reference's cabinetry pixel-faithfully, in the same positions.");
+    expect(prompt.indexOf(ROOM_SCENE_CABINETRY_RULE)).toBeLessThan(prompt.indexOf("12 exact placed items. Countertop: Calacatta Oro."));
     expect(prompt).toContain("12 exact placed items. Countertop: Calacatta Oro.");
   });
 

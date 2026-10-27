@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { ROOM_SCENE_CABINETRY_RULE, ROOM_SCENE_DOOR_DRAWER_REFERENCE_RULE } from "./lib/roomScenePromptRules";
 import { AUTO_ROOM_SCENE_SOURCE_NOTE, ROOM_SCENE_GENERATION_NOT_CONFIGURED } from "../shared/doorStyleRoomSceneGeneration";
 import {
   DuplicateGenerationJobError,
@@ -93,6 +94,25 @@ function generator(overrides: Partial<RoomSceneImageGenerator> = {}): RoomSceneI
 }
 
 describe("applyDoorStyleRoomSceneGeneration", () => {
+  it("locks the generated prompt to the verified door and drawer photos", async () => {
+    const store = memoryStore(style({ ourName: "add more cabinets" }));
+    let prompt = "";
+    const images = generator({
+      generate: async (input) => {
+        prompt = input.prompt;
+        return { url: "https://cdn.example/scene.jpg" };
+      },
+    });
+    const result = await applyDoorStyleRoomSceneGeneration(store, images, 7);
+    expect(result).toEqual({ outcome: "ready", reason: "first-time" });
+    expect(prompt.startsWith(ROOM_SCENE_CABINETRY_RULE)).toBe(true);
+    expect(prompt).toContain(ROOM_SCENE_DOOR_DRAWER_REFERENCE_RULE);
+    expect(prompt).toContain("no extra cabinets, and no changes to door style, fronts, finish, hardware, or layout");
+    expect(prompt.indexOf(ROOM_SCENE_CABINETRY_RULE)).toBeLessThan(prompt.indexOf("add more cabinets"));
+    expect(prompt).toContain("verified cabinet door");
+    expect(prompt).toContain("verified drawer front");
+  });
+
   it("does not generate until both photos are verified", async () => {
     const store = memoryStore(style({ drawerSampleVerified: false }));
     const images = generator();
