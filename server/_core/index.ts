@@ -21,6 +21,7 @@ import cron from "node-cron";
 import { corsMiddleware } from "../lib/cors";
 import { getFrontendShell } from "../lib/frontendShell";
 import { recoverDueGeminiImageTestJobs } from "../routers/designPhotoRenders";
+import { ensureUsCabinetDepotProductLines } from "../lib/uscdProductLines";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -157,6 +158,24 @@ async function startServer() {
   server.headersTimeout = 130000;
   server.listen(port, () => {
     console.log(`Server running on http://localhost:${port}/`);
+    // Deploy applies the U.S. Cabinet Depot catalog-line link. Health checks do
+    // not wait on the database, and a second boot is a no-op when the rows exist.
+    void ensureUsCabinetDepotProductLines()
+      .then((result) => {
+        console.log("[USCD product lines]", JSON.stringify({
+          applied: result.applied,
+          skipped: result.skipped,
+          vendorId: result.vendorId,
+          vendorCreated: result.vendorCreated,
+          createdDistributorCodes: result.createdDistributorCodes,
+          linkedDistributorIds: result.linkedDistributorIds,
+          mappings: result.mappings,
+          notes: result.notes,
+        }));
+      })
+      .catch((error) => {
+        console.error("[USCD product lines] link failed", error instanceof Error ? error.message : "unknown error");
+      });
   });
 
   // Recover queued/pending Google image-test jobs every minute. The work comes

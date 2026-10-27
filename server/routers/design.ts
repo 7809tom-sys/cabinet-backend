@@ -17,6 +17,7 @@ import { resolveAffiliateStorefrontSale } from "@shared/affiliateBranding";
 import { getPricingSettings } from "../db";
 import { resolveStorefrontTier, visiblePricesForViewer } from "../../shared/pricingTier";
 import { resolveAffiliateAccess } from "../lib/affiliateAccess";
+import { filterCabinetSourceRows, loadAffiliateCatalogGate } from "../lib/affiliateCatalogGate";
 import { canViewAffiliateDesignPriceList, affiliateCustomerPosition } from "../lib/affiliateDesignPriceList";
 import { selectExactCartPriceRows } from "../lib/cartPriceSelection";
 import { canonicalizeDesignPriceItems, normalizedDesignPriceCode, verifiedLegacyDesignPriceAliases } from "../lib/designPriceAliases";
@@ -43,7 +44,7 @@ import {
   requiresMandatorySkin,
   type ExposedSides,
 } from "../../shared/skinMatch";
-import { normalizeCode } from "../../shared/cabinetCodeMatch";
+import { orderCabinetsByAliasRank, rankLoadedCabinetSearch } from "../lib/cabinetAliasSearch";
 import {
   pricedFunctionalAlternatives,
   type PlanSwitchSourceCabinet,
@@ -80,15 +81,6 @@ function sameDesignScope(left: number | null, right: number | null): boolean {
 
 function designScopeLabel(affiliate: { storeName: string } | null): string {
   return affiliate?.storeName ?? "Cabinet Dealz owner";
-}
-
-function matchesPartialCabinetSearch(masterCode: string, description: string | null, rawSearch: string) {
-  const query = rawSearch.trim().toLowerCase();
-  if (!query) return true;
-  const normalizedCodeQuery = normalizeCode(query);
-  return masterCode.toLowerCase().includes(query)
-    || (description ?? "").toLowerCase().includes(query)
-    || (normalizedCodeQuery.length > 0 && normalizeCode(masterCode).includes(normalizedCodeQuery));
 }
 
 async function resolveDesignPriceAliases<T extends { masterCode: string }>(
@@ -316,6 +308,7 @@ export const designRouter = router({
         // only the cabinets that are actually purchasable for THAT combination.
         distributorId: z.number().optional(),
         styleId: z.number().optional(),
+        affiliateSlug: z.string().trim().max(64).optional(),
       }).optional()
     )
     .query(async ({ ctx, input }) => {
@@ -345,9 +338,11 @@ export const designRouter = router({
       if (input?.styleId) {
         skuConditions.push(eq(distributorSkus.styleId, input.styleId));
       }
-      const sourceRows = await db
+      const loadedSourceRows = await db
         .select({
           sourceMasterCode: cabinets.masterCode,
+          sourceDistributorId: distributorSkus.distributorId,
+          sourceStyleId: distributorSkus.styleId,
           glassIncluded: distributors.glassIncluded,
           sourceDistributorCode: distributors.code,
           sourceDistributorSkuId: distributorSkus.id,
@@ -364,6 +359,9 @@ export const designRouter = router({
         .innerJoin(cabinets, eq(distributorSkus.cabinetId, cabinets.id))
         .innerJoin(distributors, eq(distributors.id, distributorSkus.distributorId))
         .where(and(...skuConditions, ne(cabinets.conflictStatus, "conflict")));
+      const catalogGate = input?.affiliateSlug ? await loadAffiliateCatalogGate(db, input.affiliateSlug) : null;
+      if (input?.styleId && catalogGate?.disabledStyleIds.has(input.styleId)) return [];
+      const sourceRows = filterCabinetSourceRows(loadedSourceRows, catalogGate);
 
       const stagedAefMasterCodes = adminAefPreview
         ? Array.from(new Set(sourceRows.map((row) => row.sourceMasterCode)))
@@ -414,6 +412,9 @@ export const designRouter = router({
             adminAefPreview && stagedAefMasterCodes.length > 0
               ? or(eq(cabinets.showInDesigner, true), inArray(cabinets.masterCode, stagedAefMasterCodes))
               : eq(cabinets.showInDesigner, true),
+            adminAefPreview && stagedAefMasterCodes.length > 0
+              ? or(eq(cabinets.designerEligible, true), inArray(cabinets.masterCode, stagedAefMasterCodes))
+              : eq(cabinets.designerEligible, true),
             ne(cabinets.conflictStatus, "conflict"),
           )),
       ]);
@@ -482,28 +483,11 @@ export const designRouter = router({
       }
       const availableRows = Array.from(byCanonicalId.values());
 
-      // An approved master alias is a genuine search route, not a second cabinet.
-      // This lets a designer type either ADA-B12 or B12ADA while the palette
-      // returns only the canonical priced cabinet and its current source rows.
-      const aliasMatchedMasterCodes = new Set<string>();
-      if (input?.search) {
-        const normalizedSearch = normalizeCode(input.search);
-        if (normalizedSearch) {
-          const aliasCanon = sql`UPPER(REPLACE(REPLACE(REPLACE(${skuMasterAliases.aliasCode}, '-', ''), ' ', ''), '_', ''))`;
-          const aliases = await db
-            .select({ masterCode: skuMasterAliases.masterCode })
-            .from(skuMasterAliases)
-            .where(and(
-              eq(skuMasterAliases.conflictStatus, "ok"),
-              sql`${aliasCanon} LIKE ${`%${normalizedSearch}%`}`,
-            ));
-          for (const alias of aliases) aliasMatchedMasterCodes.add(alias.masterCode);
-        }
-      }
-      const matchesSearch = (row: { masterCode: string; description: string | null }) =>
-        !input?.search
-        || aliasMatchedMasterCodes.has(row.masterCode)
-        || matchesPartialCabinetSearch(row.masterCode, row.description, input.search);
+      // Approved master aliases, cabinet alias rows, and spreadsheet alias cells
+      // (sku / vendorSku / altSku, including semicolon lists) are search routes
+      // to the canonical cabinet. Exact item code ranks ahead of an exact alias.
+      const searchRanks = await rankLoadedCabinetSearch(db, availableRows, input?.search, aliases);
+      const matchesSearch = (row: { id: number }) => !searchRanks || searchRanks.has(row.id);
 
       // Accessories/trim (countertop support brackets, hardware, fillers, glass
       // doors sold separately, decorative legs, crown/light-rail molding, end
@@ -553,8 +537,8 @@ export const designRouter = router({
             const { minPull: _mp, maxPull: _xp, ...rest } = r;
             return { ...rest, pullMin: null as number | null, pullMax: null as number | null, placement: "accessory" as const };
           });
-        if (input?.search) {
-          accessories = accessories.filter(matchesSearch);
+        if (searchRanks) {
+          accessories = orderCabinetsByAliasRank(accessories.filter(matchesSearch), searchRanks);
         }
         return accessories;
       }
@@ -616,7 +600,7 @@ export const designRouter = router({
       if (input?.placement) {
         filtered = filtered.filter((r) => r.placement === input.placement);
       }
-      if (input?.search) {
+      if (searchRanks) {
         filtered = filtered.filter(matchesSearch);
       }
 
@@ -629,6 +613,10 @@ export const designRouter = router({
         return Number.isFinite(n) ? n : Number.POSITIVE_INFINITY;
       };
       filtered = [...filtered].sort((a, b) => {
+        if (searchRanks) {
+          const byRank = (searchRanks.get(a.id) ?? 9) - (searchRanks.get(b.id) ?? 9);
+          if (byRank !== 0) return byRank;
+        }
         const dw = widthNum(a.width) - widthNum(b.width);
         if (dw !== 0) return dw;
         return (a.masterCode || "").localeCompare(b.masterCode || "", undefined, { numeric: true });
@@ -1307,6 +1295,7 @@ export const designRouter = router({
         eq(cabinets.isActive, true),
         notInConflict(),
         eq(cabinets.showInDesigner, true),
+        eq(cabinets.designerEligible, true),
         eq(distributorSkus.styleId, input.targetStyleId),
         eq(distributorSkus.isAvailable, true),
         eq(distributorSkus.isPublished, true),
@@ -2595,7 +2584,12 @@ export const designRouter = router({
           catalogImageUrl: cabinets.catalogImageUrl,
         })
         .from(cabinets)
-        .where(and(eq(cabinets.isActive, true), notInConflict()));
+        .where(and(
+          eq(cabinets.isActive, true),
+          notInConflict(),
+          eq(cabinets.showInDesigner, true),
+          eq(cabinets.designerEligible, true),
+        ));
 
       const skuConditions = [
         eq(distributorSkus.isAvailable, true),

@@ -2492,6 +2492,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         // When the design is locked to a supply line, every added cabinet must
         // come from that distributor (member can still change color within it).
         distributorId: catalogDistributorScopeId ?? undefined,
+        affiliateSlug: affiliateSlug ?? undefined,
       },
       { enabled: paletteType !== "appliance" && paletteType !== "opening" && paletteType !== "closetparts" && paletteType !== "furniture" && paletteType !== "surfaces" && (paletteType !== "vanity" || styleId != null) }
     );
@@ -2504,6 +2505,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     {
       styleId: styleId ?? undefined,
       distributorId: catalogDistributorScopeId ?? undefined,
+        affiliateSlug: affiliateSlug ?? undefined,
     },
     { enabled: styleId != null },
   );
@@ -2563,6 +2565,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     placement: "base",
     styleId: styleId ?? undefined,
     distributorId: lockedDistributorId ?? undefined,
+    affiliateSlug: affiliateSlug ?? undefined,
   });
   const { data: threeDAccessoryCatalog, isLoading: catalogFillersLoading } = trpc.design.placeableCabinets.useQuery({
     placement: "accessory",
@@ -2571,6 +2574,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     // distributor selection must not make its own active 3-inch filler vanish
     // from a measured seam simply because the plan lock has not been written.
     distributorId: catalogDistributorScopeId ?? undefined,
+        affiliateSlug: affiliateSlug ?? undefined,
   }, { enabled: styleId != null });
   const catalogFillers = useMemo(
     () => (threeDAccessoryCatalog as DesignCabinet[] | undefined) ?? [],
@@ -2943,6 +2947,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     placement: "wall",
     styleId: styleId ?? undefined,
     distributorId: lockedDistributorId ?? undefined,
+    affiliateSlug: affiliateSlug ?? undefined,
   });
   const wallCabPoolRef = useRef<DesignCabinet[]>([]);
   useEffect(() => { wallCabPoolRef.current = (wallCabPool as DesignCabinet[] | undefined) ?? []; }, [wallCabPool]);
@@ -3001,6 +3006,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     placement: "tall",
     styleId: styleId ?? undefined,
     distributorId: lockedDistributorId ?? undefined,
+    affiliateSlug: affiliateSlug ?? undefined,
   });
 
   // The unified "Corner" tab shows BOTH corner base AND corner wall cabinets in
@@ -3013,6 +3019,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       placement: "wall",
       styleId: styleId ?? undefined,
       distributorId: lockedDistributorId ?? undefined,
+    affiliateSlug: affiliateSlug ?? undefined,
     },
     { enabled: paletteType === "corner" }
   );
@@ -18910,6 +18917,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	        backsplashEnabled={backsplashEnabled}
 	        onBacksplashEnabledChange={setBacksplashEnabled}
 	        roomType={roomType}
+	        affiliateSlug={affiliateSlug}
 	        bathroomPaletteMode={bathroomCatalogMode}
 	        initialBathroomRole={bathroomBrowseRole}
 	        onPlaceBathroomFixture={placePelicanBathroomFixture}
@@ -18951,6 +18959,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	        defaultPhone={verifiedPhone}
 	        designId={loadDesignId ?? undefined}
 	        designName={savedDesign?.name ?? null}
+	        affiliateSlug={affiliateSlug}
 	      />
 		      <AlertDialog open={!!islandSeatingOverhangPrompt} onOpenChange={(open) => { if (!open) setIslandSeatingOverhangPrompt(null); }}>
 	        <AlertDialogContent className="w-[min(94vw,540px)]">

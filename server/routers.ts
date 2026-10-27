@@ -73,6 +73,7 @@ import { stripeInvoicesRouter } from "./routers/stripeInvoices";
 import { salesForecastRouter } from "./routers/salesForecast";
 import { vendorInventoryRouter } from "./routers/vendorInventory";
 import { vendorSamplesRouter } from "./routers/vendorSamples";
+import { crmCleanupRouter } from "./routers/crmCleanup";
 
 export const appRouter = router({
   system: systemRouter,
@@ -178,6 +179,7 @@ export const appRouter = router({
   salesForecast: salesForecastRouter,
   vendorInventory: vendorInventoryRouter,
   vendorSamples: vendorSamplesRouter,
+  crmCleanup: crmCleanupRouter,
 });
 
 export type AppRouter = typeof appRouter;
