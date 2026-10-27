@@ -1,7 +1,7 @@
 import { COOKIE_NAME } from "@shared/const";
 import { clearLegacyCabinetDealzParentSession, getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
-import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
+import { mergeRouters, protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { z } from "zod";
 import { getDb } from "./db";
 import { affiliates } from "../drizzle/schema";
@@ -20,6 +20,7 @@ import { ordersRouter } from "./routers/orders";
 import { affiliatesRouter } from "./routers/affiliates";
 import { storefrontRouter } from "./routers/storefront";
 import { crmRouter } from "./routers/crm";
+import { crmEmailRouter } from "./routers/crmEmail";
 import { locationRouter } from "./routers/location";
 import { distributorImportRouter } from "./routers/distributors";
 import { distributorPortalRouter } from "./routers/distributorPortal";
@@ -129,7 +130,7 @@ export const appRouter = router({
   orders: ordersRouter,
   affiliates: affiliatesRouter,
   storefront: storefrontRouter,
-  crm: crmRouter,
+  crm: mergeRouters(crmRouter, crmEmailRouter),
   location: locationRouter,
   distributorAdmin: distributorImportRouter,
   distributorPortal: distributorPortalRouter,

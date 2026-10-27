@@ -2004,6 +2004,87 @@ export const crmEmailLog = mysqlTable("crm_email_log", {
 export type CrmEmailLog = typeof crmEmailLog.$inferSelect;
 export type InsertCrmEmailLog = typeof crmEmailLog.$inferInsert;
 
+// ─── Per-affiliate CRM email ──────────────────────────────────────────────────
+// One row per affiliate. smtpPass is encrypted with the same envelope as the
+// platform email_settings password and is never returned to the client.
+// affiliateId NULL is not used here: house mail stays on email_settings.
+export const affiliateEmailSettings = mysqlTable("affiliate_email_settings", {
+  id: int("id").autoincrement().primaryKey(),
+  affiliateId: int("affiliateId").notNull(),
+  provider: varchar("provider", { length: 32 }).default("custom").notNull(),
+  smtpHost: varchar("smtpHost", { length: 255 }).default("").notNull(),
+  smtpPort: int("smtpPort").default(587).notNull(),
+  smtpUser: varchar("smtpUser", { length: 255 }).default("").notNull(),
+  smtpPass: text("smtpPass").notNull().default(""),
+  smtpFrom: varchar("smtpFrom", { length: 320 }).default("").notNull(),
+  fromName: varchar("fromName", { length: 256 }).default("").notNull(),
+  replyTo: varchar("replyTo", { length: 320 }).default("").notNull(),
+  signatureHtml: text("signatureHtml").notNull().default(""),
+  enabled: boolean("enabled").default(false).notNull(),
+  lastTestedAt: timestamp("lastTestedAt"),
+  lastTestOk: boolean("lastTestOk"),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (t) => ({
+  affiliateUnique: uniqueIndex("affiliate_email_settings_affiliate_uidx").on(t.affiliateId),
+}));
+
+export type AffiliateEmailSettings = typeof affiliateEmailSettings.$inferSelect;
+export type InsertAffiliateEmailSettings = typeof affiliateEmailSettings.$inferInsert;
+
+// Drafts saved from the CRM Email tab. affiliateId NULL is a house draft.
+// Nothing here is sent until a person clicks Send.
+export const crmEmailDrafts = mysqlTable("crm_email_drafts", {
+  id: int("id").autoincrement().primaryKey(),
+  affiliateId: int("affiliateId"),
+  dealId: int("dealId"),
+  authorUserId: int("authorUserId"),
+  toEmail: varchar("toEmail", { length: 320 }).default("").notNull(),
+  subject: varchar("subject", { length: 512 }).default("").notNull(),
+  bodyHtml: text("bodyHtml").notNull().default(""),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (t) => ({
+  scopeIdx: index("crm_email_drafts_scope_idx").on(t.affiliateId, t.updatedAt),
+  dealIdx: index("crm_email_drafts_deal_idx").on(t.dealId),
+}));
+
+export type CrmEmailDraft = typeof crmEmailDrafts.$inferSelect;
+export type InsertCrmEmailDraft = typeof crmEmailDrafts.$inferInsert;
+
+// Affiliate-owned templates. Built-in follow-up / quote / design templates live
+// in shared code so they cannot be deleted. affiliateId NULL is a house template.
+export const crmEmailTemplates = mysqlTable("crm_email_templates", {
+  id: int("id").autoincrement().primaryKey(),
+  affiliateId: int("affiliateId"),
+  name: varchar("name", { length: 128 }).notNull(),
+  subject: varchar("subject", { length: 512 }).default("").notNull(),
+  bodyHtml: text("bodyHtml").notNull().default(""),
+  createdByUserId: int("createdByUserId"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (t) => ({
+  scopeIdx: index("crm_email_templates_scope_idx").on(t.affiliateId, t.updatedAt),
+}));
+
+export type CrmEmailTemplate = typeof crmEmailTemplates.$inferSelect;
+export type InsertCrmEmailTemplate = typeof crmEmailTemplates.$inferInsert;
+
+// File links on a deal (quotes, plans, photos). The URL is stored; bytes stay
+// in existing storage. No destructive change to crm_deals.
+export const crmDealFiles = mysqlTable("crm_deal_files", {
+  id: int("id").autoincrement().primaryKey(),
+  dealId: int("dealId").notNull(),
+  fileName: varchar("fileName", { length: 256 }).notNull(),
+  fileUrl: varchar("fileUrl", { length: 1024 }).notNull(),
+  uploadedByUserId: int("uploadedByUserId"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (t) => ({
+  dealIdx: index("crm_deal_files_deal_idx").on(t.dealId),
+}));
+
+export type CrmDealFile = typeof crmDealFiles.$inferSelect;
+export type InsertCrmDealFile = typeof crmDealFiles.$inferInsert;
+
 // ─── Build-an-Order code aliases ───────────────────────────────────────────────
 // Remembers a human's manual "Fix"/swap choice so an unrecognized order code
 // resolves automatically next time. Keyed by the CANONICALIZED raw code (uppercase

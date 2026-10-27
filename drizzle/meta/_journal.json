@@ -1506,6 +1506,13 @@
       "when": 1793700000000,
       "tag": "0216_customer_projects_and_packages",
       "breakpoints": true
+    },
+    {
+      "idx": 216,
+      "version": "5",
+      "when": 1793800000000,
+      "tag": "0217_affiliate_crm_email",
+      "breakpoints": true
     }
   ]
 }

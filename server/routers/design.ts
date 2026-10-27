@@ -8,6 +8,7 @@ import { verifyUsAddress, formatEnteredAddress } from "../lib/addressVerificatio
 import { distributorCabinetOverrides, cabinets, cabinetAliases, skuMasterAliases, kitchenDesigns, distributorSkus, doorStyles, distributors, countertopQuotes, designLeads, crmDeals, crmDealDesigns, affiliates, affiliateStyleBranding, affiliateDistributorSelections, orderRequests, payments, threeDRoomShares, designConsultations, designGeminiImageTestJobs, designImageRequests, designPhotoRenders, designViewLog } from "../../drizzle/schema";
 import { notifyOwner } from "../_core/notification";
 import { emitCrmEvent } from "../_core/crmWebhook";
+import { ensureAffiliatePipelineDeal } from "../lib/crmPipelineAttach";
 import { invokeLLM } from "../_core/llm";
 import { generateImage } from "../_core/imageGeneration";
 import { buildPhotorealPrompt } from "@shared/photorealPrompt";
@@ -2227,11 +2228,30 @@ export const designRouter = router({
             }),
           })
           .where(eq(designLeads.id, existing[0].id));
-        if (existing[0].dealId && (name || phone)) {
+        let linkedDealId = existing[0].dealId;
+        if (!linkedDealId) {
+          try {
+            const ensured = await ensureAffiliatePipelineDeal(db, {
+              affiliateId,
+              match: "email",
+              ownerUserId: userId,
+              title: `Designer lead — ${name || input.email}`.slice(0, 256),
+              contactName: name,
+              contactEmail: emailLower,
+              contactPhone: phone,
+              source: "storefront",
+              notes: `Auto-created from the designer launch gate.${roomType ? ` Room type: ${roomType}.` : ""}`,
+            });
+            linkedDealId = ensured.id;
+            await db.update(designLeads).set({ dealId: linkedDealId }).where(eq(designLeads.id, existing[0].id));
+          } catch {
+            // The lead is still recorded if the pipeline row cannot be attached.
+          }
+        } else if (name || phone) {
           await db.update(crmDeals).set({
             contactName: name ?? existing[0].name,
             contactPhone: phone ?? existing[0].phone,
-          }).where(eq(crmDeals.id, existing[0].dealId));
+          }).where(eq(crmDeals.id, linkedDealId));
         }
         return { ok: true as const, id: existing[0].id, deduped: true as const };
       }
@@ -2255,20 +2275,18 @@ export const designRouter = router({
       // back on the lead so repeat launches reuse the same deal (D2 de-dupe).
       let dealId: number | null = null;
       try {
-        const dealTitle = `Designer lead \u2014 ${name || input.email}`.slice(0, 256);
-        const dealRes = await db.insert(crmDeals).values({
+        const ensured = await ensureAffiliatePipelineDeal(db, {
           affiliateId,
+          match: "email",
           ownerUserId: userId,
-          title: dealTitle,
-          stage: "new",
-          priority: "medium",
+          title: `Designer lead — ${name || input.email}`.slice(0, 256),
           contactName: name,
           contactEmail: emailLower,
           contactPhone: phone,
           source: "storefront",
           notes: `Auto-created from the designer launch gate.${roomType ? ` Room type: ${roomType}.` : ""}`,
         });
-        dealId = (dealRes as unknown as [{ insertId: number }])[0].insertId;
+        dealId = ensured.id;
         await db.update(designLeads).set({ dealId }).where(eq(designLeads.id, insertId));
       } catch {
         // Lead is still captured even if the deal could not be created.
