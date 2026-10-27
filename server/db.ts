@@ -7,6 +7,7 @@ import {
   approvedVendorContactAccess,
   approvedVendorMatchesDistributor,
 } from "./lib/approvedVendorAccess";
+import { isOwnerEmail, shouldPromoteOwnerToAdmin } from "./lib/ownerAdmin";
 
 /**
  * A retired duplicate keeps its historical database record, supplier price rows,
@@ -271,7 +272,7 @@ export async function createEmailUser(params: {
   if (!db) return null;
 
   const openId = `email_${crypto.randomUUID()}`;
-  const isOwner = params.emailLower === (ENV.ownerEmail ?? "").toLowerCase();
+  const isOwner = isOwnerEmail(params.emailLower, ENV.ownerEmail);
 
   // An approved vendor's saved contact email is the vendor's self-service
   // credential. This enables every properly configured approved supplier to
@@ -394,6 +395,28 @@ export async function synchronizeApprovedVendorLogin<T extends { id: number; rol
     distributorId: approvedVendorAccess.distributorId,
     approvedVendorLineId: approvedVendorAccess.vendorLineId,
   };
+}
+
+/**
+ * The owner email is an administrator on every sign-in, not only the first
+ * time the row is created. A stale non-admin row otherwise matches affiliate
+ * records that reuse the same mailbox and never reaches /admin.
+ */
+export async function promoteOwnerAdmin<T extends { id: number; role: string }>(
+  user: T,
+  email: string | null | undefined,
+): Promise<T> {
+  if (!shouldPromoteOwnerToAdmin(user.role, email, ENV.ownerEmail)) return user;
+  const db = await getDb();
+  if (!db) return user;
+  try {
+    await db.update(users).set({ role: "admin" }).where(and(eq(users.id, user.id), ne(users.role, "admin")));
+  } catch (error) {
+    console.warn("[Auth] Owner admin promotion skipped", error instanceof Error ? error.message : "unknown error");
+    return user;
+  }
+  console.info(`[Auth] Promoted user ${user.id} to admin because the email matches the configured owner`);
+  return { ...user, role: "admin" };
 }
 
 // ─── Pricing & Margins ────────────────────────────────────────────────────────

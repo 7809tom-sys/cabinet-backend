@@ -1,11 +1,26 @@
 import { COOKIE_NAME } from "@shared/const";
-import { clearLegacyCabinetDealzParentSession, getSessionCookieOptions } from "./_core/cookies";
+import {
+  clearLegacyCabinetDealzParentSession,
+  getSessionCookieOptions,
+} from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
-import { mergeRouters, protectedProcedure, publicProcedure, router } from "./_core/trpc";
+import {
+  mergeRouters,
+  protectedProcedure,
+  publicProcedure,
+  router,
+} from "./_core/trpc";
 import { z } from "zod";
 import { getDb } from "./db";
-import { affiliates } from "../drizzle/schema";
-import { resolveAffiliateAdministrationDestination } from "./oauthAffiliateDestination";
+import {
+  loadAffiliateResolution,
+  linkResolvedAffiliateIdentity,
+} from "./lib/affiliateAccess";
+import {
+  resolveSignInDestination,
+  shouldLinkAffiliateOnLogin,
+  signedInHomeForRole,
+} from "@shared/affiliateResolution";
 import {
   cabinetsRouter,
   distributorsRouter,
@@ -90,29 +105,48 @@ export const appRouter = router({
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),
     // Where to land after a Supabase sign-in. `returnPath` is already
-    // validated client-side; active affiliate owners still go to their own
-    // Affiliate Administration, as the old OAuth callback did.
+    // validated client-side. Affiliate owners and team members go to their
+    // own portal. Admins, and any explicit /admin return, do not.
     signInDestination: protectedProcedure
       .input(z.object({ returnPath: z.string().max(2048).nullable() }))
       .query(async ({ ctx, input }) => {
         const user = ctx.user;
-        const roleDefault =
-          user.role === "distributor" ? "/vendor" : user.role === "admin" ? "/admin" : "/account";
         const returnPath =
-          input.returnPath && input.returnPath.startsWith("/") && !input.returnPath.startsWith("//")
+          input.returnPath &&
+          input.returnPath.startsWith("/") &&
+          !input.returnPath.startsWith("//")
             ? input.returnPath
-            : roleDefault;
+            : signedInHomeForRole(user.role);
+        const empty = { access: null, ambiguousAffiliateIds: [], link: null };
         const database = await getDb();
-        if (!database) return { destination: returnPath };
-        const affiliateRows = await database.select().from(affiliates);
-        const affiliateDestination = resolveAffiliateAdministrationDestination({
+        const resolution = database
+          ? await loadAffiliateResolution(database, {
+              id: user.id,
+              email: user.email ?? null,
+            })
+          : empty;
+        if (
+          database &&
+          shouldLinkAffiliateOnLogin(user.role, resolution.link)
+        ) {
+          try {
+            await linkResolvedAffiliateIdentity(
+              database,
+              user.id,
+              resolution.link
+            );
+          } catch (error) {
+            console.warn(
+              "[Auth] Affiliate identity link skipped",
+              error instanceof Error ? error.message : "unknown error"
+            );
+          }
+        }
+        return resolveSignInDestination({
           returnPath,
-          userId: user.id,
-          email: user.email,
           userRole: user.role,
-          affiliates: affiliateRows,
+          resolution,
         });
-        return { destination: affiliateDestination ?? returnPath };
       }),
     logout: publicProcedure.mutation(({ ctx }) => {
       const cookieOptions = getSessionCookieOptions(ctx.req);

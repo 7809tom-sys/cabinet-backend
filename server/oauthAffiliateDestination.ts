@@ -1,9 +1,17 @@
-export type OAuthAffiliateRecord = { id: number; userId: number | null; email: string | null; status?: string | null };
+import {
+  resolveAffiliateRelationship,
+  resolveSignInDestination,
+  type AffiliateCandidate,
+  type AffiliateTeamCandidate,
+} from "@shared/affiliateResolution";
+
+export type OAuthAffiliateRecord = AffiliateCandidate;
 
 /**
- * Every active affiliate owner signs in through their own Affiliate
- * Administration route. Platform administrators are never redirected by this
- * helper, so the central CabinetDealz admin remains admin-only.
+ * Active affiliate owners and team members sign in to their own Affiliate
+ * Administration route. Platform administrators are never redirected, and an
+ * explicit /admin return is never replaced. Returns null when the caller
+ * should keep `returnPath`.
  */
 export function resolveAffiliateAdministrationDestination({
   returnPath,
@@ -11,18 +19,25 @@ export function resolveAffiliateAdministrationDestination({
   email,
   userRole,
   affiliates,
+  teamMembers = [],
 }: {
   returnPath: string;
   userId: number | null | undefined;
   email: string | null | undefined;
   userRole?: string | null;
   affiliates: OAuthAffiliateRecord[];
+  teamMembers?: AffiliateTeamCandidate[];
 }): string | null {
-  if (!userId || userRole === "admin") return null;
-  const normalizedEmail = (email ?? "").trim().toLowerCase();
-  const match = affiliates.find((affiliate) => affiliate.status !== "inactive" && affiliate.userId === userId)
-    ?? affiliates.find((affiliate) => normalizedEmail.length > 0
-      && affiliate.status !== "inactive"
-      && (affiliate.email ?? "").trim().toLowerCase() === normalizedEmail);
-  return match ? `/affiliate?viewAs=${match.id}` : null;
+  if (!userId) return null;
+  const decision = resolveSignInDestination({
+    returnPath,
+    userRole,
+    resolution: resolveAffiliateRelationship({
+      userId,
+      email,
+      affiliates,
+      teamMembers,
+    }),
+  });
+  return decision.destination === returnPath ? null : decision.destination;
 }

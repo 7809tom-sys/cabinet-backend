@@ -168,9 +168,10 @@ class SDKServer {
     }
     if (!user) throw ForbiddenError("User not found");
     await db.linkUserAuthId(user.id, claims.sub, claims.provider);
-    // A vendor might have been approved after creating a normal account; this
-    // never changes admin or affiliate roles.
-    return db.synchronizeApprovedVendorLogin(user, claims.email);
+    // Owner email stays an administrator even when an older row was saved as a
+    // normal user. Vendor sync never changes an admin role.
+    const owner = await db.promoteOwnerAdmin(user, claims.email);
+    return db.synchronizeApprovedVendorLogin(owner, claims.email);
   }
 
   /**

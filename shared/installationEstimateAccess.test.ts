@@ -36,6 +36,17 @@ describe("installation estimate affiliate access", () => {
     })).toBe(20);
   });
 
+  it("does not guess an owner when one email is on two affiliates", () => {
+    expect(resolveInstallationEstimateAffiliateId({
+      user: { id: 500, email: "shared@example.com", role: "user" },
+      affiliates: [
+        { id: 10, userId: null, email: "shared@example.com" },
+        { id: 20, userId: null, email: "shared@example.com" },
+      ],
+      memberships: [],
+    })).toBeNull();
+  });
+
   it("denies inactive or non-CRM team members", () => {
     expect(resolveInstallationEstimateAffiliateId({
       user: { id: 300, email: "blocked@example.com", role: "user" },
