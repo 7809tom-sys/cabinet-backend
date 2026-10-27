@@ -1532,6 +1532,13 @@
       "idx": 219,
       "version": "5",
       "when": 1794100000000,
+      "tag": "0220_vendor_referrals",
+      "breakpoints": true
+    },
+    {
+      "idx": 220,
+      "version": "5",
+      "when": 1794200000000,
       "tag": "0221_vendor_onboarding_exceptions",
       "breakpoints": true
     }
