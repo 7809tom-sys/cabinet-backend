@@ -7,7 +7,7 @@ import { pelicanCategoryMarkups, surfacePreviews } from "../../drizzle/schema";
 import { positiveAuthorizedSurfaceBase } from "../../shared/surfacePricing";
 import { generateRoomSceneImage, surfacePreviewKitchenPrompt } from "../lib/roomScenePromptRules";
 import { storageGetSignedUrl } from "../storage";
-import { isPelicanDesignerSelectable, pelicanDesignerRole } from "../lib/pelicanDesignerReadiness";
+import { isPelicanDesignerSelectable, pelicanDesignerRenderFlags, pelicanDesignerRole } from "../lib/pelicanDesignerReadiness";
 import { isPelicanVanityFaucetCode, isPelicanVanitySinkCode } from "../lib/pelicanFixtureRole";
 import { matchingFlooringAccessories } from "../lib/flooringAccessoryMatch";
 import {
@@ -212,16 +212,37 @@ function roleFilter(role: RecommendedRole) {
   }
 }
 
+/** Bounds a full flooring palette. The priced plank set is under 100 today. */
+const FLOORING_RECOMMENDED_MAX = 500;
+
+function recommendedCandidateLimit(role: RecommendedRole, limit: number): number {
+  // Price is applied after the query. Scan the whole bounded plank set first
+  // so unpriced photo rows cannot push priced planks past the window.
+  if (role === "flooring") return FLOORING_RECOMMENDED_MAX;
+  // Sink/faucet source labels need post-query classification; request
+  // sufficient candidates so misplaced fixtures do not get starved.
+  if (
+    role === "sink"
+    || role === "faucet"
+    || role === "vanity-sink"
+    || role === "vanity-faucet"
+    || role === "pot-filler"
+    || isBathroomCatalogRole(role)
+  ) return 480;
+  return limit + 12;
+}
+
 export const surfacesRouter = router({
   // A source-priced, designer-enabled set of real Pelican products per role.
-  // Callers may request the full palette (up to 200) when an attribute editor
-  // needs every countertop option; compact suggestion areas keep a smaller
-  // limit. Popular-first, then items with a real photo, then by name.
+  // Callers may request the full palette when an attribute editor needs every
+  // option. Flooring can return every priced plank with a catalog photo, up
+  // to 500. Compact suggestion areas keep a smaller limit. Popular-first,
+  // then by name.
   recommended: publicProcedure
     .input(
       z.object({
         role: RECOMMENDED_ROLE,
-        limit: z.number().int().min(1).max(200).default(8),
+        limit: z.number().int().min(1).max(FLOORING_RECOMMENDED_MAX).default(8),
       })
     )
     .query(async ({ input }) => {
@@ -257,9 +278,7 @@ export const surfacesRouter = router({
           asc(pelicanProducts.popularRank),
           asc(pelicanProducts.name)
         )
-        // Sink/faucet source labels need post-query classification; request
-        // sufficient candidates so misplaced fixtures do not get starved.
-        .limit(input.role === "sink" || input.role === "faucet" || input.role === "vanity-sink" || input.role === "vanity-faucet" || input.role === "pot-filler" || isBathroomCatalogRole(input.role) ? 480 : input.limit + 12);
+        .limit(recommendedCandidateLimit(input.role, input.limit));
       const recommendations = rows
         .map((r) => ({
           id: r.id,
@@ -277,6 +296,7 @@ export const surfacesRouter = router({
             : r.imageUrl,
           materialImageUrl: r.materialImageUrl,
           sellPrice: sellPriceOf(r, map),
+          ...pelicanDesignerRenderFlags(r),
         }))
         .filter((r) => r.sellPrice != null && r.sellPrice > 0)
         .filter((r) => isBathroomCatalogRole(input.role)
@@ -302,15 +322,16 @@ export const surfacesRouter = router({
         .from(pelicanProducts)
         .where(inArray(pelicanProducts.id, input.ids));
       return rows
-        .map((r) => ({ ...r, sellPrice: sellPriceOf(r, map) }))
+        .map((r) => ({ ...r, sellPrice: sellPriceOf(r, map), ...pelicanDesignerRenderFlags(r) }))
         .filter((r) => r.sellPrice != null && r.sellPrice > 0);
     }),
 
   /**
    * Resolves saved favorites through the same source-priced, Designer-enabled
    * selection gate as the Designer palette. Exact material rendering still
-   * requires an approved repeatable swatch; a selectable countertop without
-   * one is explicitly rendered with the neutral preview rather than its photo.
+   * requires an approved repeatable swatch; a selectable countertop or flooring
+   * plank without one is explicitly rendered with the neutral preview rather
+   * than its catalog photo.
    */
   designerByIds: publicProcedure
     .input(z.object({ ids: z.array(z.number().int().positive()).max(40) }))
@@ -327,9 +348,9 @@ export const surfacesRouter = router({
           eq(pelicanProducts.showInDesigner, true),
         ));
       return rows
-        .map((row) => ({ ...row, sellPrice: sellPriceOf(row, map) }))
+        .map((row) => ({ ...row, sellPrice: sellPriceOf(row, map), ...pelicanDesignerRenderFlags(row) }))
         .filter((row) => row.sellPrice != null && row.sellPrice > 0)
-        .filter(isPelicanDesignerSelectable);
+        .filter((row) => isPelicanDesignerSelectable(row) && (row.category !== "Flooring" || Boolean(row.imageUrl?.trim())));
     }),
 
   /**
@@ -352,7 +373,7 @@ export const surfacesRouter = router({
           eq(pelicanProducts.showInCatalog, true),
         ));
       return rows
-        .map((row) => ({ ...row, sellPrice: sellPriceOf(row, map) }))
+        .map((row) => ({ ...row, sellPrice: sellPriceOf(row, map), ...pelicanDesignerRenderFlags(row) }))
         .filter((row) => row.sellPrice != null && row.sellPrice > 0)
         .filter((row) => isPelicanDesignerSelectable(row) || (
           row.category === "Flooring" && row.subCategory === "Moldings & Trim"

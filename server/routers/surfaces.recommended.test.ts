@@ -27,6 +27,8 @@ type Rec = {
   materialImageUrl?: string | null;
   sellPrice: number | null;
   unsupportedOverhangLimitIn?: number | null;
+  designerRenderReady?: boolean;
+  hasSwatch?: boolean;
 };
 
 const ACCESSORY =
@@ -48,7 +50,26 @@ describe("surfaces.recommended", () => {
       expect(r.sellPrice).not.toBeNull();
       expect(r.sellPrice ?? 0).toBeGreaterThan(0);
       expect(r.imageUrl && r.imageUrl.length > 0).toBe(true);
-      expect(r.materialImageUrl && r.materialImageUrl.length > 0).toBe(true);
+      expect(r.designerRenderReady).toBe(Boolean(r.materialImageUrl?.trim()));
+      expect(r.hasSwatch).toBe(r.designerRenderReady);
+    }
+  });
+
+  it("returns every priced flooring plank with a catalog photo, including planks that still need a 3D swatch", async () => {
+    const db = await getDb();
+    if (!db) return;
+    const caller = appRouter.createCaller(publicCtx());
+    const rows = (await caller.surfaces.recommended({ role: "flooring", limit: 500 })) as Rec[];
+    if (rows.length === 0) return;
+    const capped = (await caller.surfaces.recommended({ role: "flooring", limit: 6 })) as Rec[];
+    expect(rows.length).toBeLessThanOrEqual(500);
+    expect(capped).toHaveLength(Math.min(6, rows.length));
+    expect(rows.every((row) => row.subCategory === "Planks & Flooring")).toBe(true);
+    expect(rows.every((row) => (row.imageUrl ?? "").length > 0 && (row.sellPrice ?? 0) > 0)).toBe(true);
+    expect(rows.every((row) => row.hasSwatch === Boolean(row.materialImageUrl?.trim()) && row.designerRenderReady === row.hasSwatch)).toBe(true);
+    expect(new Set(capped.map((row) => row.id))).toEqual(new Set(rows.slice(0, capped.length).map((row) => row.id)));
+    if (rows.some((row) => row.hasSwatch === false)) {
+      expect(rows.length).toBeGreaterThan(rows.filter((row) => row.hasSwatch).length);
     }
   });
 

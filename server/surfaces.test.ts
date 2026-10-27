@@ -92,4 +92,36 @@ describe("Pelican full Designer palette", () => {
     expect(currentOfficialRows).toHaveLength(30);
     expect(currentOfficialRows.every((row) => row.materialImageUrl === pelicanQuartzMaterialMap(row.pelicanCode)?.materialImageUrl)).toBe(true);
   });
+
+  it("returns priced flooring planks in one designer page and marks swatch-less rows as not render-ready", async () => {
+    const caller = appRouter.createCaller(publicCtx());
+    const page = await caller.pelican.byCategory({
+      category: "Flooring",
+      scope: "designer",
+      limit: 200,
+      offset: 0,
+    });
+    if (page.total === 0) return;
+
+    expect(page.items).toHaveLength(page.total);
+    expect(new Set(page.subCategories)).toEqual(new Set(["Planks & Flooring"]));
+    for (const row of page.items) {
+      expect(row.subCategory).toBe("Planks & Flooring");
+      expect(row.sellPrice).toBeGreaterThan(0);
+      expect(row.showInDesigner).toBe(true);
+      expect(isPelicanDesignerSelectable(row)).toBe(true);
+      expect(row.hasSwatch).toBe(Boolean(row.materialImageUrl?.trim()));
+      expect(row.designerRenderReady).toBe(isPelicanDesignerReady(row));
+      expect(row.designerRenderReady).toBe(row.hasSwatch);
+    }
+    const pending = page.items.find((row) => row.hasSwatch === false);
+    if (!pending) return;
+    const saved = await caller.surfaces.designerByIds({ ids: [pending.id] });
+    expect(saved).toHaveLength(1);
+    expect(saved[0]).toMatchObject({
+      id: pending.id,
+      designerRenderReady: false,
+      hasSwatch: false,
+    });
+  });
 });
