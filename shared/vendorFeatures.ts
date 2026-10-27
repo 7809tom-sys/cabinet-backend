@@ -128,8 +128,11 @@ export const VENDOR_PORTAL_PAGE_FEATURES = {
   "other-products": "cabinet_catalog",
   styles: "door_styles",
   "featured-styles": "featured_styles",
+  inventory: "inventory",
+  forecast: "sales_forecast",
+  pricing: "pricing",
+  samples: "samples",
   shipping: "shipping_fulfillment",
-  picks: "designer_eligibility",
   promotions: "promotions",
   gallery: "room_scenes",
   analytics: "design_tools",
@@ -200,3 +203,30 @@ export function canManageSampleKits(actor: { role?: string | null } | null | und
 
 export const CABINET_VENDOR_FEATURES = CABINET_FEATURES;
 export const NON_CABINET_VENDOR_FEATURES = NON_CABINET_FEATURES;
+
+/**
+ * Feature keys shared with the Approve Vendors / vendor-types work.
+ * Callers that still pass a fulfillment scope use the same `samples` key.
+ */
+export const VENDOR_FEATURE_SAMPLES = "samples" as const;
+
+export function isCabinetVendorScope(scope: string | null | undefined): boolean {
+  return typeof scope === "string" && /^dist:[1-9]\d{0,9}$/.test(scope);
+}
+
+/**
+ * When `enabledFeatures` is omitted, cabinet vendors are treated as having
+ * the samples key so this portal works before the central map lands.
+ * When the map is present, membership of the same key is required.
+ * Pelican and any non-cabinet scope never receive samples.
+ */
+export function vendorFeatureEnabled(
+  feature: string,
+  input: { scope: string | null | undefined; enabledFeatures?: readonly string[] | null },
+): boolean {
+  if (feature === VENDOR_FEATURE_SAMPLES && !isCabinetVendorScope(input.scope)) return false;
+  if (input.enabledFeatures == null) {
+    return feature === VENDOR_FEATURE_SAMPLES && isCabinetVendorScope(input.scope);
+  }
+  return input.enabledFeatures.includes(feature);
+}

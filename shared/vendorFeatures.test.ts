@@ -88,9 +88,12 @@ describe("vendor feature map", () => {
       "overview",
       "supplier-profile",
       "catalog",
+      "inventory",
+      "forecast",
+      "pricing",
+      "samples",
       "styles",
       "featured-styles",
-      "picks",
       "gallery",
       "shipping",
       "fulfillment",
@@ -100,13 +103,16 @@ describe("vendor feature map", () => {
       "overview",
       "supplier-profile",
       "catalog",
+      "inventory",
+      "forecast",
+      "pricing",
       "shipping",
       "promotions",
       "fulfillment",
     ]);
     expect(nonCabinetPages).not.toContain("styles");
     expect(nonCabinetPages).not.toContain("featured-styles");
-    expect(nonCabinetPages).not.toContain("picks");
+    expect(nonCabinetPages).not.toContain("samples");
     expect(nonCabinetPages).not.toContain("gallery");
     expect(vendorCanOpenPortalPage(nonCabinet, "styles")).toBe(false);
     expect(vendorCanOpenPortalPage(cabinet, "styles")).toBe(true);

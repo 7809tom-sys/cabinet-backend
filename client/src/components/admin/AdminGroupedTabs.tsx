@@ -33,6 +33,7 @@ import DistributorImport from "@/components/admin/DistributorImport";
 import LineBrandingEditor from "@/components/admin/LineBrandingEditor";
 import DistributorFulfillmentEditor from "@/components/admin/DistributorFulfillmentEditor";
 import CustomersAdmin from "@/components/admin/CustomersAdmin";
+import CrmCleanupAdmin from "@/components/admin/CrmCleanupAdmin";
 import RolesAdmin from "@/components/admin/RolesAdmin";
 import SkuImageManager from "@/components/admin/SkuImageManager";
 import FeaturedStylesAdmin from "@/components/admin/FeaturedStylesAdmin";
@@ -91,6 +92,10 @@ import ElevenLabsOperationsAdmin from "@/components/admin/ElevenLabsOperationsAd
 import { ManualAiRenderQueueAdmin } from "@/components/admin/ManualAiRenderQueueAdmin";
 import StripePaymentSettingsAdmin from "@/components/admin/StripePaymentSettingsAdmin";
 import AffiliateLiteratureAdmin from "@/components/admin/AffiliateLiteratureAdmin";
+import SalesForecastAdmin from "@/components/admin/SalesForecastAdmin";
+import VendorUpdatesAdmin from "@/components/admin/VendorUpdatesAdmin";
+import VendorInventoryAdmin from "@/components/admin/VendorInventoryAdmin";
+import { SampleOrderDesk } from "@/components/samples/SampleOrderDesk";
 
 // ─── Group definitions ────────────────────────────────────────────────────────
 const GROUPS = [
@@ -100,6 +105,10 @@ const GROUPS = [
     icon: ShoppingCart,
     tabs: [
       { value: "orders", label: "Incoming Orders" },
+      { value: "sales-forecast", label: "Sales Forecast" },
+      { value: "sample-orders", label: "Sample Orders" },
+      { value: "vendor-updates", label: "Vendor Updates" },
+      { value: "vendor-inventory", label: "Vendor Inventory" },
       { value: "crm", label: "Sales CRM" },
       { value: "consultations", label: "Consultations" },
       { value: "design-leads", label: "Design Leads" },
@@ -113,6 +122,7 @@ const GROUPS = [
     icon: Users,
     tabs: [
       { value: "customers", label: "Customers" },
+      { value: "crm-cleanup", label: "CRM Cleanup" },
       { value: "roles", label: "Roles" },
       { value: "affiliates", label: "Affiliates" },
       { value: "affiliate-invoices", label: "Affiliate Invoices" },
@@ -443,6 +453,7 @@ export default function AdminGroupedTabs() {
   const [activeTab, setActiveTab] = useState(initialTab);
 
   const currentGroup = GROUPS.find((g) => g.id === activeGroup)!;
+  const inbox = trpc.vendorInventory.inboxCount.useQuery();
 
   const handleGroupChange = (groupId: string) => {
     setActiveGroup(groupId);
@@ -503,6 +514,9 @@ export default function AdminGroupedTabs() {
             <TabsTrigger key={t.value} value={t.value} className={currentGroup.id === "settings" ? "justify-start px-3" : undefined}>
               {t.label}
               {t.value === "approved-vendors" && <PendingVendorCount compact />}
+              {t.value === "vendor-updates" && (inbox.data?.unread ?? 0) > 0 && (
+                <Badge className="ml-1">{inbox.data?.unread}</Badge>
+              )}
             </TabsTrigger>
           ))}
         </TabsList>
@@ -510,6 +524,10 @@ export default function AdminGroupedTabs() {
         <div className={currentGroup.id === "settings" ? "min-w-0" : undefined}>
         {/* Sales & Orders */}
         <TabsContent value="orders" className="mt-6"><AdminTabHelp tab="orders" /><IncomingOrdersAdmin /></TabsContent>
+        <TabsContent value="sales-forecast" className="mt-6"><SalesForecastAdmin /></TabsContent>
+        <TabsContent value="sample-orders" className="mt-6"><SampleOrderDesk mode="admin" /></TabsContent>
+        <TabsContent value="vendor-updates" className="mt-6"><VendorUpdatesAdmin /></TabsContent>
+        <TabsContent value="vendor-inventory" className="mt-6"><VendorInventoryAdmin /></TabsContent>
         <TabsContent value="crm" className="mt-6"><AdminTabHelp tab="crm" /><CrmBoard lang="en" /></TabsContent>
         <TabsContent value="consultations" className="mt-6"><AdminTabHelp tab="consultations" /><ConsultationsAdmin /></TabsContent>
         <TabsContent value="design-leads" className="mt-6"><AdminTabHelp tab="design-leads" /><DesignLeadsAdmin /></TabsContent>
@@ -518,6 +536,7 @@ export default function AdminGroupedTabs() {
 
         {/* People */}
         <TabsContent value="customers" className="mt-6"><AdminTabHelp tab="customers" /><CustomersAdmin /></TabsContent>
+        <TabsContent value="crm-cleanup" className="mt-6"><AdminTabHelp tab="crm-cleanup" /><CrmCleanupAdmin /></TabsContent>
         <TabsContent value="roles" className="mt-6"><AdminTabHelp tab="roles" /><RolesAdmin /></TabsContent>
         <TabsContent value="affiliates" className="mt-6"><AdminTabHelp tab="affiliates" /><AffiliatesAdmin /></TabsContent>
         <TabsContent value="affiliate-invoices" className="mt-6"><AdminTabHelp tab="affiliate-invoices" /><AffiliateInvoicesAdmin /></TabsContent>

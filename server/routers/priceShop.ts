@@ -238,6 +238,8 @@ export const priceShopRouter = router({
         yourCost: distributorSkus.yourCost,
         platformSku: distributorSkus.platformSku,
         retailPriceBasis: distributors.retailPriceBasis,
+        vendorWholesale: distributorSkus.vendorWholesale,
+        vendorMarkupPercent: distributors.markupPercent,
       })
       .from(distributorSkus)
       .innerJoin(distributors, eq(distributorSkus.distributorId, distributors.id))
@@ -493,6 +495,8 @@ export const priceShopRouter = router({
         homeownerPrice: distributorSkus.homeownerPrice,
         yourCost: distributorSkus.yourCost,
         retailPriceBasis: distributors.retailPriceBasis,
+        vendorWholesale: distributorSkus.vendorWholesale,
+        vendorMarkupPercent: distributors.markupPercent,
       })
       .from(distributorSkus)
       .innerJoin(distributors, eq(distributorSkus.distributorId, distributors.id))

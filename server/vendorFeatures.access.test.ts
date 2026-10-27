@@ -10,11 +10,16 @@ const rows = vi.hoisted(() => ({
 vi.mock("./db", () => ({
   getDb: async () => ({
     select: () => ({
-      from: () => ({
-        where: () => ({
-          limit: async () => [rows.vendor],
-        }),
-      }),
+      from: () => {
+        const query = {
+          where: () => ({
+            limit: async () => [rows.vendor],
+          }),
+          then: (resolve: (value: unknown[]) => unknown, reject?: (reason: unknown) => unknown) =>
+            Promise.resolve([]).then(resolve, reject),
+        };
+        return query;
+      },
     }),
   }),
 }));

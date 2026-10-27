@@ -15,8 +15,18 @@ describe("Vendor portal Fulfillment wiring", () => {
   });
 
   it("limits portal pages with the shared vendor feature map", () => {
-    expect(portal).toContain("NAV_ITEMS.filter((item) => vendorCanOpenPortalPage(portalVendor, item.id))");
+    expect(portal).toContain(".filter((item) => vendorCanOpenPortalPage(portalVendor, item.id))");
     expect(portal).toContain('from "@shared/vendorFeatures"');
+  });
+
+  it("gives a non-cabinet vendor forecast, inventory, and pricing, and keeps cabinet samples off that menu until access allows them", () => {
+    expect(portal).toContain('id: "inventory"');
+    expect(portal).toContain('id: "forecast"');
+    expect(portal).toContain('id: "pricing"');
+    expect(portal).toContain('id: "samples"');
+    expect(portal).toContain('item.id !== "samples" || sampleAccess.data?.enabled');
+    expect(portal).toContain("actingDistributorId");
+    expect(portal).not.toContain("PELICAN_NAV_IDS");
   });
 
   it("does not trap a chosen non-cabinet vendor on the supplier profile, and sends a disallowed section home", () => {

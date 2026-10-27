@@ -183,6 +183,7 @@ export function SurfacesPickerDialog({
   onPlaceBathroomFixture,
   bathroomPaletteMode = "fixtures",
   initialBathroomRole,
+  affiliateSlug,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
@@ -215,6 +216,7 @@ export function SurfacesPickerDialog({
   bathroomPaletteMode?: BathroomPaletteMode;
   /** Active family requested from a compact row or a guided checklist step. */
   initialBathroomRole?: RecommendedRole;
+  affiliateSlug?: string | null;
 }) {
   const isBathroom = roomType === "bathroom";
   const [category, setCategory] = useState<PelicanCategory | "Preferred">(PELICAN_STOREFRONT_CATEGORIES[0]);
@@ -275,6 +277,7 @@ export function SurfacesPickerDialog({
       category: category as PelicanCategory,
       scope: "designer",
       search: debounced || undefined,
+      affiliateSlug: affiliateSlug ?? undefined,
       limit: PAGE_LIMIT,
       offset: 0,
     },

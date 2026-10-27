@@ -1,3 +1,5 @@
+import { TRPCError } from "@trpc/server";
+
 export type ApprovedVendorAccessRecord = {
   id: number;
   sourceKey: string | null;
@@ -122,4 +124,30 @@ export function approvedVendorContactAccess(
     vendorLineId: vendor.id,
     distributorId: approvedVendorSourceDistributorId(vendor.sourceKey, distributors),
   };
+}
+
+/**
+ * The catalog line a portal request may operate on.
+ * A signed-in vendor stays on its own distributor unless it asks for another
+ * line explicitly linked to that same approved vendor record. Administrators
+ * still name the line they are previewing.
+ */
+export function resolveVendorCatalogLineId(
+  isAdmin: boolean,
+  distributorId: number | null,
+  requestedDistributorId: number | null | undefined,
+  linkedDistributorIds?: readonly number[] | null,
+): number {
+  if (!isAdmin) {
+    if (distributorId == null) {
+      throw new TRPCError({ code: "FORBIDDEN", message: "No supply line linked to your account." });
+    }
+    if (requestedDistributorId == null || requestedDistributorId === distributorId) return distributorId;
+    if (linkedDistributorIds?.includes(requestedDistributorId)) return requestedDistributorId;
+    throw new TRPCError({ code: "FORBIDDEN", message: "That catalog line is not linked to your vendor account." });
+  }
+  if (requestedDistributorId == null) {
+    throw new TRPCError({ code: "BAD_REQUEST", message: "Admins must specify a distributorId to act on a supply line." });
+  }
+  return requestedDistributorId;
 }

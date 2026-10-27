@@ -25,6 +25,7 @@ import {
 	  shippingSettings,
 	} from "../../drizzle/schema";
 import { storagePut } from "../storage";
+import { vendorRoomSceneProcedures } from "./vendorRoomScenes";
 import { encryptDistributorSecret } from "../lib/distributorIntegrationCrypto";
 import { decryptDistributorSecret } from "../lib/distributorIntegrationCrypto";
 import { generateImage } from "../_core/imageGeneration";
@@ -37,12 +38,13 @@ import {
   isForecastRateBps,
   type ForecastRateBand,
 } from "@shared/inventoryForecast";
+import { catalogCategoryKey } from "@shared/catalogCategory";
 import {
 	  normalizeDistributorZipRates,
   shippingRuleCanQuote,
   type DistributorShippingRuleMode,
 } from "@shared/distributorShipping";
-import { approvedVendorLinkedDistributorIds, approvedVendorMatchesDistributor } from "../lib/approvedVendorAccess";
+import { approvedVendorLinkedDistributorIds, approvedVendorMatchesDistributor, resolveVendorCatalogLineId } from "../lib/approvedVendorAccess";
 import { designerCabinetReadinessBySku } from "../lib/designerCabinetReadiness";
 
 /**
@@ -53,26 +55,15 @@ import { designerCabinetReadinessBySku } from "../lib/designerCabinetReadiness";
 function resolveLineId(
   ctxDistributorId: number | null,
   isAdmin: boolean,
-  inputDistributorId?: number | null
+  inputDistributorId?: number | null,
+  linkedDistributorIds?: readonly number[] | null,
 ): number {
-  if (!isAdmin) {
-    if (ctxDistributorId == null) {
-      throw new TRPCError({ code: "FORBIDDEN", message: "No supply line linked to your account." });
-    }
-    return ctxDistributorId;
-  }
-  if (inputDistributorId == null) {
-    throw new TRPCError({
-      code: "BAD_REQUEST",
-      message: "Admins must specify a distributorId to act on a supply line.",
-    });
-  }
-  return inputDistributorId;
+  return resolveVendorCatalogLineId(isAdmin, ctxDistributorId, inputDistributorId, linkedDistributorIds);
 }
 
 async function resolveApprovedVendorProfile(
   db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
-  ctx: { isAdmin: boolean; distributorId: number | null; approvedVendorLineId: number | null },
+  ctx: { isAdmin: boolean; distributorId: number | null; approvedVendorLineId: number | null; linkedDistributorIds?: readonly number[] | null },
   requestedDistributorId?: number,
   requestedApprovedVendorLineId?: number
 ) {
@@ -97,7 +88,7 @@ async function resolveApprovedVendorProfile(
     return vendor;
   }
 
-  const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, requestedDistributorId);
+  const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, requestedDistributorId, ctx.linkedDistributorIds);
   const [line] = await db
     .select({ id: distributors.id, code: distributors.code, isActive: distributors.isActive })
     .from(distributors)
@@ -195,7 +186,7 @@ export const distributorPortalRouter = router({
     .query(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
-      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input?.distributorId);
+      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input?.distributorId, ctx.linkedDistributorIds);
 
       const rows = await db
         .select({
@@ -301,7 +292,7 @@ export const distributorPortalRouter = router({
 	    .mutation(async ({ ctx, input }) => {
 	      const db = await getDb();
 	      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
-	      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId);
+	      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId, ctx.linkedDistributorIds);
 	      const [line] = await db.select({ id: distributors.id }).from(distributors).where(eq(distributors.id, lineId)).limit(1);
 	      if (!line) throw new TRPCError({ code: "NOT_FOUND", message: "Supply line not found" });
       const buffer = Buffer.from(input.fileBase64, "base64");
@@ -330,7 +321,7 @@ export const distributorPortalRouter = router({
 	    .query(async ({ ctx, input }) => {
 	      const db = await getDb();
 	      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
-	      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input?.distributorId);
+	      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input?.distributorId, ctx.linkedDistributorIds);
 	      return db.select({
 	        id: catalogImports.id, fileName: catalogImports.fileName, fileSize: catalogImports.fileSize,
 	        status: catalogImports.status, preservePricing: catalogImports.preservePricing,
@@ -345,7 +336,7 @@ export const distributorPortalRouter = router({
 	    .query(async ({ ctx, input }) => {
 	      const db = await getDb();
 	      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
-	      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input?.distributorId);
+	      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input?.distributorId, ctx.linkedDistributorIds);
       const rows = await db.select({
 	        distributorSku: distributorSkus.distributorSku,
 	        platformSku: distributorSkus.platformSku,
@@ -378,7 +369,7 @@ export const distributorPortalRouter = router({
 	    .query(async ({ ctx, input }) => {
 	      const db = await getDb();
 	      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
-	      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input?.distributorId);
+	      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input?.distributorId, ctx.linkedDistributorIds);
 	      const rows = await db.select({
 	        id: distributorIntegrations.id, integrationType: distributorIntegrations.integrationType,
 	        provider: distributorIntegrations.provider, displayName: distributorIntegrations.displayName,
@@ -406,7 +397,7 @@ export const distributorPortalRouter = router({
 	    .mutation(async ({ ctx, input }) => {
 	      const db = await getDb();
 	      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
-	      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId);
+	      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId, ctx.linkedDistributorIds);
 	      const secretPatch = {
 	        apiKeyEncrypted: input.apiKey?.trim() ? encryptDistributorSecret(input.apiKey) : undefined,
 	        clientSecretEncrypted: input.clientSecret?.trim() ? encryptDistributorSecret(input.clientSecret) : undefined,
@@ -449,7 +440,7 @@ export const distributorPortalRouter = router({
 	    .query(async ({ ctx, input }) => {
 	      const db = await getDb();
 	      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
-	      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input?.distributorId);
+	      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input?.distributorId, ctx.linkedDistributorIds);
 	      const conditions = [eq(distributorIntegrationEvents.distributorId, lineId)];
 	      if (input?.integrationId != null) conditions.push(eq(distributorIntegrationEvents.integrationId, input.integrationId));
 	      return db.select({
@@ -469,7 +460,7 @@ export const distributorPortalRouter = router({
 	    .mutation(async ({ ctx, input }) => {
 	      const db = await getDb();
 	      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
-	      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId);
+	      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId, ctx.linkedDistributorIds);
 	      const [integration] = await db.select().from(distributorIntegrations).where(and(eq(distributorIntegrations.id, input.integrationId), eq(distributorIntegrations.distributorId, lineId))).limit(1);
 	      if (!integration) throw new TRPCError({ code: "NOT_FOUND", message: "Integration not found." });
       const startedAt = Date.now();
@@ -692,7 +683,7 @@ export const distributorPortalRouter = router({
 	  .query(async ({ ctx, input }) => {
 	    const db = await getDb();
 	    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
-	    const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input?.distributorId);
+	    const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input?.distributorId, ctx.linkedDistributorIds);
 	    const catalogRows = await db
 	      .select({
 	        skuId: distributorSkus.id,
@@ -808,6 +799,7 @@ export const distributorPortalRouter = router({
 	          masterCode: cabinets.masterCode,
 	          isActive: cabinets.isActive,
 	          showInDesigner: cabinets.showInDesigner,
+	          designerEligible: cabinets.designerEligible,
 	          conflictStatus: cabinets.conflictStatus,
 	        })
 	        .from(cabinets),
@@ -901,7 +893,7 @@ export const distributorPortalRouter = router({
 	  .mutation(async ({ ctx, input }) => {
 	    const db = await getDb();
 	    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
-	    const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId);
+	    const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId, ctx.linkedDistributorIds);
 	    const [style] = await db
 	      .select({ id: doorStyles.id, isActive: doorStyles.isActive, isFeatured: doorStyles.isFeatured })
 	      .from(doorStyles)
@@ -950,7 +942,7 @@ export const distributorPortalRouter = router({
 	  .mutation(async ({ ctx, input }) => {
 	    const db = await getDb();
 	    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
-	    const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId);
+	    const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId, ctx.linkedDistributorIds);
 	    const current = await db
 	      .select({ id: doorStyles.id, featuredRank: doorStyles.featuredRank })
 	      .from(doorStyles)
@@ -1001,7 +993,7 @@ export const distributorPortalRouter = router({
 	  .mutation(async ({ ctx, input }) => {
 	    const db = await getDb();
 	    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
-	    const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId);
+	    const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId, ctx.linkedDistributorIds);
 	    const [style] = await db
 		      .select({ id: doorStyles.id, isFeatured: doorStyles.isFeatured, doorSampleImageUrl: doorStyles.doorSampleImageUrl, thumbnailImageUrl: doorStyles.thumbnailImageUrl })
 	      .from(doorStyles)
@@ -1086,7 +1078,7 @@ export const distributorPortalRouter = router({
 		  .query(async ({ ctx, input }) => {
 		    const db = await getDb();
 		    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
-		    const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId);
+		    const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId, ctx.linkedDistributorIds);
 		    const [draft] = await db.select().from(doorStyleMeasurementDrafts)
 		      .where(and(
 		        eq(doorStyleMeasurementDrafts.styleId, input.styleId),
@@ -1109,7 +1101,7 @@ export const distributorPortalRouter = router({
 		  .mutation(async ({ ctx, input }) => {
 		    const db = await getDb();
 		    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
-		    const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId);
+		    const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId, ctx.linkedDistributorIds);
 		    const [style] = await db.select({ id: doorStyles.id }).from(doorStyles)
 		      .where(and(eq(doorStyles.id, input.styleId), eq(doorStyles.distributorId, lineId))).limit(1);
 		    if (!style) throw new TRPCError({ code: "FORBIDDEN", message: "That Door Style does not belong to your cabinet line." });
@@ -1156,7 +1148,7 @@ export const distributorPortalRouter = router({
 		  .mutation(async ({ ctx, input }) => {
 		    const db = await getDb();
 		    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
-		    const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId);
+		    const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId, ctx.linkedDistributorIds);
 		    await db.delete(doorStyleMeasurementDrafts).where(and(
 		      eq(doorStyleMeasurementDrafts.styleId, input.styleId),
 		      eq(doorStyleMeasurementDrafts.distributorId, lineId),
@@ -1178,7 +1170,7 @@ export const distributorPortalRouter = router({
 		  .mutation(async ({ ctx, input }) => {
 		    const db = await getDb();
 		    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
-		    const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId);
+		    const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId, ctx.linkedDistributorIds);
 		    const [draft] = await db.select().from(doorStyleMeasurementDrafts).where(and(
 		      eq(doorStyleMeasurementDrafts.styleId, input.styleId),
 		      eq(doorStyleMeasurementDrafts.distributorId, lineId),
@@ -1224,7 +1216,7 @@ export const distributorPortalRouter = router({
 		  .mutation(async ({ ctx, input }) => {
 		    const db = await getDb();
 		    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
-		    const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId);
+		    const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId, ctx.linkedDistributorIds);
 		    const [style] = await db
 		      .select({ id: doorStyles.id, styleCode: doorStyles.styleCode, ourName: doorStyles.ourName })
 		      .from(doorStyles)
@@ -1336,7 +1328,7 @@ export const distributorPortalRouter = router({
 	  .mutation(async ({ ctx, input }) => {
 	    const db = await getDb();
 	    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
-	    const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId);
+	    const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId, ctx.linkedDistributorIds);
 	    const [style] = await db.select({ id: doorStyles.id }).from(doorStyles).where(and(eq(doorStyles.id, input.styleId), eq(doorStyles.distributorId, lineId))).limit(1);
 	    if (!style) throw new TRPCError({ code: "FORBIDDEN", message: "That Door Style does not belong to your cabinet line." });
 	    const [{ sceneCount }] = await db.select({ sceneCount: sql<number>`count(*)` }).from(doorStyleRoomScenes).where(eq(doorStyleRoomScenes.styleId, input.styleId));
@@ -1352,7 +1344,7 @@ export const distributorPortalRouter = router({
 	  .mutation(async ({ ctx, input }) => {
 	    const db = await getDb();
 	    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
-	    const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId);
+	    const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId, ctx.linkedDistributorIds);
 	    const [scene] = await db
 	      .select({ id: doorStyleRoomScenes.id })
 	      .from(doorStyleRoomScenes)
@@ -1376,7 +1368,7 @@ export const distributorPortalRouter = router({
 	  .query(async ({ ctx, input }) => {
 	    const db = await getDb();
 	    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
-	    const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input?.distributorId);
+	    const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input?.distributorId, ctx.linkedDistributorIds);
 	    const [line] = await db
 	      .select({
 	        id: distributors.id,
@@ -1484,7 +1476,7 @@ export const distributorPortalRouter = router({
 	  .mutation(async ({ ctx, input }) => {
 	    const db = await getDb();
 	    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
-	    const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId);
+	    const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId, ctx.linkedDistributorIds);
 	    const warehouseZips = Array.from(new Set(input.warehouseZips.map((zip) => zip.trim())));
 	    const zipRates = normalizeDistributorZipRates(input.shippingZipRates);
 	    const mode = input.shippingRuleMode as DistributorShippingRuleMode;
@@ -1527,7 +1519,7 @@ export const distributorPortalRouter = router({
     .query(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
-      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input?.distributorId);
+      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input?.distributorId, ctx.linkedDistributorIds);
       const days = input?.days ?? 180;
       const sixMonthsAgo = monthOffset(6);
       const requestedSince = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
@@ -1705,7 +1697,7 @@ export const distributorPortalRouter = router({
     .query(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
-      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId);
+      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId, ctx.linkedDistributorIds);
 
       const conds = [eq(distributorSkus.distributorId, lineId)];
       if (input.styleId) conds.push(eq(distributorSkus.styleId, input.styleId));
@@ -1767,7 +1759,20 @@ export const distributorPortalRouter = router({
         .leftJoin(doorStyles, eq(distributorSkus.styleId, doorStyles.id))
         .where(and(...conds));
 
-      return { items: rows, total: Number(tot?.n ?? 0) };
+      // The whole line, not the current page or the active search/category filter,
+      // so My Catalog can offer every category while a page is showing one of them.
+      const categoryRows = await db
+        .selectDistinct({ category: cabinets.category })
+        .from(distributorSkus)
+        .leftJoin(cabinets, eq(distributorSkus.cabinetId, cabinets.id))
+        .where(eq(distributorSkus.distributorId, lineId));
+      const categories = Array.from(new Set(
+        categoryRows
+          .map((row) => catalogCategoryKey(row.category))
+          .filter((category): category is string => category != null),
+      )).sort((left, right) => left.localeCompare(right));
+
+      return { items: rows, total: Number(tot?.n ?? 0), categories };
     }),
 
   /** Toggle a single SKU's published (visible) state. Scoped to this line. */
@@ -1782,7 +1787,7 @@ export const distributorPortalRouter = router({
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
-      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId);
+      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId, ctx.linkedDistributorIds);
 
       // Ownership guard: the SKU must belong to this line.
       const owned = await db
@@ -1827,7 +1832,7 @@ export const distributorPortalRouter = router({
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
-      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId);
+      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId, ctx.linkedDistributorIds);
 
       // Only update rows that belong to this line.
       const owned = await db
@@ -2049,7 +2054,7 @@ export const distributorPortalRouter = router({
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
-      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId);
+      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId, ctx.linkedDistributorIds);
 
       // Ownership guard
       const owned = await db
@@ -2086,7 +2091,7 @@ export const distributorPortalRouter = router({
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
-      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId);
+      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId, ctx.linkedDistributorIds);
       const [owned] = await db.select({ id: distributorSkus.id })
         .from(distributorSkus)
         .where(and(eq(distributorSkus.id, input.skuId), eq(distributorSkus.distributorId, lineId)))
@@ -2112,7 +2117,7 @@ export const distributorPortalRouter = router({
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
-      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId);
+      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId, ctx.linkedDistributorIds);
 
       // Ownership guard
       const owned = await db
@@ -2158,7 +2163,7 @@ export const distributorPortalRouter = router({
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
-      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId);
+      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId, ctx.linkedDistributorIds);
       const [owned] = await db.select({ id: distributorSkus.id, cabinetId: distributorSkus.cabinetId })
         .from(distributorSkus)
         .where(and(eq(distributorSkus.id, input.skuId), eq(distributorSkus.distributorId, lineId)))
@@ -2194,7 +2199,7 @@ export const distributorPortalRouter = router({
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
       const args = input ?? { status: "all" as const, limit: 200 };
-      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, args.distributorId);
+      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, args.distributorId, ctx.linkedDistributorIds);
       const conditions = [eq(vendorProducts.distributorId, lineId)];
       if (args.category) conditions.push(eq(vendorProducts.category, args.category));
       if (args.status !== "all") conditions.push(eq(vendorProducts.status, args.status));
@@ -2230,7 +2235,7 @@ export const distributorPortalRouter = router({
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
-      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId);
+      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId, ctx.linkedDistributorIds);
       const packageValues = [input.pkgLength, input.pkgWidth, input.pkgHeight, input.pkgWeight];
       if (input.mode === "publish") {
         if (input.listPrice == null && input.yourCost == null) {
@@ -2295,7 +2300,7 @@ export const distributorPortalRouter = router({
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
-      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId);
+      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId, ctx.linkedDistributorIds);
       const existing = await db.select({ id: vendorProducts.id, vendorSku: vendorProducts.vendorSku })
         .from(vendorProducts).where(eq(vendorProducts.distributorId, lineId));
       const bySku = new Map(existing.map((row) => [normalizeCode(row.vendorSku), row]));
@@ -2340,7 +2345,7 @@ export const distributorPortalRouter = router({
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
-      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId);
+      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId, ctx.linkedDistributorIds);
       const [owned] = await db.select({ id: vendorProducts.id }).from(vendorProducts)
         .where(and(eq(vendorProducts.id, input.id), eq(vendorProducts.distributorId, lineId))).limit(1);
       if (!owned) throw new TRPCError({ code: "FORBIDDEN", message: "That product is not in your line." });
@@ -2375,7 +2380,7 @@ export const distributorPortalRouter = router({
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
-      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId);
+      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId, ctx.linkedDistributorIds);
       const [styles, cabinetRows, existingRows] = await Promise.all([
         db.select({ id: doorStyles.id, ourName: doorStyles.ourName, aliasName: doorStyles.aliasName, styleCode: doorStyles.styleCode })
           .from(doorStyles).where(and(eq(doorStyles.distributorId, lineId), eq(doorStyles.isActive, true))),
@@ -2458,7 +2463,7 @@ export const distributorPortalRouter = router({
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
-      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId);
+      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId, ctx.linkedDistributorIds);
 
       // Cabinet ID is an internal platform identity. A vendor does not need to
       // know it, and a supplier SKU may be new to the master catalog. Resolve a
@@ -2621,7 +2626,7 @@ export const distributorPortalRouter = router({
     .query(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
-      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input?.distributorId);
+      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input?.distributorId, ctx.linkedDistributorIds);
 
       const rows = await db
         .select({ designToolPicks: distributors.designToolPicks })
@@ -2663,7 +2668,7 @@ export const distributorPortalRouter = router({
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
-      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId);
+      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId, ctx.linkedDistributorIds);
 
       if (input.skuIds.length > MAX_DESIGN_TOOL_PICKS) {
         throw new TRPCError({
@@ -2702,7 +2707,7 @@ export const distributorPortalRouter = router({
     .query(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
-      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId);
+      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId, ctx.linkedDistributorIds);
 
       // Resolve the door-style ids that belong to this line.
       const styleRows = await db
@@ -2748,7 +2753,7 @@ export const distributorPortalRouter = router({
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
-      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId);
+      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId, ctx.linkedDistributorIds);
       const [order] = await db.select().from(orderRequests).where(and(eq(orderRequests.id, input.orderId), eq(orderRequests.distributorId, lineId))).limit(1);
       if (!order) throw new TRPCError({ code: "NOT_FOUND", message: "This order is not routed to your supply line." });
       if (order.orderRailStatus !== "distributor_inventory_check") {
@@ -2782,7 +2787,7 @@ export const distributorPortalRouter = router({
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
-      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId);
+      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId, ctx.linkedDistributorIds);
 
       // Verify style belongs to this line
 	      const style = await db
@@ -2866,7 +2871,7 @@ export const distributorPortalRouter = router({
     .query(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
-      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input?.distributorId);
+      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input?.distributorId, ctx.linkedDistributorIds);
       const rows = await db
         .select()
         .from(aiServiceRequests)
@@ -2891,7 +2896,7 @@ export const distributorPortalRouter = router({
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
-      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId);
+      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId, ctx.linkedDistributorIds);
       // Estimate: ~150 SKUs per hour based on file size heuristic
       const estimatedSkus = input.fileSizeBytes
         ? Math.max(10, Math.round(input.fileSizeBytes / 500))
@@ -2925,7 +2930,7 @@ export const distributorPortalRouter = router({
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
-      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId);
+      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId, ctx.linkedDistributorIds);
       await db
         .update(aiServiceRequests)
         .set({ status: "approved", approvedAt: new Date() })
@@ -2944,7 +2949,7 @@ export const distributorPortalRouter = router({
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
-      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId);
+      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId, ctx.linkedDistributorIds);
       await db
         .update(aiServiceRequests)
         .set({ status: "cancelled" })
@@ -2956,4 +2961,6 @@ export const distributorPortalRouter = router({
         );
       return { success: true };
     }),
+
+  ...vendorRoomSceneProcedures,
 });

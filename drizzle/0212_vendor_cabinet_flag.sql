@@ -1,5 +1,6 @@
--- Migration 0212. Journal entry is reserved to follow 0211.
--- Rebase this entry after migrations 0206–0211 merge so it stays last.
+-- Migration 0212. The file number stays 0212.
+-- Journal entry is appended after 0211_sales_forecast_vendor_portal
+-- (idx 213, when 1793500000000) so it sorts after that migration.
 -- Cabinet vendor flag on the approved vendor record.
 -- Idempotent: adding the column, backfilling, and inserting Saunders Closets
 -- can run more than once without overwriting an administrator's later choice.

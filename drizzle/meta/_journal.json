@@ -1431,9 +1431,65 @@
       "breakpoints": true
     },
     {
+      "idx": 205,
+      "version": "5",
+      "when": 1793060000000,
+      "tag": "0209_vendor_room_scenes_and_promotions",
+      "breakpoints": true
+    },
+    {
+      "idx": 206,
+      "version": "5",
+      "when": 1793100000000,
+      "tag": "0214_affiliate_white_label_catalog",
+      "breakpoints": true
+    },
+    {
+      "idx": 207,
+      "version": "5",
+      "when": 1793140000000,
+      "tag": "0206_public_cabinet_conflict_reviews",
+      "breakpoints": true
+    },
+    {
+      "idx": 208,
+      "version": "5",
+      "when": 1793180000000,
+      "tag": "0207_designer_eligible",
+      "breakpoints": true
+    },
+    {
+      "idx": 209,
+      "version": "5",
+      "when": 1793220000000,
+      "tag": "0208_crm_cleanup",
+      "breakpoints": true
+    },
+    {
+      "idx": 210,
+      "version": "5",
+      "when": 1793260000000,
+      "tag": "0210_order_request_access_token",
+      "breakpoints": true
+    },
+    {
       "idx": 211,
       "version": "5",
-      "when": 1793030400000,
+      "when": 1793300000000,
+      "tag": "0215_consultation_affiliate",
+      "breakpoints": true
+    },
+    {
+      "idx": 212,
+      "version": "5",
+      "when": 1793400000000,
+      "tag": "0211_sales_forecast_vendor_portal",
+      "breakpoints": true
+    },
+    {
+      "idx": 213,
+      "version": "5",
+      "when": 1793500000000,
       "tag": "0212_vendor_cabinet_flag",
       "breakpoints": true
     }

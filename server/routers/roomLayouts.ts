@@ -142,6 +142,7 @@ async function buildRoomScene(
       eq(doorStyles.isActive, true),
       eq(cabinets.isActive, true),
       eq(cabinets.showInDesigner, true),
+      eq(cabinets.designerEligible, true),
       notInConflict(),
       inArray(cabinets.category, categories),
     ));
