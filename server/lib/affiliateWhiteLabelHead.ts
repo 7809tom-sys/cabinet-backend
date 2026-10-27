@@ -1,3 +1,5 @@
+import { publicSocialLinks } from "../../shared/affiliateSocialLinks";
+
 export type AffiliateHeadBrand = {
   slug: string;
   storeName?: string | null;
@@ -10,6 +12,7 @@ export type AffiliateHeadBrand = {
   serviceArea?: string | null;
   facebookUrl?: string | null;
   instagramUrl?: string | null;
+  socialLinks?: unknown;
   pageTitle?: string | null;
   pageDescription?: string | null;
   canonicalUrl?: string | null;
@@ -151,9 +154,10 @@ export function injectAffiliateWhiteLabelHead(
   const description = brand.pageDescription?.trim() || defaultDescription;
   const imageUrl = usableImageUrl(brand.logoUrl);
   const canonicalUrl = usableImageUrl(brand.canonicalUrl);
-  const socialProfiles = [brand.facebookUrl, brand.instagramUrl]
-    .map(usableImageUrl)
-    .filter((url): url is string => Boolean(url));
+  const socialProfiles = publicSocialLinks(brand.socialLinks, {
+    facebookUrl: brand.facebookUrl,
+    instagramUrl: brand.instagramUrl,
+  }).map((link) => link.url);
   const indexable = brand.indexable !== false;
   const primaryColor = /^#[0-9a-fA-F]{6}$/.test(brand.primaryColor || "")
     ? brand.primaryColor!

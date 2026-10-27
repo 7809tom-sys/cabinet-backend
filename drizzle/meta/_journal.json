@@ -1513,6 +1513,13 @@
       "when": 1793800000000,
       "tag": "0217_affiliate_crm_email",
       "breakpoints": true
+    },
+    {
+      "idx": 217,
+      "version": "5",
+      "when": 1793900000000,
+      "tag": "0218_affiliate_marketing_hub",
+      "breakpoints": true
     }
   ]
 }

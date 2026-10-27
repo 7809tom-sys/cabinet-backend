@@ -92,6 +92,7 @@ import ElevenLabsOperationsAdmin from "@/components/admin/ElevenLabsOperationsAd
 import { ManualAiRenderQueueAdmin } from "@/components/admin/ManualAiRenderQueueAdmin";
 import StripePaymentSettingsAdmin from "@/components/admin/StripePaymentSettingsAdmin";
 import AffiliateLiteratureAdmin from "@/components/admin/AffiliateLiteratureAdmin";
+import AffiliateResourcesAdmin from "@/components/admin/AffiliateResourcesAdmin";
 import SalesForecastAdmin from "@/components/admin/SalesForecastAdmin";
 import VendorUpdatesAdmin from "@/components/admin/VendorUpdatesAdmin";
 import VendorInventoryAdmin from "@/components/admin/VendorInventoryAdmin";
@@ -205,6 +206,7 @@ const GROUPS = [
       { value: "analytics", label: "Analytics" },
       { value: "export", label: "Full Export" },
       { value: "affiliate-literature", label: "Affiliate Literature" },
+      { value: "affiliate-resources", label: "Affiliate Resources" },
     ],
   },
 ] as const;
@@ -599,6 +601,7 @@ export default function AdminGroupedTabs() {
         <TabsContent value="analytics" className="mt-6"><AnalyticsAdmin /></TabsContent>
         <TabsContent value="export" className="mt-6"><FullDatabaseExport /></TabsContent>
         <TabsContent value="affiliate-literature" className="mt-6"><AdminTabHelp tab="affiliate-literature" /><AffiliateLiteratureAdmin /></TabsContent>
+        <TabsContent value="affiliate-resources" className="mt-6"><AdminTabHelp tab="affiliate-resources" /><AffiliateResourcesAdmin /></TabsContent>
         </div>
       </Tabs>
     </div>

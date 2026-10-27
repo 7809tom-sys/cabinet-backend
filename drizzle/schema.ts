@@ -15,6 +15,8 @@ import {
   uniqueIndex,
 } from "drizzle-orm/mysql-core";
 import { AFFILIATE_STOREFRONT_TEMPLATE_IDS } from "../shared/affiliateStorefrontTemplates";
+import type { AffiliateSocialLink } from "../shared/affiliateSocialLinks";
+import type { AffiliateResourceMeta } from "../shared/affiliateResources";
 
 // ─── Users ───────────────────────────────────────────────────────────────────
 
@@ -1673,6 +1675,9 @@ export const affiliates = mysqlTable("affiliates", {
   yearsInBusiness: int("yearsInBusiness"),
   facebookUrl: varchar("facebookUrl", { length: 512 }),
   instagramUrl: varchar("instagramUrl", { length: 512 }),
+  // Canonical public profile list for the storefront. facebookUrl and
+  // instagramUrl are mirrored from the Facebook and Instagram entries.
+  socialLinks: json("socialLinks").$type<AffiliateSocialLink[] | null>(),
   // White-label presentation. Public contact is opt-in so the account email
   // and phone are never copied onto the storefront by default.
   logoDarkUrl: varchar("logoDarkUrl", { length: 512 }),
@@ -1934,6 +1939,8 @@ export const affiliateTeamMembers = mysqlTable("affiliate_team_members", {
   role: mysqlEnum("role", ["salesperson", "designer"]).notNull(),
   accessCrm: boolean("accessCrm").default(true).notNull(),
   accessDesigner: boolean("accessDesigner").default(true).notNull(),
+  // Owner-granted permission to edit Marketing Hub social links.
+  accessMarketing: boolean("accessMarketing").default(false).notNull(),
   isActive: boolean("isActive").default(true).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
@@ -3629,6 +3636,48 @@ export const affiliateLiterature = mysqlTable("affiliate_literature", {
 ]);
 export type AffiliateLiterature = typeof affiliateLiterature.$inferSelect;
 export type InsertAffiliateLiterature = typeof affiliateLiterature.$inferInsert;
+
+// Admin-managed sales education for the affiliate Marketing Hub.
+// Files use the private storage prefix affiliate-resources/ and are served
+// to signed-in affiliates with a signed URL, not the public media bucket.
+export const affiliateResourceTypes = ["script", "guide", "video", "pdf", "social", "link"] as const;
+export const affiliateResources = mysqlTable("affiliate_resources", {
+  id: int("id").autoincrement().primaryKey(),
+  type: mysqlEnum("type", affiliateResourceTypes).notNull(),
+  title: varchar("title", { length: 255 }).notNull(),
+  body: text("body"),
+  url: varchar("url", { length: 1024 }),
+  fileKey: varchar("fileKey", { length: 512 }),
+  filename: varchar("filename", { length: 255 }),
+  mimeType: varchar("mimeType", { length: 128 }),
+  sizeBytes: int("sizeBytes"),
+  thumbnailKey: varchar("thumbnailKey", { length: 512 }),
+  category: varchar("category", { length: 64 }).default("general").notNull(),
+  metaJson: json("metaJson").$type<AffiliateResourceMeta | null>(),
+  sortOrder: int("sortOrder").default(0).notNull(),
+  isPublished: boolean("isPublished").default(false).notNull(),
+  featured: boolean("featured").default(false).notNull(),
+  uploadedBy: int("uploadedBy"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => [
+  index("affiliate_resources_type_sort_idx").on(table.type, table.sortOrder),
+  index("affiliate_resources_published_idx").on(table.isPublished, table.sortOrder),
+]);
+export type AffiliateResource = typeof affiliateResources.$inferSelect;
+export type InsertAffiliateResource = typeof affiliateResources.$inferInsert;
+
+export const affiliateResourceProgress = mysqlTable("affiliate_resource_progress", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  resourceId: int("resourceId").notNull(),
+  completed: boolean("completed").default(false).notNull(),
+  progressPercent: int("progressPercent").default(0).notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => [
+  uniqueIndex("affiliate_resource_progress_user_resource_uq").on(table.userId, table.resourceId),
+]);
+export type AffiliateResourceProgress = typeof affiliateResourceProgress.$inferSelect;
 
 // ─── Freight quote history (permanent, never pruned) ───────────────────────
 export const freightQuoteHistory = mysqlTable("freight_quote_history", {

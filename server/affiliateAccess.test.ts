@@ -27,7 +27,7 @@ describe("resolveAffiliateAccess", () => {
   it("returns the invitation capabilities for an active team member", async () => {
     const access = await resolveAffiliateAccess(
       fakeDb(
-        [{ id: 7, affiliateId: 42, accessCrm: true, accessDesigner: false }],
+        [{ id: 7, affiliateId: 42, accessCrm: true, accessDesigner: false, accessMarketing: false }],
         [],
       ),
       { id: 100, email: "designer@example.com" },
@@ -38,6 +38,7 @@ describe("resolveAffiliateAccess", () => {
       isOwner: false,
       accessCrm: true,
       accessDesigner: false,
+      accessMarketing: false,
       teamMemberId: 7,
     });
   });
@@ -53,6 +54,7 @@ describe("resolveAffiliateAccess", () => {
       isOwner: true,
       accessCrm: true,
       accessDesigner: true,
+      accessMarketing: true,
       teamMemberId: null,
     });
   });

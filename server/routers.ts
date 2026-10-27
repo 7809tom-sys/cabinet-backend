@@ -68,6 +68,8 @@ import { generatedDesignImagesRouter } from "./routers/generatedDesignImages";
 import { adminStickyNotesRouter } from "./routers/adminStickyNotes";
 import { operationsProvidersRouter } from "./routers/operationsProviders";
 import { affiliateLiteratureRouter } from "./routers/affiliateLiterature";
+import { affiliateResourcesRouter } from "./routers/affiliateResources";
+import { affiliateSocialRouter } from "./routers/affiliateSocialLinks";
 import { affiliateGeneratedImagesRouter } from "./routers/affiliateGeneratedImages";
 import { hardwareRouter } from "./routers/hardware";
 import { stripeInvoicesRouter } from "./routers/stripeInvoices";
@@ -178,6 +180,8 @@ export const appRouter = router({
   adminStickyNotes: adminStickyNotesRouter,
   operationsProviders: operationsProvidersRouter,
   affiliateLiterature: affiliateLiteratureRouter,
+  affiliateResources: affiliateResourcesRouter,
+  affiliateSocial: affiliateSocialRouter,
   affiliateGeneratedImages: affiliateGeneratedImagesRouter,
   hardware: hardwareRouter,
   stripeInvoices: stripeInvoicesRouter,

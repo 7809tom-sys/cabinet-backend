@@ -71,6 +71,7 @@ export async function whiteLabelAffiliateHtml(
           serviceArea: affiliates.serviceArea,
           facebookUrl: affiliates.facebookUrl,
           instagramUrl: affiliates.instagramUrl,
+          socialLinks: affiliates.socialLinks,
         })
         .from(affiliates)
         .where(eq(affiliates.slug, slug))

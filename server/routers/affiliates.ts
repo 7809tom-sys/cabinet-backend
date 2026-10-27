@@ -32,6 +32,8 @@ import { reavesWayAffiliateDefaults } from "@shared/affiliateBlueprint";
 import { affiliateNonCompeteEnforcementNote } from "@shared/affiliateNonCompete";
 import { AFFILIATE_STOREFRONT_TEMPLATE_IDS, type AffiliateStorefrontTemplate } from "@shared/affiliateStorefrontTemplates";
 import { importAffiliateWebsiteDraft } from "../lib/affiliateWebsiteImport";
+import { assertAffiliateSocialEditor } from "../lib/affiliateSocialAccess";
+import { legacySocialColumns, mergeLegacySocialColumns, publicSocialLinks } from "@shared/affiliateSocialLinks";
 
 type HardwareCommissionSnapshotFact = {
   hardwareMerchandiseCents: number;
@@ -214,6 +216,7 @@ function toPublicStorefront(a: typeof affiliates.$inferSelect) {
     yearsInBusiness: a.yearsInBusiness,
     facebookUrl: a.facebookUrl,
     instagramUrl: a.instagramUrl,
+    socialLinks: publicSocialLinks(a.socialLinks, { facebookUrl: a.facebookUrl, instagramUrl: a.instagramUrl }),
     hidePlatformBranding: a.hidePlatformBranding,
     sectionLabels: parseSectionLabels(a.sectionLabelsJson),
     storefrontEnabled: a.storefrontEnabled,
@@ -428,6 +431,7 @@ export const affiliatesRouter = router({
       role: z.enum(["salesperson", "designer"]),
       accessCrm: z.boolean().optional(),
       accessDesigner: z.boolean().optional(),
+      accessMarketing: z.boolean().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
       const mine = await requireAffiliateOwner(ctx);
@@ -441,7 +445,24 @@ export const affiliatesRouter = router({
         role: input.role,
         accessCrm: input.accessCrm ?? true,
         accessDesigner: input.accessDesigner ?? true,
+        accessMarketing: input.accessMarketing ?? false,
       });
+      return { success: true };
+    }),
+
+  updateTeamMemberAccess: partnerProcedure
+    .input(z.object({
+      id: z.number().int(),
+      accessMarketing: z.boolean(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const mine = await requireAffiliateOwner(ctx);
+      if (!mine) throw new TRPCError({ code: "FORBIDDEN", message: "No affiliate account." });
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      await db.update(affiliateTeamMembers)
+        .set({ accessMarketing: input.accessMarketing })
+        .where(and(eq(affiliateTeamMembers.id, input.id), eq(affiliateTeamMembers.affiliateId, mine.id)));
       return { success: true };
     }),
 
@@ -567,6 +588,7 @@ export const affiliatesRouter = router({
         yearsInBusiness: null,
         facebookUrl: null,
         instagramUrl: null,
+        socialLinks: [],
         storefrontEnabled: true,
       template: input.template,
       fontFamily: null,
@@ -993,7 +1015,7 @@ export const affiliatesRouter = router({
     const access = await resolveAffiliateAccess(db, ctx.user);
     if (access) return access;
     if (ctx.user.role === "admin") {
-      return { affiliateId: null, isOwner: true, accessCrm: true, accessDesigner: true, teamMemberId: null };
+      return { affiliateId: null, isOwner: true, accessCrm: true, accessDesigner: true, accessMarketing: true, teamMemberId: null };
     }
     return null;
   }),
@@ -1021,6 +1043,38 @@ export const affiliatesRouter = router({
       const set: Record<string, unknown> = { ...fields };
       applyWhiteLabelWrite(set);
       Object.keys(set).forEach((k) => set[k] === undefined && delete set[k]);
+      if ("facebookUrl" in fields || "instagramUrl" in fields) {
+        const [current] = await db
+          .select({
+            facebookUrl: affiliates.facebookUrl,
+            instagramUrl: affiliates.instagramUrl,
+            socialLinks: affiliates.socialLinks,
+          })
+          .from(affiliates)
+          .where(eq(affiliates.id, targetId))
+          .limit(1);
+        const nextFacebook = fields.facebookUrl === undefined ? current?.facebookUrl ?? null : fields.facebookUrl;
+        const nextInstagram = fields.instagramUrl === undefined ? current?.instagramUrl ?? null : fields.instagramUrl;
+        const changed = (nextFacebook ?? null) !== (current?.facebookUrl ?? null)
+          || (nextInstagram ?? null) !== (current?.instagramUrl ?? null);
+        if (!changed) {
+          delete set.facebookUrl;
+          delete set.instagramUrl;
+        } else {
+          await assertAffiliateSocialEditor(db, ctx.user, targetId);
+          const links = mergeLegacySocialColumns(current?.socialLinks, {
+            facebookUrl: nextFacebook,
+            instagramUrl: nextInstagram,
+          }, {
+            facebookUrl: current?.facebookUrl,
+            instagramUrl: current?.instagramUrl,
+          });
+          const mirrored = legacySocialColumns(links);
+          set.socialLinks = links;
+          set.facebookUrl = mirrored.facebookUrl;
+          set.instagramUrl = mirrored.instagramUrl;
+        }
+      }
       if (Object.keys(set).length > 0) {
         await db.update(affiliates).set(set).where(eq(affiliates.id, targetId));
       }

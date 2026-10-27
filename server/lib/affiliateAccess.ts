@@ -13,6 +13,7 @@ export type AffiliateAccess = {
   isOwner: boolean;
   accessCrm: boolean;
   accessDesigner: boolean;
+  accessMarketing: boolean;
   teamMemberId: number | null;
 };
 
@@ -32,6 +33,7 @@ export async function resolveAffiliateAccess(
       affiliateId: affiliateTeamMembers.affiliateId,
       accessCrm: affiliateTeamMembers.accessCrm,
       accessDesigner: affiliateTeamMembers.accessDesigner,
+      accessMarketing: affiliateTeamMembers.accessMarketing,
     })
     .from(affiliateTeamMembers)
     .where(
@@ -53,6 +55,7 @@ export async function resolveAffiliateAccess(
       isOwner: false,
       accessCrm: teamMember.accessCrm,
       accessDesigner: teamMember.accessDesigner,
+      accessMarketing: teamMember.accessMarketing,
       teamMemberId: teamMember.id,
     };
   }
@@ -71,6 +74,7 @@ export async function resolveAffiliateAccess(
     isOwner: true,
     accessCrm: true,
     accessDesigner: true,
+    accessMarketing: true,
     teamMemberId: null,
   };
 }
