@@ -10,8 +10,7 @@ import { notifyOwner } from "../_core/notification";
 import { emitCrmEvent } from "../_core/crmWebhook";
 import { ensureAffiliatePipelineDeal } from "../lib/crmPipelineAttach";
 import { invokeLLM } from "../_core/llm";
-import { generateImage } from "../_core/imageGeneration";
-import { buildPhotorealPrompt } from "@shared/photorealPrompt";
+import { generateRoomSceneImage, photorealRoomScenePrompt } from "../lib/roomScenePromptRules";
 import { autoFillSpan, type FillCabinet, type FillMode } from "../../shared/fillEngine";
 import { sellPriceForTier } from "@shared/margins";
 import { resolveAffiliateStorefrontSale } from "@shared/affiliateBranding";
@@ -3131,9 +3130,9 @@ Return an empty actions array ONLY if the user asked a pure question with no wal
       })
     )
     .mutation(async ({ input }) => {
-      const prompt = buildPhotorealPrompt(input);
+      const prompt = photorealRoomScenePrompt(input);
       try {
-        const { url } = await generateImage({ prompt });
+        const { url } = await generateRoomSceneImage({ prompt });
         if (!url) {
           throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "No image was returned." });
         }

@@ -11,6 +11,7 @@ import { TRPCError } from "@trpc/server";
 import { storageGetSignedUrl, storagePut } from "../storage";
 import { checkTwilioVerification, hashPhoneE164, isTwilioVerifyConfigured, normalizePhoneE164, sendTwilioVerification } from "../lib/twilioVerify";
 import { generateGeminiExactPlanTest, isGeminiImageConfigured, pollGeminiExactPlanTest, startGeminiExactPlanTest, verifyGeminiImageAccess } from "../lib/geminiImageProvider";
+import { finalizeRoomScenePrompt } from "../lib/roomScenePromptRules";
 import { sendEmail } from "../email";
 import { resolveAffiliateAccess } from "../lib/affiliateAccess";
 import { GEMINI_MATERIAL_MANIFEST_WIRE_VERSION, hasCurrentGeminiMaterialManifestWireVersion, serializeGeminiMaterialManifestForWire } from "../../shared/geminiMaterialManifest";
@@ -664,7 +665,7 @@ function exactPlanPrompt(summary: string, specification?: PhotoRenderProvenanceI
   const glassStackerInstruction = specification?.glassStackers.length
     ? `Glass stacker inventory (non-negotiable): ${specification.glassStackers.map((stacker) => `${stacker.code} sits visibly ABOVE ${stacker.parentCode}${stacker.frontFlush ? ", flush with the parent cabinet face" : ""}${stacker.falseBack ? ", with its concealed false back behind the shallow glass box" : ""}`).join("; ")}. Render each listed glass stacker exactly once, above its named parent, with its glass doors/shelves visibly present. Do not replace it with a plain wall cabinet, omit it, or place a wall in front of it.`
     : "";
-  return [
+  const scene = [
     "Create a genuinely photorealistic, high-end architectural interior photograph from the FIRST reference image—not a screenshot, wireframe, illustration, or a copy of the reference pixels.",
     "The first image is a clear, wall-free cabinet crop of the exact locked CabinetDealz Designer plan and camera composition. It deliberately excludes every Designer room-wall mesh, including transparent or ghost walls. Treat no blank edge, translucent panel, crop boundary, or editor background in image 1 as a wall or architectural element to reproduce. Preserve its visible cabinets, fillers, countertops, appliances, sinks, faucets, windows, doors, islands, ceiling heights, fixtures, room dimensions, and camera framing exactly: do not add, remove, move, rotate, resize, substitute, merge, hide, or invent any of them. Do not change the camera angle, crop, viewpoint, or room dimensions.",
     "Use the following reference images only to improve physically plausible surface appearance for the exact matching selected cabinet finish, countertop, flooring, and backsplash. Use the material references only on their exact matching existing surfaces. Render realistic daylight, physically plausible soft contact shadows, true cabinet grain, countertop depth, metal, glass, tile texture, and surface reflections. Improve realism substantially while keeping geometry and composition locked.",
@@ -680,6 +681,7 @@ function exactPlanPrompt(summary: string, specification?: PhotoRenderProvenanceI
     "No people, text, logos, watermarks, measurements, or extra products.",
     summary ? `Selected design summary: ${summary}` : "",
   ].filter(Boolean).join(" ");
+  return finalizeRoomScenePrompt(scene, { reference: "3d-render" });
 }
 
 export function photoRenderProvenanceSummary(provenance: PhotoRenderProvenanceInput) {

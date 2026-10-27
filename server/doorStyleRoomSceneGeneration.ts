@@ -6,16 +6,15 @@ import {
   AUTO_ROOM_SCENE_SOURCE_NOTE,
   ROOM_SCENE_GENERATION_NOT_CONFIGURED,
   bothSampleImagesVerified,
-  buildDoorStyleRoomScenePrompt,
   generationDecision,
   normalizedSampleUrl,
   type RoomSceneGenerationSnapshot,
   type RoomSceneGenerationStatus,
 } from "../shared/doorStyleRoomSceneGeneration";
 import { MAX_ROOM_SCENE_PHOTOS_PER_STYLE } from "../shared/vendorRoomScenes";
-import { generateImage } from "./_core/imageGeneration";
 import { getDb } from "./db";
 import { isGeminiImageConfigured } from "./lib/geminiImageProvider";
+import { doorStyleRoomScenePrompt, generateRoomSceneImage } from "./lib/roomScenePromptRules";
 
 const LOG_PREFIX = "[door-style-room-scene]";
 
@@ -190,7 +189,7 @@ export async function applyDoorStyleRoomSceneGeneration(
   let generatedUrl: string | undefined;
   try {
     const generated = await generator.generate({
-      prompt: buildDoorStyleRoomScenePrompt(style),
+      prompt: doorStyleRoomScenePrompt(style),
       originalImages: [{ url: doorImageUrl }, { url: drawerImageUrl }],
     });
     generatedUrl = generated.url?.trim();
@@ -346,10 +345,11 @@ export function createDrizzleRoomSceneStore(db: Db): RoomSceneGenerationStore {
 
 const geminiRoomSceneGenerator: RoomSceneImageGenerator = {
   configured: () => isGeminiImageConfigured(),
-  generate: (input) => generateImage({
+  generate: (input) => generateRoomSceneImage({
     prompt: input.prompt,
     quality: "medium",
     originalImages: input.originalImages,
+    reference: "verified-door-and-drawer",
   }),
 };
 

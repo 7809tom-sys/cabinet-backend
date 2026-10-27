@@ -5,7 +5,7 @@ import { getDb } from "../db";
 import { pelicanProducts } from "../../drizzle/pelicanSchema";
 import { pelicanCategoryMarkups, surfacePreviews } from "../../drizzle/schema";
 import { positiveAuthorizedSurfaceBase } from "../../shared/surfacePricing";
-import { generateImage } from "../_core/imageGeneration";
+import { generateRoomSceneImage, surfacePreviewKitchenPrompt } from "../lib/roomScenePromptRules";
 import { storageGetSignedUrl } from "../storage";
 import { isPelicanDesignerSelectable, pelicanDesignerRole } from "../lib/pelicanDesignerReadiness";
 import { isPelicanVanityFaucetCode, isPelicanVanitySinkCode } from "../lib/pelicanFixtureRole";
@@ -520,17 +520,13 @@ export const surfacesRouter = router({
         ? `Cabinets use the "${input.doorStyleName}" door style shown in the first reference image — match its color, wood/paint finish, and door profile precisely.`
         : "Use warm, realistic shaker-style cabinets consistent with the reference photos.";
 
-      const prompt = [
-        "A photorealistic, professionally photographed modern-transitional kitchen interior,",
-        "wide-angle real-estate photography, bright natural daylight, warm inviting mood.",
-        `Compose ${layoutText[input.layout]} with base cabinets 34.5 inches tall and countertops resting on top for a ~36 inch finished counter height.`,
-        "Build the scene FAITHFULLY from the attached product reference photos, matching each material's color, pattern, texture and finish exactly:",
+      const prompt = surfacePreviewKitchenPrompt({
+        layoutDescription: layoutText[input.layout],
         doorText,
-        ...descLines,
-        "Photorealistic materials, accurate reflections and shadows, no text, no watermark, no people. Ultra-detailed, magazine-quality kitchen photography.",
-      ].join("\n");
+        productLines: descLines,
+      });
 
-      const { url } = await generateImage({
+      const { url } = await generateRoomSceneImage({
         prompt,
         originalImages: references.map((r) => ({ url: r.url, mimeType: r.mimeType })),
       });
