@@ -10,6 +10,7 @@ import {
   pelicanCategoryMarkups,
   priceShopSnapshots,
   bundleDeals,
+  kitchenDesigns,
 } from "../../drizzle/schema";
 import { pelicanProducts } from "../../drizzle/pelicanSchema";
 import { resolveStorefrontTier, visiblePricesForViewer } from "../../shared/pricingTier";
@@ -18,6 +19,8 @@ import { TRPCError } from "@trpc/server";
 import { resolveAffiliateAccess } from "../lib/affiliateAccess";
 import { storagePut } from "../storage";
 import { bundlePricePairs, bundleSurfaceIds, calculateCurrentBundlePrice, publishedBundlePrice, type BundlePriceCandidate, type BundleSnapshotLike } from "../lib/bundleDealPricing";
+import { decidePackageAccess, planKitchenPackageCopy, resolvePackagePrice, type PackageLineItem } from "@shared/kitchenPackage";
+import { decideAssistAccess } from "@shared/customerDirectory";
 
 // ─── 10×10 Kitchen Layout ────────────────────────────────────────────────────
 // Industry-standard 10×10 kitchen benchmark (120" × 120").
@@ -58,6 +61,7 @@ type BundlePricingRow = {
   styleId: number | null;
   lockedDistributorId: number | null;
   homeownerPrice: string | null;
+  bomSnapshotTotal?: string | null;
 };
 
 const DEFAULT_PELICAN_MARKUP_BPS: Record<string, number> = {
@@ -158,10 +162,12 @@ async function withCurrentBundleHomeownerPrices<T extends BundlePricingRow>(
       surfaceCandidates,
     });
     const savedHomeownerPrice = publishedBundlePrice(row.homeownerPrice);
+    const bomBaseline = publishedBundlePrice(row.bomSnapshotTotal);
     const currentHomeownerPrice = livePrice.total?.toFixed(2) ?? null;
+    const compared = bomBaseline ?? savedHomeownerPrice;
     const currentPriceStatus = currentHomeownerPrice === null
       ? "incomplete" as const
-      : savedHomeownerPrice === null || Number(savedHomeownerPrice) !== Number(currentHomeownerPrice)
+      : compared === null || Number(compared) !== Number(currentHomeownerPrice)
         ? "needs_refresh" as const
         : "current" as const;
     return {
@@ -170,6 +176,7 @@ async function withCurrentBundleHomeownerPrices<T extends BundlePricingRow>(
       // price, or SKU mapping change therefore requires its owner to refresh
       // the package instead of silently changing a shopper's kit total.
       homeownerPrice: savedHomeownerPrice,
+      displayPrice: savedHomeownerPrice,
       currentHomeownerPrice,
       currentPriceStatus,
       currentPriceMissingItemCount: livePrice.missingItemCount,
@@ -628,46 +635,91 @@ export const priceShopRouter = router({
       roomDepthInches: z.number().optional(),
       cabinetCount: z.number().default(0),
       floorPlanImageUrl: z.string().optional(),
+      heroImageUrl: z.string().max(512).optional(),
       affiliateId: z.number().optional(),
       distributorId: z.number().optional(),
       lockedDistributorId: z.number().optional(),
+      sourceDesignId: z.number().int().positive().nullable().optional(),
+      lineItems: z.array(z.object({
+        label: z.string(),
+        code: z.string(),
+        category: z.string(),
+        supplier: z.string(),
+        qty: z.number(),
+        unitPrice: z.number().nullable(),
+        lineTotal: z.number().nullable(),
+        section: z.enum(["cabinet", "other"]),
+      })).optional(),
+      priceOverride: z.number().min(0).nullable().optional(),
+      discountAmount: z.number().min(0).nullable().optional(),
+      layoutLabel: z.string().max(64).optional(),
+      doorColor: z.string().max(128).optional(),
+      featuredOnHome: z.boolean().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
-      // Determine ownership: admin can create global or scoped bundles;
-      // affiliates can create bundles for their own storefront;
-      // distributors can create bundles locked to their own lines.
-      let ownerAffiliateId: number | null = input.affiliateId ?? null;
-      let ownerDistributorId: number | null = input.distributorId ?? null;
-      if (ctx.user.role !== "admin") {
-        const access = await resolveAffiliateAccess(db, ctx.user);
-        if (access?.isOwner) {
-          ownerAffiliateId = access.affiliateId;
-        } else if (ctx.user.distributorId) {
-          ownerDistributorId = ctx.user.distributorId;
-        } else {
-          throw new TRPCError({ code: "FORBIDDEN" });
-        }
+      const access = ctx.user.role === "admin" ? null : await resolveAffiliateAccess(db, ctx.user);
+      const packageAccess = decidePackageAccess({
+        role: ctx.user.role,
+        access,
+        requestedAffiliateId: input.affiliateId ?? null,
+      });
+      let ownerAffiliateId: number | null = null;
+      let ownerDistributorId: number | null = null;
+      if (packageAccess.ok) {
+        ownerAffiliateId = packageAccess.affiliateId;
+      } else if (ctx.user.distributorId) {
+        ownerDistributorId = ctx.user.distributorId;
+      } else {
+        throw new TRPCError({ code: "FORBIDDEN", message: packageAccess.message });
+      }
+      const lineItems = (input.lineItems ?? []) as PackageLineItem[];
+      const price = resolvePackagePrice({
+        lineItems,
+        override: input.priceOverride,
+        discount: input.discountAmount,
+      });
+      const finalPrice = lineItems.length > 0 ? price.finalPrice : (input.homeownerPrice ?? price.finalPrice);
+      const planned = planKitchenPackageCopy({
+        sourceDesignId: input.sourceDesignId ?? null,
+        snapshot: input.designSnapshot as Record<string, unknown>,
+        lineItems,
+        price: { autoSum: lineItems.length > 0 ? price.autoSum : finalPrice, finalPrice },
+        affiliateId: ownerAffiliateId,
+        name: input.name,
+      });
+      if (planned.updatesSourceDesign || planned.movesSourceDesign) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "A kitchen package is a copy and cannot move the source design." });
       }
       const [result] = await db.insert(bundleDeals).values({
-        name: input.name,
+        name: planned.bundle.name,
         description: input.description,
-        designSnapshot: input.designSnapshot,
+        designSnapshot: planned.bundle.designSnapshot,
         styleId: input.styleId,
         styleName: input.styleName,
-        homeownerPrice: input.homeownerPrice?.toFixed(2),
+        homeownerPrice: planned.bundle.homeownerPrice,
         yourCost: input.yourCost?.toFixed(2),
         roomWidthInches: input.roomWidthInches,
         roomDepthInches: input.roomDepthInches,
         cabinetCount: input.cabinetCount,
         floorPlanImageUrl: input.floorPlanImageUrl,
+        heroImageUrl: input.heroImageUrl,
         affiliateId: ownerAffiliateId,
         distributorId: ownerDistributorId,
         lockedDistributorId: input.lockedDistributorId ?? (ownerDistributorId ? ownerDistributorId : null),
+        sourceDesignId: planned.bundle.sourceDesignId,
+        lineItemsJson: lineItems,
+        bomSnapshotTotal: planned.bundle.bomSnapshotTotal,
+        priceOverride: input.priceOverride != null ? input.priceOverride.toFixed(2) : null,
+        discountAmount: input.discountAmount != null ? input.discountAmount.toFixed(2) : null,
+        priceSnapshottedAt: new Date(),
+        layoutLabel: input.layoutLabel,
+        doorColor: input.doorColor,
+        featuredOnHome: input.featuredOnHome ?? false,
         createdBy: ctx.user.id,
       });
-      return { ok: true, id: (result as any).insertId };
+      return { ok: true, id: (result as { insertId?: number }).insertId ?? (result as unknown as [{ insertId: number }])[0]?.insertId };
     }),
 
   listBundleDeals: protectedProcedure
@@ -694,6 +746,14 @@ export const priceShopRouter = router({
         sortOrder: bundleDeals.sortOrder,
         affiliateId: bundleDeals.affiliateId,
         distributorId: bundleDeals.distributorId,
+        bomSnapshotTotal: bundleDeals.bomSnapshotTotal,
+        featuredOnHome: bundleDeals.featuredOnHome,
+        lineItemsJson: bundleDeals.lineItemsJson,
+        sourceDesignId: bundleDeals.sourceDesignId,
+        layoutLabel: bundleDeals.layoutLabel,
+        doorColor: bundleDeals.doorColor,
+        priceOverride: bundleDeals.priceOverride,
+        discountAmount: bundleDeals.discountAmount,
         createdAt: bundleDeals.createdAt,
       };
       // Admin sees all; affiliate/vendor sees only their own
@@ -708,7 +768,7 @@ export const priceShopRouter = router({
       }
       // Non-admin: resolve their affiliate or distributor
       const access = await resolveAffiliateAccess(db, ctx.user);
-      if (access?.isOwner) {
+      if (access && (access.isOwner || access.accessDesigner)) {
         return withCurrentBundleHomeownerPrices(db, await db.select(selectFields).from(bundleDeals).where(eq(bundleDeals.affiliateId, access.affiliateId)).orderBy(desc(bundleDeals.createdAt)));
       }
       if (ctx.user.distributorId) {
@@ -727,7 +787,7 @@ export const priceShopRouter = router({
         const [row] = await db.select({ affiliateId: bundleDeals.affiliateId, distributorId: bundleDeals.distributorId }).from(bundleDeals).where(eq(bundleDeals.id, input.id)).limit(1);
         if (!row) throw new TRPCError({ code: "NOT_FOUND" });
         const access = await resolveAffiliateAccess(db, ctx.user);
-        const ownsBundle = (access?.isOwner && row.affiliateId === access.affiliateId) || (ctx.user.distributorId && row.distributorId === ctx.user.distributorId);
+        const ownsBundle = (access && (access.isOwner || access.accessDesigner) && row.affiliateId === access.affiliateId) || (ctx.user.distributorId && row.distributorId === ctx.user.distributorId);
         if (!ownsBundle) throw new TRPCError({ code: "FORBIDDEN" });
       }
       await db.update(bundleDeals).set({ isPublished: input.published }).where(eq(bundleDeals.id, input.id));
@@ -744,10 +804,138 @@ export const priceShopRouter = router({
         const [row] = await db.select({ affiliateId: bundleDeals.affiliateId, distributorId: bundleDeals.distributorId }).from(bundleDeals).where(eq(bundleDeals.id, input.id)).limit(1);
         if (!row) throw new TRPCError({ code: "NOT_FOUND" });
         const access = await resolveAffiliateAccess(db, ctx.user);
-        const ownsBundle = (access?.isOwner && row.affiliateId === access.affiliateId) || (ctx.user.distributorId && row.distributorId === ctx.user.distributorId);
+        const ownsBundle = (access && (access.isOwner || access.accessDesigner) && row.affiliateId === access.affiliateId) || (ctx.user.distributorId && row.distributorId === ctx.user.distributorId);
         if (!ownsBundle) throw new TRPCError({ code: "FORBIDDEN" });
       }
       await db.delete(bundleDeals).where(eq(bundleDeals.id, input.id));
+      return { ok: true };
+    }),
+
+  saveDesignAsPackage: protectedProcedure
+    .input(z.object({
+      designId: z.number().int().positive(),
+      name: z.string().min(1).max(200),
+      description: z.string().max(4000).optional(),
+      priceOverride: z.number().min(0).nullable().optional(),
+      discountAmount: z.number().min(0).nullable().optional(),
+      layoutLabel: z.string().max(64).optional(),
+      doorColor: z.string().max(128).optional(),
+      heroImageUrl: z.string().max(512).optional(),
+      lineItems: z.array(z.object({
+        label: z.string(),
+        code: z.string(),
+        category: z.string(),
+        supplier: z.string(),
+        qty: z.number(),
+        unitPrice: z.number().nullable(),
+        lineTotal: z.number().nullable(),
+        section: z.enum(["cabinet", "other"]),
+      })).optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      const [design] = await db.select().from(kitchenDesigns).where(eq(kitchenDesigns.id, input.designId)).limit(1);
+      if (!design) throw new TRPCError({ code: "NOT_FOUND", message: "Design not found." });
+      const access = ctx.user.role === "admin" ? null : await resolveAffiliateAccess(db, ctx.user);
+      const assist = decideAssistAccess({ role: ctx.user.role, access, designAffiliateId: design.affiliateId });
+      const ownDesign = design.userId === ctx.user.id && access && (access.isOwner || access.accessDesigner) && access.affiliateId === design.affiliateId;
+      if (!assist.ok && !ownDesign) throw new TRPCError({ code: "FORBIDDEN", message: assist.ok ? "Forbidden" : assist.message });
+      const placed = Array.isArray(design.placedCabinets) ? design.placedCabinets as Array<{ masterCode?: string }> : [];
+      const grouped = new Map<string, PackageLineItem>();
+      for (const item of placed) {
+        const code = item.masterCode?.trim() ?? "";
+        if (!code) continue;
+        const existing = grouped.get(code);
+        if (existing) existing.qty += 1;
+        else grouped.set(code, { label: code, code, category: "Cabinet", supplier: "", qty: 1, unitPrice: null, lineTotal: null, section: "cabinet" });
+      }
+      const lineItems = (input.lineItems?.length ? input.lineItems : Array.from(grouped.values())) as PackageLineItem[];
+      const price = resolvePackagePrice({ lineItems, override: input.priceOverride, discount: input.discountAmount });
+      const snapshot = {
+        room: design.roomData,
+        placed: design.placedCabinets,
+        styleId: design.selectedStyleId,
+        lockedDistributorId: design.selectedDistributorId,
+        roomType: design.roomType,
+        selectedSurfaces: design.selectedSurfaces,
+        threeDPresentation: design.threeDPresentation,
+      };
+      const planned = planKitchenPackageCopy({
+        sourceDesignId: design.id,
+        snapshot,
+        lineItems,
+        price,
+        affiliateId: design.affiliateId,
+        name: input.name,
+      });
+      if (planned.updatesSourceDesign) throw new TRPCError({ code: "BAD_REQUEST", message: "Packages copy a design; they do not move it." });
+      const [result] = await db.insert(bundleDeals).values({
+        name: input.name,
+        description: input.description,
+        designSnapshot: snapshot,
+        styleId: design.selectedStyleId,
+        homeownerPrice: planned.bundle.homeownerPrice,
+        cabinetCount: placed.length,
+        heroImageUrl: input.heroImageUrl ?? design.thumbnailUrl,
+        affiliateId: design.affiliateId,
+        lockedDistributorId: design.selectedDistributorId,
+        sourceDesignId: design.id,
+        lineItemsJson: lineItems,
+        bomSnapshotTotal: planned.bundle.bomSnapshotTotal,
+        priceOverride: input.priceOverride != null ? input.priceOverride.toFixed(2) : null,
+        discountAmount: input.discountAmount != null ? input.discountAmount.toFixed(2) : null,
+        priceSnapshottedAt: new Date(),
+        layoutLabel: input.layoutLabel,
+        doorColor: input.doorColor,
+        createdBy: ctx.user.id,
+      });
+      return { ok: true as const, id: (result as { insertId?: number }).insertId ?? (result as unknown as [{ insertId: number }])[0]?.insertId, sourceDesignId: design.id };
+    }),
+
+  refreshBundlePrices: protectedProcedure
+    .input(z.object({ id: z.number().int().positive(), updatePackagePrice: z.boolean().default(false) }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      const [row] = await db.select().from(bundleDeals).where(eq(bundleDeals.id, input.id)).limit(1);
+      if (!row) throw new TRPCError({ code: "NOT_FOUND" });
+      if (ctx.user.role !== "admin") {
+        const access = await resolveAffiliateAccess(db, ctx.user);
+        const owns = (access && (access.isOwner || access.accessDesigner) && row.affiliateId === access.affiliateId) || (ctx.user.distributorId != null && row.distributorId === ctx.user.distributorId);
+        if (!owns) throw new TRPCError({ code: "FORBIDDEN" });
+      }
+      const [priced] = await withCurrentBundleHomeownerPrices(db, [row]);
+      const live = priced.currentHomeownerPrice;
+      const changed = priced.currentPriceStatus === "needs_refresh";
+      if (live != null) {
+        const patch: { bomSnapshotTotal: string; priceSnapshottedAt: Date; homeownerPrice?: string } = {
+          bomSnapshotTotal: live,
+          priceSnapshottedAt: new Date(),
+        };
+        if (input.updatePackagePrice) {
+          const discount = row.discountAmount != null ? Number(row.discountAmount) : 0;
+          const next = row.priceOverride != null ? Number(row.priceOverride) : Math.max(0, Number(live) - (Number.isFinite(discount) ? discount : 0));
+          patch.homeownerPrice = next.toFixed(2);
+        }
+        await db.update(bundleDeals).set(patch).where(eq(bundleDeals.id, row.id));
+      }
+      return { changed, live, previous: row.bomSnapshotTotal ?? row.homeownerPrice };
+    }),
+
+  toggleBundleFeatured: protectedProcedure
+    .input(z.object({ id: z.number().int().positive(), featured: z.boolean() }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      const [row] = await db.select({ affiliateId: bundleDeals.affiliateId, distributorId: bundleDeals.distributorId }).from(bundleDeals).where(eq(bundleDeals.id, input.id)).limit(1);
+      if (!row) throw new TRPCError({ code: "NOT_FOUND" });
+      if (ctx.user.role !== "admin") {
+        const access = await resolveAffiliateAccess(db, ctx.user);
+        const owns = (access && (access.isOwner || access.accessDesigner) && row.affiliateId === access.affiliateId) || (ctx.user.distributorId != null && row.distributorId === ctx.user.distributorId);
+        if (!owns) throw new TRPCError({ code: "FORBIDDEN" });
+      }
+      await db.update(bundleDeals).set({ featuredOnHome: input.featured }).where(eq(bundleDeals.id, input.id));
       return { ok: true };
     }),
 
@@ -758,10 +946,8 @@ export const priceShopRouter = router({
       const db = await getDb();
       if (!db) return [];
       const conditions = [eq(bundleDeals.isPublished, true)];
-      // Affiliate storefronts show their own bundles + global bundles (no affiliateId)
-      if (input?.affiliateId) {
-        conditions.push(or(eq(bundleDeals.affiliateId, input.affiliateId), isNull(bundleDeals.affiliateId))!);
-      }
+      // A storefront shows only its own packages. The main site shows unscoped packages.
+      conditions.push(input?.affiliateId ? eq(bundleDeals.affiliateId, input.affiliateId) : isNull(bundleDeals.affiliateId));
       const publishedBundles = await db.select({
         id: bundleDeals.id,
         name: bundleDeals.name,
@@ -777,6 +963,11 @@ export const priceShopRouter = router({
         roomWidthInches: bundleDeals.roomWidthInches,
         roomDepthInches: bundleDeals.roomDepthInches,
         sortOrder: bundleDeals.sortOrder,
+        featuredOnHome: bundleDeals.featuredOnHome,
+        lineItemsJson: bundleDeals.lineItemsJson,
+        layoutLabel: bundleDeals.layoutLabel,
+        doorColor: bundleDeals.doorColor,
+        bomSnapshotTotal: bundleDeals.bomSnapshotTotal,
         createdAt: bundleDeals.createdAt,
       }).from(bundleDeals)
         .where(and(...conditions))
@@ -789,6 +980,7 @@ export const priceShopRouter = router({
     .input(z.object({
       bundleId: z.number(),
       imageBase64: z.string(),
+      target: z.enum(["floor", "hero"]).optional(),
     }))
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
@@ -798,13 +990,13 @@ export const priceShopRouter = router({
       if (!row) throw new TRPCError({ code: "NOT_FOUND" });
       if (ctx.user.role !== "admin" && row.createdBy !== ctx.user.id) {
         const access = await resolveAffiliateAccess(db, ctx.user);
-        const owns = (access?.isOwner && row.affiliateId === access.affiliateId) || (ctx.user.distributorId && row.distributorId === ctx.user.distributorId);
+        const owns = (access && (access.isOwner || access.accessDesigner) && row.affiliateId === access.affiliateId) || (ctx.user.distributorId && row.distributorId === ctx.user.distributorId);
         if (!owns) throw new TRPCError({ code: "FORBIDDEN" });
       }
       const buffer = Buffer.from(input.imageBase64.replace(/^data:image\/\w+;base64,/, ""), "base64");
       const key = `bundle-floor-plans/${input.bundleId}_${Date.now()}.png`;
       const { url } = await storagePut(key, buffer, "image/png");
-      await db.update(bundleDeals).set({ floorPlanImageUrl: url }).where(eq(bundleDeals.id, input.bundleId));
+      await db.update(bundleDeals).set(input.target === "hero" ? { heroImageUrl: url } : { floorPlanImageUrl: url }).where(eq(bundleDeals.id, input.bundleId));
       return { ok: true, url };
     }),
 

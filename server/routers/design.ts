@@ -17,6 +17,7 @@ import { resolveAffiliateStorefrontSale } from "@shared/affiliateBranding";
 import { getPricingSettings } from "../db";
 import { resolveStorefrontTier, visiblePricesForViewer } from "../../shared/pricingTier";
 import { resolveAffiliateAccess } from "../lib/affiliateAccess";
+import { decideAssistAccess } from "@shared/customerDirectory";
 import { filterCabinetSourceRows, loadAffiliateCatalogGate } from "../lib/affiliateCatalogGate";
 import { canViewAffiliateDesignPriceList, affiliateCustomerPosition } from "../lib/affiliateDesignPriceList";
 import { selectExactCartPriceRows } from "../lib/cartPriceSelection";
@@ -1990,10 +1991,19 @@ export const designRouter = router({
     }),
 
   byId: protectedProcedure
-    .input(z.object({ id: z.number(), affiliateSlug: designStoreScopeInput, crmDealId: z.number().int().positive().optional() }))
+    .input(z.object({ id: z.number(), affiliateSlug: designStoreScopeInput, crmDealId: z.number().int().positive().optional(), assist: z.boolean().optional() }))
     .query(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) return null;
+      if (input.assist) {
+        const [design] = await db.select().from(kitchenDesigns).where(eq(kitchenDesigns.id, input.id)).limit(1);
+        if (!design) return null;
+        if (design.userId === ctx.user.id) return design;
+        const access = ctx.user.role === "admin" ? null : await resolveAffiliateAccess(db, ctx.user);
+        const decision = decideAssistAccess({ role: ctx.user.role, access, designAffiliateId: design.affiliateId });
+        if (!decision.ok) return null;
+        return design;
+      }
 	  const affiliate = await resolveAffiliateDesignOwner(db, input.affiliateSlug, input.crmDealId != null);
 	  if (input.crmDealId != null) {
 	    const [deal] = await db.select({ id: crmDeals.id, affiliateId: crmDeals.affiliateId, ownerUserId: crmDeals.ownerUserId })
