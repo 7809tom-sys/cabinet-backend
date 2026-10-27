@@ -80,6 +80,7 @@ import { shippingQuotesRouter } from "./routers/shippingQuotes";
 import { salesForecastRouter } from "./routers/salesForecast";
 import { vendorInventoryRouter } from "./routers/vendorInventory";
 import { vendorSamplesRouter } from "./routers/vendorSamples";
+import { vendorReferralsRouter } from "./routers/vendorReferrals";
 import { crmCleanupRouter } from "./routers/crmCleanup";
 
 export const appRouter = router({
@@ -192,6 +193,7 @@ export const appRouter = router({
   salesForecast: salesForecastRouter,
   vendorInventory: vendorInventoryRouter,
   vendorSamples: vendorSamplesRouter,
+  vendorReferrals: vendorReferralsRouter,
   crmCleanup: crmCleanupRouter,
 });
 
