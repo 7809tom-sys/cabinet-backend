@@ -585,6 +585,111 @@ export const doorStyleRoomSceneGenerations = mysqlTable("door_style_room_scene_g
 export type DoorStyleRoomSceneGeneration = typeof doorStyleRoomSceneGenerations.$inferSelect;
 export type InsertDoorStyleRoomSceneGeneration = typeof doorStyleRoomSceneGenerations.$inferInsert;
 
+// ─── Door rendering audit ────────────────────────────────────────────────────
+// Append-only. A new designer render inserts a version row and never updates
+// or deletes an older one. Accept, reject, and revert are events; the current
+// accepted render is the latest accepted or reverted event for that style.
+
+export const doorRenderingAuditRuns = mysqlTable("door_rendering_audit_runs", {
+  id: int("id").autoincrement().primaryKey(),
+  scope: mysqlEnum("scope", ["all", "changed", "selected"]).notNull(),
+  status: mysqlEnum("status", ["awaiting_renders", "scoring", "completed", "failed", "cancelled"]).notNull().default("awaiting_renders"),
+  requestedBy: int("requestedBy").notNull(),
+  requestedByName: varchar("requestedByName", { length: 255 }),
+  renderingCommit: varchar("renderingCommit", { length: 128 }),
+  styleCap: int("styleCap").notNull().default(40),
+  selectedCount: int("selectedCount").notNull().default(0),
+  pendingCount: int("pendingCount").notNull().default(0),
+  scoredCount: int("scoredCount").notNull().default(0),
+  failedCount: int("failedCount").notNull().default(0),
+  flaggedCount: int("flaggedCount").notNull().default(0),
+  skippedUnchangedCount: int("skippedUnchangedCount").notNull().default(0),
+  skippedMissingSampleCount: int("skippedMissingSampleCount").notNull().default(0),
+  errorMessage: varchar("errorMessage", { length: 512 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  completedAt: timestamp("completedAt"),
+}, (table) => [
+  index("door_rendering_audit_runs_created_idx").on(table.createdAt),
+  index("door_rendering_audit_runs_status_idx").on(table.status, table.createdAt),
+]);
+
+export type DoorRenderingAuditRun = typeof doorRenderingAuditRuns.$inferSelect;
+export type InsertDoorRenderingAuditRun = typeof doorRenderingAuditRuns.$inferInsert;
+
+export const doorRenderingAuditResults = mysqlTable("door_rendering_audit_results", {
+  id: int("id").autoincrement().primaryKey(),
+  runId: int("runId").notNull(),
+  styleId: int("styleId").notNull(),
+  status: mysqlEnum("status", ["pending_render", "scoring", "scored", "failed"]).notNull().default("pending_render"),
+  renderingCommit: varchar("renderingCommit", { length: 128 }),
+  samplePhotoUrl: varchar("samplePhotoUrl", { length: 512 }).notNull(),
+  renderImageUrl: varchar("renderImageUrl", { length: 512 }),
+  versionId: int("versionId"),
+  woodGrainScore: int("woodGrainScore"),
+  colorScore: int("colorScore"),
+  textureSheenScore: int("textureSheenScore"),
+  profileEdgesScore: int("profileEdgesScore"),
+  overallScore: int("overallScore"),
+  acceptedOverallScore: int("acceptedOverallScore"),
+  scoreDelta: int("scoreDelta"),
+  verdict: mysqlEnum("verdict", ["pending", "flagged", "not_flagged", "no_baseline", "failed"]).notNull().default("pending"),
+  notes: varchar("notes", { length: 512 }),
+  errorMessage: varchar("errorMessage", { length: 512 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  scoredAt: timestamp("scoredAt"),
+}, (table) => [
+  uniqueIndex("door_rendering_audit_results_run_style_uq").on(table.runId, table.styleId),
+  index("door_rendering_audit_results_style_idx").on(table.styleId, table.createdAt),
+]);
+
+export type DoorRenderingAuditResult = typeof doorRenderingAuditResults.$inferSelect;
+export type InsertDoorRenderingAuditResult = typeof doorRenderingAuditResults.$inferInsert;
+
+export const doorRenderingVersions = mysqlTable("door_rendering_versions", {
+  id: int("id").autoincrement().primaryKey(),
+  styleId: int("styleId").notNull(),
+  runId: int("runId"),
+  renderingCommit: varchar("renderingCommit", { length: 128 }),
+  samplePhotoUrl: varchar("samplePhotoUrl", { length: 512 }).notNull(),
+  renderImageUrl: varchar("renderImageUrl", { length: 512 }).notNull(),
+  renderImageKey: varchar("renderImageKey", { length: 512 }),
+  woodGrainScore: int("woodGrainScore").notNull(),
+  colorScore: int("colorScore").notNull(),
+  textureSheenScore: int("textureSheenScore").notNull(),
+  profileEdgesScore: int("profileEdgesScore").notNull(),
+  overallScore: int("overallScore").notNull(),
+  acceptedOverallScore: int("acceptedOverallScore"),
+  scoreDelta: int("scoreDelta"),
+  verdict: mysqlEnum("verdict", ["flagged", "not_flagged", "no_baseline"]).notNull(),
+  notes: varchar("notes", { length: 512 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (table) => [
+  index("door_rendering_versions_style_created_idx").on(table.styleId, table.createdAt),
+  index("door_rendering_versions_run_idx").on(table.runId),
+]);
+
+export type DoorRenderingVersion = typeof doorRenderingVersions.$inferSelect;
+export type InsertDoorRenderingVersion = typeof doorRenderingVersions.$inferInsert;
+
+export const doorRenderingVersionEvents = mysqlTable("door_rendering_version_events", {
+  id: int("id").autoincrement().primaryKey(),
+  styleId: int("styleId").notNull(),
+  versionId: int("versionId").notNull(),
+  action: mysqlEnum("action", ["accepted", "rejected", "reverted"]).notNull(),
+  actorUserId: int("actorUserId").notNull(),
+  note: varchar("note", { length: 512 }),
+  previousAcceptedVersionId: int("previousAcceptedVersionId"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (table) => [
+  index("door_rendering_version_events_style_idx").on(table.styleId, table.createdAt),
+  index("door_rendering_version_events_version_idx").on(table.versionId, table.createdAt),
+]);
+
+export type DoorRenderingVersionEvent = typeof doorRenderingVersionEvents.$inferSelect;
+export type InsertDoorRenderingVersionEvent = typeof doorRenderingVersionEvents.$inferInsert;
+
 // ─── Cabinet Items (GENERIC_INFO) ─────────────────────────────────────────────
 
 export const cabinets = mysqlTable("cabinets", {

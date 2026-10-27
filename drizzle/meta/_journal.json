@@ -1548,6 +1548,13 @@
       "when": 1794300000000,
       "tag": "0222_door_style_auto_room_scene",
       "breakpoints": true
+    },
+    {
+      "idx": 222,
+      "version": "5",
+      "when": 1794400000000,
+      "tag": "0223_door_rendering_audit",
+      "breakpoints": true
     }
   ]
 }
