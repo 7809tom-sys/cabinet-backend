@@ -5,6 +5,7 @@ import {
   approvedVendorLinkedDistributorIds,
   approvedVendorMatchesDistributor,
   approvedVendorSourceDistributorId,
+  resolveVendorCatalogLineId,
 } from "./approvedVendorAccess";
 
 const distributors = [
@@ -74,6 +75,12 @@ describe("approved vendor supplier portal access", () => {
         { id: 2, sourceKey: "dist:210002", contactEmail: "supplier@example.com", isApproved: true },
       ], distributors)
     ).toBeNull();
+  });
+
+  it("lets one vendor open only the catalog lines linked to its own record", () => {
+    expect(resolveVendorCatalogLineId(false, 210001, 210002, [210001, 210002])).toBe(210002);
+    expect(() => resolveVendorCatalogLineId(false, 210001, 99, [210001, 210002])).toThrow(/not linked/);
+    expect(resolveVendorCatalogLineId(true, null, 99, [])).toBe(99);
   });
 
   it("gives one approved contact its own vendor record before a catalog line is linked", () => {

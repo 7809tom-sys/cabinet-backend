@@ -2,6 +2,7 @@ import { z } from "zod";
 import { and, eq, ne, isNull } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { distributorProcedure, router } from "../_core/trpc";
+import { resolveVendorCatalogLineId } from "../lib/approvedVendorAccess";
 import { getDb } from "../db";
 import {
   cabinetAliases,
@@ -37,13 +38,11 @@ const rowsInput = z.object({
 });
 
 /** A vendor acts only on its own supply line; an admin names the line. */
-function resolveLine(ctx: { isAdmin: boolean; distributorId: number | null }, requested?: number): number {
-  if (!ctx.isAdmin) {
-    if (ctx.distributorId == null) throw new TRPCError({ code: "FORBIDDEN", message: "No supply line linked to your account." });
-    return ctx.distributorId;
-  }
-  if (requested == null) throw new TRPCError({ code: "BAD_REQUEST", message: "Admins must choose a supply line." });
-  return requested;
+function resolveLine(
+  ctx: { isAdmin: boolean; distributorId: number | null; linkedDistributorIds?: readonly number[] | null },
+  requested?: number,
+): number {
+  return resolveVendorCatalogLineId(ctx.isAdmin, ctx.distributorId, requested, ctx.linkedDistributorIds);
 }
 
 async function loadPlanContext(db: Db, lineId: number) {

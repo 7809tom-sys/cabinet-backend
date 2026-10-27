@@ -1,6 +1,6 @@
--- Migration 0217. Reserved after 0216.
--- Rebase this journal entry onto main after migrations 0206–0216 land so
--- 0217 is applied after 0216. Additive only: no changes to crm_deals.
+-- Migration 0217. Journal idx 216, when 1793800000000, immediately after
+-- 0216_customer_projects_and_packages. Snapshot prevId is the 0216 snapshot.
+-- Additive only: no changes to crm_deals.
 CREATE TABLE `affiliate_email_settings` (
 	`id` int AUTO_INCREMENT NOT NULL,
 	`affiliateId` int NOT NULL,

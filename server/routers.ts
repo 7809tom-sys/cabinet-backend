@@ -71,6 +71,14 @@ import { affiliateLiteratureRouter } from "./routers/affiliateLiterature";
 import { affiliateGeneratedImagesRouter } from "./routers/affiliateGeneratedImages";
 import { hardwareRouter } from "./routers/hardware";
 import { stripeInvoicesRouter } from "./routers/stripeInvoices";
+import { affiliateCustomersRouter } from "./routers/affiliateCustomers";
+import { customerAccountRouter } from "./routers/customerAccount";
+import { designAssistRouter } from "./routers/designAssist";
+import { shippingQuotesRouter } from "./routers/shippingQuotes";
+import { salesForecastRouter } from "./routers/salesForecast";
+import { vendorInventoryRouter } from "./routers/vendorInventory";
+import { vendorSamplesRouter } from "./routers/vendorSamples";
+import { crmCleanupRouter } from "./routers/crmCleanup";
 
 export const appRouter = router({
   system: systemRouter,
@@ -173,6 +181,14 @@ export const appRouter = router({
   affiliateGeneratedImages: affiliateGeneratedImagesRouter,
   hardware: hardwareRouter,
   stripeInvoices: stripeInvoicesRouter,
+  affiliateCustomers: affiliateCustomersRouter,
+  customerAccount: customerAccountRouter,
+  designAssist: designAssistRouter,
+  shippingQuotes: shippingQuotesRouter,
+  salesForecast: salesForecastRouter,
+  vendorInventory: vendorInventoryRouter,
+  vendorSamples: vendorSamplesRouter,
+  crmCleanup: crmCleanupRouter,
 });
 
 export type AppRouter = typeof appRouter;

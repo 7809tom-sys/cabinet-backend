@@ -20,6 +20,7 @@ export type DesignerCabinetMasterRow = {
   masterCode: string | null;
   isActive: boolean;
   showInDesigner: boolean;
+  designerEligible: boolean;
   conflictStatus: string | null;
 };
 
@@ -84,6 +85,10 @@ export function designerCabinetReadinessBySku(
     }
     if (!master.showInDesigner) {
       result.set(source.skuId, { isCompliant: false, reason: "canonical cabinet is not enabled for Designer", canonicalMasterCode });
+      continue;
+    }
+    if (!master.designerEligible) {
+      result.set(source.skuId, { isCompliant: false, reason: "canonical cabinet is not eligible for the 3D Designer", canonicalMasterCode });
       continue;
     }
     result.set(source.skuId, { isCompliant: true, reason: null, canonicalMasterCode });

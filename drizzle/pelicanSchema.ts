@@ -8,6 +8,7 @@ import {
   timestamp,
   mysqlEnum,
   uniqueIndex,
+  json,
 } from "drizzle-orm/mysql-core";
 
 export const pelicanProducts = mysqlTable("pelican_products", {
@@ -29,6 +30,18 @@ export const pelicanProducts = mysqlTable("pelican_products", {
   retailPrice: decimal("retailPrice", { precision: 10, scale: 2 }),
   tiered: boolean("tiered").default(false).notNull(),
   yourCost: decimal("yourCost", { precision: 10, scale: 2 }),
+  vendorWholesale: decimal("vendorWholesale", { precision: 10, scale: 2 }),
+  onHandQty: int("onHandQty"),
+  leadTimeDays: int("leadTimeDays"),
+  inventoryNotes: varchar("inventoryNotes", { length: 512 }),
+  discontinued: boolean("discontinued").default(false).notNull(),
+  backorder: boolean("backorder").default(false).notNull(),
+  minimumOrderQty: int("minimumOrderQty"),
+  restockDate: varchar("restockDate", { length: 10 }),
+  outOfStock: boolean("outOfStock").default(false).notNull(),
+  inventoryUpdatedAt: timestamp("inventoryUpdatedAt"),
+  inventorySyncSource: varchar("inventorySyncSource", { length: 16 }),
+  importLockedFields: json("importLockedFields").$type<string[]>(),
   markupPercent: decimal("markupPercent", { precision: 6, scale: 4 }),
   isPopular: boolean("isPopular").default(false).notNull(),
   popularRank: int("popularRank").default(0).notNull(),
