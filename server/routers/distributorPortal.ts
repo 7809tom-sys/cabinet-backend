@@ -14,6 +14,7 @@ import {
 	  doorStyleMeasurementSubmissions,
 	  doorStyleMeasurementDrafts,
 	  doorStyleRoomScenes,
+	  doorStyleRoomSceneGenerations,
 	  vendorLines,
 	  users,
   orderRequests,
@@ -29,6 +30,8 @@ import { vendorRoomSceneProcedures } from "./vendorRoomScenes";
 import { encryptDistributorSecret } from "../lib/distributorIntegrationCrypto";
 import { decryptDistributorSecret } from "../lib/distributorIntegrationCrypto";
 import { generateImage } from "../_core/imageGeneration";
+import { nextSampleVerifiedFlag } from "@shared/doorStyleRoomSceneGeneration";
+import { scheduleDoorStyleRoomSceneGeneration, scheduleDoorStyleRoomSceneGenerationForStyles } from "../doorStyleRoomSceneGeneration";
 import { upsTestConnection } from "../_core/ups";
 import { fedexTestConnection } from "../_core/fedex";
 import { normalizeCode } from "../../shared/cabinetCodeMatch";
@@ -762,6 +765,7 @@ export const distributorPortalRouter = router({
 	          thumbnailImageUrl: doorStyles.thumbnailImageUrl,
 	          cornerSwatchImageUrl: doorStyles.cornerSwatchImageUrl,
 	          doorSampleVerified: doorStyles.doorSampleVerified,
+	          drawerSampleVerified: doorStyles.drawerSampleVerified,
 	          isFeatured: doorStyles.isFeatured,
 	          featuredRank: doorStyles.featuredRank,
 	          warehouseZips: doorStyles.warehouseZips,
@@ -833,6 +837,18 @@ export const distributorPortalRouter = router({
 	      current.push(row);
 	      matchingByStyle.set(row.styleId, current);
 	    }
+	    const autoJobs = await db.select({
+	      styleId: doorStyleRoomSceneGenerations.styleId,
+	      status: doorStyleRoomSceneGenerations.status,
+	      errorMessage: doorStyleRoomSceneGenerations.errorMessage,
+	      sceneId: doorStyleRoomSceneGenerations.sceneId,
+	      imageUrl: doorStyleRoomSceneGenerations.imageUrl,
+	      doorImageUrl: doorStyleRoomSceneGenerations.doorImageUrl,
+	      drawerImageUrl: doorStyleRoomSceneGenerations.drawerImageUrl,
+	      attemptCount: doorStyleRoomSceneGenerations.attemptCount,
+	      updatedAt: doorStyleRoomSceneGenerations.updatedAt,
+	    }).from(doorStyleRoomSceneGenerations).where(inArray(doorStyleRoomSceneGenerations.styleId, styleIds));
+	    const autoJobsByStyle = new Map(autoJobs.map((job) => [job.styleId, job]));
     return {
 	      categories,
 	      styles: styles.map((style) => {
@@ -876,6 +892,7 @@ export const distributorPortalRouter = router({
 	          .sort((left, right) => left.masterCode.localeCompare(right.masterCode));
 	        return {
 	          ...style,
+	          autoRoomScene: autoJobsByStyle.get(style.id) ?? null,
 	          skuCount: allCatalog.length,
 	          catalogCategories: Array.from(categoriesByStyle.get(style.id) ?? []).sort((left, right) => left.localeCompare(right)),
 	          matchingCabinetCount: new Set(matchingCatalog.map((row) => row.cabinetId)).size,
@@ -996,7 +1013,13 @@ export const distributorPortalRouter = router({
 	    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
 	    const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId, ctx.linkedDistributorIds);
 	    const [style] = await db
-		      .select({ id: doorStyles.id, isFeatured: doorStyles.isFeatured, doorSampleImageUrl: doorStyles.doorSampleImageUrl, thumbnailImageUrl: doorStyles.thumbnailImageUrl })
+		      .select({
+		        id: doorStyles.id,
+		        isFeatured: doorStyles.isFeatured,
+		        doorSampleImageUrl: doorStyles.doorSampleImageUrl,
+		        drawerSampleImageUrl: doorStyles.drawerSampleImageUrl,
+		        thumbnailImageUrl: doorStyles.thumbnailImageUrl,
+		      })
 	      .from(doorStyles)
 	      .where(and(eq(doorStyles.id, input.styleId), eq(doorStyles.distributorId, lineId)))
 	      .limit(1);
@@ -1034,6 +1057,18 @@ export const distributorPortalRouter = router({
 	    if (fields.flatFreightFeeCents !== undefined) patch.flatFreightFeeCents = fields.flatFreightFeeCents;
 	    if (fields.doorSampleImageUrl !== undefined) patch.doorSampleImageUrl = fields.doorSampleImageUrl?.trim() || null;
 	    if (fields.drawerSampleImageUrl !== undefined) patch.drawerSampleImageUrl = fields.drawerSampleImageUrl?.trim() || null;
+	    const doorVerified = nextSampleVerifiedFlag({
+	      isAdmin: ctx.isAdmin,
+	      previousUrl: style.doorSampleImageUrl,
+	      nextUrl: fields.doorSampleImageUrl,
+	    });
+	    const drawerVerified = nextSampleVerifiedFlag({
+	      isAdmin: ctx.isAdmin,
+	      previousUrl: style.drawerSampleImageUrl,
+	      nextUrl: fields.drawerSampleImageUrl,
+	    });
+	    if (doorVerified !== undefined) patch.doorSampleVerified = doorVerified;
+	    if (drawerVerified !== undefined) patch.drawerSampleVerified = drawerVerified;
 		    if (fields.roomSceneImageUrl !== undefined) patch.roomSceneImageUrl = fields.roomSceneImageUrl?.trim() || null;
 		    if (fields.thumbnailImageUrl !== undefined) patch.thumbnailImageUrl = fields.thumbnailImageUrl?.trim() || null;
 		    const submittedDoorSample = fields.doorSampleImageUrl?.trim() || style.doorSampleImageUrl || null;
@@ -1066,6 +1101,9 @@ export const distributorPortalRouter = router({
 	      }
 	    }
 		    if (Object.keys(patch).length > 0) await db.update(doorStyles).set(patch).where(eq(doorStyles.id, input.styleId));
+		    if (fields.doorSampleImageUrl !== undefined || fields.drawerSampleImageUrl !== undefined) {
+		      scheduleDoorStyleRoomSceneGeneration(input.styleId);
+		    }
 		    return { ok: true };
 		  }),
 
@@ -1319,6 +1357,7 @@ export const distributorPortalRouter = router({
 		        sourceSpecification: submission.citation,
 		        doorSampleVerified: true,
 		      }).where(inArray(doorStyles.id, submission.appliesToStyleIds));
+		      scheduleDoorStyleRoomSceneGenerationForStyles(submission.appliesToStyleIds);
 		    }
 		    return { ok: true, approved: input.approve };
 		  }),
@@ -2811,7 +2850,9 @@ export const distributorPortalRouter = router({
 	        cornerSwatch: "cornerSwatchImageUrl",
 	      } as const;
 
-		      const imagePatch: Record<string, string> = { [fieldMap[input.imageType]]: url };
+		      const imagePatch: Record<string, string | boolean> = { [fieldMap[input.imageType]]: url };
+		      if (input.imageType === "doorSample") imagePatch.doorSampleVerified = ctx.isAdmin;
+		      if (input.imageType === "drawerSample") imagePatch.drawerSampleVerified = ctx.isAdmin;
 		      if (input.imageType === "doorSample" && !style[0].thumbnailImageUrl) imagePatch.thumbnailImageUrl = url;
 		      await db
 		        .update(doorStyles)
@@ -2862,7 +2903,34 @@ export const distributorPortalRouter = router({
 	        }
 	      }
 
+	      if (input.imageType === "doorSample" || input.imageType === "drawerSample") {
+	        scheduleDoorStyleRoomSceneGeneration(input.styleId);
+	      }
 	      return { styleId: input.styleId, imageType: input.imageType, imageUrl: url };
+    }),
+
+  /** Read-only automatic room-scene status for one of this line's door styles. Retry stays on the admin procedure. */
+  doorStyleAutoRoomScene: distributorProcedure
+    .input(z.object({ distributorId: z.number().optional(), styleId: z.number().int().positive() }))
+    .query(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) return null;
+      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId, ctx.linkedDistributorIds);
+      const [owned] = await db.select({ id: doorStyles.id }).from(doorStyles)
+        .where(and(eq(doorStyles.id, input.styleId), eq(doorStyles.distributorId, lineId))).limit(1);
+      if (!owned) throw new TRPCError({ code: "FORBIDDEN", message: "That style does not belong to your line." });
+      const [job] = await db.select({
+        styleId: doorStyleRoomSceneGenerations.styleId,
+        status: doorStyleRoomSceneGenerations.status,
+        errorMessage: doorStyleRoomSceneGenerations.errorMessage,
+        sceneId: doorStyleRoomSceneGenerations.sceneId,
+        imageUrl: doorStyleRoomSceneGenerations.imageUrl,
+        doorImageUrl: doorStyleRoomSceneGenerations.doorImageUrl,
+        drawerImageUrl: doorStyleRoomSceneGenerations.drawerImageUrl,
+        attemptCount: doorStyleRoomSceneGenerations.attemptCount,
+        updatedAt: doorStyleRoomSceneGenerations.updatedAt,
+      }).from(doorStyleRoomSceneGenerations).where(eq(doorStyleRoomSceneGenerations.styleId, input.styleId)).limit(1);
+      return job ?? null;
     }),
 
   // ─── AI Service Requests ─────────────────────────────────────────────────────

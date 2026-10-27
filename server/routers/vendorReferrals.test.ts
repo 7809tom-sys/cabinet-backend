@@ -247,10 +247,11 @@ describe("vendor referral migration", () => {
     const journal = JSON.parse(readFileSync("drizzle/meta/_journal.json", "utf8")) as {
       entries: Array<{ idx: number; when: number; tag: string }>;
     };
-    const latest = journal.entries[journal.entries.length - 1];
-    const previous = journal.entries[journal.entries.length - 2];
+    const index = journal.entries.findIndex((entry) => entry.tag === "0220_vendor_referrals");
+    const referral = journal.entries[index];
+    const previous = journal.entries[index - 1];
     expect(previous).toMatchObject({ idx: 218, when: 1794000000000, tag: "0219_w9_tax_id_at_rest" });
-    expect(latest).toMatchObject({ idx: 219, when: 1794100000000, tag: "0220_vendor_referrals" });
+    expect(referral).toMatchObject({ idx: 219, when: 1794100000000, tag: "0220_vendor_referrals" });
     const previousSnapshot = JSON.parse(readFileSync("drizzle/meta/0219_snapshot.json", "utf8")) as { id: string };
     const snapshot = JSON.parse(readFileSync("drizzle/meta/0220_snapshot.json", "utf8")) as {
       prevId: string;

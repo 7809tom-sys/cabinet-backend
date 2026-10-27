@@ -428,6 +428,9 @@ export const doorStyles = mysqlTable("door_styles", {
   // True once an admin (or an approved field correction) has verified the
   // sample photo is the correct door for this style. Drives the green check.
   doorSampleVerified: boolean("doorSampleVerified").default(false).notNull(),
+  // Same rule as doorSampleVerified, for the separate drawer-front photo.
+  // A vendor upload does not set this; an admin verification does.
+  drawerSampleVerified: boolean("drawerSampleVerified").default(false).notNull(),
   roomSceneImageUrl: varchar("roomSceneImageUrl", { length: 512 }),
   thumbnailImageUrl: varchar("thumbnailImageUrl", { length: 512 }),
   // Admin merchandising (80/20): which styles get pushed in the Featured row.
@@ -556,6 +559,31 @@ export const doorStyleRoomScenes = mysqlTable("door_style_room_scenes", {
 
 export type DoorStyleRoomScene = typeof doorStyleRoomScenes.$inferSelect;
 export type InsertDoorStyleRoomScene = typeof doorStyleRoomScenes.$inferInsert;
+
+// One automatic room-scene job per door style. The stored image URLs are the
+// verified pair that produced the current status, so re-verifying that pair
+// does not create a second scene.
+export const doorStyleRoomSceneGenerations = mysqlTable("door_style_room_scene_generations", {
+  id: int("id").autoincrement().primaryKey(),
+  styleId: int("styleId").notNull(),
+  status: mysqlEnum("status", ["pending", "generating", "ready", "failed"]).notNull().default("pending"),
+  doorImageUrl: varchar("doorImageUrl", { length: 512 }).notNull(),
+  drawerImageUrl: varchar("drawerImageUrl", { length: 512 }).notNull(),
+  claimToken: varchar("claimToken", { length: 64 }),
+  sceneId: int("sceneId"),
+  imageUrl: varchar("imageUrl", { length: 512 }),
+  errorMessage: varchar("errorMessage", { length: 512 }),
+  attemptCount: int("attemptCount").notNull().default(0),
+  startedAt: timestamp("startedAt"),
+  completedAt: timestamp("completedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => [
+  uniqueIndex("door_style_room_scene_generations_style_uidx").on(table.styleId),
+]);
+
+export type DoorStyleRoomSceneGeneration = typeof doorStyleRoomSceneGenerations.$inferSelect;
+export type InsertDoorStyleRoomSceneGeneration = typeof doorStyleRoomSceneGenerations.$inferInsert;
 
 // ─── Cabinet Items (GENERIC_INFO) ─────────────────────────────────────────────
 
