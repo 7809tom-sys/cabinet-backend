@@ -42,6 +42,7 @@ describe("Sales Demo invitation", () => {
       role: "salesperson",
       accessCrm: true,
       accessDesigner: true,
+      accessMarketing: false,
       isActive: true,
     });
   });

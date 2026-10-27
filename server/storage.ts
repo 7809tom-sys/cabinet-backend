@@ -16,6 +16,8 @@ const PRIVATE_KEY_PREFIXES = [
   "door-match-uploads/",
   "distributor-catalogs/",
   "vendor-products-source/",
+  // Affiliate sales-education files. The public storage proxy refuses this prefix.
+  "affiliate-resources/",
   "affiliate-w9-id/",
 ];
 

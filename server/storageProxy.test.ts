@@ -180,6 +180,22 @@ describe("storage proxy Supabase routing", () => {
     vi.restoreAllMocks();
   });
 
+  it("refuses affiliate resource files on the public storage proxy", async () => {
+    const fetched: string[] = [];
+    global.fetch = vi.fn(async (input: string | URL | Request) => {
+      fetched.push(String(input));
+      return new Response(jpeg as unknown as BodyInit);
+    }) as unknown as typeof fetch;
+    const { server, baseUrl } = await startProxy();
+    try {
+      const resp = await realFetch(`${baseUrl}/manus-storage/affiliate-resources/brochure.pdf`);
+      expect(resp.status).toBe(403);
+      expect(fetched).toHaveLength(0);
+    } finally {
+      server.close();
+    }
+  });
+
   it("reads public media anonymously and refuses private keys without an owner", async () => {
     const seen: { url: string; auth: string | null }[] = [];
     global.fetch = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {

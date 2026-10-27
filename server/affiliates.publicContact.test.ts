@@ -16,15 +16,15 @@ describe("affiliate public contact setup", () => {
     expect(router).toContain("publicAddress: z.string().max(256).nullable().optional()");
   });
 
-  it("publishes only opt-in contact fields and never the login email or private phone", () => {
-    expect(privacy).toContain("publicEmail: a.publicEmail");
-    expect(privacy).toContain("publicPhone: a.publicPhone");
-    expect(privacy).toContain("publicAddress: a.publicAddress");
-    expect(privacy).toContain('"contactName", "email", "phone"');
-    expect(storefront).toContain("const storefrontEmail = data.publicEmail");
-    expect(storefront).toContain("const storefrontPhone = data.publicPhone");
+  it("publishes contact details only when the affiliate opts in", () => {
+    expect(privacy).toContain("publicContactForStorefront");
+    expect(privacy).toContain("email: null");
+    expect(privacy).toContain("phone: null");
+    expect(storefront).toContain("const storefrontEmail = data.showPublicEmail ? data.publicEmail : null");
+    expect(storefront).toContain("const storefrontPhone = data.showPublicPhone ? data.publicPhone : null");
+    expect(storefront).not.toContain("data.publicEmail || data.email");
+    expect(storefront).not.toContain("data.publicPhone || data.phone");
     expect(storefront).not.toContain("data.email");
     expect(storefront).not.toContain("data.phone");
-    expect(storefront).toContain("const storefrontLocation = data.publicAddress || data.serviceArea || data.location");
   });
 });

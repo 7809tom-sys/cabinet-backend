@@ -8,6 +8,7 @@ import { verifyUsAddress, formatEnteredAddress } from "../lib/addressVerificatio
 import { distributorCabinetOverrides, cabinets, cabinetAliases, skuMasterAliases, kitchenDesigns, distributorSkus, doorStyles, distributors, countertopQuotes, designLeads, crmDeals, crmDealDesigns, affiliates, affiliateStyleBranding, affiliateDistributorSelections, orderRequests, payments, threeDRoomShares, designConsultations, designGeminiImageTestJobs, designImageRequests, designPhotoRenders, designViewLog } from "../../drizzle/schema";
 import { notifyOwner } from "../_core/notification";
 import { emitCrmEvent } from "../_core/crmWebhook";
+import { ensureAffiliatePipelineDeal } from "../lib/crmPipelineAttach";
 import { invokeLLM } from "../_core/llm";
 import { generateImage } from "../_core/imageGeneration";
 import { buildPhotorealPrompt } from "@shared/photorealPrompt";
@@ -17,6 +18,8 @@ import { resolveAffiliateStorefrontSale } from "@shared/affiliateBranding";
 import { getPricingSettings } from "../db";
 import { resolveStorefrontTier, visiblePricesForViewer } from "../../shared/pricingTier";
 import { resolveAffiliateAccess } from "../lib/affiliateAccess";
+import { decideAssistAccess } from "@shared/customerDirectory";
+import { filterCabinetSourceRows, loadAffiliateCatalogGate } from "../lib/affiliateCatalogGate";
 import { canViewAffiliateDesignPriceList, affiliateCustomerPosition } from "../lib/affiliateDesignPriceList";
 import { selectExactCartPriceRows } from "../lib/cartPriceSelection";
 import { canonicalizeDesignPriceItems, normalizedDesignPriceCode, verifiedLegacyDesignPriceAliases } from "../lib/designPriceAliases";
@@ -43,7 +46,7 @@ import {
   requiresMandatorySkin,
   type ExposedSides,
 } from "../../shared/skinMatch";
-import { normalizeCode } from "../../shared/cabinetCodeMatch";
+import { orderCabinetsByAliasRank, rankLoadedCabinetSearch } from "../lib/cabinetAliasSearch";
 import {
   pricedFunctionalAlternatives,
   type PlanSwitchSourceCabinet,
@@ -80,15 +83,6 @@ function sameDesignScope(left: number | null, right: number | null): boolean {
 
 function designScopeLabel(affiliate: { storeName: string } | null): string {
   return affiliate?.storeName ?? "Cabinet Dealz owner";
-}
-
-function matchesPartialCabinetSearch(masterCode: string, description: string | null, rawSearch: string) {
-  const query = rawSearch.trim().toLowerCase();
-  if (!query) return true;
-  const normalizedCodeQuery = normalizeCode(query);
-  return masterCode.toLowerCase().includes(query)
-    || (description ?? "").toLowerCase().includes(query)
-    || (normalizedCodeQuery.length > 0 && normalizeCode(masterCode).includes(normalizedCodeQuery));
 }
 
 async function resolveDesignPriceAliases<T extends { masterCode: string }>(
@@ -316,6 +310,7 @@ export const designRouter = router({
         // only the cabinets that are actually purchasable for THAT combination.
         distributorId: z.number().optional(),
         styleId: z.number().optional(),
+        affiliateSlug: z.string().trim().max(64).optional(),
       }).optional()
     )
     .query(async ({ ctx, input }) => {
@@ -345,9 +340,11 @@ export const designRouter = router({
       if (input?.styleId) {
         skuConditions.push(eq(distributorSkus.styleId, input.styleId));
       }
-      const sourceRows = await db
+      const loadedSourceRows = await db
         .select({
           sourceMasterCode: cabinets.masterCode,
+          sourceDistributorId: distributorSkus.distributorId,
+          sourceStyleId: distributorSkus.styleId,
           glassIncluded: distributors.glassIncluded,
           sourceDistributorCode: distributors.code,
           sourceDistributorSkuId: distributorSkus.id,
@@ -364,6 +361,9 @@ export const designRouter = router({
         .innerJoin(cabinets, eq(distributorSkus.cabinetId, cabinets.id))
         .innerJoin(distributors, eq(distributors.id, distributorSkus.distributorId))
         .where(and(...skuConditions, ne(cabinets.conflictStatus, "conflict")));
+      const catalogGate = input?.affiliateSlug ? await loadAffiliateCatalogGate(db, input.affiliateSlug) : null;
+      if (input?.styleId && catalogGate?.disabledStyleIds.has(input.styleId)) return [];
+      const sourceRows = filterCabinetSourceRows(loadedSourceRows, catalogGate);
 
       const stagedAefMasterCodes = adminAefPreview
         ? Array.from(new Set(sourceRows.map((row) => row.sourceMasterCode)))
@@ -414,6 +414,9 @@ export const designRouter = router({
             adminAefPreview && stagedAefMasterCodes.length > 0
               ? or(eq(cabinets.showInDesigner, true), inArray(cabinets.masterCode, stagedAefMasterCodes))
               : eq(cabinets.showInDesigner, true),
+            adminAefPreview && stagedAefMasterCodes.length > 0
+              ? or(eq(cabinets.designerEligible, true), inArray(cabinets.masterCode, stagedAefMasterCodes))
+              : eq(cabinets.designerEligible, true),
             ne(cabinets.conflictStatus, "conflict"),
           )),
       ]);
@@ -482,28 +485,11 @@ export const designRouter = router({
       }
       const availableRows = Array.from(byCanonicalId.values());
 
-      // An approved master alias is a genuine search route, not a second cabinet.
-      // This lets a designer type either ADA-B12 or B12ADA while the palette
-      // returns only the canonical priced cabinet and its current source rows.
-      const aliasMatchedMasterCodes = new Set<string>();
-      if (input?.search) {
-        const normalizedSearch = normalizeCode(input.search);
-        if (normalizedSearch) {
-          const aliasCanon = sql`UPPER(REPLACE(REPLACE(REPLACE(${skuMasterAliases.aliasCode}, '-', ''), ' ', ''), '_', ''))`;
-          const aliases = await db
-            .select({ masterCode: skuMasterAliases.masterCode })
-            .from(skuMasterAliases)
-            .where(and(
-              eq(skuMasterAliases.conflictStatus, "ok"),
-              sql`${aliasCanon} LIKE ${`%${normalizedSearch}%`}`,
-            ));
-          for (const alias of aliases) aliasMatchedMasterCodes.add(alias.masterCode);
-        }
-      }
-      const matchesSearch = (row: { masterCode: string; description: string | null }) =>
-        !input?.search
-        || aliasMatchedMasterCodes.has(row.masterCode)
-        || matchesPartialCabinetSearch(row.masterCode, row.description, input.search);
+      // Approved master aliases, cabinet alias rows, and spreadsheet alias cells
+      // (sku / vendorSku / altSku, including semicolon lists) are search routes
+      // to the canonical cabinet. Exact item code ranks ahead of an exact alias.
+      const searchRanks = await rankLoadedCabinetSearch(db, availableRows, input?.search, aliases);
+      const matchesSearch = (row: { id: number }) => !searchRanks || searchRanks.has(row.id);
 
       // Accessories/trim (countertop support brackets, hardware, fillers, glass
       // doors sold separately, decorative legs, crown/light-rail molding, end
@@ -553,8 +539,8 @@ export const designRouter = router({
             const { minPull: _mp, maxPull: _xp, ...rest } = r;
             return { ...rest, pullMin: null as number | null, pullMax: null as number | null, placement: "accessory" as const };
           });
-        if (input?.search) {
-          accessories = accessories.filter(matchesSearch);
+        if (searchRanks) {
+          accessories = orderCabinetsByAliasRank(accessories.filter(matchesSearch), searchRanks);
         }
         return accessories;
       }
@@ -616,7 +602,7 @@ export const designRouter = router({
       if (input?.placement) {
         filtered = filtered.filter((r) => r.placement === input.placement);
       }
-      if (input?.search) {
+      if (searchRanks) {
         filtered = filtered.filter(matchesSearch);
       }
 
@@ -629,6 +615,10 @@ export const designRouter = router({
         return Number.isFinite(n) ? n : Number.POSITIVE_INFINITY;
       };
       filtered = [...filtered].sort((a, b) => {
+        if (searchRanks) {
+          const byRank = (searchRanks.get(a.id) ?? 9) - (searchRanks.get(b.id) ?? 9);
+          if (byRank !== 0) return byRank;
+        }
         const dw = widthNum(a.width) - widthNum(b.width);
         if (dw !== 0) return dw;
         return (a.masterCode || "").localeCompare(b.masterCode || "", undefined, { numeric: true });
@@ -1223,6 +1213,8 @@ export const designRouter = router({
           adjustedListPrice: distributorSkus.adjustedListPrice,
           yourCost: distributorSkus.yourCost,
           retailPriceBasis: distributors.retailPriceBasis,
+          vendorWholesale: distributorSkus.vendorWholesale,
+          vendorMarkupPercent: distributors.markupPercent,
         })
         // NOTE: yourCost is required so sellPriceForTier can compute the
         // correct tier price (cost × markup).
@@ -1305,6 +1297,7 @@ export const designRouter = router({
         eq(cabinets.isActive, true),
         notInConflict(),
         eq(cabinets.showInDesigner, true),
+        eq(cabinets.designerEligible, true),
         eq(distributorSkus.styleId, input.targetStyleId),
         eq(distributorSkus.isAvailable, true),
         eq(distributorSkus.isPublished, true),
@@ -1729,6 +1722,14 @@ export const designRouter = router({
         threeDPresentation: z.any().optional(),
         selectedStyleId: z.number().optional(),
         selectedDistributorId: z.number().optional(),
+        trimSettings: z.object({
+          crown: z.boolean().optional(),
+          toeKick: z.boolean().optional(),
+          batten: z.boolean().optional(),
+          lightRail: z.boolean().optional(),
+          valance: z.boolean().optional(),
+          qty: z.record(z.string(), z.number()).optional(),
+        }).optional(),
         // Master Project grouping (all optional / backward-compatible).
         projectName: z.string().max(255).optional(),
         roomLabel: z.string().max(255).optional(),
@@ -1778,6 +1779,7 @@ export const designRouter = router({
 	              threeDPresentation: input.threeDPresentation ?? null,
 	              selectedStyleId: input.selectedStyleId,
 	              selectedDistributorId: input.selectedDistributorId,
+	              trimSettings: input.trimSettings ?? null,
 	              projectName: input.projectName ?? null,
 	              roomLabel: input.roomLabel ?? null,
 	              roomType: input.roomType ?? null,
@@ -1802,6 +1804,7 @@ export const designRouter = router({
         threeDPresentation: input.threeDPresentation ?? null,
         selectedStyleId: input.selectedStyleId,
         selectedDistributorId: input.selectedDistributorId,
+        trimSettings: input.trimSettings ?? null,
         projectName: input.projectName ?? null,
         roomLabel: input.roomLabel ?? null,
         roomType: input.roomType ?? null,
@@ -1854,6 +1857,14 @@ export const designRouter = router({
       threeDPresentation: z.any().optional(),
       selectedStyleId: z.number().optional(),
       selectedDistributorId: z.number().optional(),
+      trimSettings: z.object({
+        crown: z.boolean().optional(),
+        toeKick: z.boolean().optional(),
+        batten: z.boolean().optional(),
+        lightRail: z.boolean().optional(),
+        valance: z.boolean().optional(),
+        qty: z.record(z.string(), z.number()).optional(),
+      }).optional(),
       roomType: z.string().max(32).optional(),
     }))
     .mutation(async ({ input, ctx }) => {
@@ -1893,6 +1904,7 @@ export const designRouter = router({
         threeDPresentation: input.threeDPresentation ?? null,
         selectedStyleId: input.selectedStyleId,
         selectedDistributorId: input.selectedDistributorId,
+        trimSettings: input.trimSettings ?? null,
         roomType: input.roomType ?? null,
       }).where(ownership);
 
@@ -1980,10 +1992,19 @@ export const designRouter = router({
     }),
 
   byId: protectedProcedure
-    .input(z.object({ id: z.number(), affiliateSlug: designStoreScopeInput, crmDealId: z.number().int().positive().optional() }))
+    .input(z.object({ id: z.number(), affiliateSlug: designStoreScopeInput, crmDealId: z.number().int().positive().optional(), assist: z.boolean().optional() }))
     .query(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) return null;
+      if (input.assist) {
+        const [design] = await db.select().from(kitchenDesigns).where(eq(kitchenDesigns.id, input.id)).limit(1);
+        if (!design) return null;
+        if (design.userId === ctx.user.id) return design;
+        const access = ctx.user.role === "admin" ? null : await resolveAffiliateAccess(db, ctx.user);
+        const decision = decideAssistAccess({ role: ctx.user.role, access, designAffiliateId: design.affiliateId });
+        if (!decision.ok) return null;
+        return design;
+      }
 	  const affiliate = await resolveAffiliateDesignOwner(db, input.affiliateSlug, input.crmDealId != null);
 	  if (input.crmDealId != null) {
 	    const [deal] = await db.select({ id: crmDeals.id, affiliateId: crmDeals.affiliateId, ownerUserId: crmDeals.ownerUserId })
@@ -2207,11 +2228,30 @@ export const designRouter = router({
             }),
           })
           .where(eq(designLeads.id, existing[0].id));
-        if (existing[0].dealId && (name || phone)) {
+        let linkedDealId = existing[0].dealId;
+        if (!linkedDealId) {
+          try {
+            const ensured = await ensureAffiliatePipelineDeal(db, {
+              affiliateId,
+              match: "email",
+              ownerUserId: userId,
+              title: `Designer lead — ${name || input.email}`.slice(0, 256),
+              contactName: name,
+              contactEmail: emailLower,
+              contactPhone: phone,
+              source: "storefront",
+              notes: `Auto-created from the designer launch gate.${roomType ? ` Room type: ${roomType}.` : ""}`,
+            });
+            linkedDealId = ensured.id;
+            await db.update(designLeads).set({ dealId: linkedDealId }).where(eq(designLeads.id, existing[0].id));
+          } catch {
+            // The lead is still recorded if the pipeline row cannot be attached.
+          }
+        } else if (name || phone) {
           await db.update(crmDeals).set({
             contactName: name ?? existing[0].name,
             contactPhone: phone ?? existing[0].phone,
-          }).where(eq(crmDeals.id, existing[0].dealId));
+          }).where(eq(crmDeals.id, linkedDealId));
         }
         return { ok: true as const, id: existing[0].id, deduped: true as const };
       }
@@ -2235,20 +2275,18 @@ export const designRouter = router({
       // back on the lead so repeat launches reuse the same deal (D2 de-dupe).
       let dealId: number | null = null;
       try {
-        const dealTitle = `Designer lead \u2014 ${name || input.email}`.slice(0, 256);
-        const dealRes = await db.insert(crmDeals).values({
+        const ensured = await ensureAffiliatePipelineDeal(db, {
           affiliateId,
+          match: "email",
           ownerUserId: userId,
-          title: dealTitle,
-          stage: "new",
-          priority: "medium",
+          title: `Designer lead — ${name || input.email}`.slice(0, 256),
           contactName: name,
           contactEmail: emailLower,
           contactPhone: phone,
           source: "storefront",
           notes: `Auto-created from the designer launch gate.${roomType ? ` Room type: ${roomType}.` : ""}`,
         });
-        dealId = (dealRes as unknown as [{ insertId: number }])[0].insertId;
+        dealId = ensured.id;
         await db.update(designLeads).set({ dealId }).where(eq(designLeads.id, insertId));
       } catch {
         // Lead is still captured even if the deal could not be created.
@@ -2574,7 +2612,12 @@ export const designRouter = router({
           catalogImageUrl: cabinets.catalogImageUrl,
         })
         .from(cabinets)
-        .where(and(eq(cabinets.isActive, true), notInConflict()));
+        .where(and(
+          eq(cabinets.isActive, true),
+          notInConflict(),
+          eq(cabinets.showInDesigner, true),
+          eq(cabinets.designerEligible, true),
+        ));
 
       const skuConditions = [
         eq(distributorSkus.isAvailable, true),
@@ -2850,6 +2893,8 @@ Return an empty actions array ONLY if the user asked a pure question with no wal
           adjustedListPrice: distributorSkus.adjustedListPrice,
           listPrice: distributorSkus.listPrice,
           retailPriceBasis: distributors.retailPriceBasis,
+          vendorWholesale: distributorSkus.vendorWholesale,
+          vendorMarkupPercent: distributors.markupPercent,
         })
         .from(cabinets)
         .innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))
@@ -3140,6 +3185,8 @@ Return an empty actions array ONLY if the user asked a pure question with no wal
           wholesalePrice: distributorSkus.wholesalePrice,
           adjustedListPrice: distributorSkus.adjustedListPrice,
           retailPriceBasis: distributors.retailPriceBasis,
+          vendorWholesale: distributorSkus.vendorWholesale,
+          vendorMarkupPercent: distributors.markupPercent,
         })
         .from(distributorSkus)
         .innerJoin(cabinets, eq(cabinets.id, distributorSkus.cabinetId))
@@ -3238,6 +3285,8 @@ Return an empty actions array ONLY if the user asked a pure question with no wal
           homeownerPrice: distributorSkus.homeownerPrice,
           adjustedListPrice: distributorSkus.adjustedListPrice,
           retailPriceBasis: distributors.retailPriceBasis,
+          vendorWholesale: distributorSkus.vendorWholesale,
+          vendorMarkupPercent: distributors.markupPercent,
         })
         .from(distributorSkus)
         .innerJoin(cabinets, eq(cabinets.id, distributorSkus.cabinetId))

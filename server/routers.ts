@@ -1,7 +1,7 @@
 import { COOKIE_NAME } from "@shared/const";
 import { clearLegacyCabinetDealzParentSession, getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
-import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
+import { mergeRouters, protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { z } from "zod";
 import { getDb } from "./db";
 import { affiliates } from "../drizzle/schema";
@@ -20,6 +20,7 @@ import { ordersRouter } from "./routers/orders";
 import { affiliatesRouter } from "./routers/affiliates";
 import { storefrontRouter } from "./routers/storefront";
 import { crmRouter } from "./routers/crm";
+import { crmEmailRouter } from "./routers/crmEmail";
 import { locationRouter } from "./routers/location";
 import { distributorImportRouter } from "./routers/distributors";
 import { distributorPortalRouter } from "./routers/distributorPortal";
@@ -67,9 +68,19 @@ import { generatedDesignImagesRouter } from "./routers/generatedDesignImages";
 import { adminStickyNotesRouter } from "./routers/adminStickyNotes";
 import { operationsProvidersRouter } from "./routers/operationsProviders";
 import { affiliateLiteratureRouter } from "./routers/affiliateLiterature";
+import { affiliateResourcesRouter } from "./routers/affiliateResources";
+import { affiliateSocialRouter } from "./routers/affiliateSocialLinks";
 import { affiliateGeneratedImagesRouter } from "./routers/affiliateGeneratedImages";
 import { hardwareRouter } from "./routers/hardware";
 import { stripeInvoicesRouter } from "./routers/stripeInvoices";
+import { affiliateCustomersRouter } from "./routers/affiliateCustomers";
+import { customerAccountRouter } from "./routers/customerAccount";
+import { designAssistRouter } from "./routers/designAssist";
+import { shippingQuotesRouter } from "./routers/shippingQuotes";
+import { salesForecastRouter } from "./routers/salesForecast";
+import { vendorInventoryRouter } from "./routers/vendorInventory";
+import { vendorSamplesRouter } from "./routers/vendorSamples";
+import { crmCleanupRouter } from "./routers/crmCleanup";
 
 export const appRouter = router({
   system: systemRouter,
@@ -121,7 +132,7 @@ export const appRouter = router({
   orders: ordersRouter,
   affiliates: affiliatesRouter,
   storefront: storefrontRouter,
-  crm: crmRouter,
+  crm: mergeRouters(crmRouter, crmEmailRouter),
   location: locationRouter,
   distributorAdmin: distributorImportRouter,
   distributorPortal: distributorPortalRouter,
@@ -169,9 +180,19 @@ export const appRouter = router({
   adminStickyNotes: adminStickyNotesRouter,
   operationsProviders: operationsProvidersRouter,
   affiliateLiterature: affiliateLiteratureRouter,
+  affiliateResources: affiliateResourcesRouter,
+  affiliateSocial: affiliateSocialRouter,
   affiliateGeneratedImages: affiliateGeneratedImagesRouter,
   hardware: hardwareRouter,
   stripeInvoices: stripeInvoicesRouter,
+  affiliateCustomers: affiliateCustomersRouter,
+  customerAccount: customerAccountRouter,
+  designAssist: designAssistRouter,
+  shippingQuotes: shippingQuotesRouter,
+  salesForecast: salesForecastRouter,
+  vendorInventory: vendorInventoryRouter,
+  vendorSamples: vendorSamplesRouter,
+  crmCleanup: crmCleanupRouter,
 });
 
 export type AppRouter = typeof appRouter;

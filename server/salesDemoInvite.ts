@@ -6,6 +6,7 @@ export const SALES_DEMO_TEAM_ACCESS = {
   role: "salesperson" as const,
   accessCrm: true,
   accessDesigner: true,
+  accessMarketing: false,
   isActive: true,
 };
 

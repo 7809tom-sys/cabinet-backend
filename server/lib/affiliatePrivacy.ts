@@ -1,34 +1,53 @@
 import type { Affiliate } from "../../drizzle/schema";
+import { parseSectionLabels, publicContactForStorefront } from "@shared/affiliateStorefrontControls";
+import { publicSocialLinks } from "@shared/affiliateSocialLinks";
 import type { AffiliateAccess } from "./affiliateAccess";
 import { maskW9TaxId, w9TaxIdLast4 } from "./w9TaxIdCrypto";
 
-/** Fields that must never appear on a public storefront response. */
-export const PUBLIC_STOREFRONT_OMITTED_FIELDS = ["contactName", "email", "phone", "w9TaxId", "notes", "setupToken"] as const;
+/** Account secrets that must never appear on a public storefront response. */
+export const PUBLIC_STOREFRONT_OMITTED_FIELDS = ["w9TaxId", "notes", "setupToken"] as const;
 
 export function toPublicStorefront(a: Affiliate) {
+  const contact = publicContactForStorefront(a);
   return {
     id: a.id,
     storeName: a.storeName,
     slug: a.slug,
+    contactName: a.contactName,
+    // Account email and phone are never public. Opt-in fields below are the
+    // only customer-facing contact details.
+    email: null,
+    phone: null,
     website: a.website,
-    location: a.location,
+    location: null,
     referralCode: a.referralCode,
     status: a.status,
     logoUrl: a.logoUrl,
+    logoDarkUrl: a.logoDarkUrl,
+    faviconUrl: a.faviconUrl,
     primaryColor: a.primaryColor,
     accentColor: a.accentColor,
-    publicEmail: a.publicEmail,
-    publicPhone: a.publicPhone,
-    publicAddress: a.publicAddress,
+    backgroundColor: a.backgroundColor,
+    textColor: a.textColor,
+    publicEmail: contact.email,
+    publicPhone: contact.phone,
+    publicAddress: contact.address,
+    showPublicEmail: a.showPublicEmail,
+    showPublicPhone: a.showPublicPhone,
+    showPublicAddress: a.showPublicAddress,
     heroImageUrl: a.heroImageUrl,
     tagline: a.tagline,
     taglineEs: a.taglineEs,
     aboutText: a.aboutText,
     aboutTextEs: a.aboutTextEs,
+    footerText: a.footerText,
     serviceArea: a.serviceArea,
     yearsInBusiness: a.yearsInBusiness,
     facebookUrl: a.facebookUrl,
     instagramUrl: a.instagramUrl,
+    socialLinks: publicSocialLinks(a.socialLinks, { facebookUrl: a.facebookUrl, instagramUrl: a.instagramUrl }),
+    hidePlatformBranding: a.hidePlatformBranding,
+    sectionLabels: parseSectionLabels(a.sectionLabelsJson),
     storefrontEnabled: a.storefrontEnabled,
     template: a.template,
     fontFamily: a.fontFamily,

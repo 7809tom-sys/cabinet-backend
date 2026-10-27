@@ -43,6 +43,10 @@ export function registerStorageProxy(app: Express) {
       res.status(400).send("Missing storage key");
       return;
     }
+    if (key.startsWith("affiliate-resources/")) {
+      res.status(403).send("This file is available only to signed-in affiliates");
+      return;
+    }
 
     const actor = await resolveStorageActor(req);
     const allowed = await canReadStorageKey(key, actor);

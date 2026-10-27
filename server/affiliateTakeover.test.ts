@@ -55,6 +55,9 @@ beforeEach(() => {
     publicEmail: "hello@shop.example",
     publicPhone: "555-0199",
     publicAddress: "1 Main",
+    showPublicEmail: true,
+    showPublicPhone: true,
+    showPublicAddress: true,
     embedEnabled: false,
     embedCode: null,
     location: "Tampa",
@@ -117,7 +120,7 @@ describe("affiliates.myAffiliate", () => {
 });
 
 describe("public affiliate storefronts", () => {
-  it("omits login email, private phone, contact name, and tax ID", async () => {
+  it("omits the login email, private phone, and tax ID", async () => {
     const caller = appRouter.createCaller(ctx(null));
     const one = await caller.affiliates.bySlug({ slug: "secret-shop" });
     const list = await caller.affiliates.listActive();
@@ -125,11 +128,10 @@ describe("public affiliate storefronts", () => {
       const serialized = JSON.stringify(dto);
       expect(serialized).not.toContain("owner-login@example.com");
       expect(serialized).not.toContain("555-0100");
-      expect(serialized).not.toContain("Owner Name");
       expect(serialized).not.toContain(fullTaxId);
-      expect(dto).not.toHaveProperty("email");
-      expect(dto).not.toHaveProperty("phone");
-      expect(dto).not.toHaveProperty("contactName");
+      expect(dto?.email).toBeNull();
+      expect(dto?.phone).toBeNull();
+      expect(dto?.contactName).toBe("Owner Name");
     }
     expect(one?.publicEmail).toBe("hello@shop.example");
   });

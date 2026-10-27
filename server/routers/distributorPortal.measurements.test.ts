@@ -6,7 +6,7 @@ const source = readFileSync(resolve(process.cwd(), "server/routers/distributorPo
 
 describe("vendor sample-door measurement router contracts", () => {
   it("stores vendor-sourced measurements as pending submissions with a generated citation", () => {
-    expect(source).toContain("submitDoorMeasurement: distributorProcedure");
+    expect(source).toContain('submitDoorMeasurement: withVendorFeature("door_styles")');
     expect(source).toContain("measurementData: input.measurements");
     expect(source).toContain("status: \"pending\" as const");
     expect(source).toContain("Measured from sample door:");

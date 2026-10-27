@@ -25,6 +25,9 @@ function affiliate(): Affiliate {
     publicEmail: "hello@shop.example",
     publicPhone: "555-0199",
     publicAddress: "1 Main",
+    showPublicEmail: true,
+    showPublicPhone: true,
+    showPublicAddress: true,
     embedEnabled: false,
     embedCode: null,
     location: "Tampa",
@@ -41,7 +44,9 @@ describe("affiliate privacy DTOs", () => {
     expect(serialized).not.toContain(fullTaxId);
     expect(serialized).not.toContain("owner-login@example.com");
     expect(serialized).not.toContain("555-0100");
-    expect(serialized).not.toContain("Owner Name");
+    expect(dto.email).toBeNull();
+    expect(dto.phone).toBeNull();
+    expect(dto.contactName).toBe("Owner Name");
     expect(dto.publicEmail).toBe("hello@shop.example");
     expect(dto.publicPhone).toBe("555-0199");
   });

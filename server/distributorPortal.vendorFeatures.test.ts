@@ -8,9 +8,9 @@ const schema = readFileSync(resolve(process.cwd(), "drizzle/schema.ts"), "utf8")
 
 describe("distributor vendor portal catalog and integration contracts", () => {
   it("offers owned-line catalog archive, history, and CSV export procedures", () => {
-    expect(router).toContain("uploadCatalogFile: distributorProcedure");
-    expect(router).toContain("catalogFileHistory: distributorProcedure");
-    expect(router).toContain("exportCatalog: distributorProcedure");
+    expect(router).toContain('uploadCatalogFile: withVendorFeature("cabinet_catalog")');
+    expect(router).toContain('catalogFileHistory: withVendorFeature("cabinet_catalog")');
+    expect(router).toContain('exportCatalog: withVendorFeature("cabinet_catalog")');
     expect(router).toContain("distributor-catalogs/${lineId}/");
     expect(router).toContain('fileName: `catalog-${lineId}-');
     expect(portal).toContain("Catalog transfer center");
