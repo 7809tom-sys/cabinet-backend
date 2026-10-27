@@ -117,7 +117,7 @@ export async function createCheckoutSession(
 export async function fulfillOrder(
   sessionId: string,
   paymentIntentId: string | null
-): Promise<void> {
+): Promise<number | null> {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   await db
@@ -134,5 +134,7 @@ export async function fulfillOrder(
     .from(orderRequests)
     .where(eq(orderRequests.stripeSessionId, sessionId))
     .limit(1);
-  if (paidOrder) await createHardwareCommissionSnapshot(paidOrder.id);
+  if (!paidOrder) return null;
+  await createHardwareCommissionSnapshot(paidOrder.id);
+  return paidOrder.id;
 }

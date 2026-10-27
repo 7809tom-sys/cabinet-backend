@@ -38,6 +38,7 @@ export interface EmailAttachment {
 export interface SendEmailOptions {
   to: string;
   cc?: string | string[];
+  bcc?: string | string[];
   subject: string;
   text?: string;
   html?: string;
@@ -64,6 +65,7 @@ export async function sendEmail(opts: SendEmailOptions): Promise<SendEmailResult
       from: SMTP_FROM,
       to: opts.to,
       cc: opts.cc,
+      bcc: opts.bcc,
       subject: opts.subject,
       text: opts.text,
       html: opts.html,
@@ -138,6 +140,7 @@ export async function sendEmailViaSettings(
       from: (s.smtpFrom || s.smtpUser).trim(),
       to: opts.to,
       cc: opts.cc,
+      bcc: opts.bcc,
       subject: opts.subject,
       text: opts.text,
       html: opts.html,

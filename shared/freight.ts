@@ -149,6 +149,29 @@ export interface FreightQuote {
   quoteToken?: string;
 }
 
+/** Carrier and service actually returned on a quote. Combined rate-group labels stay intact. */
+export function quotedCarrierIdentity(quote: Pick<FreightQuote, "rateGroups" | "shipmentGroups">): { carrier: string | null; service: string | null } {
+  const carriers: string[] = [];
+  const services: string[] = [];
+  const add = (list: string[], value: string | null | undefined) => {
+    const trimmed = value?.trim();
+    if (trimmed && !list.includes(trimmed)) list.push(trimmed);
+  };
+  for (const group of quote.shipmentGroups ?? []) {
+    for (const parcel of group.parcels ?? []) {
+      add(carriers, parcel.carrier);
+      add(services, parcel.service);
+    }
+  }
+  if (carriers.length === 0) {
+    for (const group of quote.rateGroups ?? []) add(carriers, group.carrier);
+  }
+  return {
+    carrier: carriers.length > 0 ? carriers.join(", ") : null,
+    service: services.length > 0 ? services.join(", ") : null,
+  };
+}
+
 export function combineStyleFreightGroups(input: {
   groups: FreightRateGroup[];
   settings: FreightSettings;

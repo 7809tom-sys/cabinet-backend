@@ -86,6 +86,24 @@ describe("freight quote token", () => {
     });
   });
 
+  it("round-trips the carrier and service named on the quote", () => {
+    const token = createFreightQuoteToken({
+      totalCents: 4700,
+      merchandiseSubtotalCents: 44900,
+      deliveryAddress,
+      residential: false,
+      liftgate: false,
+      carrier: " UPS ",
+      service: "Ground",
+      items,
+    });
+    expect(verifyFreightQuoteToken(token)).toMatchObject({
+      carrier: "UPS",
+      service: "Ground",
+      totalCents: 4700,
+    });
+  });
+
   it("rejects tampering and expired quotes", () => {
     const token = createFreightQuoteToken({
       totalCents: 92345,

@@ -1695,6 +1695,13 @@ export type OrderLineItem = {
   /** Present when a vendor promotion changed this line's normal sell price. */
   promoName?: string | null;
   originalUnitPrice?: number | null;
+  /** Distributor SKU captured when the line was priced. */
+  distributorSku?: string | null;
+  /**
+   * Snapshot of distributor_skus.yourCost in dollars at order time.
+   * Absent when the cost was not known yet; do not treat absence as zero.
+   */
+  unitDistributorCost?: number | null;
 };
 
 export const orderRequests = mysqlTable("order_requests", {
@@ -1797,6 +1804,38 @@ export const orderRequests = mysqlTable("order_requests", {
 
 export type OrderRequest = typeof orderRequests.$inferSelect;
 export type InsertOrderRequest = typeof orderRequests.$inferInsert;
+
+// Per-line distributor cost captured when the order is placed. Nullable because
+// a line can be saved before a supplier cost exists. Historical rows stay empty
+// until a new order writes them; readers fall back to the live catalog cost.
+export const orderRequestLineCosts = mysqlTable("order_request_line_costs", {
+  id: int("id").autoincrement().primaryKey(),
+  orderRequestId: int("orderRequestId").notNull(),
+  lineIndex: int("lineIndex").notNull(),
+  sku: varchar("sku", { length: 128 }),
+  itemCode: varchar("itemCode", { length: 128 }),
+  unitDistributorCost: decimal("unitDistributorCost", { precision: 10, scale: 2 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (t) => ({
+  orderLineUnique: uniqueIndex("order_request_line_costs_order_line_uq").on(t.orderRequestId, t.lineIndex),
+}));
+
+export type OrderRequestLineCost = typeof orderRequestLineCosts.$inferSelect;
+
+// Order-level shipping identity and any extra discount that is not already
+// baked into the line prices. All amount columns are nullable on purpose.
+export const orderRequestCommerceSnapshots = mysqlTable("order_request_commerce_snapshots", {
+  id: int("id").autoincrement().primaryKey(),
+  orderRequestId: int("orderRequestId").notNull(),
+  shippingCarrier: varchar("shippingCarrier", { length: 120 }),
+  shippingService: varchar("shippingService", { length: 160 }),
+  discountAmount: decimal("discountAmount", { precision: 12, scale: 2 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (t) => ({
+  orderUnique: uniqueIndex("order_request_commerce_snapshots_order_uq").on(t.orderRequestId),
+}));
+
+export type OrderRequestCommerceSnapshot = typeof orderRequestCommerceSnapshots.$inferSelect;
 
 // ─── Affiliate installation estimates ─────────────────────────────────────────
 // These belong to the installing affiliate and intentionally do not feed the

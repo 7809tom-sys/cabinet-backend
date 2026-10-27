@@ -9,6 +9,8 @@ import express from "express";
 import type Stripe from "stripe";
 import { fulfillOrder, getStripe } from "./stripe";
 import { getDb } from "./db";
+import { createHardwareCommissionSnapshot } from "./lib/hardwareCommissionSnapshot";
+import { markOrderPaidById, sendPaidOrderReceipt } from "./lib/orderReceiptEmail";
 import { createDbPaymentLinkContext, createDrizzleStripePaymentStore } from "./stripePaymentStore";
 import {
   configuredWebhookSecrets,
@@ -75,20 +77,38 @@ export function registerStripeWebhook(app: Express): void {
 
       try {
         switch (event.type) {
-          case "checkout.session.completed": {
+          case "checkout.session.completed":
+          case "checkout.session.async_payment_succeeded": {
             const session = event.data.object as import("stripe").Stripe.Checkout.Session;
             const paymentIntentId =
               typeof session.payment_intent === "string"
                 ? session.payment_intent
                 : session.payment_intent?.id ?? null;
 
-            if (session.payment_status === "paid") {
-              await fulfillOrder(session.id, paymentIntentId);
+            if (session.payment_status === "paid" || event.type === "checkout.session.async_payment_succeeded") {
+              const orderId = await fulfillOrder(session.id, paymentIntentId);
               console.log(
                 `[Stripe Webhook] Checkout ${session.id} confirmed (payment_intent=${paymentIntentId ?? "n/a"})`,
               );
+              if (orderId) await sendPaidOrderReceipt(orderId);
+              else console.error(`[Order Receipt] Paid checkout ${session.id} did not match an order, so no receipt was sent.`);
             } else {
               console.warn(`[Stripe Webhook] Checkout ${session.id} completed without a paid status.`);
+            }
+            break;
+          }
+
+          case "payment_intent.succeeded": {
+            const pi = event.data.object as import("stripe").Stripe.PaymentIntent;
+            const purpose = pi.metadata?.purpose?.trim();
+            const rawOrderId = Number(pi.metadata?.order_id);
+            const orderId = (purpose == null || purpose === "" || purpose === "order") && Number.isInteger(rawOrderId) && rawOrderId > 0
+              ? rawOrderId
+              : null;
+            if (orderId) {
+              await markOrderPaidById(orderId, pi.id);
+              await createHardwareCommissionSnapshot(orderId);
+              await sendPaidOrderReceipt(orderId);
             }
             break;
           }
