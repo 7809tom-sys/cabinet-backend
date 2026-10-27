@@ -247,13 +247,27 @@ describe("vendor referral migration", () => {
     const journal = JSON.parse(readFileSync("drizzle/meta/_journal.json", "utf8")) as {
       entries: Array<{ idx: number; when: number; tag: string }>;
     };
-    const index = journal.entries.findIndex((entry) => entry.tag === "0220_vendor_referrals");
-    const referral = journal.entries[index];
-    const previous = journal.entries[index - 1];
+    const referralIndex = journal.entries.findIndex((entry) => entry.tag === "0220_vendor_referrals");
+    expect(referralIndex).toBeGreaterThan(0);
+    const previous = journal.entries[referralIndex - 1];
+    const referral = journal.entries[referralIndex];
+    const onboarding = journal.entries[referralIndex + 1];
+    const roomScene = journal.entries[referralIndex + 2];
     expect(previous).toMatchObject({ idx: 218, when: 1794000000000, tag: "0219_w9_tax_id_at_rest" });
     expect(referral).toMatchObject({ idx: 219, when: 1794100000000, tag: "0220_vendor_referrals" });
+    expect(onboarding).toMatchObject({
+      idx: 220,
+      when: 1794200000000,
+      tag: "0221_vendor_onboarding_exceptions",
+    });
+    expect(roomScene).toMatchObject({
+      idx: 221,
+      when: 1794300000000,
+      tag: "0222_door_style_auto_room_scene",
+    });
     const previousSnapshot = JSON.parse(readFileSync("drizzle/meta/0219_snapshot.json", "utf8")) as { id: string };
     const snapshot = JSON.parse(readFileSync("drizzle/meta/0220_snapshot.json", "utf8")) as {
+      id: string;
       prevId: string;
       tables: Record<string, { indexes: Record<string, { columns: string[] }> }>;
     };
@@ -261,5 +275,18 @@ describe("vendor referral migration", () => {
     expect(snapshot.prevId).toBe("52aac6dc-0a8f-4ed6-a8b4-6dece343dd2c");
     expect(snapshot.tables.vendor_referrals.indexes.vendor_referrals_status_created_idx.columns).toEqual(["status", "createdAt"]);
     expect(snapshot.tables.vendor_referrals.indexes.vendor_referrals_affiliate_idx.columns).toEqual(["affiliateId"]);
+    const onboardingSnapshot = JSON.parse(readFileSync("drizzle/meta/0221_snapshot.json", "utf8")) as {
+      id: string;
+      prevId: string;
+    };
+    expect(onboardingSnapshot.id).toBe("bc462012-e6f2-46ea-addb-cbfde6ed0879");
+    expect(onboardingSnapshot.prevId).toBe(snapshot.id);
+    expect(onboardingSnapshot.prevId).toBe("b7b7a418-56a7-4313-b8bd-e770017d1e69");
+    const roomSceneSnapshot = JSON.parse(readFileSync("drizzle/meta/0222_snapshot.json", "utf8")) as {
+      id: string;
+      prevId: string;
+    };
+    expect(roomSceneSnapshot.id).toBe("22302ac7-6395-4d6d-95ad-0a53f119940d");
+    expect(roomSceneSnapshot.prevId).toBe(onboardingSnapshot.id);
   });
 });

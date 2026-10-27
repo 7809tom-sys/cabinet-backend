@@ -43,6 +43,7 @@ import { emailSettingsRouter } from "./routers/emailSettings";
 import { pelicanRouter } from "./routers/pelican";
 import { vendorFulfillmentRouter } from "./routers/vendorFulfillment";
 import { vendorCodeUploadRouter } from "./routers/vendorCodeUpload";
+import { vendorOnboardingRouter } from "./routers/vendorOnboarding";
 import { vendorsRouter } from "./routers/vendors";
 import { surfacesRouter } from "./routers/surfaces";
 import { promotionsRouter } from "./routers/promotions";
@@ -156,6 +157,7 @@ export const appRouter = router({
   pelican: pelicanRouter,
   vendorFulfillment: vendorFulfillmentRouter,
   vendorCodeUpload: vendorCodeUploadRouter,
+  vendorOnboarding: vendorOnboardingRouter,
   vendors: vendorsRouter,
   surfaces: surfacesRouter,
   promotions: promotionsRouter,
