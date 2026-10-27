@@ -144,15 +144,34 @@ export function isPelicanDesignerReady(product: PelicanDesignerReadinessProduct)
 
 /**
  * Whether a source-priced, Designer-enabled product may be selected and quoted
- * in the Designer's material palette. Countertops do not need an image swatch
- * to be commercially selectable: the Planner uses an explicitly labeled
- * neutral material preview until an approved repeatable slab swatch is saved.
+ * in the Designer's material palette. Countertops and flooring planks do not
+ * need an image swatch to be commercially selectable: the Planner uses an
+ * explicitly labeled neutral preview until an approved repeatable swatch is
+ * saved. Moldings, trim, and underlayment are not planks, so they stay out.
  * The stricter `isPelicanDesignerReady` remains the requirement for an exact
  * material rendering, so a catalog photo is never promoted into a 3D texture.
  */
 export function isPelicanDesignerSelectable(product: PelicanDesignerReadinessProduct): boolean {
-  if (pelicanDesignerRole(product) === "countertop") return true;
+  const role = pelicanDesignerRole(product);
+  if (role === "countertop" || role === "flooring") return true;
   return isPelicanDesignerReady(product);
+}
+
+/**
+ * Exact-3D signals returned with Designer surface payloads.
+ * `designerRenderReady` follows `isPelicanDesignerReady`. For flooring planks
+ * that is the same value as `hasSwatch`: a non-empty `materialImageUrl`.
+ * When either flag is false, the 3D view should draw a labeled neutral floor.
+ * `imageUrl` is the catalog card photo and is never a floor texture.
+ */
+export function pelicanDesignerRenderFlags(product: PelicanDesignerReadinessProduct): {
+  designerRenderReady: boolean;
+  hasSwatch: boolean;
+} {
+  return {
+    designerRenderReady: isPelicanDesignerReady(product),
+    hasSwatch: hasApprovedPelicanMaterialSwatch(product),
+  };
 }
 
 export function pelicanDesignerReadinessReason(product: PelicanDesignerReadinessProduct): string | null {

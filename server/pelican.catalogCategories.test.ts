@@ -88,6 +88,11 @@ function evalSql(node: SQL, joined: Joined): boolean {
   const op = parts.filter((part) => part.kind === "text").map((part) => part.text).join("");
   if (op.includes("is not null")) return valueOf(columns[0], joined) != null;
   if (op.includes("is null")) return valueOf(columns[0], joined) == null;
+  if (op.includes("<>")) {
+    const left = columns[0] ? valueOf(columns[0], joined) : null;
+    const right = columns.length > 1 && params.length === 0 ? valueOf(columns[1], joined) : params[0];
+    return left !== right;
+  }
   if (columns.length === 2 && params.length === 0) {
     const left = valueOf(columns[0], joined);
     const right = valueOf(columns[1], joined);
@@ -303,6 +308,7 @@ const flooring = [
     category: "Flooring",
     subCategory: "Planks & Flooring",
     showInDesigner: true,
+    imageUrl: "/floor-card.webp",
     materialImageUrl: "/floor.webp",
   }),
   product({ id: 102, name: "Flooring Hidden", category: "Flooring", isActive: false }),
@@ -551,5 +557,119 @@ describe("cabinet My Catalog categories", () => {
     const next = await caller.distributorPortal.catalog({ category: "Wall", limit: 1, offset: 1 });
     expect(next.items).toHaveLength(1);
     expect(next.categories).toEqual(["Base", "Tall", "Wall"]);
+  });
+});
+
+describe("Designer flooring plank palette", () => {
+  const pricedPlanks = Array.from({ length: 25 }, (_, index) => product({
+    id: 1000 + index,
+    name: `Priced ${String(index).padStart(2, "0")}`,
+    category: "Flooring",
+    subCategory: "Planks & Flooring",
+    showInDesigner: true,
+    imageUrl: `/plank-${index}.webp`,
+    materialImageUrl: index === 0 ? "/swatch.webp" : null,
+    yourCost: "10.00",
+    listPrice: "20.00",
+    isPopular: false,
+  }));
+  const popularUnpriced = Array.from({ length: 20 }, (_, index) => product({
+    id: 1100 + index,
+    name: `Popular unpriced ${String(index).padStart(2, "0")}`,
+    category: "Flooring",
+    subCategory: "Planks & Flooring",
+    showInDesigner: true,
+    imageUrl: `/unpriced-${index}.webp`,
+    materialImageUrl: null,
+    yourCost: null,
+    listPrice: null,
+    msrp: null,
+    isPopular: true,
+    popularRank: index,
+  }));
+  const photoLessPlank = product({
+    id: 1200,
+    name: "Priced without photo",
+    category: "Flooring",
+    subCategory: "Planks & Flooring",
+    showInDesigner: true,
+    imageUrl: null,
+    yourCost: "10.00",
+    listPrice: "20.00",
+  });
+  const molding = product({
+    id: 1201,
+    name: "Reducer",
+    category: "Flooring",
+    subCategory: "Moldings & Trim",
+    showInDesigner: true,
+    imageUrl: "/trim.webp",
+    yourCost: "10.00",
+    listPrice: "20.00",
+  });
+  const underlayment = product({
+    id: 1202,
+    name: "Underlayment roll",
+    category: "Flooring",
+    subCategory: "Underlayment",
+    showInDesigner: true,
+    imageUrl: "/underlayment.webp",
+    yourCost: "10.00",
+    listPrice: "20.00",
+  });
+  const hiddenPlank = product({
+    id: 1203,
+    name: "Hidden plank",
+    category: "Flooring",
+    subCategory: "Planks & Flooring",
+    showInDesigner: false,
+    imageUrl: "/hidden.webp",
+    yourCost: "10.00",
+    listPrice: "20.00",
+  });
+
+  function useFlooringTables() {
+    useTables({
+      pelican_products: [...pricedPlanks, ...popularUnpriced, photoLessPlank, molding, underlayment, hiddenPlank],
+      pelican_category_markups: [],
+    });
+  }
+
+  it("returns every priced photo plank and labels rows that are not exact 3D swatches", async () => {
+    useFlooringTables();
+    const caller = appRouter.createCaller(shopper);
+    const rows = await caller.surfaces.recommended({ role: "flooring", limit: 500 });
+    const firstPage = await caller.surfaces.recommended({ role: "flooring", limit: 6 });
+
+    expect(rows).toHaveLength(pricedPlanks.length);
+    expect(rows.map((row) => row.id)).toEqual(pricedPlanks.map((row) => row.id));
+    expect(firstPage.map((row) => row.id)).toEqual(pricedPlanks.slice(0, 6).map((row) => row.id));
+    expect(rows.some((row) => row.id === photoLessPlank.id || row.id === molding.id || row.id === underlayment.id || row.id === hiddenPlank.id)).toBe(false);
+    expect(rows.every((row) => row.subCategory === "Planks & Flooring" && row.imageUrl && (row.sellPrice ?? 0) > 0)).toBe(true);
+    expect(rows[0]).toMatchObject({ id: 1000, designerRenderReady: true, hasSwatch: true, materialImageUrl: "/swatch.webp" });
+    expect(rows[1]).toMatchObject({ designerRenderReady: false, hasSwatch: false, materialImageUrl: null });
+    await expect(caller.surfaces.recommended({ role: "flooring", limit: 501 })).rejects.toThrow();
+  });
+
+  it("counts and lists designer flooring planks without admitting trim or underlayment", async () => {
+    useFlooringTables();
+    const caller = appRouter.createCaller(shopper);
+    const counts = await caller.pelican.categories({ scope: "designer" });
+    const page = await caller.pelican.byCategory({ category: "Flooring", scope: "designer", limit: 200, offset: 0 });
+    const ids = page.items.map((row) => row.id);
+
+    expect(counts).toEqual([{ category: "Flooring", count: pricedPlanks.length }]);
+    expect(page.total).toBe(pricedPlanks.length);
+    expect(ids).not.toContain(photoLessPlank.id);
+    expect(ids).not.toContain(molding.id);
+    expect(ids).not.toContain(underlayment.id);
+    expect(ids).not.toContain(hiddenPlank.id);
+    expect(page.subCategories).toEqual(["Planks & Flooring"]);
+    expect(page.items.find((row) => row.id === 1000)).toMatchObject({ designerRenderReady: true, hasSwatch: true });
+    expect(page.items.find((row) => row.id === 1001)).toMatchObject({ designerRenderReady: false, hasSwatch: false });
+
+    const catalog = await caller.pelican.byCategory({ category: "Flooring", scope: "catalog", limit: 200, offset: 0 });
+    expect(catalog.items.map((row) => row.id)).toContain(molding.id);
+    expect(catalog.items.find((row) => row.id === molding.id)).toMatchObject({ designerRenderReady: false, hasSwatch: false });
   });
 });

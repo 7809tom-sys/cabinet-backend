@@ -6,11 +6,12 @@ import {
   isPelicanDesignerReady,
   isPelicanDesignerSelectable,
   pelicanDesignerReadinessReason,
+  pelicanDesignerRenderFlags,
   pelicanDesignerRole,
 } from "./pelicanDesignerReadiness";
 
 describe("Pelican Designer readiness policy", () => {
-  it("admits a material only with an approved repeatable swatch", () => {
+  it("selects a flooring plank without a swatch and keeps exact 3D rendering strict", () => {
     const readyFloor = {
       category: "Flooring",
       subCategory: "Planks & Flooring",
@@ -18,13 +19,32 @@ describe("Pelican Designer readiness policy", () => {
       materialImageUrl: "/manus-storage/approved-floor-swatch.webp",
     };
     const catalogPhotoOnly = { ...readyFloor, materialImageUrl: null };
+    const blankSwatch = { ...readyFloor, materialImageUrl: "  " };
 
     expect(pelicanDesignerRole(readyFloor)).toBe("flooring");
     expect(hasApprovedPelicanMaterialSwatch(readyFloor)).toBe(true);
     expect(isPelicanDesignerReady(readyFloor)).toBe(true);
+    expect(isPelicanDesignerSelectable(readyFloor)).toBe(true);
+    expect(pelicanDesignerRenderFlags(readyFloor)).toEqual({ designerRenderReady: true, hasSwatch: true });
+
     expect(isPelicanDesignerReady(catalogPhotoOnly)).toBe(false);
-    expect(isPelicanDesignerSelectable(catalogPhotoOnly)).toBe(false);
+    expect(isPelicanDesignerSelectable(catalogPhotoOnly)).toBe(true);
+    expect(pelicanDesignerRenderFlags(catalogPhotoOnly)).toEqual({ designerRenderReady: false, hasSwatch: false });
+    expect(pelicanDesignerRenderFlags(blankSwatch)).toEqual({ designerRenderReady: false, hasSwatch: false });
     expect(pelicanDesignerReadinessReason(catalogPhotoOnly)).toBe("Approved repeatable material swatch required");
+  });
+
+  it("does not let moldings, underlayment, or swatch-less tile into the Designer palette", () => {
+    const molding = { category: "Flooring", subCategory: "Moldings & Trim", materialImageUrl: "/swatch.webp" };
+    const underlayment = { category: "Flooring", subCategory: "Underlayment", materialImageUrl: null };
+    const tileWithoutSwatch = { category: "Tile & Mosaic", subCategory: "Mosaic", materialImageUrl: null };
+
+    expect(pelicanDesignerRole(molding)).toBeNull();
+    expect(isPelicanDesignerSelectable(molding)).toBe(false);
+    expect(isPelicanDesignerSelectable(underlayment)).toBe(false);
+    expect(isPelicanDesignerReady(tileWithoutSwatch)).toBe(false);
+    expect(isPelicanDesignerSelectable(tileWithoutSwatch)).toBe(false);
+    expect(isPelicanDesignerSelectable({ ...tileWithoutSwatch, materialImageUrl: "/tile.webp" })).toBe(true);
   });
 
   it("allows a source-priced countertop to be selected and quoted without promoting its catalog photo to a 3D swatch", () => {
@@ -141,5 +161,29 @@ describe("Pelican Designer readiness policy", () => {
     expect(audit.rows.find((row) => row.id === 3)).toMatchObject({ role: "sink", sourceDimensions: true, approvedRepresentation: true, paletteReady: true });
     expect(audit.rows.find((row) => row.id === 4)?.blockers).toContain("No exact supported Designer role");
     expect(audit.blockers.find((blocker) => blocker.reason === "No exact supported Designer role")?.count).toBe(1);
+  });
+
+  it("keeps a photo-only flooring plank out of the strict palette audit", () => {
+    const audit = auditPelicanDesignerReadiness([
+      {
+        id: 9,
+        category: "Flooring",
+        subCategory: "Planks & Flooring",
+        pelicanCode: "PL-FLOOR-PHOTO",
+        name: "Photo-only plank",
+        isActive: true,
+        showInDesigner: true,
+        listPrice: "45.00",
+        imageUrl: "/catalog/photo-only.webp",
+        materialImageUrl: null,
+        size: '7" x 48"',
+        coverageSqFt: "20",
+      },
+    ]);
+
+    expect(isPelicanDesignerSelectable({ category: "Flooring", subCategory: "Planks & Flooring", materialImageUrl: null })).toBe(true);
+    expect(audit.totals).toMatchObject({ configured: 1, paletteReady: 0 });
+    expect(audit.rows[0]).toMatchObject({ role: "flooring", paletteReady: false, approvedRepresentation: false, catalogImage: true });
+    expect(audit.rows[0]?.blockers).toContain("Approved repeatable material swatch required");
   });
 });
