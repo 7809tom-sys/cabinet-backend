@@ -749,6 +749,71 @@ export const catalogImports = mysqlTable("catalog_imports", {
 export type CatalogImport = typeof catalogImports.$inferSelect;
 export type InsertCatalogImport = typeof catalogImports.$inferInsert;
 
+// ─── Vendor onboarding exceptions ────────────────────────────────────────────
+// One import, then one row per spreadsheet line. Matched rows point at a
+// master cabinet. Flagged rows wait for the vendor. Completed rows are the
+// exceptions an admin still has to approve; reviewCabinetId is that cabinet,
+// stored with conflictStatus "review" so it stays usable and is not a
+// verified master.
+export const vendorOnboardingImports = mysqlTable("vendor_onboarding_imports", {
+  id: int("id").autoincrement().primaryKey(),
+  distributorId: int("distributorId").notNull(),
+  fileName: varchar("fileName", { length: 255 }),
+  uploadedByUserId: int("uploadedByUserId"),
+  matchedCount: int("matchedCount").default(0).notNull(),
+  flaggedCount: int("flaggedCount").default(0).notNull(),
+  completedCount: int("completedCount").default(0).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (t) => ({
+  distributorCreatedIdx: index("vendor_onboarding_imports_distributor_idx").on(t.distributorId, t.createdAt),
+}));
+
+export type VendorOnboardingImport = typeof vendorOnboardingImports.$inferSelect;
+export type InsertVendorOnboardingImport = typeof vendorOnboardingImports.$inferInsert;
+
+export const vendorOnboardingRows = mysqlTable("vendor_onboarding_rows", {
+  id: int("id").autoincrement().primaryKey(),
+  importId: int("importId").notNull(),
+  distributorId: int("distributorId").notNull(),
+  rowNumber: int("rowNumber").notNull(),
+  rawSku: varchar("rawSku", { length: 128 }).notNull(),
+  normalizedSku: varchar("normalizedSku", { length: 128 }).notNull(),
+  status: mysqlEnum("status", ["matched", "flagged", "completed"]).notNull(),
+  flagReason: mysqlEnum("flagReason", ["unknown_sku", "ambiguous", "missing_special"]),
+  missingFields: json("missingFields").$type<string[]>(),
+  cabinetId: int("cabinetId"),
+  masterCode: varchar("masterCode", { length: 64 }),
+  matchedVia: varchar("matchedVia", { length: 16 }),
+  candidateMasterCodes: json("candidateMasterCodes").$type<string[]>(),
+  reviewCabinetId: int("reviewCabinetId"),
+  distributorName: varchar("distributorName", { length: 128 }),
+  styleName: varchar("styleName", { length: 128 }),
+  colorName: varchar("colorName", { length: 64 }),
+  price: decimal("price", { precision: 10, scale: 2 }),
+  styleId: int("styleId"),
+  skuId: int("skuId"),
+  category: varchar("category", { length: 64 }),
+  subCategory: varchar("subCategory", { length: 128 }),
+  width: decimal("width", { precision: 7, scale: 3 }),
+  height: decimal("height", { precision: 7, scale: 3 }),
+  depth: decimal("depth", { precision: 7, scale: 3 }),
+  description: text("description"),
+  numberOfDoors: int("numberOfDoors"),
+  numberOfDrawers: int("numberOfDrawers"),
+  trimSupplierId: int("trimSupplierId"),
+  trimHeld: boolean("trimHeld").default(false).notNull(),
+  message: varchar("message", { length: 512 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (t) => ({
+  importRowUnique: unique("vendor_onboarding_rows_import_row_uq").on(t.importId, t.rowNumber),
+  importStatusIdx: index("vendor_onboarding_rows_import_status_idx").on(t.importId, t.status),
+  distributorStatusIdx: index("vendor_onboarding_rows_distributor_status_idx").on(t.distributorId, t.status),
+}));
+
+export type VendorOnboardingRow = typeof vendorOnboardingRows.$inferSelect;
+export type InsertVendorOnboardingRow = typeof vendorOnboardingRows.$inferInsert;
+
 // ─── Distributor integrations ───────────────────────────────────────────────
 // One row per distributor/provider connection. Secret values are authenticated
 // encrypted envelopes, never returned to the browser. Non-secret metadata is
