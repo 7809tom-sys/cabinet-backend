@@ -30,6 +30,10 @@ export type FreightQuoteTokenPayload = {
   originZip?: string;
   /** Hardware Resources profile revision when the token was issued. */
   profileRevision?: number;
+  /** Carrier name returned with the signed quote, when the carrier named one. */
+  carrier?: string | null;
+  /** Carrier service / method returned with the signed quote. */
+  service?: string | null;
   itemsHash: string;
   expiresAt: number;
 };
@@ -79,6 +83,8 @@ export function createFreightQuoteToken(input: Omit<FreightQuoteTokenPayload, "i
     ...(input.hardwareShippingMode ? { hardwareShippingMode: input.hardwareShippingMode } : {}),
     ...(input.originZip ? { originZip: input.originZip.trim() } : {}),
     ...(input.profileRevision != null ? { profileRevision: Math.max(0, Math.round(input.profileRevision)) } : {}),
+    ...(input.carrier?.trim() ? { carrier: input.carrier.trim() } : {}),
+    ...(input.service?.trim() ? { service: input.service.trim() } : {}),
     itemsHash: freightItemsHash(input.items),
     expiresAt: Date.now() + (input.ttlMs ?? 30 * 60 * 1000),
   };

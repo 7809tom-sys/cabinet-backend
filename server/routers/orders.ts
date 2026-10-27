@@ -46,7 +46,7 @@ import { resolveAffiliateStorefrontSale } from "@shared/affiliateBranding";
 import { affiliateStyleBranding } from "../../drizzle/schema";
 import { loadAffiliateStorefrontPricing } from "../lib/affiliateStorefrontPricing";
 import { buildAffiliateOrderPersistence } from "@shared/affiliateOrderAlias";
-import { createCheckoutSession } from "../stripe";
+import { createCheckoutSession, getStripe } from "../stripe";
 import { canPlaceSampleOrder, lineClaimsSample } from "../../shared/samples";
 import { resolveAffiliateAccess } from "../lib/affiliateAccess";
 import { canConfirmOrder, orderActorError, readOrderAccessToken } from "../lib/orderActorGuard";
@@ -58,6 +58,10 @@ import { isTemporaryOneDollarCheckoutTestItem, isTemporaryOneDollarFreeShippingO
 import { isStagingTestHost } from "@shared/stagingTestMode";
 import { HARDWARE_LINE_CODE, hardwareProfileIsComplete, hardwareRetailCents, hardwareVendorOriginZip } from "@shared/hardwareCommerce";
 import { callerCanReadOrder, generateOrderAccessToken } from "../lib/orderAccess";
+import { enrichAdminOrderRows, loadAdminOrderDetail } from "../lib/adminOrderRead";
+import { joinUniqueLabels } from "../lib/orderMoney";
+import { persistOrderCostSnapshot, withDistributorCostSnapshots } from "../lib/orderCostSnapshot";
+import { readStripeChargeFacts } from "../lib/stripeChargeFacts";
 import { choosePromotedPrice, type PricedCandidate } from "@shared/vendorPromotions";
 import { loadActivePromotionRules, loadPublishedCabinetPriceRows, priceLineWithPromotion } from "../vendorPromotionPricing";
 
@@ -1018,6 +1022,8 @@ export const ordersRouter = router({
       const expectedAddressHash = deliveryAddress ? freightQuoteDestinationAddressHash(deliveryAddress) : null;
       let freightQuoteCents = 0;
       let freightQuoteVerified = false;
+      let shippingCarrier: string | null = null;
+      let shippingService: string | null = null;
       const hardwareOrderLines = normalizedLines.filter((line) => line.productKind === "hardware");
       const nonHardwareOrderLines = normalizedLines.filter((line) => line.productKind !== "hardware");
       const nonHardwareMerchandiseCents = Math.max(0, Math.round(
@@ -1052,6 +1058,8 @@ export const ordersRouter = router({
         }
         freightQuoteCents = quote.totalCents;
         freightQuoteVerified = true;
+        shippingCarrier = joinUniqueLabels(shippingCarrier, quote.carrier);
+        shippingService = joinUniqueLabels(shippingService, quote.service);
       } else if (deliveryMethod === "ship" && nonHardwareOrderLines.length > 0 && hasOnlyTemporaryFreeShippingItems) {
         // This is a deliberately narrow real-payment smoke-test SKU. Its zero
         // freight is server-authorized; every ordinary shipping order still
@@ -1116,6 +1124,8 @@ export const ordersRouter = router({
         }
         freightQuoteCents += hardwareQuote.totalCents;
         freightQuoteVerified = true;
+        shippingCarrier = joinUniqueLabels(shippingCarrier, hardwareQuote.carrier);
+        shippingService = joinUniqueLabels(shippingService, hardwareQuote.service);
       }
       // Affiliate attribution: if a referral code was supplied, resolve the
       // active affiliate it belongs to and tag this request.
@@ -1232,6 +1242,7 @@ export const ordersRouter = router({
         }
       }
 
+      const persistedLines = await withDistributorCostSnapshots(db, resolvedLines);
       const requestNumber = makeRequestNumber();
       const accessToken = generateOrderAccessToken();
       const result = await db.insert(orderRequests).values({
@@ -1253,7 +1264,7 @@ export const ordersRouter = router({
         styleId: input.styleId ?? null,
         styleName: resolvedOrderStyleName,
         tier: resolvedTier,
-        lineItems: resolvedLines,
+        lineItems: persistedLines,
         itemCount,
         totalAmount: total > 0 ? total.toFixed(2) : null,
         notes: input.notes ?? null,
@@ -1270,6 +1281,10 @@ export const ordersRouter = router({
         taxAmount: calculatedTax ? String(calculatedTax.taxAmount.toFixed(2)) : null,
       });
       const insertId = (result as unknown as [{ insertId: number }])[0].insertId;
+      await persistOrderCostSnapshot(db, insertId, persistedLines, {
+        carrier: shippingCarrier,
+        service: shippingService,
+      });
 
       // Submitted orders must appear in the owning CRM even when the optional
       // outbound webhook is disabled or unavailable. The order id check makes
@@ -1514,8 +1529,8 @@ export const ordersRouter = router({
         .select()
         .from(orderRequests)
         .orderBy(desc(orderRequests.createdAt));
-      if (input?.status) return rows.filter((r) => r.status === input.status);
-      return rows;
+      const filtered = input?.status ? rows.filter((r) => r.status === input.status) : rows;
+      return enrichAdminOrderRows(db, filtered);
     }),
 
   // ─── Admin: orders with resolved PO SKUs ─────────────────────────────────
@@ -1638,7 +1653,7 @@ export const ordersRouter = router({
 
       // Enrich each order's line items with a formatted poSku + color/finish, and
       // resolve the order's owning distributor (most common across lines).
-      return filtered.map((row) => {
+      const withPoSkus = filtered.map((row) => {
         const styleId = row.styleId;
         const distCount = new Map<number, number>();
         const enrichedLines = ((row.lineItems ?? []) as OrderLineItem[]).map((l) => {
@@ -1681,6 +1696,28 @@ export const ordersRouter = router({
           distributorId: orderDistId,
           distributorName: orderDistName,
         };
+      });
+      return enrichAdminOrderRows(db, withPoSkus);
+    }),
+
+  // Admin-only invoice breakdown. Costs, margin, and the Stripe fee stay off
+  // the customer order read. The list uses stored charge amounts; this detail
+  // may ask Stripe for amount_received and the balance-transaction fee/net
+  // when the order only has a payment id.
+  adminDetail: adminProcedure
+    .input(z.object({ id: z.number().int().positive() }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      return loadAdminOrderDetail(db, input.id, {
+        fetchStripe: async (ids) => {
+          const stripe = getStripe();
+          return readStripeChargeFacts({
+            retrievePaymentIntent: (id) => stripe.paymentIntents.retrieve(id, { expand: ["latest_charge.balance_transaction"] }),
+            retrieveCharge: (id) => stripe.charges.retrieve(id, { expand: ["balance_transaction"] }),
+            retrieveBalanceTransaction: (id) => stripe.balanceTransactions.retrieve(id),
+          }, ids);
+        },
       });
     }),
 

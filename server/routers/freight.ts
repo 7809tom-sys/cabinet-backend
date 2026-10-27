@@ -32,6 +32,7 @@ import {
   type FreightShipmentGroup,
   combineStyleFreightGroups,
   estimateFreight,
+  quotedCarrierIdentity,
   type FreightRateGroup,
 } from "@shared/freight";
 import {
@@ -248,6 +249,7 @@ function attachFreightQuoteToken(
   // A ZIP-only estimate remains available for compatibility and browsing, but
   // it cannot become a checkout authorization without a complete address.
   if (!input.deliveryAddress) return quote;
+  const identity = quotedCarrierIdentity(quote);
   return {
     ...quote,
     quoteToken: createFreightQuoteToken({
@@ -257,6 +259,8 @@ function attachFreightQuoteToken(
       residential: input.accessorials?.residential === true,
       liftgate: input.accessorials?.liftgate === true,
       quoteKind: "freight",
+      carrier: identity.carrier,
+      service: identity.service,
       items: input.items,
     }),
   };
