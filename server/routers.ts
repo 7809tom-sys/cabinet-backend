@@ -98,6 +98,7 @@ import { vendorInventoryRouter } from "./routers/vendorInventory";
 import { vendorSamplesRouter } from "./routers/vendorSamples";
 import { vendorReferralsRouter } from "./routers/vendorReferrals";
 import { crmCleanupRouter } from "./routers/crmCleanup";
+import { doorRenderingAuditRouter } from "./routers/doorRenderingAudit";
 
 export const appRouter = router({
   system: systemRouter,
@@ -231,6 +232,7 @@ export const appRouter = router({
   vendorSamples: vendorSamplesRouter,
   vendorReferrals: vendorReferralsRouter,
   crmCleanup: crmCleanupRouter,
+  doorRenderingAudit: doorRenderingAuditRouter,
 });
 
 export type AppRouter = typeof appRouter;
