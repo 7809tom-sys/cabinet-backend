@@ -19,7 +19,11 @@ CREATE TABLE IF NOT EXISTS `order_request_commerce_snapshots` (
   `shippingCarrier` varchar(120),
   `shippingService` varchar(160),
   `discountAmount` decimal(12,2),
+  `stripeFeeCents` int,
+  `stripeNetCents` int,
   `createdAt` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT `order_request_commerce_snapshots_id` PRIMARY KEY(`id`),
   CONSTRAINT `order_request_commerce_snapshots_order_uq` UNIQUE(`orderRequestId`)
-);
+);--> statement-breakpoint
+ALTER TABLE `order_request_commerce_snapshots` ADD COLUMN IF NOT EXISTS `stripeFeeCents` int;--> statement-breakpoint
+ALTER TABLE `order_request_commerce_snapshots` ADD COLUMN IF NOT EXISTS `stripeNetCents` int;

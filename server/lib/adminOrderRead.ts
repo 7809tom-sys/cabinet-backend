@@ -10,17 +10,22 @@ import {
   type OrderLineItem,
 } from "../../drizzle/schema";
 import { pelicanProducts } from "../../drizzle/pelicanSchema";
-import { readOrderCostSnapshots, pickCurrentDistributorCost, type CatalogCostRow } from "./orderCostSnapshot";
+import { readOrderCostSnapshots, pickCurrentDistributorCost, readStoredStripePayouts, saveStoredStripePayout, type CatalogCostRow } from "./orderCostSnapshot";
+import { readReceiptSentAt } from "./orderReceiptEmail";
+import { loadStripePayouts } from "./orderStripePayout";
 import {
+  annotateDistributorUnitCost,
   buildAdminOrderDetail,
   chooseStoredStripeCharge,
   dollarsToCents,
+  frontendAdminOrderFields,
   joinUniqueLabels,
   resolveLineDistributorCost,
+  snapshotUnitCostCents,
   summarizeAdminOrder,
-  type AdminOrderDetail,
   type AdminOrderListMoney,
   type OrderMoneyInput,
+  type OrderMoneyLine,
   type StoredStripeCharge,
   type StripeAmountSource,
 } from "./orderMoney";
@@ -77,7 +82,10 @@ async function loadShipmentCarriers(db: Database, orderIds: number[]): Promise<M
   return map;
 }
 
-async function listFacts(db: Database, orders: OrderMoneyInput[]): Promise<Map<number, ListFacts>> {
+async function listFacts(db: Database, orders: OrderMoneyInput[]): Promise<{
+  facts: Map<number, ListFacts>;
+  snapshots: Awaited<ReturnType<typeof readOrderCostSnapshots>>;
+}> {
   const [charges, shipments, snapshots] = await Promise.all([
     loadStoredCharges(db, orders),
     loadShipmentCarriers(db, orders.map((order) => order.id)),
@@ -98,17 +106,90 @@ async function listFacts(db: Database, orders: OrderMoneyInput[]): Promise<Map<n
       paymentIntentId: charge?.paymentIntentId ?? order.stripePaymentIntentId ?? null,
     });
   }
-  return facts;
+  return { facts, snapshots };
+}
+
+type ResolvedLineCost = { unitCostCents: number | null; source: "snapshot" | "current" | "unavailable"; label: string | null; sku: string | null };
+
+async function costsForOrders(
+  db: Database,
+  orders: OrderMoneyInput[],
+  snapshots: Awaited<ReturnType<typeof readOrderCostSnapshots>>,
+): Promise<Map<number, ResolvedLineCost[]>> {
+  const tableByKey = new Map(snapshots.lines.map((row) => [`${row.orderRequestId}:${row.lineIndex}`, row]));
+  const pending: OrderLineItem[] = [];
+  const plans = orders.map((order) => {
+    const lines = (order.lineItems ?? []) as OrderLineItem[];
+    return lines.map((line, index) => {
+      const table = tableByKey.get(`${order.id}:${index}`);
+      const needsCurrent = snapshotUnitCostCents(line) == null && dollarsToCents(table?.unitDistributorCost) == null;
+      if (needsCurrent) pending.push(line);
+      return { line, table };
+    });
+  });
+  const catalog = pending.length > 0 ? await currentCosts(db, pending) : { cabinets: [], vendors: new Map(), pelican: new Map() };
+  const resolved = new Map<number, ResolvedLineCost[]>();
+  orders.forEach((order, orderIndex) => {
+    resolved.set(order.id, plans[orderIndex].map(({ line, table }) => {
+      let currentUnitCostCents: number | null = null;
+      let currentSku: string | null = null;
+      if (line.productKind === "hardware" && line.vendorProductId != null) {
+        const product = catalog.vendors.get(line.vendorProductId);
+        currentUnitCostCents = product?.cents ?? null;
+        currentSku = product?.sku ?? null;
+      } else if (line.productKind === "surface" && line.pelicanProductId != null) {
+        const product = catalog.pelican.get(line.pelicanProductId);
+        currentUnitCostCents = product?.cents ?? null;
+        currentSku = product?.sku ?? null;
+      } else {
+        const picked = pickCurrentDistributorCost(line, catalog.cabinets);
+        currentUnitCostCents = picked?.cents ?? null;
+        currentSku = picked?.sku ?? null;
+      }
+      return resolveLineDistributorCost({
+        line,
+        tableUnitCostCents: dollarsToCents(table?.unitDistributorCost),
+        tableSku: text(table?.sku),
+        currentUnitCostCents,
+        currentSku,
+      });
+    }));
+  });
+  return resolved;
+}
+
+function withFrontendLineCosts<T extends OrderMoneyLine>(lines: T[] | null | undefined, costs: ResolvedLineCost[] | undefined): Array<T & { distributorUnitCost: number | null; distributorLineCost: number | null; costLabel: string | null }> {
+  return (lines ?? []).map((line, index) => annotateDistributorUnitCost(line, costs?.[index] ?? { unitCostCents: null, label: null }));
 }
 
 export async function enrichAdminOrderRows<T extends OrderMoneyInput>(db: Database, rows: T[]): Promise<Array<T & AdminOrderListMoney>> {
   if (rows.length === 0) return [];
-  const facts = await listFacts(db, rows);
+  const orderIds = rows.map((row) => row.id);
+  const [{ facts, snapshots }, receipts] = await Promise.all([
+    listFacts(db, rows),
+    readReceiptSentAt(db, orderIds),
+  ]);
+  const payouts = await loadStripePayouts(db, rows.map((row) => ({
+    id: row.id,
+    paymentIntentId: facts.get(row.id)?.paymentIntentId ?? row.stripePaymentIntentId,
+  })));
+  const costs = await costsForOrders(db, rows, snapshots);
   return rows.map((row) => {
     const extra = facts.get(row.id);
+    const payout = payouts.get(row.id);
+    const summary = summarizeAdminOrder(row, {
+      ...extra,
+      stripeAmountChargedCents: extra?.stripeAmountChargedCents ?? payout?.amountReceivedCents ?? null,
+    });
     return {
       ...row,
-      ...summarizeAdminOrder(row, extra),
+      ...summary,
+      ...frontendAdminOrderFields(summary, {
+        receiptSentAt: receipts.get(row.id) ?? null,
+        stripeFeeCents: payout?.feeCents ?? null,
+        stripeNetCents: payout?.netCents ?? null,
+      }),
+      lineItems: withFrontendLineCosts(row.lineItems, costs.get(row.id)),
     };
   });
 }
@@ -150,50 +231,24 @@ export async function loadAdminOrderDetail(
   db: Database,
   orderId: number,
   options?: { fetchStripe?: (ids: { paymentIntentId?: string | null; chargeId?: string | null }) => Promise<Awaited<ReturnType<typeof readStripeChargeFacts>> | null> },
-): Promise<AdminOrderDetail> {
+) {
   const [order] = await db.select().from(orderRequests).where(eq(orderRequests.id, orderId)).limit(1);
   if (!order) throw new TRPCError({ code: "NOT_FOUND", message: "Order not found" });
   const lines = (order.lineItems ?? []) as OrderLineItem[];
   const moneyOrder: OrderMoneyInput = { ...order, lineItems: lines };
-  const facts = await listFacts(db, [moneyOrder]);
+  const [{ facts, snapshots }, receipts, storedPayouts] = await Promise.all([
+    listFacts(db, [moneyOrder]),
+    readReceiptSentAt(db, [order.id]),
+    readStoredStripePayouts(db, [order.id]),
+  ]);
   const extra = facts.get(order.id);
-  const snapshots = await readOrderCostSnapshots(db, [order.id]);
-  const tableByIndex = new Map(snapshots.lines.filter((row) => row.orderRequestId === order.id).map((row) => [row.lineIndex, row]));
-  const needsCurrent = lines.some((line, index) => {
-    const table = tableByIndex.get(index);
-    return line.unitDistributorCost == null && line.hardwareUnitCostCents == null && dollarsToCents(table?.unitDistributorCost) == null;
-  });
-  const catalog = needsCurrent ? await currentCosts(db, lines) : { cabinets: [], vendors: new Map(), pelican: new Map() };
-  const lineCosts = lines.map((line, index) => {
-    const table = tableByIndex.get(index);
-    let currentUnitCostCents: number | null = null;
-    let currentSku: string | null = null;
-    if (line.productKind === "hardware" && line.vendorProductId != null) {
-      const product = catalog.vendors.get(line.vendorProductId);
-      currentUnitCostCents = product?.cents ?? null;
-      currentSku = product?.sku ?? null;
-    } else if (line.productKind === "surface" && line.pelicanProductId != null) {
-      const product = catalog.pelican.get(line.pelicanProductId);
-      currentUnitCostCents = product?.cents ?? null;
-      currentSku = product?.sku ?? null;
-    } else {
-      const picked = pickCurrentDistributorCost(line, catalog.cabinets);
-      currentUnitCostCents = picked?.cents ?? null;
-      currentSku = picked?.sku ?? null;
-    }
-    return resolveLineDistributorCost({
-      line,
-      tableUnitCostCents: dollarsToCents(table?.unitDistributorCost),
-      tableSku: text(table?.sku),
-      currentUnitCostCents,
-      currentSku,
-    });
-  });
+  const lineCosts = (await costsForOrders(db, [moneyOrder], snapshots)).get(order.id) ?? [];
+  const storedPayout = storedPayouts.get(order.id);
 
   let amountSource: StripeAmountSource = extra?.stripeAmountChargedCents != null ? "stored_charge" : "unavailable";
   let stripeAmount = extra?.stripeAmountChargedCents ?? null;
-  let feeCents: number | null = null;
-  let netCents: number | null = null;
+  let feeCents: number | null = storedPayout?.feeCents ?? null;
+  let netCents: number | null = storedPayout?.netCents ?? null;
   let chargeId = extra?.chargeId ?? null;
   let paymentIntentId = extra?.paymentIntentId ?? order.stripePaymentIntentId ?? null;
   const shouldFetch = options?.fetchStripe != null && (stripeAmount == null || paymentIntentId != null || chargeId != null);
@@ -205,8 +260,8 @@ export async function loadAdminOrderDetail(
           stripeAmount = live.amountReceivedCents;
           amountSource = "stripe_payment_intent";
         }
-        feeCents = live.feeCents;
-        netCents = live.netCents;
+        if (live.feeCents != null) feeCents = live.feeCents;
+        if (live.netCents != null) netCents = live.netCents;
         chargeId = chargeId ?? live.chargeId;
         paymentIntentId = paymentIntentId ?? live.paymentIntentId;
       }
@@ -214,8 +269,11 @@ export async function loadAdminOrderDetail(
       console.error(`[Admin Order] Stripe reconciliation lookup failed for order ${orderId}:`, error instanceof Error ? error.message : "unknown error");
     }
   }
+  if (feeCents != null || netCents != null) {
+    await saveStoredStripePayout(db, orderId, feeCents, netCents);
+  }
 
-  return buildAdminOrderDetail({
+  const detail = buildAdminOrderDetail({
     order: moneyOrder,
     carrier: extra?.carrier,
     shippingMethod: extra?.shippingMethod,
@@ -228,4 +286,14 @@ export async function loadAdminOrderDetail(
     amountSource,
     lineCosts,
   });
+  return {
+    ...moneyOrder,
+    ...detail,
+    ...frontendAdminOrderFields(detail, {
+      receiptSentAt: receipts.get(order.id) ?? null,
+      stripeFeeCents: detail.stripe.feeCents,
+      stripeNetCents: detail.stripe.netPayoutCents,
+    }),
+    lineItems: withFrontendLineCosts(lines, lineCosts),
+  };
 }

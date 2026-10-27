@@ -87,8 +87,12 @@ export type AdminOrderListMoney = {
   shippingMethod: string | null;
   taxAmountCents: number;
   discounts: OrderDiscount[];
-  /** Order-level discounts subtracted from the invoice. Line promos are excluded. */
-  discountCents: number;
+  /**
+   * Order-level discounts subtracted from the invoice, in cents.
+   * Null when there is no order-level discount. Line promos stay in `discounts`
+   * and are already inside the customer unit price.
+   */
+  discountCents: number | null;
   /**
    * Full invoice total: subtotal + shipping + tax − order-level discounts.
    * Null when shipping was never stored, so the cabinet subtotal is not
@@ -150,6 +154,21 @@ export function formatUsdFromCents(cents: number): string {
   const dollars = Math.floor(absolute / 100);
   const fraction = String(absolute % 100).padStart(2, "0");
   return `${sign}$${dollars.toLocaleString("en-US")}.${fraction}`;
+}
+
+/** Decimal dollars, no currency symbol. "520.00" is what the admin UI multiplies by 100. */
+export function centsToDollarString(cents: number | null | undefined): string | null {
+  if (cents == null || !Number.isFinite(cents)) return null;
+  const negative = cents < 0;
+  const absolute = Math.abs(Math.round(cents));
+  const dollars = Math.floor(absolute / 100);
+  const fraction = String(absolute % 100).padStart(2, "0");
+  return `${negative ? "-" : ""}${dollars}.${fraction}`;
+}
+
+export function centsToDollarNumber(cents: number | null | undefined): number | null {
+  const text = centsToDollarString(cents);
+  return text == null ? null : Number(text);
 }
 
 function text(value: string | null | undefined): string | null {
@@ -313,10 +332,10 @@ export function summarizeAdminOrder(order: OrderMoneyInput, extras?: {
   const discounts = orderLevelDiscountCents > 0
     ? [...promoDiscounts, { lineIndex: null, name: "Order discount", amountCents: orderLevelDiscountCents, includedInSubtotal: false }]
     : promoDiscounts;
-  const discountCents = orderLevelDiscountCents;
+  const discountCents = orderLevelDiscountCents > 0 ? orderLevelDiscountCents : null;
   const totalCents = shippingAmountCents == null
     ? null
-    : subtotalCents + shippingAmountCents + taxAmountCents - discountCents;
+    : subtotalCents + shippingAmountCents + taxAmountCents - orderLevelDiscountCents;
   const stripeAmountChargedCents = extras?.stripeAmountChargedCents ?? null;
   const reconciliation = reconcileOrderTotal(totalCents, stripeAmountChargedCents);
   const carrier = text(extras?.carrier);
@@ -419,5 +438,73 @@ export function buildAdminOrderDetail(input: {
       reconciled: summary.reconciled,
       differenceCents: summary.differenceCents,
     },
+  };
+}
+
+/**
+ * Dollar names read by cabinet-frontend PR #41 (`adminOrderReconciliation.ts`).
+ * Amounts are decimal dollars ("47.00"), the same unit as `totalAmount` and
+ * `taxAmount`. Cent fields on the summary stay beside these.
+ */
+export type FrontendAdminOrderFields = {
+  customerName: string | null;
+  shippingAddress: string | null;
+  shippingCity: string | null;
+  shippingState: string | null;
+  shippingZip: string | null;
+  shippingAmount: string | null;
+  carrier: string | null;
+  invoiceTotal: string | null;
+  discountAmount: string | null;
+  discountCents: number | null;
+  stripeChargeAmount: string | null;
+  stripeFeeAmount: string | null;
+  stripeNetAmount: string | null;
+  receiptSentAt: Date | string | null;
+};
+
+export function frontendAdminOrderFields(
+  summary: AdminOrderListMoney,
+  extras?: {
+    receiptSentAt?: Date | string | null;
+    stripeFeeCents?: number | null;
+    stripeNetCents?: number | null;
+  },
+): FrontendAdminOrderFields {
+  const feeCents = extras?.stripeFeeCents ?? null;
+  const netCents = extras?.stripeNetCents ?? (
+    summary.stripeAmountChargedCents != null && feeCents != null
+      ? summary.stripeAmountChargedCents - feeCents
+      : null
+  );
+  return {
+    customerName: summary.customerName,
+    shippingAddress: summary.shippingLocation.street,
+    shippingCity: summary.shippingLocation.city,
+    shippingState: summary.shippingLocation.state,
+    shippingZip: summary.shippingLocation.zip,
+    shippingAmount: centsToDollarString(summary.shippingAmountCents),
+    carrier: summary.carrier,
+    invoiceTotal: centsToDollarString(summary.totalCents),
+    discountAmount: centsToDollarString(summary.discountCents),
+    discountCents: summary.discountCents,
+    stripeChargeAmount: centsToDollarString(summary.stripeAmountChargedCents),
+    stripeFeeAmount: centsToDollarString(feeCents),
+    stripeNetAmount: centsToDollarString(netCents),
+    receiptSentAt: extras?.receiptSentAt ?? null,
+  };
+}
+
+export function annotateDistributorUnitCost<T extends OrderMoneyLine>(
+  line: T,
+  resolved: { unitCostCents: number | null; label: string | null },
+): T & { distributorUnitCost: number | null; distributorLineCost: number | null; costLabel: string | null } {
+  const qty = line.qty != null && Number.isFinite(line.qty) ? Math.round(line.qty) : null;
+  const lineCents = resolved.unitCostCents != null && qty != null ? resolved.unitCostCents * qty : null;
+  return {
+    ...line,
+    distributorUnitCost: centsToDollarNumber(resolved.unitCostCents),
+    distributorLineCost: centsToDollarNumber(lineCents),
+    costLabel: resolved.label,
   };
 }

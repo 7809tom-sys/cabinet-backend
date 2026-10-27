@@ -142,6 +142,8 @@ describe("paid order receipt wiring", () => {
     expect(sql).toContain("ADD COLUMN IF NOT EXISTS receiptSentAt");
     expect(sql).toContain("CREATE TABLE IF NOT EXISTS cabinet_dealz.order_request_line_costs");
     expect(sql).toContain("CREATE TABLE IF NOT EXISTS cabinet_dealz.order_request_commerce_snapshots");
+    expect(sql).toContain("ADD COLUMN IF NOT EXISTS stripeFeeCents INT NULL");
+    expect(sql).toContain("ADD COLUMN IF NOT EXISTS stripeNetCents INT NULL");
     expect(sql).not.toContain("--> statement-breakpoint");
   });
 

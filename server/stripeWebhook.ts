@@ -11,6 +11,7 @@ import { fulfillOrder, getStripe } from "./stripe";
 import { getDb } from "./db";
 import { createHardwareCommissionSnapshot } from "./lib/hardwareCommissionSnapshot";
 import { markOrderPaidById, sendPaidOrderReceipt } from "./lib/orderReceiptEmail";
+import { rememberOrderStripePayout } from "./lib/orderStripePayout";
 import { createDbPaymentLinkContext, createDrizzleStripePaymentStore } from "./stripePaymentStore";
 import {
   configuredWebhookSecrets,
@@ -90,7 +91,10 @@ export function registerStripeWebhook(app: Express): void {
               console.log(
                 `[Stripe Webhook] Checkout ${session.id} confirmed (payment_intent=${paymentIntentId ?? "n/a"})`,
               );
-              if (orderId) await sendPaidOrderReceipt(orderId);
+              if (orderId) {
+                await rememberOrderStripePayout(orderId, paymentIntentId);
+                await sendPaidOrderReceipt(orderId);
+              }
               else console.error(`[Order Receipt] Paid checkout ${session.id} did not match an order, so no receipt was sent.`);
             } else {
               console.warn(`[Stripe Webhook] Checkout ${session.id} completed without a paid status.`);
@@ -108,6 +112,7 @@ export function registerStripeWebhook(app: Express): void {
             if (orderId) {
               await markOrderPaidById(orderId, pi.id);
               await createHardwareCommissionSnapshot(orderId);
+              await rememberOrderStripePayout(orderId, pi.id);
               await sendPaidOrderReceipt(orderId);
             }
             break;

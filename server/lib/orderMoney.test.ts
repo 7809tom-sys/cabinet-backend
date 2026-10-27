@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   CURRENT_COST_LABEL,
+  annotateDistributorUnitCost,
   buildAdminOrderDetail,
   chooseStoredStripeCharge,
+  frontendAdminOrderFields,
   reconcileOrderTotal,
   resolveLineDistributorCost,
   storedShippingCents,
@@ -176,5 +178,66 @@ describe("admin order invoice total", () => {
     ]);
     expect(chosen?.amountCents).toBe(52000);
     expect(chosen?.chargeId).toBe("ch_520");
+  });
+});
+
+describe("frontend admin order fields", () => {
+  it("gives PR #41 the dollar names that render $520.00 and reconciled", () => {
+    const order = cabinetOrder();
+    const summary = summarizeAdminOrder(order, {
+      carrier: "UPS",
+      shippingMethod: "Ground",
+      stripeAmountChargedCents: 52000,
+    });
+    const fields = frontendAdminOrderFields(summary, {
+      stripeFeeCents: 1560,
+      stripeNetCents: 50440,
+      receiptSentAt: "2026-10-27T15:00:00.000Z",
+    });
+    const line = annotateDistributorUnitCost(order.lineItems![0], { unitCostCents: 20000, label: null });
+    const response = { ...order, ...summary, ...fields, lineItems: [line] };
+
+    expect(response.totalAmount).toBe("449.00");
+    expect(response.taxAmount).toBe("24.00");
+    expect(response.customerName).toBe("Ada Lovelace");
+    expect(response.shippingAddress).toBe("1 Analytic Engine");
+    expect(response.shippingCity).toBe("London");
+    expect(response.shippingState).toBe("KY");
+    expect(response.shippingZip).toBe("40741");
+    expect(response.shippingAmount).toBe("47.00");
+    expect(response.carrier).toBe("UPS");
+    expect(response.invoiceTotal).toBe("520.00");
+    expect(response.discountAmount).toBeNull();
+    expect(response.discountCents).toBeNull();
+    expect(response.stripeChargeAmount).toBe("520.00");
+    expect(response.stripeFeeAmount).toBe("15.60");
+    expect(response.stripeNetAmount).toBe("504.40");
+    expect(response.receiptSentAt).toBe("2026-10-27T15:00:00.000Z");
+    expect(response.lineItems[0]).toMatchObject({
+      masterCode: "3DB18",
+      description: "3 drawer base",
+      qty: 1,
+      unitPrice: 449,
+      linePrice: 449,
+      distributorUnitCost: 200,
+      distributorLineCost: 200,
+    });
+    expect(response.totalCents).toBe(52000);
+    expect(response.shippingAmountCents).toBe(4700);
+    expect(Math.round(Number(response.invoiceTotal) * 100)).toBe(Math.round(Number(response.stripeChargeAmount) * 100));
+    expect(Math.round(Number(response.invoiceTotal) * 100)).toBe(52000);
+    expect(Math.round(Number(response.stripeFeeAmount) * 100) + Math.round(Number(response.stripeNetAmount) * 100)).toBe(52000);
+  });
+
+  it("leaves shipping and the invoice total null when freight was not stored", () => {
+    const summary = summarizeAdminOrder(cabinetOrder({ freightQuoteCents: 0, freightQuoteVerified: false }), {
+      stripeAmountChargedCents: 52000,
+    });
+    const fields = frontendAdminOrderFields(summary);
+    expect(fields.shippingAmount).toBeNull();
+    expect(fields.invoiceTotal).toBeNull();
+    expect(fields.stripeChargeAmount).toBe("520.00");
+    expect(summary.totalCents).toBeNull();
+    expect(summary.reconciled).toBe(false);
   });
 });

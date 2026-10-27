@@ -27,7 +27,15 @@ CREATE TABLE IF NOT EXISTS cabinet_dealz.order_request_commerce_snapshots (
   shippingCarrier VARCHAR(120) NULL,
   shippingService VARCHAR(160) NULL,
   discountAmount DECIMAL(12, 2) NULL,
+  stripeFeeCents INT NULL,
+  stripeNetCents INT NULL,
   createdAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   UNIQUE KEY order_request_commerce_snapshots_order_uq (orderRequestId)
 );
+
+-- 4
+ALTER TABLE cabinet_dealz.order_request_commerce_snapshots ADD COLUMN IF NOT EXISTS stripeFeeCents INT NULL;
+
+-- 5
+ALTER TABLE cabinet_dealz.order_request_commerce_snapshots ADD COLUMN IF NOT EXISTS stripeNetCents INT NULL;

@@ -86,7 +86,7 @@ export function composeOrderReceipt(order: ReceiptOrder, notifyEmail: string, sh
     `Subtotal: ${formatUsdFromCents(summary.subtotalCents)}`,
     summary.shippingAmountCents == null ? "Shipping: not stored on this order" : `Shipping${[summary.carrier, summary.shippingMethod].filter(Boolean).join(" ") ? ` (${[summary.carrier, summary.shippingMethod].filter(Boolean).join(" / ")})` : ""}: ${formatUsdFromCents(summary.shippingAmountCents)}`,
     `Sales tax: ${formatUsdFromCents(summary.taxAmountCents)}`,
-    summary.discountCents > 0 ? `Discounts: -${formatUsdFromCents(summary.discountCents)}` : null,
+    summary.discountCents != null && summary.discountCents > 0 ? `Discounts: -${formatUsdFromCents(summary.discountCents)}` : null,
     summary.totalCents == null ? "Total: could not be confirmed because shipping was not stored" : `Total: ${formatUsdFromCents(summary.totalCents)}`,
     "",
     "Cabinet Dealz",
@@ -156,6 +156,47 @@ export async function claimOrderReceipt(db: Pick<Database, "execute">, orderId: 
 
 export async function releaseOrderReceipt(db: Pick<Database, "execute">, orderId: number): Promise<void> {
   await db.execute(sql`UPDATE order_requests SET receiptSentAt = NULL WHERE id = ${orderId}`);
+}
+
+function rowsFromExecute(result: unknown): Array<Record<string, unknown>> {
+  if (Array.isArray(result)) {
+    const first = result[0];
+    if (Array.isArray(first)) return first as Array<Record<string, unknown>>;
+    if (first && typeof first === "object") return result as Array<Record<string, unknown>>;
+  }
+  if (result && typeof result === "object" && Array.isArray((result as { rows?: unknown }).rows)) {
+    return (result as { rows: Array<Record<string, unknown>> }).rows;
+  }
+  return [];
+}
+
+function receiptStamp(value: unknown): Date | string | null {
+  if (value == null) return null;
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
+  if (typeof value === "string" && value.trim()) return value;
+  return null;
+}
+
+/** Null when the column is missing or the receipt has not been claimed. */
+export async function readReceiptSentAt(db: Pick<Database, "execute">, orderIds: number[]): Promise<Map<number, Date | string | null>> {
+  const map = new Map<number, Date | string | null>();
+  if (orderIds.length === 0) return map;
+  try {
+    const result = await db.execute(sql`
+      SELECT id, receiptSentAt FROM order_requests
+      WHERE id IN (${sql.join(orderIds.map((id) => sql`${id}`), sql`, `)})
+    `);
+    for (const row of rowsFromExecute(result)) {
+      const id = Number(row.id);
+      if (!Number.isFinite(id)) continue;
+      map.set(id, receiptStamp(row.receiptSentAt));
+    }
+  } catch (error) {
+    const missing = error instanceof Error ? error.message : String(error);
+    if (/unknown column|ER_BAD_FIELD_ERROR|doesn't exist|does not exist/i.test(missing)) return map;
+    throw error;
+  }
+  return map;
 }
 
 export async function deliverOrderReceipt(input: {

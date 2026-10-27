@@ -1,4 +1,4 @@
-import { and, inArray } from "drizzle-orm";
+import { and, inArray, sql } from "drizzle-orm";
 import { getDb } from "../db";
 import {
   distributorSkus,
@@ -172,6 +172,73 @@ export async function readOrderCostSnapshots(db: Database, orderIds: number[]): 
   } catch (error) {
     if (isMissingSchemaError(error)) return { lines: [], commerce: [] };
     throw error;
+  }
+}
+
+function rowsFromExecute(result: unknown): Array<Record<string, unknown>> {
+  if (Array.isArray(result)) {
+    const first = result[0];
+    if (Array.isArray(first)) return first as Array<Record<string, unknown>>;
+    if (first && typeof first === "object") return result as Array<Record<string, unknown>>;
+  }
+  if (result && typeof result === "object" && Array.isArray((result as { rows?: unknown }).rows)) {
+    return (result as { rows: Array<Record<string, unknown>> }).rows;
+  }
+  return [];
+}
+
+function integerOrNull(value: unknown): number | null {
+  if (value == null || value === "") return null;
+  const amount = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(amount) ? Math.round(amount) : null;
+}
+
+export type StoredStripePayout = { feeCents: number | null; netCents: number | null; amountReceivedCents: number | null };
+
+export async function readStoredStripePayouts(db: Pick<Database, "execute">, orderIds: number[]): Promise<Map<number, StoredStripePayout>> {
+  const map = new Map<number, StoredStripePayout>();
+  if (orderIds.length === 0) return map;
+  try {
+    const result = await db.execute(sql`
+      SELECT orderRequestId, stripeFeeCents, stripeNetCents
+      FROM order_request_commerce_snapshots
+      WHERE orderRequestId IN (${sql.join(orderIds.map((id) => sql`${id}`), sql`, `)})
+    `);
+    for (const row of rowsFromExecute(result)) {
+      const orderId = integerOrNull(row.orderRequestId);
+      const feeCents = integerOrNull(row.stripeFeeCents);
+      const netCents = integerOrNull(row.stripeNetCents);
+      if (orderId == null || (feeCents == null && netCents == null)) continue;
+      map.set(orderId, { feeCents, netCents, amountReceivedCents: null });
+    }
+  } catch (error) {
+    if (isMissingSchemaError(error)) return map;
+    throw error;
+  }
+  return map;
+}
+
+export async function saveStoredStripePayout(
+  db: Pick<Database, "execute">,
+  orderId: number,
+  feeCents: number | null,
+  netCents: number | null,
+): Promise<void> {
+  if (feeCents == null && netCents == null) return;
+  try {
+    await db.execute(sql`
+      INSERT INTO order_request_commerce_snapshots (orderRequestId, stripeFeeCents, stripeNetCents)
+      VALUES (${orderId}, ${feeCents}, ${netCents})
+      ON DUPLICATE KEY UPDATE
+        stripeFeeCents = ${feeCents},
+        stripeNetCents = ${netCents}
+    `);
+  } catch (error) {
+    if (isMissingSchemaError(error)) {
+      console.warn("[Admin Order] Stripe fee columns are not installed yet. Run the order reconciliation SQL to keep the fee on the admin list.");
+      return;
+    }
+    console.error("[Admin Order] Failed to store the Stripe fee:", error instanceof Error ? error.message : "unknown error");
   }
 }
 
