@@ -37,6 +37,7 @@ import {
   isForecastRateBps,
   type ForecastRateBand,
 } from "@shared/inventoryForecast";
+import { catalogCategoryKey } from "@shared/catalogCategory";
 import {
 	  normalizeDistributorZipRates,
   shippingRuleCanQuote,
@@ -1757,7 +1758,20 @@ export const distributorPortalRouter = router({
         .leftJoin(doorStyles, eq(distributorSkus.styleId, doorStyles.id))
         .where(and(...conds));
 
-      return { items: rows, total: Number(tot?.n ?? 0) };
+      // The whole line, not the current page or the active search/category filter,
+      // so My Catalog can offer every category while a page is showing one of them.
+      const categoryRows = await db
+        .selectDistinct({ category: cabinets.category })
+        .from(distributorSkus)
+        .leftJoin(cabinets, eq(distributorSkus.cabinetId, cabinets.id))
+        .where(eq(distributorSkus.distributorId, lineId));
+      const categories = Array.from(new Set(
+        categoryRows
+          .map((row) => catalogCategoryKey(row.category))
+          .filter((category): category is string => category != null),
+      )).sort((left, right) => left.localeCompare(right));
+
+      return { items: rows, total: Number(tot?.n ?? 0), categories };
     }),
 
   /** Toggle a single SKU's published (visible) state. Scoped to this line. */
