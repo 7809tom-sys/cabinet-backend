@@ -6,20 +6,17 @@ import { getDb } from "../db";
 import { affiliates, affiliateInvoices } from "../../drizzle/schema";
 import { computeMembershipPeriodEnd } from "@shared/salesPrograms";
 import { linkStripeRecordsToAffiliateInvoice } from "../stripePaymentStore";
+import { resolveAffiliateAccess } from "../lib/affiliateAccess";
 
 const ANNUAL_FEE_CENTS = 119500; // $1,195.00
 
 async function resolveMyAffiliate(ctx: { user: { id: number; email: string | null } }) {
   const db = await getDb();
   if (!db) return null;
-  const email = (ctx.user.email ?? "").toLowerCase();
-  const rows = await db.select().from(affiliates);
-  const linked = rows.find((r) => r.userId === ctx.user.id);
-  const emailMatches = email.length > 0
-    ? rows.filter((r) => (r.email ?? "").toLowerCase() === email)
-    : [];
-  const mine = linked ?? (emailMatches.length === 1 ? emailMatches[0] : undefined);
-  return mine ?? null;
+  const access = await resolveAffiliateAccess(db, ctx.user);
+  if (!access?.isOwner) return null;
+  const [row] = await db.select().from(affiliates).where(eq(affiliates.id, access.affiliateId)).limit(1);
+  return row ?? null;
 }
 
 // Human-friendly invoice number: AFF-<year>-<zero-padded id>.
