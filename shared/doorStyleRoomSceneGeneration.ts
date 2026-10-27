@@ -12,6 +12,13 @@ export const AUTO_ROOM_SCENE_SOURCE_NOTE = "Auto-generated draft from verified d
 export const AUTO_ROOM_SCENE_NAME = "Room";
 export const ROOM_SCENE_GENERATION_NOT_CONFIGURED = "GEMINI_API_KEY is not configured";
 
+/**
+ * Fixed cabinetry constraint for every auto room-scene prompt. Callers cannot
+ * pass a replacement. `buildDoorStyleRoomScenePrompt` always appends this
+ * exact text after any style-specific sentences.
+ */
+export const DOOR_STYLE_ROOM_SCENE_CABINETRY_RULE = "Staging may be added (plants, decor, accessories, styling), but never add extra cabinets or alter the cabinet design, door style, door or drawer fronts, finish/color, hardware, sizes or layout. The cabinetry must faithfully match the verified door and drawer photos provided.";
+
 export type RoomSceneGenerationStatus = "pending" | "generating" | "ready" | "failed";
 
 export type SampleImageState = {
@@ -107,5 +114,6 @@ export function buildDoorStyleRoomScenePrompt(style: {
     ...details,
     "Show an L-shaped kitchen with base cabinets, drawers, and wall cabinets, bright natural daylight, eye-level three-quarter view.",
     "No people, no text, no watermark, no logo, and do not paste the reference photos into the frame.",
+    DOOR_STYLE_ROOM_SCENE_CABINETRY_RULE,
   ].join(" ");
 }
