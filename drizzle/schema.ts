@@ -1462,6 +1462,32 @@ export const vendorApplications = mysqlTable("vendor_applications", {
 export type VendorApplication = typeof vendorApplications.$inferSelect;
 export type InsertVendorApplication = typeof vendorApplications.$inferInsert;
 
+// Affiliate-submitted leads for vendors the platform does not carry yet.
+// Reviewed by an admin from Vendor Referrals, next to Approve Vendors.
+export const vendorReferrals = mysqlTable(
+  "vendor_referrals",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    affiliateId: int("affiliateId").notNull(),
+    submittedByUserId: int("submittedByUserId").notNull(),
+    vendorName: varchar("vendorName", { length: 200 }).notNull(),
+    contactName: varchar("contactName", { length: 200 }),
+    email: varchar("email", { length: 320 }),
+    phone: varchar("phone", { length: 32 }),
+    notes: text("notes"),
+    status: mysqlEnum("status", ["new", "contacted", "onboarded", "declined"]).default("new").notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  (table) => ({
+    statusCreatedIndex: index("vendor_referrals_status_created_idx").on(table.status, table.createdAt),
+    affiliateIndex: index("vendor_referrals_affiliate_idx").on(table.affiliateId),
+  }),
+);
+
+export type VendorReferral = typeof vendorReferrals.$inferSelect;
+export type InsertVendorReferral = typeof vendorReferrals.$inferInsert;
+
 // ─── Trade Order Requests ──────────────────────────────────────────────────────
 // Trade-only order requests (NOT a consumer checkout). Built from OCR photo
 // extraction, CSV bulk import, the design tool export, or manual entry. The

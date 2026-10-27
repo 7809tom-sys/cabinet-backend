@@ -1532,7 +1532,14 @@
       "idx": 219,
       "version": "5",
       "when": 1794100000000,
-      "tag": "0220_door_style_auto_room_scene",
+      "tag": "0220_vendor_referrals",
+      "breakpoints": true
+    },
+    {
+      "idx": 221,
+      "version": "5",
+      "when": 1794300000000,
+      "tag": "0222_door_style_auto_room_scene",
       "breakpoints": true
     }
   ]

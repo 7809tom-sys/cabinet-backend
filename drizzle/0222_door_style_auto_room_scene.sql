@@ -1,7 +1,10 @@
--- Migration 0220. Journal idx 219, when 1794100000000, immediately after
--- 0219_w9_tax_id_at_rest. Drawer-front verification plus one auto room-scene
--- job per door style. TiDB SQL editor statements are in
--- docs/sql/0220_door_style_auto_room_scene.tidb.sql.
+-- Migration 0222. Journal idx 221, when 1794300000000.
+-- Follows 0221_vendor_onboarding_exceptions (open PR #23, snapshot
+-- bc462012-e6f2-46ea-addb-cbfde6ed0879). Main already has
+-- 0220_vendor_referrals at idx 219. Idx 220 is left for 0221.
+-- Drawer-front verification plus one auto room-scene job per door style.
+-- TiDB SQL editor statements are in
+-- docs/sql/0222_door_style_auto_room_scene.tidb.sql.
 ALTER TABLE `door_styles` ADD `drawerSampleVerified` boolean NOT NULL DEFAULT false;
 --> statement-breakpoint
 CREATE TABLE `door_style_room_scene_generations` (
