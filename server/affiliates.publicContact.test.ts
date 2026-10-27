@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 
 const schema = readFileSync(new URL("../drizzle/schema.ts", import.meta.url), "utf8");
 const router = readFileSync(new URL("./routers/affiliates.ts", import.meta.url), "utf8");
+const privacy = readFileSync(new URL("./lib/affiliatePrivacy.ts", import.meta.url), "utf8");
 const storefront = readFileSync(new URL("../client/src/pages/Storefront.tsx", import.meta.url), "utf8");
 
 describe("affiliate public contact setup", () => {
@@ -16,12 +17,14 @@ describe("affiliate public contact setup", () => {
   });
 
   it("publishes contact details only when the affiliate opts in", () => {
-    expect(router).toContain("publicContactForStorefront");
-    expect(router).toContain("email: null");
-    expect(router).toContain("phone: null");
+    expect(privacy).toContain("publicContactForStorefront");
+    expect(privacy).toContain("email: null");
+    expect(privacy).toContain("phone: null");
     expect(storefront).toContain("const storefrontEmail = data.showPublicEmail ? data.publicEmail : null");
     expect(storefront).toContain("const storefrontPhone = data.showPublicPhone ? data.publicPhone : null");
     expect(storefront).not.toContain("data.publicEmail || data.email");
     expect(storefront).not.toContain("data.publicPhone || data.phone");
+    expect(storefront).not.toContain("data.email");
+    expect(storefront).not.toContain("data.phone");
   });
 });

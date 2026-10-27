@@ -7,7 +7,7 @@ vi.hoisted(() => {
 });
 import express from "express";
 import type { Server } from "http";
-import { imageMimeFromBytes, registerStorageProxy } from "./_core/storageProxy";
+import { imageMimeFromBytes, registerStorageProxy, setStorageProxyAuthenticator } from "./_core/storageProxy";
 
 function startProxy(): Promise<{ server: Server; baseUrl: string }> {
   const app = express();
@@ -176,6 +176,7 @@ describe("storage proxy Supabase routing", () => {
   const realFetch = global.fetch;
   afterEach(() => {
     global.fetch = realFetch;
+    setStorageProxyAuthenticator(null);
     vi.restoreAllMocks();
   });
 
@@ -195,7 +196,7 @@ describe("storage proxy Supabase routing", () => {
     }
   });
 
-  it("reads public media from site-media and uploaded documents from private-files with the service key", async () => {
+  it("reads public media anonymously and refuses private keys without an owner", async () => {
     const seen: { url: string; auth: string | null }[] = [];
     global.fetch = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
       seen.push({ url: String(input), auth: new Headers(init?.headers).get("authorization") });
@@ -204,13 +205,42 @@ describe("storage proxy Supabase routing", () => {
     const { server, baseUrl } = await startProxy();
     try {
       expect((await realFetch(`${baseUrl}/manus-storage/media-library/logo.jpg`)).status).toBe(200);
-      expect((await realFetch(`${baseUrl}/manus-storage/ocr-uploads/u7-quote.jpg`)).status).toBe(200);
+      expect((await realFetch(`${baseUrl}/manus-storage/ocr-uploads/u7-quote.jpg`)).status).toBe(403);
+      expect((await realFetch(`${baseUrl}/manus-storage/affiliate-w9-id/license.jpg`)).status).toBe(403);
     } finally {
       server.close();
     }
+    expect(seen).toHaveLength(1);
     expect(seen[0].url).toContain("/storage/v1/object/authenticated/site-media/media-library/logo.jpg");
-    expect(seen[1].url).toContain("/storage/v1/object/authenticated/private-files/ocr-uploads/u7-quote.jpg");
-    expect(seen.every((s) => s.auth === "Bearer test-service-key" || s.auth?.startsWith("Bearer "))).toBe(true);
+    expect(seen[0].auth === "Bearer test-service-key" || seen[0].auth?.startsWith("Bearer ")).toBe(true);
+  });
+
+  it("serves a private upload to its owner and a government ID to an admin", async () => {
+    const seen: string[] = [];
+    global.fetch = vi.fn(async (input: string | URL | Request) => {
+      seen.push(String(input));
+      return new Response(jpeg as unknown as BodyInit, { headers: { "content-type": "image/jpeg" } });
+    }) as unknown as typeof fetch;
+    setStorageProxyAuthenticator(async (req) => {
+      const role = req.headers["x-test-role"];
+      if (role === "admin") return { id: 1, role: "admin", email: "admin@example.com", distributorId: null };
+      if (role === "owner") return { id: 7, role: "user", email: "owner@example.com", distributorId: null };
+      return { id: 8, role: "user", email: "other@example.com", distributorId: null };
+    });
+    const { server, baseUrl } = await startProxy();
+    try {
+      const owner = await realFetch(`${baseUrl}/manus-storage/ocr-uploads/u7-quote.jpg`, { headers: { "x-test-role": "owner" } });
+      const stranger = await realFetch(`${baseUrl}/manus-storage/ocr-uploads/u7-quote.jpg`, { headers: { "x-test-role": "stranger" } });
+      const admin = await realFetch(`${baseUrl}/manus-storage/affiliate-w9-id/license.jpg`, { headers: { "x-test-role": "admin" } });
+      expect(owner.status).toBe(200);
+      expect(stranger.status).toBe(403);
+      expect(admin.status).toBe(200);
+      expect(owner.headers.get("cache-control")).toContain("no-store");
+    } finally {
+      server.close();
+    }
+    expect(seen.some((url) => url.includes("/private-files/ocr-uploads/u7-quote.jpg"))).toBe(true);
+    expect(seen.some((url) => url.includes("/private-files/affiliate-w9-id/license.jpg"))).toBe(true);
   });
 
   it("answers a file missing from Supabase with 404, not a server error", async () => {

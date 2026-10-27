@@ -180,7 +180,7 @@ describe("orders.matchCodes", () => {
 });
 
 describe("orders.createRequest + confirm", () => {
-  it("creates a draft request and confirms it", async () => {
+  it("creates a draft request and confirms it only for an admin", async () => {
     const caller = appRouter.createCaller(publicCtx());
     const created = await caller.orders.createRequest({
       originatorEmail: "buyer@example.com",
@@ -201,8 +201,15 @@ describe("orders.createRequest + confirm", () => {
     });
     expect(created.id).toBeGreaterThan(0);
 
-    const confirmed = await caller.orders.confirm({ id: created.id });
+    await expect(caller.orders.confirm({ id: created.id })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    const confirmed = await appRouter.createCaller(userCtx("admin")).orders.confirm({ id: created.id });
     expect(confirmed.status).toBe("confirmed");
+  });
+
+  it("does not confirm a missing order", async () => {
+    await expect(
+      appRouter.createCaller(userCtx("admin")).orders.confirm({ id: 2_000_000_000 }),
+    ).rejects.toMatchObject({ code: "NOT_FOUND" });
   });
 
   it("keeps the selected distributor in the signed freight verification path", () => {
@@ -255,8 +262,9 @@ describe("orders.saveAlias + alias-aware matching", () => {
     const cabinetId = known.lines[0].cabinetId;
     expect(cabinetId).not.toBeNull();
 
-    // Save the alias, then the weird code should now resolve to that cabinet.
-    const saved = await caller.orders.saveAlias({ rawCode: weird, cabinetId: cabinetId! });
+    // Public callers cannot write aliases. An admin global alias is what matching sees.
+    await expect(caller.orders.saveAlias({ rawCode: weird, cabinetId: cabinetId! })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    const saved = await appRouter.createCaller(userCtx("admin")).orders.saveAlias({ rawCode: weird, cabinetId: cabinetId!, global: true });
     expect(saved.ok).toBe(true);
 
     const after = await caller.orders.matchCodes({ items: [{ code: weird.toLowerCase(), qty: 1 }] });
@@ -265,7 +273,7 @@ describe("orders.saveAlias + alias-aware matching", () => {
   });
 
   it("rejects saving an alias to an unknown cabinet", async () => {
-    const caller = appRouter.createCaller(publicCtx());
+    const caller = appRouter.createCaller(userCtx("admin"));
     await expect(
       caller.orders.saveAlias({ rawCode: "WHATEVER1", cabinetId: 99999999 })
     ).rejects.toThrow();

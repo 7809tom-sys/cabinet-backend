@@ -2,7 +2,8 @@ import { z } from "zod";
 import { randomBytes } from "node:crypto";
 import { eq, desc, or, and, inArray, sql, isNull } from "drizzle-orm";
 import bcrypt from "bcryptjs";
-import { storagePut } from "../storage";
+import { storageGetSignedUrl, storagePut } from "../storage";
+import { storageKeyFromStoredUrl } from "../lib/storageAccess";
 import { notifyOwner } from "../_core/notification";
 import { TRPCError } from "@trpc/server";
 import {
@@ -17,9 +18,11 @@ import { emailSettingsReady, sendEmailViaSettings } from "../email";
 import { buildSalesDemoInvite, deliverInviteThenGrant, SALES_DEMO_AFFILIATE_SLUG, SALES_DEMO_TEAM_ACCESS } from "../salesDemoInvite";
 import { buildAffiliateSetupInvite } from "../affiliateSetupInvite";
 import { resolveAffiliateAccess } from "../lib/affiliateAccess";
+import { toAdminAffiliate, toPublicStorefront, toViewerAffiliate } from "../lib/affiliatePrivacy";
+import { encryptW9TaxId, maskW9TaxId, w9TaxIdLast4 } from "../lib/w9TaxIdCrypto";
 import { resolveConsultationViewer } from "../lib/consultationAffiliate";
 import { listAffiliateVendorProducts, setAffiliateProductVisibility, setAffiliateVendorVisibility } from "../lib/affiliateVendorCatalog";
-import { cleanSectionLabels, publicContactForStorefront, parseCatalogVendorKey, parseSectionLabels, storefrontEditDecision, validateWhiteLabelPatch } from "@shared/affiliateStorefrontControls";
+import { cleanSectionLabels, parseCatalogVendorKey, storefrontEditDecision, validateWhiteLabelPatch } from "@shared/affiliateStorefrontControls";
 import { computeEarning, dollarsToCents, groupByWeek, isoWeekKey, isoWeekStart } from "@shared/earnings";
 import {
   normalizeReferralCode,
@@ -177,102 +180,33 @@ async function saveStorefrontDistributorSelections(
   return storefrontCurationForAffiliate(db, affiliateId);
 }
 
-// Public-safe projection of an affiliate (no internal notes / commission rate).
-function toPublicStorefront(a: typeof affiliates.$inferSelect) {
-  const contact = publicContactForStorefront(a);
-  return {
-    id: a.id,
-    storeName: a.storeName,
-    slug: a.slug,
-    contactName: a.contactName,
-    // Account email and phone are never public. Opt-in fields below are the
-    // only customer-facing contact details.
-    email: null,
-    phone: null,
-    website: a.website,
-    location: null,
-    referralCode: a.referralCode,
-    status: a.status,
-    logoUrl: a.logoUrl,
-    logoDarkUrl: a.logoDarkUrl,
-    faviconUrl: a.faviconUrl,
-    primaryColor: a.primaryColor,
-    accentColor: a.accentColor,
-    backgroundColor: a.backgroundColor,
-    textColor: a.textColor,
-    publicEmail: contact.email,
-    publicPhone: contact.phone,
-    publicAddress: contact.address,
-    showPublicEmail: a.showPublicEmail,
-    showPublicPhone: a.showPublicPhone,
-    showPublicAddress: a.showPublicAddress,
-    heroImageUrl: a.heroImageUrl,
-    tagline: a.tagline,
-    taglineEs: a.taglineEs,
-    aboutText: a.aboutText,
-    aboutTextEs: a.aboutTextEs,
-    footerText: a.footerText,
-    serviceArea: a.serviceArea,
-    yearsInBusiness: a.yearsInBusiness,
-    facebookUrl: a.facebookUrl,
-    instagramUrl: a.instagramUrl,
-    socialLinks: publicSocialLinks(a.socialLinks, { facebookUrl: a.facebookUrl, instagramUrl: a.instagramUrl }),
-    hidePlatformBranding: a.hidePlatformBranding,
-    sectionLabels: parseSectionLabels(a.sectionLabelsJson),
-    storefrontEnabled: a.storefrontEnabled,
-    template: a.template,
-    fontFamily: a.fontFamily,
-    headingFont: a.headingFont,
-    buttonRadius: a.buttonRadius,
-    // Only the PUBLISHED snippet is exposed publicly, and only when enabled.
-    embedCode: a.embedEnabled ? a.embedCode : null,
-    embedEnabled: a.embedEnabled,
-  };
-}
-
 export type StorefrontAffiliate = ReturnType<typeof toPublicStorefront>;
 
-// partnerProcedure: a logged-in user who is the owner (by email) of, or linked
-// to, at least one affiliate — or an admin. We resolve the affiliate inside the
-// procedure rather than gating purely on role so a freshly-signed-in partner
-// (whose account hasn't been linked yet) still gets access by matching email.
+// partnerProcedure: a logged-in user. Affiliate ownership and team access are
+// resolved from the membership model. This lookup never writes affiliates.userId.
 const partnerProcedure = protectedProcedure;
 
 async function resolveMyAffiliate(ctx: { user: { id: number; email: string | null; role: string } }) {
   const db = await getDb();
   if (!db) return null;
-  const email = (ctx.user.email ?? "").toLowerCase();
-  const rows = await db.select().from(affiliates);
-  // A linked userId is authoritative. Never fall back to an email match when
-  // this login is already linked to another affiliate, and never guess when
-  // duplicate legacy email rows exist.
-  const linked = rows.find((r) => r.userId === ctx.user.id);
-  const emailMatches = email.length > 0
-    ? rows.filter((r) => (r.email ?? "").toLowerCase() === email)
-    : [];
-  const mine = linked ?? (emailMatches.length === 1 ? emailMatches[0] : undefined);
-  if (mine) return mine;
+  // Admins are not attached to "the first affiliate". Team members resolve only
+  // through an active affiliate_team_members row inside resolveAffiliateAccess.
+  const access = await resolveAffiliateAccess(db, ctx.user);
+  if (!access) return null;
+  const [row] = await db.select().from(affiliates).where(eq(affiliates.id, access.affiliateId)).limit(1);
+  return row ?? null;
+}
 
-  // Check if user is a team member of an affiliate
-  const teamRows = await db.select().from(affiliateTeamMembers)
-    .where(and(
-      eq(affiliateTeamMembers.isActive, true),
-      or(
-        eq(affiliateTeamMembers.userId, ctx.user.id),
-        ...(email.length > 0 ? [eq(affiliateTeamMembers.email, email)] : [])
-      )
-    ));
-  if (teamRows.length > 0) {
-    const parentAffiliate = rows.find((r) => r.id === teamRows[0].affiliateId);
-    return parentAffiliate ?? null;
+async function requireOwnedAffiliate(ctx: { user: { id: number; email: string | null; role: string } }) {
+  const db = await getDb();
+  if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+  const access = await resolveAffiliateAccess(db, ctx.user);
+  if (!access?.isOwner) {
+    throw new TRPCError({ code: "FORBIDDEN", message: "Only the affiliate owner can access tax information." });
   }
-
-  // Admin users: resolve to the first active affiliate so admin can use affiliate panels
-  if (ctx.user.role === "admin" && rows.length > 0) {
-    return rows[0];
-  }
-
-  return null;
+  const [row] = await db.select().from(affiliates).where(eq(affiliates.id, access.affiliateId)).limit(1);
+  if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Affiliate account not found." });
+  return row;
 }
 
 /**
@@ -284,21 +218,27 @@ async function resolveMyAffiliate(ctx: { user: { id: number; email: string | nul
  * onto another. Partners always resolve to their own affiliate and cannot
  * target anyone else, even if they send an affiliateId.
  */
-async function requireAffiliateOwner(ctx: { user: { id: number; email: string | null; role: string } }) {
+async function requireAffiliateOwner(
+  ctx: { user: { id: number; email: string | null; role: string } },
+  affiliateId?: number,
+) {
   const db = await getDb();
   if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
   if (ctx.user.role === "admin") {
-    const mine = await resolveMyAffiliate(ctx);
-    if (!mine) throw new TRPCError({ code: "FORBIDDEN", message: "No affiliate account." });
-    return mine;
+    if (affiliateId == null) {
+      throw new TRPCError({ code: "FORBIDDEN", message: "Choose an affiliate before managing its team." });
+    }
+    const [row] = await db.select().from(affiliates).where(eq(affiliates.id, affiliateId)).limit(1);
+    if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Affiliate not found." });
+    return row;
   }
   const access = await resolveAffiliateAccess(db, ctx.user);
   if (!access?.isOwner) {
     throw new TRPCError({ code: "FORBIDDEN", message: "Only the affiliate owner can manage team members." });
   }
-  const rows = await db.select().from(affiliates).where(eq(affiliates.id, access.affiliateId)).limit(1);
-  if (!rows[0]) throw new TRPCError({ code: "FORBIDDEN", message: "Affiliate account not found." });
-  return rows[0];
+  const [row] = await db.select().from(affiliates).where(eq(affiliates.id, access.affiliateId)).limit(1);
+  if (!row) throw new TRPCError({ code: "FORBIDDEN", message: "Affiliate account not found." });
+  return row;
 }
 
 async function resolveTargetAffiliateId(
@@ -414,8 +354,10 @@ const brandingInput = z.object({
 
 export const affiliatesRouter = router({
   // ─── Affiliate Team Management ────────────────────────────────────────────
-  myTeam: partnerProcedure.query(async ({ ctx }) => {
-    const mine = await requireAffiliateOwner(ctx);
+  myTeam: partnerProcedure
+    .input(z.object({ affiliateId: z.number().int().positive().optional() }).optional())
+    .query(async ({ ctx, input }) => {
+    const mine = await requireAffiliateOwner(ctx, input?.affiliateId);
     if (!mine) return [];
     const db = await getDb();
     if (!db) return [];
@@ -432,9 +374,10 @@ export const affiliatesRouter = router({
       accessCrm: z.boolean().optional(),
       accessDesigner: z.boolean().optional(),
       accessMarketing: z.boolean().optional(),
+      affiliateId: z.number().int().positive().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
-      const mine = await requireAffiliateOwner(ctx);
+      const mine = await requireAffiliateOwner(ctx, input.affiliateId);
       if (!mine) throw new TRPCError({ code: "FORBIDDEN", message: "No affiliate account." });
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
@@ -454,9 +397,10 @@ export const affiliatesRouter = router({
     .input(z.object({
       id: z.number().int(),
       accessMarketing: z.boolean(),
+      affiliateId: z.number().int().positive().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
-      const mine = await requireAffiliateOwner(ctx);
+      const mine = await requireAffiliateOwner(ctx, input.affiliateId);
       if (!mine) throw new TRPCError({ code: "FORBIDDEN", message: "No affiliate account." });
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
@@ -467,9 +411,9 @@ export const affiliatesRouter = router({
     }),
 
   removeTeamMember: partnerProcedure
-    .input(z.object({ id: z.number().int() }))
+    .input(z.object({ id: z.number().int(), affiliateId: z.number().int().positive().optional() }))
     .mutation(async ({ ctx, input }) => {
-      const mine = await requireAffiliateOwner(ctx);
+      const mine = await requireAffiliateOwner(ctx, input.affiliateId);
       if (!mine) throw new TRPCError({ code: "FORBIDDEN" });
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
@@ -617,7 +561,8 @@ export const affiliatesRouter = router({
   adminList: adminProcedure.query(async () => {
     const db = await getDb();
     if (!db) return [];
-    return db.select().from(affiliates).orderBy(desc(affiliates.createdAt));
+    const rows = await db.select().from(affiliates).orderBy(desc(affiliates.createdAt));
+    return rows.map(toAdminAffiliate);
   }),
 
   adminGet: adminProcedure
@@ -626,7 +571,7 @@ export const affiliatesRouter = router({
       const db = await getDb();
       if (!db) return null;
       const rows = await db.select().from(affiliates).where(eq(affiliates.id, input.id)).limit(1);
-      return rows[0] ?? null;
+      return rows[0] ? toAdminAffiliate(rows[0]) : null;
     }),
 
   // ─── Admin: minimal affiliate list for the dashboard store switcher ────────
@@ -997,16 +942,15 @@ export const affiliatesRouter = router({
 
   // ─── Partner: my affiliate profile ─────────────────────────────────────────
   myAffiliate: partnerProcedure.query(async ({ ctx }) => {
-    const mine = await resolveMyAffiliate(ctx);
-    if (!mine) return null;
-    // Auto-link the account on first visit so future lookups are by userId.
-    if (mine.userId !== ctx.user.id) {
-      const db = await getDb();
-      if (db) {
-        await db.update(affiliates).set({ userId: ctx.user.id }).where(eq(affiliates.id, mine.id));
-      }
-    }
-    return mine;
+    const db = await getDb();
+    if (!db) return null;
+    const access = await resolveAffiliateAccess(db, ctx.user);
+    if (!access) return null;
+    const [row] = await db.select().from(affiliates).where(eq(affiliates.id, access.affiliateId)).limit(1);
+    if (!row) return null;
+    // Membership never rewrites affiliates.userId. Team members and admins are
+    // not linked onto the owner account by opening this profile.
+    return toViewerAffiliate(row, access);
   }),
 
   myAccess: partnerProcedure.query(async ({ ctx }) => {
@@ -1199,22 +1143,26 @@ export const affiliatesRouter = router({
 
   // ─── Partner: my referrals + commission summary ────────────────────────────
   myReferrals: partnerProcedure.query(async ({ ctx }) => {
-    const mine = await resolveMyAffiliate(ctx);
-    if (!mine) return null;
     const db = await getDb();
     if (!db) return null;
-    const orders = await db
-      .select()
-      .from(orderRequests)
-      .where(eq(orderRequests.affiliateId, mine.id))
-      .orderBy(desc(orderRequests.createdAt));
-    const rate = Number(mine.commissionRate);
+    const access = await resolveAffiliateAccess(db, ctx.user);
+    if (!access) return null;
+    const [mine] = await db.select().from(affiliates).where(eq(affiliates.id, access.affiliateId)).limit(1);
+    if (!mine) return null;
+    const orders = access.isOwner || access.accessCrm
+      ? await db
+        .select()
+        .from(orderRequests)
+        .where(eq(orderRequests.affiliateId, mine.id))
+        .orderBy(desc(orderRequests.createdAt))
+      : [];
+    const rate = access.isOwner ? Number(mine.commissionRate) : 0;
     const summary = sumCommission(
       orders.map((o) => ({ totalAmount: o.totalAmount === null ? null : Number(o.totalAmount), status: o.status })),
       rate
     );
     return {
-      affiliate: mine,
+      affiliate: toViewerAffiliate(mine, access),
       orders,
       summary,
       commissionRate: rate,
@@ -1638,7 +1586,18 @@ export const affiliatesRouter = router({
         orders.map((o) => ({ totalAmount: o.totalAmount === null ? null : Number(o.totalAmount), status: o.status })),
         rate
       );
-      return { affiliate: a, orders, summary, commissionRate: rate };
+      return {
+        affiliate: {
+          ...toAdminAffiliate(a),
+          // The admin dashboard reads the same shape as the owner view.
+          isOwner: true as const,
+          accessCrm: true as const,
+          accessDesigner: true as const,
+        },
+        orders,
+        summary,
+        commissionRate: rate,
+      };
     }),
 
   // ─── Partner: my earnings, grouped by ISO week ─────────────────────────────
@@ -1976,24 +1935,43 @@ export const affiliatesRouter = router({
   // ─── Partner: get W-9 / tax compliance status ────────────────────────────────────────────────────
   getW9Status: partnerProcedure
     .query(async ({ ctx }) => {
-      const mine = await resolveMyAffiliate(ctx);
-      if (!mine) throw new TRPCError({ code: "FORBIDDEN", message: "No affiliate account linked to you." });
+      const mine = await requireOwnedAffiliate(ctx);
+      const last4 = w9TaxIdLast4(mine.w9TaxId, mine.w9TaxIdLast4);
       return {
         w9Status: mine.w9Status,
         w9LegalName: mine.w9LegalName,
         w9BusinessName: mine.w9BusinessName,
         w9EntityType: mine.w9EntityType,
         w9TaxIdType: mine.w9TaxIdType,
-        // Return masked tax ID for display (last 4 digits only)
-        w9TaxIdMasked: mine.w9TaxId ? `***-**-${mine.w9TaxId.slice(-4)}` : null,
+        w9TaxIdMasked: maskW9TaxId(last4),
+        w9TaxIdLast4: last4,
         w9Address: mine.w9Address,
         w9City: mine.w9City,
         w9State: mine.w9State,
         w9Zip: mine.w9Zip,
-        w9IdDocumentUrl: mine.w9IdDocumentUrl,
+        hasIdDocument: Boolean(mine.w9IdDocumentUrl),
         w9SubmittedAt: mine.w9SubmittedAt,
         w9VerifiedAt: mine.w9VerifiedAt,
       };
+    }),
+
+  w9IdDocumentLink: partnerProcedure.query(async ({ ctx }) => {
+    const mine = await requireOwnedAffiliate(ctx);
+    if (!mine.w9IdDocumentUrl) return { url: null as string | null, expiresInSeconds: 0 };
+    const url = await storageGetSignedUrl(storageKeyFromStoredUrl(mine.w9IdDocumentUrl), 900);
+    return { url, expiresInSeconds: 900 };
+  }),
+
+  adminW9IdDocumentLink: adminProcedure
+    .input(z.object({ affiliateId: z.number().int().positive() }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      const [row] = await db.select({ w9IdDocumentUrl: affiliates.w9IdDocumentUrl }).from(affiliates).where(eq(affiliates.id, input.affiliateId)).limit(1);
+      if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Affiliate not found." });
+      if (!row.w9IdDocumentUrl) return { url: null as string | null, expiresInSeconds: 0 };
+      const url = await storageGetSignedUrl(storageKeyFromStoredUrl(row.w9IdDocumentUrl), 900);
+      return { url, expiresInSeconds: 900 };
     }),
 
   // ─── Partner: save W-9 legal information ───────────────────────────────────────────────────────────────
@@ -2010,26 +1988,35 @@ export const affiliatesRouter = router({
       zip: z.string().min(5).max(16),
     }))
     .mutation(async ({ ctx, input }) => {
-      const mine = await resolveMyAffiliate(ctx);
-      if (!mine) throw new TRPCError({ code: "FORBIDDEN", message: "No affiliate account linked to you." });
+      const mine = await requireOwnedAffiliate(ctx);
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
-      // Only allow editing if not yet verified
       if (mine.w9Status === "verified") {
         throw new TRPCError({ code: "FORBIDDEN", message: "Your W-9 has already been verified and cannot be changed. Contact support if you need to update your information." });
+      }
+      const digits = input.taxId.replace(/\D/g, "");
+      if (digits.length !== 9) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Enter a 9-digit SSN or EIN." });
+      }
+      let encrypted: string;
+      try {
+        encrypted = encryptW9TaxId(digits);
+      } catch {
+        throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Tax ID encryption is not configured." });
       }
       await db.update(affiliates).set({
         w9LegalName: input.legalName,
         w9BusinessName: input.businessName ?? null,
         w9EntityType: input.entityType,
-        w9TaxId: input.taxId.replace(/[^0-9]/g, ""), // strip formatting, store digits only
+        w9TaxId: encrypted,
+        w9TaxIdLast4: digits.slice(-4),
         w9TaxIdType: input.taxIdType,
         w9Address: input.address,
         w9City: input.city,
         w9State: input.state.toUpperCase(),
         w9Zip: input.zip,
       }).where(eq(affiliates.id, mine.id));
-      return { ok: true };
+      return { ok: true, w9TaxIdMasked: maskW9TaxId(digits.slice(-4)) };
     }),
 
   // ─── Partner: upload government ID document ───────────────────────────────────────────────────────────
@@ -2040,30 +2027,31 @@ export const affiliatesRouter = router({
       fileName: z.string().max(256).default("id-document.jpg"),
     }))
     .mutation(async ({ ctx, input }) => {
-      const mine = await resolveMyAffiliate(ctx);
-      if (!mine) throw new TRPCError({ code: "FORBIDDEN", message: "No affiliate account linked to you." });
+      const mine = await requireOwnedAffiliate(ctx);
       if (mine.w9Status === "verified") {
         throw new TRPCError({ code: "FORBIDDEN", message: "Your W-9 has already been verified." });
       }
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
       const buf = Buffer.from(input.fileBase64, "base64");
+      if (buf.byteLength > 10 * 1024 * 1024) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "ID document must be 10MB or smaller." });
+      }
       const ext = input.contentType === "application/pdf" ? "pdf" : input.contentType.split("/")[1] ?? "jpg";
       const safeName = input.fileName.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 80);
-      const { url } = await storagePut(
+      const stored = await storagePut(
         `affiliate-w9-id/${mine.slug}_${Date.now()}_${safeName}.${ext}`,
         buf,
         input.contentType,
       );
-      await db.update(affiliates).set({ w9IdDocumentUrl: url }).where(eq(affiliates.id, mine.id));
-      return { url };
+      await db.update(affiliates).set({ w9IdDocumentUrl: stored.url }).where(eq(affiliates.id, mine.id));
+      return { uploaded: true as const };
     }),
 
   // ─── Partner: submit W-9 for review (marks as submitted) ─────────────────────────────────────────
   submitW9: partnerProcedure
     .mutation(async ({ ctx }) => {
-      const mine = await resolveMyAffiliate(ctx);
-      if (!mine) throw new TRPCError({ code: "FORBIDDEN", message: "No affiliate account linked to you." });
+      const mine = await requireOwnedAffiliate(ctx);
       if (mine.w9Status === "verified") return { ok: true, status: "verified" as const };
       if (!mine.w9LegalName || !mine.w9TaxId || !mine.w9EntityType || !mine.w9Address || !mine.w9IdDocumentUrl) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Please complete all required fields and upload your ID before submitting." });
@@ -2081,8 +2069,9 @@ export const affiliatesRouter = router({
           `Legal Name: ${mine.w9LegalName}`,
           `Entity Type: ${mine.w9EntityType}`,
           `Tax ID Type: ${mine.w9TaxIdType?.toUpperCase() ?? "—"}`,
+          `Tax ID: ${maskW9TaxId(w9TaxIdLast4(mine.w9TaxId, mine.w9TaxIdLast4)) ?? "on file"}`,
           `Address: ${mine.w9Address}, ${mine.w9City}, ${mine.w9State} ${mine.w9Zip}`,
-          `ID Document: ${mine.w9IdDocumentUrl}`,
+          `Government ID is stored privately. Open the affiliate W-9 panel to view it.`,
           ``,
           `Please review and verify in the Affiliates admin panel.`,
         ].join("\n"),

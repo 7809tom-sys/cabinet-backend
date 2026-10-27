@@ -18,6 +18,7 @@ const PRIVATE_KEY_PREFIXES = [
   "vendor-products-source/",
   // Affiliate sales-education files. The public storage proxy refuses this prefix.
   "affiliate-resources/",
+  "affiliate-w9-id/",
 ];
 
 export function bucketForKey(key: string): string {
@@ -111,17 +112,18 @@ export async function storageGet(relKey: string): Promise<{ key: string; url: st
   return { key, url: `/manus-storage/${key}` };
 }
 
-/** Short-lived direct URL for server-side reads of a stored object. */
-export async function storageGetSignedUrl(relKey: string): Promise<string> {
+/** Short-lived direct URL for an authorized reader. Default lifetime is 15 minutes. */
+export async function storageGetSignedUrl(relKey: string, expiresInSeconds = 900): Promise<string> {
   const { storageUrl, serviceKey } = getSupabaseStorageConfig();
   const key = normalizeKey(relKey);
+  const expiresIn = Math.min(Math.max(Math.floor(expiresInSeconds), 60), 3600);
 
   const resp = await fetch(
     `${storageUrl}/object/sign/${bucketForKey(key)}/${encodeKeyPath(key)}`,
     {
       method: "POST",
       headers: { ...authHeaders(serviceKey), "Content-Type": "application/json" },
-      body: JSON.stringify({ expiresIn: 3600 }),
+      body: JSON.stringify({ expiresIn }),
     },
   );
 
@@ -143,4 +145,62 @@ export async function storageFetchObject(relKey: string): Promise<Response> {
     `${storageUrl}/object/authenticated/${bucketForKey(key)}/${encodeKeyPath(key)}`,
     { headers: authHeaders(serviceKey) },
   );
+}
+
+function objectUrl(storageUrl: string, bucket: string, key: string, kind: "read" | "delete" | "write"): string {
+  const normalized = normalizeKey(key);
+  if (kind === "read") return `${storageUrl}/object/authenticated/${bucket}/${encodeKeyPath(normalized)}`;
+  return `${storageUrl}/object/${bucket}/${encodeKeyPath(normalized)}`;
+}
+
+async function storageRequest(bucket: string, key: string, method: "GET" | "DELETE"): Promise<Response> {
+  const { storageUrl, serviceKey } = getSupabaseStorageConfig();
+  return fetch(objectUrl(storageUrl, bucket, key, method === "GET" ? "read" : "delete"), {
+    method,
+    headers: authHeaders(serviceKey),
+  });
+}
+
+export async function storageObjectExistsInBucket(bucket: string, key: string): Promise<boolean> {
+  const resp = await storageRequest(bucket, key, "GET");
+  if (resp.body) await resp.body.cancel().catch(() => undefined);
+  return resp.ok;
+}
+
+/** Copy one object between buckets without changing its key. Idempotent when the destination already exists. */
+export async function storageCopyBetweenBuckets(key: string, fromBucket: string, toBucket: string): Promise<"copied" | "already-present" | "missing"> {
+  const normalized = normalizeKey(key);
+  if (await storageObjectExistsInBucket(toBucket, normalized)) return "already-present";
+  const source = await storageRequest(fromBucket, normalized, "GET");
+  if (source.status === 400 || source.status === 404) return "missing";
+  if (!source.ok) {
+    const msg = await source.text().catch(() => source.statusText);
+    throw new Error(`Storage copy read failed (${source.status}): ${msg}`);
+  }
+  const bytes = Buffer.from(await source.arrayBuffer());
+  const contentType = source.headers.get("content-type") || "application/octet-stream";
+  const { storageUrl, serviceKey } = getSupabaseStorageConfig();
+  const resp = await fetch(objectUrl(storageUrl, toBucket, normalized, "write"), {
+    method: "POST",
+    headers: {
+      ...authHeaders(serviceKey),
+      "Content-Type": contentType,
+      "x-upsert": "true",
+    },
+    body: bytes,
+  });
+  if (!resp.ok) {
+    const msg = await resp.text().catch(() => resp.statusText);
+    throw new Error(`Storage copy write failed (${resp.status}): ${msg}`);
+  }
+  return "copied";
+}
+
+export async function storageDeleteFromBucket(bucket: string, key: string): Promise<void> {
+  const resp = await storageRequest(bucket, key, "DELETE");
+  if (resp.status === 404 || resp.status === 400) return;
+  if (!resp.ok) {
+    const msg = await resp.text().catch(() => resp.statusText);
+    throw new Error(`Storage delete failed (${resp.status}): ${msg}`);
+  }
 }

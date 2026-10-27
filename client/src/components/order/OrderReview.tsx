@@ -788,7 +788,7 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
   // ─── Ready for secure checkout ─────────────────────────────────────────────
   const installationDocument = trpc.installationEstimates.forOrderConfirmation.useQuery(
     { orderRequestId: submittedId ?? 0, customerEmail: email },
-    { enabled: submittedId != null && emailValid, retry: false },
+    { enabled: submittedId != null && emailValid && isAuthenticated, retry: false },
   );
   if (submittedId != null) {
     return (

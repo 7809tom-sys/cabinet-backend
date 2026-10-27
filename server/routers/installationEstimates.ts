@@ -8,6 +8,7 @@ import { calculateInstallationEstimate, INSTALLATION_ROOM_TYPES, INSTALLATION_CO
 import { createBlankKitchenCostDefaults, KITCHEN_COST_SHEET_DESCRIPTIONS } from "../../shared/kitchenCostSheet";
 import { countKitchenCabinets, countKitchenCabinetWork, emptyKitchenCabinetBreakdown, type KitchenCabinetBreakdown } from "../../shared/kitchenPlanCabinetBreakdown";
 import { resolveInstallationEstimateAffiliateId } from "../../shared/installationEstimateAccess";
+import { canActAsOrderOwner, orderActorError, readOrderAccessToken } from "../lib/orderActorGuard";
 
 const estimateLineSchema = z.object({
   description: z.string().trim().min(1).max(256),
@@ -241,7 +242,7 @@ export const installationEstimatesRouter = router({
         .where(and(eq(affiliateInstallationEstimates.shareToken, input.token), or(eq(affiliateInstallationEstimates.status, "shared"), eq(affiliateInstallationEstimates.status, "accepted"))))
         .limit(1);
       if (!estimate) throw new TRPCError({ code: "NOT_FOUND", message: "Installation document is not available." });
-      const [affiliate] = await db.select({ storeName: affiliates.storeName, phone: affiliates.phone, email: affiliates.email, logoUrl: affiliates.logoUrl, primaryColor: affiliates.primaryColor })
+      const [affiliate] = await db.select({ storeName: affiliates.storeName, logoUrl: affiliates.logoUrl, primaryColor: affiliates.primaryColor, publicEmail: affiliates.publicEmail, publicPhone: affiliates.publicPhone })
         .from(affiliates).where(eq(affiliates.id, estimate.affiliateId)).limit(1);
       return { estimate, affiliate: affiliate ?? null };
     }),
@@ -250,15 +251,33 @@ export const installationEstimatesRouter = router({
   // document when the caller supplies the exact order id AND the same customer
   // email that was submitted with that material order. Totals stay independent.
   forOrderConfirmation: publicProcedure
-    .input(z.object({ orderRequestId: z.number().int().positive(), customerEmail: z.string().trim().email().max(320) }))
-    .query(async ({ input }) => {
+    .input(z.object({
+      orderRequestId: z.number().int().positive(),
+      customerEmail: z.string().trim().email().max(320),
+      accessToken: z.string().min(1).max(256).optional(),
+    }))
+    .query(async ({ input, ctx }) => {
+      if (!ctx.user && !input.accessToken) {
+        throw orderActorError("FORBIDDEN", "You cannot view this installation document.");
+      }
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
-      const [order] = await db.select({ affiliateId: orderRequests.affiliateId })
+      const [order] = await db.select({
+        id: orderRequests.id,
+        userId: orderRequests.userId,
+        affiliateId: orderRequests.affiliateId,
+        originatorEmail: orderRequests.originatorEmail,
+      })
         .from(orderRequests)
-        .where(and(eq(orderRequests.id, input.orderRequestId), eq(orderRequests.originatorEmail, input.customerEmail)))
+        .where(eq(orderRequests.id, input.orderRequestId))
         .limit(1);
-      if (!order?.affiliateId) return null;
+      if (!order) throw orderActorError("NOT_FOUND", "Order not found.");
+      const storedAccessToken = await readOrderAccessToken(db, order.id);
+      if (!canActAsOrderOwner(ctx.user, order, input.accessToken, storedAccessToken)) {
+        throw orderActorError("FORBIDDEN", "You cannot view this installation document.");
+      }
+      const email = input.customerEmail.toLowerCase();
+      if ((order.originatorEmail ?? "").toLowerCase() !== email || !order.affiliateId) return null;
 
       const [estimate] = await db.select({ shareToken: affiliateInstallationEstimates.shareToken, totalAmount: affiliateInstallationEstimates.totalAmount })
         .from(affiliateInstallationEstimates)

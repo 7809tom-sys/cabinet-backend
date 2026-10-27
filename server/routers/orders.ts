@@ -49,6 +49,7 @@ import { buildAffiliateOrderPersistence } from "@shared/affiliateOrderAlias";
 import { createCheckoutSession } from "../stripe";
 import { canPlaceSampleOrder, lineClaimsSample } from "../../shared/samples";
 import { resolveAffiliateAccess } from "../lib/affiliateAccess";
+import { canConfirmOrder, orderActorError, readOrderAccessToken } from "../lib/orderActorGuard";
 import { freightItemsHash, freightQuoteDestinationAddressHash, verifyFreightQuoteToken } from "../_core/freightQuoteToken";
 import { freightQuoteItemsForOrder } from "../lib/freightQuoteOrderIdentity";
 import { normalizeFreightQuoteDeliveryAddress } from "@shared/freightQuoteAddress";
@@ -1368,11 +1369,23 @@ export const ordersRouter = router({
   // The originator (or affiliate) confirms a submitted request. This is the
   // "must be confirmed by the order originator" step.
   confirm: publicProcedure
-    .input(z.object({ id: z.number() }))
-    .mutation(async ({ input }) => {
+    .input(z.object({
+      id: z.number().int().positive(),
+      stripeSessionId: z.string().min(1).max(255).optional(),
+      accessToken: z.string().min(1).max(256).optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      if (!ctx.user && !input.stripeSessionId && !input.accessToken) {
+        throw orderActorError("FORBIDDEN", "You cannot confirm this order.");
+      }
       const db = await getDb();
       if (!db)
         throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      const [order] = await db.select().from(orderRequests).where(eq(orderRequests.id, input.id)).limit(1);
+      if (!order) throw orderActorError("NOT_FOUND", "Order not found.");
+      const storedAccessToken = await readOrderAccessToken(db, order.id);
+      const allowed = await canConfirmOrder(ctx.user, order, input, storedAccessToken);
+      if (!allowed) throw orderActorError("FORBIDDEN", "You cannot confirm this order.");
       await db
         .update(orderRequests)
         .set({ status: "confirmed", confirmedAt: new Date() })
@@ -1857,7 +1870,7 @@ export const ordersRouter = router({
   // When a user resolves an unrecognized order code by hand (Fix/swap), remember
   // the mapping so the same raw code auto-resolves next time. Keyed by the
   // canonicalized raw code; re-saving the same raw code re-points it (upsert).
-  saveAlias: publicProcedure
+  saveAlias: adminProcedure
     .input(
       z.object({
         rawCode: z.string().min(1).max(128),
