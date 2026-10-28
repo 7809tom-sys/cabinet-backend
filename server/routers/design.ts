@@ -27,6 +27,7 @@ import { normalizedEquivalenceCode } from "../../shared/codeEquivalence";
 import { ENV } from "../_core/env";
 import { priceLadder } from "../../shared/pricing";
 import { resolveCanonicalCatalogSources } from "../lib/canonicalCatalogSources";
+import { isWallWineRackCabinet } from "../../shared/wallWineRack";
 import { applyDistributorCabinetConfig, parseDistributorCabinetConfig } from "../lib/distributorCabinetConfig";
 import { loadAffiliateStorefrontPricing } from "../lib/affiliateStorefrontPricing";
 import {
@@ -497,6 +498,8 @@ export const designRouter = router({
       // tab, never the drag-and-drop placement palette, so they can't leak into
       // a Base/Wall/Tall tab via the base-bucket fallback below.
       const isAccessory = (r: { masterCode?: string | null; category: string | null; placementType: string | null; description?: string | null; subCategory?: string | null }) => {
+        // Wine racks stay on the Wall picker. Auto-Design still skips them as straight uppers.
+        if (isWallWineRackCabinet(r)) return false;
         const pt = (r.placementType || "").toLowerCase();
         const cat = (r.category || "").toLowerCase();
         const sub = (r.subCategory || "").toLowerCase();
@@ -571,7 +574,7 @@ export const designRouter = router({
       const placeableRows = withPull.filter((r) => !isAccessory(r));
 
       const withPlacement = placeableRows.map((r) => {
-        let placement = r.placementType;
+        let placement = isWallWineRackCabinet(r) ? "wall" : r.placementType;
         if (!placement) {
           const cat = (r.category || "").toLowerCase();
           if (cat.includes("wall")) placement = "wall";
