@@ -3,6 +3,9 @@ import { and, eq, desc, isNull, inArray, or } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { protectedProcedure, adminProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
+import { isEnumValueError, isMissingSchemaError, ORDER_SCHEMA_MESSAGES } from "../lib/orderSchemaGuard";
+import { newSaleStagePresent, readOrderSchemaSupport } from "../lib/orderSchemaSupport";
+import { readDealImageCounts } from "../lib/orderSideEffects";
 import {
   crmDeals,
   crmActivities,
@@ -259,6 +262,23 @@ export async function getOwnedDeal(
   return { db, scope, deal };
 }
 
+type CrmDb = NonNullable<Awaited<ReturnType<typeof getDb>>>;
+
+async function guardNewSaleStage(db: CrmDb, stage: string | undefined): Promise<void> {
+  if (stage !== "new_sale") return;
+  const support = await readOrderSchemaSupport(db);
+  if (support && !newSaleStagePresent(support)) {
+    throw new TRPCError({ code: "PRECONDITION_FAILED", message: ORDER_SCHEMA_MESSAGES.newSale });
+  }
+}
+
+function rethrowNewSaleWrite(stage: string | undefined, error: unknown): never {
+  if (stage === "new_sale" && (isEnumValueError(error) || isMissingSchemaError(error))) {
+    throw new TRPCError({ code: "PRECONDITION_FAILED", message: ORDER_SCHEMA_MESSAGES.newSale });
+  }
+  throw error;
+}
+
 const dealCoreInput = {
   title: z.string().min(1).max(256),
   stage: z.enum(CRM_STAGES).optional(),
@@ -386,10 +406,21 @@ export const crmRouter = router({
         accentColor: a.accentColor,
       }]));
     }
+    const orderIds = deals.map((deal) => deal.orderRequestId).filter((id): id is number => id != null);
+    const imageCounts = await readDealImageCounts(db, orderIds);
+    const decoratedDeals = deals.map((deal) => {
+      const extra = deal.orderRequestId == null ? undefined : imageCounts.get(deal.orderRequestId);
+      return {
+        ...deal,
+        imageGeneratedCount: extra?.imageGeneratedCount ?? 0,
+        lastImageGeneratedAt: extra?.lastImageGeneratedAt ?? null,
+        saleRefundedAt: extra?.saleRefundedAt ?? null,
+      };
+    });
     return {
       scope: scope.kind as "house" | "affiliate" | "contractor",
       affiliateId: (scope.kind === "affiliate" ? scope.affiliateId : null) as number | null,
-      deals,
+      deals: decoratedDeals,
       affiliateNames,
       affiliateBranding,
       isMasterView,
@@ -775,29 +806,35 @@ export const crmRouter = router({
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
       const scope = await resolveScope(ctx);
       const stage = (input.stage ?? "new") as CrmStage;
-      const res = await db.insert(crmDeals).values({
-        affiliateId: scope.kind === "affiliate"
-          ? scope.affiliateId
-          : (input.affiliateId != null && scope.kind === "house" ? input.affiliateId : null),
-        ownerUserId: ctx.user.id,
-        title: input.title,
-        stage,
-        priority: input.priority ?? "medium",
-        contactName: input.contactName ?? null,
-        contactEmail: input.contactEmail ?? null,
-        contactPhone: input.contactPhone ?? null,
-        company: input.company ?? null,
-        location: input.location ?? null,
-        language: input.language ?? "en",
-        estimatedValue: input.estimatedValue != null ? String(input.estimatedValue) : null,
-        source: "manual",
-        nextFollowUpAt: input.nextFollowUpAt != null ? new Date(input.nextFollowUpAt) : null,
-        notes: input.notes ?? null,
-        needsHelpClosing: input.needsHelpClosing ?? false,
-        needsHelpDesigning: input.needsHelpDesigning ?? false,
-        needsHelpShipping: input.needsHelpShipping ?? false,
-        closedAt: isClosedStage(stage) ? new Date() : null,
-      });
+      await guardNewSaleStage(db, stage);
+      let res: unknown;
+      try {
+        res = await db.insert(crmDeals).values({
+          affiliateId: scope.kind === "affiliate"
+            ? scope.affiliateId
+            : (input.affiliateId != null && scope.kind === "house" ? input.affiliateId : null),
+          ownerUserId: ctx.user.id,
+          title: input.title,
+          stage,
+          priority: input.priority ?? "medium",
+          contactName: input.contactName ?? null,
+          contactEmail: input.contactEmail ?? null,
+          contactPhone: input.contactPhone ?? null,
+          company: input.company ?? null,
+          location: input.location ?? null,
+          language: input.language ?? "en",
+          estimatedValue: input.estimatedValue != null ? String(input.estimatedValue) : null,
+          source: "manual",
+          nextFollowUpAt: input.nextFollowUpAt != null ? new Date(input.nextFollowUpAt) : null,
+          notes: input.notes ?? null,
+          needsHelpClosing: input.needsHelpClosing ?? false,
+          needsHelpDesigning: input.needsHelpDesigning ?? false,
+          needsHelpShipping: input.needsHelpShipping ?? false,
+          closedAt: isClosedStage(stage) ? new Date() : null,
+        });
+      } catch (error) {
+        rethrowNewSaleWrite(stage, error);
+      }
       const insertId = (res as unknown as [{ insertId: number }])[0].insertId;
       return { id: insertId };
     }),
@@ -825,11 +862,16 @@ export const crmRouter = router({
       if (input.needsHelpDesigning !== undefined) patch.needsHelpDesigning = input.needsHelpDesigning;
       if (input.needsHelpShipping !== undefined) patch.needsHelpShipping = input.needsHelpShipping;
       if (input.stage !== undefined && input.stage !== deal.stage) {
+        await guardNewSaleStage(db, input.stage);
         patch.stage = input.stage;
         patch.closedAt = isClosedStage(input.stage as CrmStage) ? new Date() : null;
       }
       if (Object.keys(patch).length > 0) {
-        await db.update(crmDeals).set(patch).where(eq(crmDeals.id, deal.id));
+        try {
+          await db.update(crmDeals).set(patch).where(eq(crmDeals.id, deal.id));
+        } catch (error) {
+          rethrowNewSaleWrite(input.stage, error);
+        }
       }
       const newlyRequestedHelpKinds = newlyRequestedCrmHelpKinds(deal, input);
       for (const kind of newlyRequestedHelpKinds) {
@@ -848,14 +890,19 @@ export const crmRouter = router({
     .mutation(async ({ ctx, input }) => {
       const { db, deal } = await getOwnedDeal(ctx, input.id);
       const changed = input.stage !== deal.stage;
-      await db
-        .update(crmDeals)
-        .set({
-          stage: input.stage,
-          boardOrder: input.boardOrder ?? deal.boardOrder,
-          closedAt: isClosedStage(input.stage) ? new Date() : null,
-        })
-        .where(eq(crmDeals.id, deal.id));
+      await guardNewSaleStage(db, input.stage);
+      try {
+        await db
+          .update(crmDeals)
+          .set({
+            stage: input.stage,
+            boardOrder: input.boardOrder ?? deal.boardOrder,
+            closedAt: isClosedStage(input.stage) ? new Date() : null,
+          })
+          .where(eq(crmDeals.id, deal.id));
+      } catch (error) {
+        rethrowNewSaleWrite(input.stage, error);
+      }
       if (changed) {
         await db.insert(crmActivities).values({
           dealId: deal.id,

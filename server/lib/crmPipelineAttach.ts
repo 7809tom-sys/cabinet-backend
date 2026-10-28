@@ -9,7 +9,7 @@ export type PipelineDealDraft = {
   affiliateId: number | null;
   ownerUserId: number | null;
   title: string;
-  stage?: "new" | "contacted" | "qualified" | "image_review" | "quoted" | "won" | "lost";
+  stage?: "new" | "new_sale" | "contacted" | "qualified" | "image_review" | "quoted" | "won" | "lost";
   priority?: "low" | "medium" | "high";
   contactName?: string | null;
   contactEmail?: string | null;

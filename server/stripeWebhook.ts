@@ -9,8 +9,11 @@ import express from "express";
 import type Stripe from "stripe";
 import { fulfillOrder, getStripe } from "./stripe";
 import { getDb } from "./db";
+import { orderRequests } from "../drizzle/schema";
+import { eq } from "drizzle-orm";
 import { createHardwareCommissionSnapshot } from "./lib/hardwareCommissionSnapshot";
 import { markOrderPaidById, sendPaidOrderReceipt } from "./lib/orderReceiptEmail";
+import { flagOrderCrmRefund } from "./lib/orderSideEffects";
 import { rememberOrderStripePayout } from "./lib/orderStripePayout";
 import { createDbPaymentLinkContext, createDrizzleStripePaymentStore } from "./stripePaymentStore";
 import {
@@ -114,6 +117,28 @@ export function registerStripeWebhook(app: Express): void {
               await createHardwareCommissionSnapshot(orderId);
               await rememberOrderStripePayout(orderId, pi.id);
               await sendPaidOrderReceipt(orderId);
+            }
+            break;
+          }
+
+          case "charge.refunded": {
+            const charge = event.data.object as import("stripe").Stripe.Charge;
+            const metaId = Number(charge.metadata?.order_id);
+            let orderId = Number.isInteger(metaId) && metaId > 0 ? metaId : null;
+            const paymentIntentId = typeof charge.payment_intent === "string" ? charge.payment_intent : charge.payment_intent?.id ?? null;
+            if (!orderId && paymentIntentId) {
+              const db = await getDb();
+              const [row] = db
+                ? await db.select({ id: orderRequests.id }).from(orderRequests).where(eq(orderRequests.stripePaymentIntentId, paymentIntentId)).limit(1)
+                : [];
+              orderId = row?.id ?? null;
+            }
+            if (orderId) {
+              try {
+                await flagOrderCrmRefund(orderId, "Stripe charge.refunded");
+              } catch (error) {
+                console.error(`[OrderCrm] Refund for order ${orderId} was received, but the CRM flag failed: ${error instanceof Error ? error.message : String(error)}`);
+              }
             }
             break;
           }

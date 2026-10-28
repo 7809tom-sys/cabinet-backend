@@ -2130,6 +2130,7 @@ export const crmDeals = mysqlTable("crm_deals", {
   title: varchar("title", { length: 256 }).notNull(), // e.g. "Kitchen remodel — J. Rivera"
   stage: mysqlEnum("stage", [
     "new",
+    "new_sale",
     "contacted",
     "qualified",
     "image_review",

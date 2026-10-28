@@ -10,6 +10,7 @@ import { orderRequests } from "../drizzle/schema";
 import { eq } from "drizzle-orm";
 import { requireStripeCredentials } from "./stripeConfig";
 import { createHardwareCommissionSnapshot } from "./lib/hardwareCommissionSnapshot";
+import { onOrderPaid } from "./lib/orderSideEffects";
 import { buildHostedCheckoutPaymentFields, checkoutSessionMetadata } from "./stripePaymentRecords";
 
 // ─── Stripe client ────────────────────────────────────────────────────────────
@@ -136,5 +137,10 @@ export async function fulfillOrder(
     .limit(1);
   if (!paidOrder) return null;
   await createHardwareCommissionSnapshot(paidOrder.id);
+  try {
+    await onOrderPaid(paidOrder.id);
+  } catch (error) {
+    console.error(`[OrderCrm] Paid order ${paidOrder.id} was saved, but the CRM and distributor follow-up failed: ${error instanceof Error ? error.message : String(error)}`);
+  }
   return paidOrder.id;
 }

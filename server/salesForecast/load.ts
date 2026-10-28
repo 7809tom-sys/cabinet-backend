@@ -202,7 +202,7 @@ export async function runSalesForecast(input: {
         ? "ordered"
         : stage === "lost"
           ? "lost"
-          : stage === "won"
+          : stage === "won" || stage === "new_sale"
             ? "won"
             : stage === "quoted"
               ? "quoted"

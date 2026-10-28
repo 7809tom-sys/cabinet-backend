@@ -2,14 +2,8 @@ import { z } from "zod";
 import { eq, and, or, desc, inArray, like, sql, isNull } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { publicProcedure, protectedProcedure, adminProcedure, router } from "../_core/trpc";
-import { sendEmailViaSettings, emailSettingsReady } from "../email";
 import { ensureAffiliatePipelineDeal } from "../lib/crmPipelineAttach";
 import { resolvePresentation } from "../lib/presentation";
-import {
-  buildNetsuiteOrderCsv,
-  buildOrderEmailText,
-  type NetsuiteOrderLine,
-} from "@shared/netsuiteOrder";
 import { getDb, hasPositivePublishedCabinetPrice, notInConflict } from "../db";
 import {
   cabinets,
@@ -22,7 +16,6 @@ import {
   crmDealDesigns,
   affiliates,
   codeAliases,
-  emailSettings,
   crmDeals,
   vendorProducts,
   hardwareShippingProfiles,
@@ -64,6 +57,8 @@ import { callerCanReadOrder, generateOrderAccessToken } from "../lib/orderAccess
 import { enrichAdminOrderRows, loadAdminOrderDetail } from "../lib/adminOrderRead";
 import { joinUniqueLabels } from "../lib/orderMoney";
 import { persistOrderCostSnapshot, withDistributorCostSnapshots } from "../lib/orderCostSnapshot";
+import { orderSchemaProcedureError } from "../lib/orderSchemaGuard";
+import { adminMarkOrderPaid, attachOrderFulfillmentOverlay, backfillOrderCrm, markOrderShipped, markOrderSigned, markOrderVerified, notifyOrderDistributors, onOrderPlaced } from "../lib/orderSideEffects";
 import { readStripeChargeFacts } from "../lib/stripeChargeFacts";
 import { choosePromotedPrice, type PricedCandidate } from "@shared/vendorPromotions";
 import { loadActivePromotionRules, loadPublishedCabinetPriceRows, priceLineWithPromotion } from "../vendorPromotionPricing";
@@ -1407,10 +1402,13 @@ export const ordersRouter = router({
           link: `/admin/orders/${insertId}`,
         });
       }
-      // NOTE: Per owner workflow, a submitted order should eventually be emailed
-      // to the distributor with copies to affiliates, and confirmed by the
-      // originator/affiliate. That email step is DEFERRED until distributor email
-      // is wired. For now we only persist the request.
+      if (input.submit) {
+        try {
+          await onOrderPlaced(insertId);
+        } catch (error) {
+          console.error(`[OrderEmail] Submitted order ${insertId} was saved, but the distributor email step failed: ${error instanceof Error ? error.message : String(error)}`);
+        }
+      }
       return { id: insertId, requestNumber, freightCents: freightQuoteCents, accessToken };
     }),
 
@@ -1564,7 +1562,7 @@ export const ordersRouter = router({
         .from(orderRequests)
         .orderBy(desc(orderRequests.createdAt));
       const filtered = input?.status ? rows.filter((r) => r.status === input.status) : rows;
-      return enrichAdminOrderRows(db, filtered);
+      return attachOrderFulfillmentOverlay(db, await enrichAdminOrderRows(db, filtered));
     }),
 
   // ─── Admin: orders with resolved PO SKUs ─────────────────────────────────
@@ -1731,7 +1729,7 @@ export const ordersRouter = router({
           distributorName: orderDistName,
         };
       });
-      return enrichAdminOrderRows(db, withPoSkus);
+      return attachOrderFulfillmentOverlay(db, await enrichAdminOrderRows(db, withPoSkus));
     }),
 
   // Admin-only invoice breakdown. Costs, margin, and the Stripe fee stay off
@@ -1755,187 +1753,64 @@ export const ordersRouter = router({
       });
     }),
 
-  // ─── Send confirmed order to the distributor ───────────────────────────────
-  // Admin-triggered after review. Resolves the order's owning distributor, builds
-  // a human-readable PO plus a NetSuite-ready CSV, and emails it to the
-  // distributor's order-intake inbox with CC copies (affiliate/sales). The
-  // NetSuite direct-API mode is stubbed: when a line is set to "netsuite_api" we
-  // still email the CSV and note that direct push is pending credentials.
+  // Admin resend. Automatic sends are idempotent; this forces another email.
   sendToDistributor: adminProcedure
     .input(z.object({ id: z.number().int().positive() }))
     .mutation(async ({ input, ctx }) => {
-      if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN" });
-      const db = await getDb();
-      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
-
-      const rows = await db
-        .select()
-        .from(orderRequests)
-        .where(eq(orderRequests.id, input.id))
-        .limit(1);
-      const order = rows[0];
-      if (!order) throw new TRPCError({ code: "NOT_FOUND", message: "Order not found" });
-
-      const lines = (order.lineItems ?? []) as OrderLineItem[];
-      if (lines.length === 0)
-        throw new TRPCError({ code: "BAD_REQUEST", message: "Order has no line items." });
-
-      // Resolve the owning distributor from the line items' SKUs (most common),
-      // falling back to the order-level style's distributor.
-      const cabinetIds = lines.map((l) => l.cabinetId).filter((x): x is number => typeof x === "number");
-      const styleIds = new Set<number>();
-      for (const l of lines) if (l.styleId) styleIds.add(l.styleId);
-      if (order.styleId) styleIds.add(order.styleId);
-
-      const skuRows =
-        cabinetIds.length && styleIds.size
-          ? await db
-              .select({
-                cabinetId: distributorSkus.cabinetId,
-                styleId: distributorSkus.styleId,
-                distributorId: distributorSkus.distributorId,
-                distributorSku: distributorSkus.distributorSku,
-                distributorCode: distributors.code,
-                styleCode: doorStyles.styleCode,
-              })
-              .from(distributorSkus)
-              .innerJoin(distributors, eq(distributorSkus.distributorId, distributors.id))
-              .innerJoin(doorStyles, eq(distributorSkus.styleId, doorStyles.id))
-              .where(
-                and(
-                  inArray(distributorSkus.cabinetId, cabinetIds),
-                  inArray(distributorSkus.styleId, Array.from(styleIds)),
-                  eq(distributorSkus.isAvailable, true)
-                )
-              )
-          : [];
-
-      const skuByKey = new Map<string, { poSku: string; distributorId: number }>();
-      const distCount = new Map<number, number>();
-      for (const r of skuRows) {
-        const key = `${r.cabinetId}-${r.styleId}`;
-        if (!skuByKey.has(key)) {
-          skuByKey.set(key, {
-            poSku: `${r.distributorCode.toLowerCase()}-${r.styleCode.toLowerCase()}-${r.distributorSku.toLowerCase()}`,
-            distributorId: r.distributorId,
-          });
-        }
-        distCount.set(r.distributorId, (distCount.get(r.distributorId) ?? 0) + 1);
-      }
-      let distributorId: number | null = null;
-      let bestN = -1;
-      for (const [id, n] of Array.from(distCount.entries())) {
-        if (n > bestN) {
-          bestN = n;
-          distributorId = id;
-        }
-      }
-      if (distributorId == null) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "Could not resolve a distributor for this order (no matched SKUs).",
-        });
-      }
-
-      const distRows = await db
-        .select()
-        .from(distributors)
-        .where(eq(distributors.id, distributorId))
-        .limit(1);
-      const dist = distRows[0];
-      if (!dist) throw new TRPCError({ code: "NOT_FOUND", message: "Distributor not found" });
-      if (!dist.orderEmail) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: `No order email is set for ${dist.brandName || dist.name}. Add one in Distributor Fulfillment settings.`,
-        });
-      }
-      const emailRows = await db.select().from(emailSettings).limit(1);
-      const emailCfg = emailRows[0];
-      if (!emailSettingsReady(emailCfg)) {
-        throw new TRPCError({
-          code: "PRECONDITION_FAILED",
-          message:
-            "Email is not configured or is disabled. Set up SMTP in Admin → Email Settings before sending orders.",
-        });
-      }
-
-      // Build the NetSuite-ready lines + CSV + text body.
-      const nsLines: NetsuiteOrderLine[] = lines.map((l) => {
-        const sid = l.styleId ?? order.styleId ?? null;
-        const key = l.cabinetId && sid ? `${l.cabinetId}-${sid}` : null;
-        const poSku = key ? skuByKey.get(key)?.poSku ?? null : null;
-        return {
-          poSku,
-          masterCode: l.masterCode,
-          rawCode: l.rawCode,
-          description: l.description,
-          qty: l.qty,
-          unitPrice: l.unitPrice ?? null,
-        };
-      });
-      const header = {
-        orderNumber: order.requestNumber,
-        customerName: order.originatorName,
-        styleName: order.styleName,
-        deliveryMethod: order.deliveryMethod,
-        orderDate: new Date(order.createdAt).toISOString(),
-      };
-      const csv = buildNetsuiteOrderCsv(header, nsLines);
-      const distName = dist.brandName || dist.name;
-      const text = buildOrderEmailText(header, nsLines, {
-        distributorName: distName,
-        pickupAddress: dist.pickupAddress,
-        totalAmount: order.totalAmount,
-      });
-
-      const cc = (dist.ccEmails ?? "")
-        .split(/[,;]+/)
-        .map((s) => s.trim())
-        .filter(Boolean);
-      const apiNote =
-        dist.fulfillmentMode === "netsuite_api"
-          ? "\n\n[Note] This line is configured for NetSuite direct-API push, which is not yet activated. The order is delivered by email with the NetSuite CSV attached in the meantime."
-          : "";
-
-      const result = await sendEmailViaSettings(emailCfg!, {
-        to: dist.orderEmail,
-        cc: cc.length ? cc : undefined,
-        subject: `Purchase Order ${order.requestNumber} — Cabinet Dealz`,
-        text: text + apiNote,
-        replyTo: order.originatorEmail ?? undefined,
-        attachments: [
-          {
-            filename: `PO-${order.requestNumber}.csv`,
-            content: csv,
-            contentType: "text/csv",
-          },
-        ],
-      });
-      if (!result.success) {
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: result.error || "Failed to send the order email.",
-        });
-      }
-
-      const recipients = [dist.orderEmail, ...cc].join(", ");
-      await db
-        .update(orderRequests)
-        .set({
-          distributorId,
-          sentToDistributorAt: new Date(),
-          sentToDistributorEmail: recipients,
-        })
-        .where(eq(orderRequests.id, order.id));
-
-      return {
-        id: order.id,
-        sentTo: recipients,
-        distributorName: distName,
-        fulfillmentMode: dist.fulfillmentMode,
-      };
+      const result = await notifyOrderDistributors(input.id, { force: true, actor: ctx.user.name || "Admin" });
+      const distributorName = result.records.find((row) => row.status === "sent")?.distributorName ?? result.records[0]?.distributorName ?? null;
+      return { id: input.id, sentTo: result.sentTo, status: result.status, error: result.error, records: result.records, distributorName };
     }),
+
+  resendDistributorEmail: adminProcedure
+    .input(z.object({ id: z.number().int().positive() }))
+    .mutation(async ({ input, ctx }) => {
+      const result = await notifyOrderDistributors(input.id, { force: true, actor: ctx.user.name || "Admin" });
+      const distributorName = result.records.find((row) => row.status === "sent")?.distributorName ?? result.records[0]?.distributorName ?? null;
+      return { id: input.id, sentTo: result.sentTo, status: result.status, error: result.error, records: result.records, distributorName };
+    }),
+
+  markVerified: adminProcedure
+    .input(z.object({ id: z.number().int().positive() }))
+    .mutation(async ({ input, ctx }) => {
+      const failure = orderSchemaProcedureError(await markOrderVerified(input.id, ctx.user.name || "Admin"));
+      if (failure) throw failure;
+      return { id: input.id };
+    }),
+
+  markShipped: adminProcedure
+    .input(z.object({
+      id: z.number().int().positive(),
+      carrier: z.string().trim().max(120).optional(),
+      tracking: z.string().trim().max(255).optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const failure = orderSchemaProcedureError(await markOrderShipped(input.id, { by: ctx.user.name || "Admin", carrier: input.carrier, tracking: input.tracking }));
+      if (failure) throw failure;
+      return { id: input.id };
+    }),
+
+  markSigned: adminProcedure
+    .input(z.object({
+      id: z.number().int().positive(),
+      signerName: z.string().trim().max(255).optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const failure = orderSchemaProcedureError(await markOrderSigned(input.id, { by: ctx.user.name || "Admin", signerName: input.signerName }));
+      if (failure) throw failure;
+      return { id: input.id };
+    }),
+
+  adminMarkPaid: adminProcedure
+    .input(z.object({ id: z.number().int().positive() }))
+    .mutation(async ({ input, ctx }) => {
+      await adminMarkOrderPaid(input.id, ctx.user.name || "Admin");
+      return { id: input.id };
+    }),
+
+  backfillCrmSales: adminProcedure
+    .input(z.object({ apply: z.boolean().default(false) }))
+    .mutation(async ({ input }) => backfillOrderCrm(!input.apply)),
 
   // ─── Persisted manual-fix alias ────────────────────────────────────────────
   // When a user resolves an unrecognized order code by hand (Fix/swap), remember

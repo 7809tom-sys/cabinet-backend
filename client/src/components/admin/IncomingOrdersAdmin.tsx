@@ -112,7 +112,9 @@ function OrderDetailDialog({
   });
   const sendToDistributor = trpc.orders.sendToDistributor.useMutation({
     onSuccess: (res) => {
-      toast.success(`Order sent to ${res.distributorName} (${res.sentTo})`);
+      if (res.status === "sent") toast.success(`Order sent to ${res.distributorName ?? "the distributor"} (${res.sentTo})`);
+      else if (res.status === "no_email") toast.error(res.error || "No order email set");
+      else toast.error(res.error || "Distributor email was not sent");
       utils.orders.adminListWithPoSkus.invalidate();
       onClose();
     },
