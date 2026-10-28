@@ -22,6 +22,9 @@ import {
   type OrderLineItem,
 } from "../../drizzle/schema";
 import { normalizeReferralCode } from "@shared/affiliate";
+import { NO_DISTRIBUTOR_SKU_MAPPED, resolveDistributorPoLine } from "@shared/distributorPoLine";
+import { fetchDistributorPoCatalog } from "../lib/distributorPoCatalog";
+import { resolveLineDistributorId } from "../lib/distributorOrderEmail";
 import { emitCrmEvent } from "../_core/crmWebhook";
 import { validateFamilyLock } from "@shared/familyLock";
 import {
@@ -1640,6 +1643,21 @@ export const ordersRouter = router({
           }
         }
       }
+      const skuDistributor = new Map<string, number>();
+      for (const [key, sku] of skuMap) skuDistributor.set(key, sku.distributorId);
+      const poLines = filtered.flatMap((row) => ((row.lineItems ?? []) as OrderLineItem[]).map((line) => ({
+        cabinetId: line.cabinetId,
+        styleId: line.styleId ?? row.styleId,
+        masterCode: line.masterCode,
+        rawCode: line.rawCode,
+        description: line.description,
+        qty: line.qty,
+        doorStyle: line.doorStyle ?? row.styleName,
+        distributorSku: line.distributorSku,
+        productKind: line.productKind,
+        vendorProductId: line.vendorProductId,
+      })));
+      const distributorCatalog = await fetchDistributorPoCatalog(db, poLines);
 
       // Per-style color/finish + owning distributor (for the internal build sheet).
       // The invoice is ADMIN-ONLY, so we surface the REAL supplier identity here.
@@ -1701,11 +1719,32 @@ export const ordersRouter = router({
             meta && (meta.color || meta.finish)
               ? [meta.color, meta.finish].filter(Boolean).join(" · ")
               : null;
+          const lineDistributorId = resolveLineDistributorId({
+            distributorId: l.distributorId,
+            cabinetId: l.cabinetId,
+            styleId: sid,
+          }, skuDistributor, row.distributorId ?? (styleId ? styleMetaMap.get(styleId)?.distributorId ?? null : null));
+          const distributorLine = lineDistributorId == null ? null : resolveDistributorPoLine({
+            cabinetId: l.cabinetId,
+            styleId: sid,
+            masterCode: l.masterCode,
+            rawCode: l.rawCode,
+            description: l.description,
+            qty: l.qty,
+            doorStyle: l.doorStyle ?? row.styleName,
+            distributorSku: l.distributorSku,
+            productKind: l.productKind,
+            vendorProductId: l.vendorProductId,
+          }, lineDistributorId, distributorCatalog);
           return {
             ...l,
             poSku,
             distributorName: meta?.distributorName ?? null,
             colorFinish,
+            distributorSku: distributorLine?.mapped ? distributorLine.sku : null,
+            distributorItemName: distributorLine?.mapped ? (distributorLine.distributorItemName || null) : NO_DISTRIBUTOR_SKU_MAPPED,
+            distributorDoorStyle: distributorLine?.doorStyle ?? null,
+            distributorSkuMapped: distributorLine?.mapped ?? false,
           };
         });
         // Resolve the order-level distributor: prefer the most common per-line, else the order style's.

@@ -13,6 +13,10 @@ describe("order CRM and distributor email hooks", () => {
     expect(orders).toContain("await onOrderPlaced(insertId)");
     expect(orders).toContain("backfillOrderCrm(!input.apply)");
     expect(orders).toContain("resendDistributorEmail");
+    const sideEffects = source("./orderSideEffects.ts");
+    expect(sideEffects).toContain("buildDistributorEmailContent");
+    expect(sideEffects).toContain("html: message.html");
+    expect(sideEffects).not.toContain("styleName: order.styleName");
   });
 
   it("moves a paid order to New Sale from checkout, payment intent, admin mark-paid, and Stripe sync", () => {

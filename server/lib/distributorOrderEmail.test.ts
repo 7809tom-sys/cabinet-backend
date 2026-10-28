@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   assignLinesToDistributors,
+  buildDistributorEmailContent,
   composeDistributorOrderEmail,
   deliverDistributorEmails,
   parseCcEmails,
@@ -13,7 +14,15 @@ const portion: DistributorPortion = {
   distributorName: "Millwork Co",
   orderEmail: "orders@mill.com",
   ccEmails: ["sales@mill.com"],
-  lines: [{ sku: "usd-sw-3db24", description: "3 drawer base", doorStyle: "Shaker White", qty: 2 }],
+  lines: [{
+    sku: "3DB24",
+    description: "Lumina 3 drawer base",
+    distributorItemName: "3 Drawer Base 24",
+    supplierDescription: "Three drawer base cabinet, 24 inch",
+    doorStyle: "Aspen White",
+    qty: 2,
+    mapped: true,
+  }],
 };
 
 describe("distributor order email", () => {
@@ -31,10 +40,78 @@ describe("distributor order email", () => {
     expect(message.subject).toContain("CD-100");
     expect(message.text).toContain("Jamie Carter");
     expect(message.text).toContain("123 Oak Street");
-    expect(message.text).toContain("usd-sw-3db24");
-    expect(message.text).toContain("Shaker White");
+    expect(message.text).toContain("2 x 3DB24 — 3 Drawer Base 24");
+    expect(message.text).toContain("Three drawer base cabinet, 24 inch");
+    expect(message.text).toContain("Aspen White");
+    expect(message.text).not.toContain("Lumina");
+    expect(message.html).toContain("Distributor Item Name");
+    expect(message.html).toContain("3DB24");
+    expect(message.html).toContain("3 Drawer Base 24");
+    expect(message.html).toContain("Aspen White");
+    expect(message.html).toContain(">2<");
+    expect(message.html).not.toContain("Lumina");
     expect(message.text).toContain("PO-55");
     expect(message.text).toContain("Call before delivery");
+  });
+
+  it("flags a line with no distributor SKU in the text, HTML table, and CSV", () => {
+    const message = buildDistributorEmailContent({
+      orderNumber: "CD-100",
+      orderDate: "2026-10-27",
+      customerName: "Jamie Carter",
+      shipTo: ["123 Oak Street"],
+      distributorName: "US Cabinet Depot",
+      deliveryMethod: "ship",
+      poNumber: null,
+      notes: null,
+      lines: [
+        portion.lines[0],
+        {
+          sku: "W3030",
+          description: "Lumina Wall 30",
+          distributorItemName: "no distributor SKU mapped",
+          supplierDescription: "should not be sent",
+          doorStyle: "Aspen White",
+          qty: 1,
+          mapped: false,
+        },
+      ],
+    });
+    expect(message.text).toContain("1 x W3030 — no distributor SKU mapped · Aspen White");
+    expect(message.text).not.toContain("Lumina");
+    expect(message.text).not.toContain("should not be sent");
+    expect(message.html).toContain("no distributor SKU mapped");
+    expect(message.html).not.toContain("Lumina");
+    const rows = message.csv.split("\r\n");
+    expect(rows[0].split(",")[6]).toBe("Item");
+    expect(rows[0].split(",")[7]).toBe("Distributor Item Name");
+    expect(rows[1]).toContain("3DB24,3 Drawer Base 24,");
+    expect(rows[1]).toContain("Three drawer base cabinet, 24 inch");
+    expect(rows[2]).toContain("W3030,no distributor SKU mapped,,1");
+    expect(message.csv).not.toContain("Lumina");
+  });
+
+  it("escapes HTML in the distributor item name", () => {
+    const message = composeDistributorOrderEmail({
+      orderNumber: "CD-1",
+      orderDate: "2026-10-27",
+      customerName: null,
+      shipTo: [],
+      distributorName: "Millwork Co",
+      poNumber: null,
+      notes: null,
+      lines: [{
+        sku: "B12",
+        description: "",
+        distributorItemName: `12" <base>`,
+        doorStyle: "Aspen & White",
+        qty: 1,
+        mapped: true,
+      }],
+    });
+    expect(message.html).toContain("12&quot; &lt;base&gt;");
+    expect(message.html).toContain("Aspen &amp; White");
+    expect(message.html).not.toContain("<base>");
   });
 
   it("does not send a second time for the same distributor unless forced", async () => {

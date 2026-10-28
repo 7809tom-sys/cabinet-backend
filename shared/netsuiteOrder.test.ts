@@ -70,6 +70,40 @@ describe("buildNetsuiteOrderCsv", () => {
     expect(rows[3].split(",")[6]).toBe("R3");
   });
 
+  it("puts Distributor Item Name beside the distributor SKU and keeps the other columns", () => {
+    const csv = buildNetsuiteOrderCsv(header, [
+      {
+        poSku: "3DB24",
+        distributorItemName: "3 Drawer Base, 24\"",
+        description: "Three drawer base cabinet",
+        doorStyle: "Aspen White",
+        qty: 2,
+        unitPrice: 10,
+      },
+    ]);
+    const headerRow = csv.split("\r\n")[0].split(",");
+    expect(headerRow[6]).toBe("Item");
+    expect(headerRow[7]).toBe("Distributor Item Name");
+    expect(headerRow).toEqual(expect.arrayContaining(["Quantity", "Door Style", "Description"]));
+    const cells = csv.split("\r\n")[1].split(",");
+    expect(cells[5]).toBe("Aspen White");
+    expect(cells[6]).toBe("3DB24");
+    expect(csv).toContain('"3 Drawer Base, 24"""');
+    expect(csv).toContain("Three drawer base cabinet");
+    expect(csv).toContain(",2,10.00,20.00");
+  });
+
+  it("flags an unmapped line in Distributor Item Name and does not copy a catalog description", () => {
+    const csv = buildNetsuiteOrderCsv(header, [
+      { poSku: "W3030", distributorItemName: "no distributor SKU mapped", description: "", qty: 1 },
+    ]);
+    const cells = csv.split("\r\n")[1].split(",");
+    expect(cells[6]).toBe("W3030");
+    expect(cells[7]).toBe("no distributor SKU mapped");
+    expect(cells[8]).toBe("");
+    expect(cells[9]).toBe("1");
+  });
+
   it("leaves rate/amount blank when no price is present", () => {
     const csv = buildNetsuiteOrderCsv(header, [{ poSku: "X", qty: 3 }]);
     const row = csv.split("\r\n")[1];
@@ -96,6 +130,20 @@ describe("buildOrderEmailText", () => {
     expect(text).toContain("Pickup location: 1 Depot Rd");
     expect(text).toContain("Order total: $100.00");
     expect(text).toContain("NetSuite-ready CSV");
+  });
+
+  it("prints the distributor item name and skips a catalog description when the name is set", () => {
+    const text = buildOrderEmailText(
+      { orderNumber: "CD-1", deliveryMethod: "ship" },
+      [{
+        poSku: "3DB24",
+        distributorItemName: "3 Drawer Base 24",
+        description: "Lumina 3 Drawer Base",
+        qty: 2,
+      }],
+    );
+    expect(text).toContain("2 x  3DB24  — 3 Drawer Base 24");
+    expect(text).not.toContain("Lumina");
   });
 });
 
