@@ -724,7 +724,11 @@ export interface StripeSyncAccountResult {
 
 export async function syncStripeAccount(
   reader: StripeHistoryReader,
-  deps: { store: StripePaymentStore; links: PaymentLinkContext },
+  deps: {
+    store: StripePaymentStore;
+    links: PaymentLinkContext;
+    onLinkedPayment?: (event: { orderId: number; status: string }) => Promise<void>;
+  },
 ): Promise<Omit<StripeSyncAccountResult, "mode">> {
   const charges = await listPages((startingAfter) => reader.listCharges(startingAfter));
   const sessions = await listPages((startingAfter) => reader.listCheckoutSessions(startingAfter));
@@ -737,6 +741,13 @@ export async function syncStripeAccount(
     const saved = await upsertStripePayment(deps.store, enriched);
     upserted += 1;
     if (saved.created) created += 1;
+    if (enriched.orderRequestId && deps.onLinkedPayment) {
+      try {
+        await deps.onLinkedPayment({ orderId: enriched.orderRequestId, status: enriched.status });
+      } catch (error) {
+        console.error(`[OrderCrm] Stripe sync match failed for order ${enriched.orderRequestId}: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
   };
   for (const charge of charges.items) {
     const draft = fromCharge(charge, blankDraft({ id: "sync", type: "charge.succeeded" }), "charge.succeeded");

@@ -2,6 +2,7 @@ import { and, desc, eq, inArray, isNotNull, sql } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import type { getDb } from "../db";
 import { distributors, orderRequests, orderShipments, vendorLines } from "../../drizzle/schema";
+import { markOrderShipped } from "./orderSideEffects";
 import { pelicanProducts, pelicanShippingProfiles } from "../../drizzle/pelicanSchema";
 import { approvedVendorLinkedDistributorIds } from "./approvedVendorAccess";
 import { HARDWARE_LINE_CODE } from "../../shared/hardwareCommerce";
@@ -383,7 +384,18 @@ export async function recordShipment(db: FulfillmentDb, input: RecordShipmentInp
       eq(orderShipments.vendorScope, input.scope),
       eq(orderShipments.status, "pending"),
     ));
-  if (affectedRows(first) > 0) return { firstShip: true };
+  if (affectedRows(first) > 0) {
+    try {
+      await markOrderShipped(input.orderId, {
+        by: `Vendor ${input.scope}`,
+        carrier: checked.carrier,
+        tracking: checked.trackingNumber,
+      });
+    } catch (error) {
+      console.error(`[OrderEmail] Shipment for order ${input.orderId} was saved, but the shipped stamp was not: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    return { firstShip: true };
+  }
   await db
     .update(orderShipments)
     .set(fields)

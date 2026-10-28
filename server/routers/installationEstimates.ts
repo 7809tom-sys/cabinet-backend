@@ -3,6 +3,7 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { affiliateInstallationEstimates, affiliateTeamMembers, affiliates, cabinets, crmActivities, crmDealDesigns, crmDeals, kitchenDesigns, orderRequests } from "../../drizzle/schema";
 import { getDb } from "../db";
+import { syncStoredOrderCrm } from "../lib/orderSideEffects";
 import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
 import { calculateInstallationEstimate, INSTALLATION_ROOM_TYPES, INSTALLATION_COST_TYPES } from "../../shared/installationEstimate";
 import { createBlankKitchenCostDefaults, KITCHEN_COST_SHEET_DESCRIPTIONS } from "../../shared/kitchenCostSheet";
@@ -142,7 +143,7 @@ export const installationEstimatesRouter = router({
       const affiliateId = await resolveAffiliateId(ctx.user, input.affiliateId, input.roomType === "Kitchen" && input.kitchenDesignId != null);
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
-      return db.transaction(async (tx) => {
+      const result = await db.transaction(async (tx) => {
         const kitchenDesignId = input.roomType === "Kitchen" ? (input.kitchenDesignId ?? null) : null;
         let cabinetBreakdown: KitchenCabinetBreakdown | null = null;
         let kitchenDesignName: string | null = null;
@@ -220,6 +221,14 @@ export const installationEstimatesRouter = router({
         }
         return { id: estimateId, shareToken, crmDealId, kitchenDesignId, cabinetBreakdown, ...totals };
       });
+      if (input.orderRequestId) {
+        try {
+          await syncStoredOrderCrm(input.orderRequestId, { preferredDealId: result.crmDealId });
+        } catch (error) {
+          console.error(`[OrderCrm] Labor estimate was saved, but CRM sync failed for order ${input.orderRequestId}: ${error instanceof Error ? error.message : String(error)}`);
+        }
+      }
+      return result;
     }),
 
   updateStatus: protectedProcedure

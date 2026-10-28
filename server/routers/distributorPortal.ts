@@ -28,6 +28,7 @@ import {
 import { storagePut } from "../storage";
 import { vendorRoomSceneProcedures } from "./vendorRoomScenes";
 import { encryptDistributorSecret } from "../lib/distributorIntegrationCrypto";
+import { markOrderVerified } from "../lib/orderSideEffects";
 import { decryptDistributorSecret } from "../lib/distributorIntegrationCrypto";
 import { generateImage } from "../_core/imageGeneration";
 import { nextSampleVerifiedFlag } from "@shared/doorStyleRoomSceneGeneration";
@@ -2808,6 +2809,11 @@ export const distributorPortalRouter = router({
         distributorInvoiceNotes: input.invoiceNotes || null,
         distributorInvoiceReceivedAt: now,
       }).where(eq(orderRequests.id, order.id));
+      try {
+        await markOrderVerified(order.id, ctx.user?.name || "Distributor");
+      } catch (error) {
+        console.error(`[OrderEmail] Inventory confirmation for order ${order.id} was saved, but the verified stamp was not: ${error instanceof Error ? error.message : String(error)}`);
+      }
       return { id: order.id, orderRailStatus: "affiliate_invoice_review" as const };
     }),
 

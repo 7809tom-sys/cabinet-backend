@@ -19,6 +19,7 @@ import {
   type StripeMode,
   type StripePaymentStatus,
 } from "../stripePaymentRecords";
+import { noteStripeMatchedPayment } from "../lib/orderSideEffects";
 
 const listInput = z.object({
   search: z.string().max(200).optional(),
@@ -138,7 +139,11 @@ export const stripeInvoicesRouter = router({
     const accounts: Array<{ mode: StripeMode; charges: number; sessions: number; invoices: number; upserted: number; created: number; truncated: boolean }> = [];
     for (const target of targets) {
       try {
-        const result = await syncStripeAccount(historyReader(target.secretKey), { store, links });
+        const result = await syncStripeAccount(historyReader(target.secretKey), {
+          store,
+          links,
+          onLinkedPayment: ({ orderId, status }) => noteStripeMatchedPayment(orderId, status),
+        });
         accounts.push({ mode: target.mode, ...result });
       } catch (error) {
         const message = redactSecrets(error instanceof Error ? error.message : "Stripe request failed");

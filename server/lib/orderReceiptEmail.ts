@@ -4,6 +4,7 @@ import { getDb } from "../db";
 import { emailSettingsReady, isEmailConfigured, sendEmail, sendEmailViaSettings, type SendEmailOptions, type SendEmailResult } from "../email";
 import { readOrderCostSnapshots } from "./orderCostSnapshot";
 import { dollarsToCents, formatUsdFromCents, summarizeAdminOrder, type OrderMoneyInput } from "./orderMoney";
+import { onOrderPaid } from "./orderSideEffects";
 
 export const DEFAULT_ORDER_NOTIFY_EMAIL = "sales@cabinetdealz.com";
 
@@ -291,4 +292,9 @@ export async function markOrderPaidById(orderId: number, paymentIntentId: string
     status: order.status === "draft" || order.status === "submitted" ? "confirmed" : order.status,
     orderRailStatus: order.orderRailStatus === "awaiting_payment" ? "affiliate_review" : order.orderRailStatus,
   }).where(eq(orderRequests.id, orderId));
+  try {
+    await onOrderPaid(orderId);
+  } catch (error) {
+    console.error(`[OrderCrm] Paid order ${orderId} was saved, but the CRM and distributor follow-up failed: ${error instanceof Error ? error.message : String(error)}`);
+  }
 }

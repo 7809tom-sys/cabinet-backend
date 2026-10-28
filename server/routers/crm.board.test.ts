@@ -51,7 +51,12 @@ describe("crm.board master visibility", () => {
 
     expect(result.scope).toBe("house");
     expect(result.isMasterView).toBe(true);
-    expect(result.deals).toEqual([affiliateDeal]);
+    expect(result.deals).toEqual([{
+      ...affiliateDeal,
+      imageGeneratedCount: 0,
+      lastImageGeneratedAt: null,
+      saleRefundedAt: null,
+    }]);
     expect(result.affiliateNames).toEqual({ 7: "Reaves Way Cabinet Shop." });
   });
 });
