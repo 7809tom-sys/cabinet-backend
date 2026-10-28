@@ -53,7 +53,75 @@ export interface SendEmailResult {
   notConfigured?: boolean;
 }
 
+const ORDER_EMAIL_LOG = "[OrderEmail]";
+
+export function resendConfigured(env: NodeJS.ProcessEnv = process.env): boolean {
+  return Boolean(env.RESEND_API_KEY?.trim());
+}
+
+function addressList(value: string | string[] | undefined): string[] | undefined {
+  if (!value) return undefined;
+  const list = (Array.isArray(value) ? value : value.split(/[,;]+/)).map((item) => item.trim()).filter(Boolean);
+  return list.length ? list : undefined;
+}
+
+/**
+ * HTTPS mail through Resend when RESEND_API_KEY is set. Returns null when the
+ * key is absent, or when ORDER_EMAIL_FROM is missing, so the caller can use SMTP.
+ */
+export async function sendViaResend(
+  opts: SendEmailOptions,
+  env: NodeJS.ProcessEnv = process.env,
+  fetchImpl: typeof fetch = fetch,
+): Promise<SendEmailResult | null> {
+  const key = env.RESEND_API_KEY?.trim() ?? "";
+  if (!key) return null;
+  const from = env.ORDER_EMAIL_FROM?.trim() ?? "";
+  if (!from) {
+    console.warn(`${ORDER_EMAIL_LOG} RESEND_API_KEY is set but ORDER_EMAIL_FROM is empty. Falling back to SMTP.`);
+    return null;
+  }
+  const attachments = opts.attachments?.map((attachment) => ({
+    filename: attachment.filename,
+    content: Buffer.isBuffer(attachment.content) ? attachment.content.toString("base64") : Buffer.from(attachment.content).toString("base64"),
+  }));
+  try {
+    const response = await fetchImpl("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${key}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from,
+        to: addressList(opts.to),
+        cc: addressList(opts.cc),
+        bcc: addressList(opts.bcc),
+        subject: opts.subject,
+        text: opts.text,
+        html: opts.html,
+        reply_to: opts.replyTo,
+        attachments,
+      }),
+    });
+    const body = await response.json().catch(() => ({})) as { id?: string; message?: string };
+    if (!response.ok) {
+      const message = body.message || `Resend returned ${response.status}`;
+      console.error(`${ORDER_EMAIL_LOG} Resend failed for ${opts.to}: ${message}`);
+      return { success: false, error: message };
+    }
+    console.log(`${ORDER_EMAIL_LOG} Resend sent to ${opts.to} — id: ${body.id ?? "unknown"}`);
+    return { success: true, messageId: body.id };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`${ORDER_EMAIL_LOG} Resend failed for ${opts.to}: ${message}`);
+    return { success: false, error: message };
+  }
+}
+
 export async function sendEmail(opts: SendEmailOptions): Promise<SendEmailResult> {
+  const resend = await sendViaResend(opts);
+  if (resend) return resend;
   if (!isEmailConfigured()) {
     console.warn("[Email] SMTP not configured — set SMTP_HOST, SMTP_USER, SMTP_PASS in Secrets.");
     return { success: false, notConfigured: true, error: "SMTP not configured" };
@@ -125,6 +193,8 @@ export async function sendEmailViaSettings(
   s: EmailSettingsRow,
   opts: SendEmailOptions
 ): Promise<SendEmailResult> {
+  const resend = await sendViaResend(opts);
+  if (resend) return resend;
   if (!emailSettingsReady(s)) {
     return { success: false, notConfigured: true, error: "Email is not configured or is disabled" };
   }

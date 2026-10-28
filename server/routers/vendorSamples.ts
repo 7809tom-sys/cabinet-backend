@@ -3,6 +3,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { adminProcedure, protectedProcedure, router, supplierProfileProcedure } from "../_core/trpc";
 import { getDb } from "../db";
+import { syncStoredOrderCrm } from "../lib/orderSideEffects";
 import {
   cabinets,
   distributorSkus,
@@ -344,6 +345,11 @@ export const vendorSamplesRouter = router({
       deliveryMethod: "ship",
     });
     const id = (result as unknown as [{ insertId: number }])[0].insertId;
+    try {
+      await syncStoredOrderCrm(id);
+    } catch (error) {
+      console.error(`[OrderCrm] Sample order ${id} was saved, but the CRM follow-up failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
     return { id, affiliateId };
   }),
 
