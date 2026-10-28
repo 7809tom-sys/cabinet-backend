@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isWallWineRackCabinet } from "../../shared/wallWineRack";
 import { eq, and, sql, inArray, gte, lte, isNull, ne, or } from "drizzle-orm";
 import { publicProcedure, router } from "../_core/trpc";
 import { getDb, notInConflict, getPricingSettings } from "../db";
@@ -631,7 +632,9 @@ export const storefrontRouter = router({
 
       const search = input.search?.trim() ?? "";
       const matchesFilter = (row: (typeof masters)[number] & { sourceMasterCode: string | null }) => {
-        if (input.category && row.category !== input.category) return false;
+        if (input.category && row.category !== input.category) {
+          if (!(input.category === "Wall" && isWallWineRackCabinet(row))) return false;
+        }
         if (input.subCategory) {
           if (isAccessoryGroupLabel) {
             if (accessoryGroupFor(row) !== input.subCategory) return false;
@@ -674,6 +677,7 @@ export const storefrontRouter = router({
           : null;
         return {
           ...r,
+          category: isWallWineRackCabinet(r) ? "Wall" : r.category,
           homeownerPrice: affiliateSale != null
             ? affiliateSale.toFixed(2)
             : sellPriceForTier(

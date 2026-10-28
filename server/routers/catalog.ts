@@ -52,6 +52,7 @@ import { orderCabinetsByAliasRank, rankLoadedCabinetSearch } from "../lib/cabine
 import { aliasSearchOrder, exactCabinetAliasOwnerSql, orCabinetAliasMatch } from "../lib/cabinetAliasSearchSql";
 import { priceLadder } from "@shared/pricing";
 import { resolveCanonicalCatalogSources } from "../lib/canonicalCatalogSources";
+import { isWallWineRackCabinet } from "../../shared/wallWineRack";
 import { designerCabinetReadinessBySku } from "../lib/designerCabinetReadiness";
 import { landedCostFromList, landedCostMultiplier } from "../lib/distributorCostMultiplier";
 import { loadAffiliateStorefrontPricing } from "../lib/affiliateStorefrontPricing";
@@ -68,7 +69,11 @@ function isTrimItem(r: {
   subCategory: string | null;
   description: string | null;
   placementType?: string | null;
+  masterCode?: string | null;
 }): boolean {
+  // Wall wine racks are upper cabinets, never trim, even when a supplier
+  // filed them under Accessories / Wine Storage or Specialty / Wine Rack.
+  if (isWallWineRackCabinet(r)) return false;
   const pt  = (r.placementType  || "").toLowerCase();
   const cat = (r.category       || "").toLowerCase();
   const sub = (r.subCategory    || "").toLowerCase();
@@ -1283,7 +1288,7 @@ export const doorStylesRouter = router({
           // Normalise trim/molding/filler items to category="accessory" so the
           // client TYPE_FILTERS always route them to the Accessories & Trim tab,
           // regardless of which DB category the distributor originally assigned.
-          const normCategory = isTrimItem(r) ? "accessory" : r.category;
+          const normCategory = isWallWineRackCabinet(r) ? "Wall" : isTrimItem(r) ? "accessory" : r.category;
           // Cost base precedence (yourCost first) MUST match stylesForCabinet
           // so the Family page and the Cabinet Detail page price identically.
           const costRow = {
@@ -1707,7 +1712,10 @@ export const cabinetsRouter = router({
 
       const search = input.search?.trim() ?? "";
       const matchesFilters = (row: (typeof masters)[number]) => {
-        if (input.category && row.category !== input.category) return false;
+        if (input.category && row.category !== input.category) {
+          // "Wall" includes wine racks filed under Wall Wine Rack, Wine Storage, or Specialty.
+          if (!(input.category === "Wall" && isWallWineRackCabinet(row))) return false;
+        }
         if (input.subCategory && row.subCategory !== input.subCategory) return false;
         if (input.adaOnly) {
           const code = normalizeCode(row.masterCode);
@@ -1769,7 +1777,9 @@ export const cabinetsRouter = router({
         : distinct.sort(sortItems);
 
       const total = ordered.length;
-      const page = ordered.slice(input.offset, input.offset + input.limit);
+      const page = ordered.slice(input.offset, input.offset + input.limit).map((row) => (
+        isWallWineRackCabinet(row) ? { ...row, category: "Wall", placementType: row.placementType || "wall" } : row
+      ));
       return { items: page, total, categoryCounts };
     }),
 
