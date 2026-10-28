@@ -10,6 +10,7 @@
  */
 import { and, asc, eq, inArray, like, or, sql } from "drizzle-orm";
 import { z } from "zod";
+import { TRPCError } from "@trpc/server";
 import { getDb, isCanonicalCabinetMaster } from "../db";
 import { adminProcedure, router } from "../_core/trpc";
 import { cabinets, cabinetAliases, distributors, distributorSkus, distributorCabinetOverrides, doorStyles, skuMasterAliases } from "../../drizzle/schema";
@@ -26,6 +27,13 @@ import {
   hasPositiveCatalogPrice,
 } from "../../shared/catalogNomenclature";
 import { cabinetCanBeRenderedOrPlacedIn3d } from "../../shared/designerEligibility";
+import {
+  CABINET_FREE_SHIPPING_MIGRATION_MESSAGE,
+  CabinetFreeShippingSchemaError,
+  cabinetFreeShippingColumnState,
+  freeShippingWrite,
+  isMissingFreeShippingColumn,
+} from "../lib/cabinetFreeShippingSchema";
 
 export const genericCabinetsRouter = router({
   /**
@@ -236,6 +244,7 @@ export const genericCabinetsRouter = router({
           pkgWidth: cabinets.pkgWidth,
           pkgHeight: cabinets.pkgHeight,
           pkgWeight: cabinets.pkgWeight,
+          freeShipping: cabinets.freeShipping,
           sku: cabinets.sku,
           vendorSku: cabinets.vendorSku,
           altSku1: cabinets.altSku1,
@@ -312,6 +321,7 @@ export const genericCabinetsRouter = router({
         pkgWidth: z.number().min(0).max(999).nullable().optional(),
         pkgHeight: z.number().min(0).max(999).nullable().optional(),
         pkgWeight: z.number().min(0).max(10_000).nullable().optional(),
+        freeShipping: z.boolean().optional(),
         sku: z.string().trim().max(128).nullable().optional(),
         vendorSku: z.string().trim().max(128).nullable().optional(),
         altSku1: z.string().trim().max(128).nullable().optional(),
@@ -402,6 +412,10 @@ export const genericCabinetsRouter = router({
 
       const optionalText = (value: string | null | undefined) => value?.trim() || null;
       const decimalValue = (value: number | null | undefined) => value == null ? null : String(value);
+      const freeShippingFields = freeShippingWrite(cabinetFreeShippingColumnState(), input.freeShipping);
+      if ("error" in freeShippingFields) {
+        throw new TRPCError({ code: "PRECONDITION_FAILED", message: freeShippingFields.error });
+      }
       const values = {
         description,
         category,
@@ -428,6 +442,7 @@ export const genericCabinetsRouter = router({
         pkgWidth: decimalValue(input.pkgWidth),
         pkgHeight: decimalValue(input.pkgHeight),
         pkgWeight: decimalValue(input.pkgWeight),
+        ...freeShippingFields,
         sku: optionalText(input.sku),
         vendorSku: optionalText(input.vendorSku),
         altSku1: optionalText(input.altSku1),
@@ -450,7 +465,9 @@ export const genericCabinetsRouter = router({
         conflictStatus: "none",
       };
 
-      const saved = await db.transaction(async (tx) => {
+      let saved: { cabinetId: number; sourceSkuId: number | null };
+      try {
+        saved = await db.transaction(async (tx) => {
         let cabinetId = existing?.id;
         if (cabinetId) {
           await tx.update(cabinets).set(values).where(eq(cabinets.id, cabinetId));
@@ -546,6 +563,12 @@ export const genericCabinetsRouter = router({
 
         return { cabinetId: cabinetId!, sourceSkuId };
       });
+      } catch (error) {
+        if (error instanceof CabinetFreeShippingSchemaError || isMissingFreeShippingColumn(error)) {
+          throw new TRPCError({ code: "PRECONDITION_FAILED", message: CABINET_FREE_SHIPPING_MIGRATION_MESSAGE });
+        }
+        throw error;
+      }
 
       return { id: saved.cabinetId, masterCode, sourceSkuId: saved.sourceSkuId, isPublished: publish };
     }),

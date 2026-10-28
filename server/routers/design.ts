@@ -407,6 +407,7 @@ export const designRouter = router({
             cornerType: cabinets.cornerType,
             facePattern: cabinets.facePattern,
             glassDoorAddonCode: cabinets.glassDoorAddonCode,
+            freeShipping: cabinets.freeShipping,
           })
           .from(cabinets)
           .where(and(

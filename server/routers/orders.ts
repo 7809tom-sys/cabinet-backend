@@ -48,6 +48,9 @@ import { freightQuoteItemsForOrder } from "../lib/freightQuoteOrderIdentity";
 import { normalizeFreightQuoteDeliveryAddress } from "@shared/freightQuoteAddress";
 import { calcSalesTax } from "@shared/usSalesTax";
 import { isTemporaryOneDollarCheckoutTestItem, isTemporaryOneDollarFreeShippingOrder } from "@shared/temporaryCheckoutTest";
+import { isCatalogFreeShippingFlag } from "@shared/freeShippingItem";
+import { isCatalogFreeShippingIdentity, loadCatalogFreeShippingIndex } from "../lib/catalogFreeShipping";
+import { CabinetFreeShippingSchemaError, isMissingFreeShippingColumn } from "../lib/cabinetFreeShippingSchema";
 import { isStagingTestHost } from "@shared/stagingTestMode";
 import { HARDWARE_LINE_CODE, hardwareProfileIsComplete, hardwareRetailCents, hardwareVendorOriginZip } from "@shared/hardwareCommerce";
 import { callerCanReadOrder, generateOrderAccessToken } from "../lib/orderAccess";
@@ -551,7 +554,7 @@ export const ordersRouter = router({
       const isAdmin = ctx.user?.role === "admin";
       const db = await getDb();
       if (!db || input.cabinetIds.length === 0) {
-        return { prices: [] as { cabinetId: number; unitPrice: number | null; originalUnitPrice: number | null; promoName: string | null; myCost: number | null }[] };
+        return { prices: [] as { cabinetId: number; unitPrice: number | null; originalUnitPrice: number | null; promoName: string | null; myCost: number | null; freeShipping: boolean }[] };
       }
       const ps = await getPricingSettings();
       const rows = await db
@@ -647,6 +650,19 @@ export const ordersRouter = router({
         }
       }
 
+      let freeShippingRows: Array<{ id: number; freeShipping: unknown }> = [];
+      try {
+        freeShippingRows = await db
+          .select({ id: cabinets.id, freeShipping: cabinets.freeShipping })
+          .from(cabinets)
+          .where(inArray(cabinets.id, input.cabinetIds));
+      } catch (error) {
+        if (!(error instanceof CabinetFreeShippingSchemaError) && !isMissingFreeShippingColumn(error)) throw error;
+      }
+      const freeShippingCabinetIds = new Set(
+        freeShippingRows.filter((row) => isCatalogFreeShippingFlag(row.freeShipping)).map((row) => row.id),
+      );
+
       return {
         prices: input.cabinetIds.map((id) => {
           const promo = promoted.get(id);
@@ -658,6 +674,7 @@ export const ordersRouter = router({
             promoName: promo?.promoName ?? null,
             // Only the owner/admin ever receives a non-null cost.
             myCost: isAdmin && bestCost.has(id) ? bestCost.get(id)! : null,
+            freeShipping: freeShippingCabinetIds.has(id),
           };
         }),
       };
@@ -1021,13 +1038,22 @@ export const ordersRouter = router({
       let shippingService: string | null = null;
       const hardwareOrderLines = normalizedLines.filter((line) => line.productKind === "hardware");
       const nonHardwareOrderLines = normalizedLines.filter((line) => line.productKind !== "hardware");
-      const nonHardwareMerchandiseCents = Math.max(0, Math.round(
-        nonHardwareOrderLines.reduce((sum, line) => sum + (line.linePrice ?? 0), 0) * 100,
-      ));
       const hardwareMerchandiseCents = Math.max(0, Math.round(
         hardwareOrderLines.reduce((sum, line) => sum + (line.linePrice ?? 0), 0) * 100,
       ));
-      if (deliveryMethod === "ship" && nonHardwareOrderLines.length > 0 && input.freightQuoteToken) {
+      const catalogFreeShippingIndex = deliveryMethod === "ship"
+        ? await loadCatalogFreeShippingIndex(db, nonHardwareOrderLines)
+        : { cabinetIds: new Set<number>(), masterCodes: new Set<string>() };
+      const quotedMerchandiseLines = nonHardwareOrderLines.filter(
+        (line) => !isCatalogFreeShippingIdentity(line, catalogFreeShippingIndex),
+      );
+      const linesThatNeedACarrierQuote = quotedMerchandiseLines.filter(
+        (line) => !isTemporaryOneDollarCheckoutTestItem(line),
+      );
+      const quotedMerchandiseCents = Math.max(0, Math.round(
+        quotedMerchandiseLines.reduce((sum, line) => sum + (line.linePrice ?? 0), 0) * 100,
+      ));
+      if (deliveryMethod === "ship" && linesThatNeedACarrierQuote.length > 0 && input.freightQuoteToken) {
         let quote;
         try {
           quote = verifyFreightQuoteToken(input.freightQuoteToken);
@@ -1037,11 +1063,11 @@ export const ordersRouter = router({
             message: error instanceof Error ? error.message : "Freight quote is invalid.",
           });
         }
-        const expectedItemsHash = freightItemsHash(freightQuoteItemsForOrder(nonHardwareOrderLines));
+        const expectedItemsHash = freightItemsHash(freightQuoteItemsForOrder(quotedMerchandiseLines));
         const quoteMatchesOrder =
           quote.quoteKind !== "hardware" &&
           quote.destinationAddressHash === expectedAddressHash &&
-          quote.merchandiseSubtotalCents === nonHardwareMerchandiseCents &&
+          quote.merchandiseSubtotalCents === quotedMerchandiseCents &&
           quote.residential === (deliveryLocationType === "residential") &&
           quote.liftgate === liftgateRequired &&
           quote.itemsHash === expectedItemsHash;
@@ -1059,6 +1085,14 @@ export const ordersRouter = router({
         // This is a deliberately narrow real-payment smoke-test SKU. Its zero
         // freight is server-authorized; every ordinary shipping order still
         // requires a signed current carrier quote below.
+        freightQuoteVerified = true;
+      } else if (deliveryMethod === "ship" && nonHardwareOrderLines.length > 0 && linesThatNeedACarrierQuote.length === 0) {
+        // Free-shipping catalog items are read from cabinets.freeShipping. A
+        // client cannot grant itself $0 freight by sending a flag. Orders that
+        // still contain a quoted cabinet or surface keep the carrier-quote
+        // requirement above, with those free-shipping lines removed from the
+        // signed item list and from the merchandise the quote is matched to.
+        freightQuoteCents = 0;
         freightQuoteVerified = true;
       } else if (deliveryMethod === "ship" && nonHardwareOrderLines.length > 0 && input.submit) {
         throw new TRPCError({
