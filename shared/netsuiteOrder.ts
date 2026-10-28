@@ -14,11 +14,16 @@ import { approxZipCentroid, haversineMiles, normalizeZip, type LatLng } from "./
 // ─── NetSuite-ready PO CSV ─────────────────────────────────────────────────────
 
 export interface NetsuiteOrderLine {
-  /** The PO SKU we send the distributor, e.g. "usd-sw-3db24". Falls back to master/raw code. */
+  /** Distributor SKU sent on the PO. Falls back to master/raw catalog code when unmapped. */
   poSku?: string | null;
   masterCode?: string | null;
   rawCode?: string | null;
+  /** Distributor description (supplierDescription). Not the Cabinet Dealz catalog name. */
   description?: string | null;
+  /** Distributor's own product name, beside the SKU. The unmapped flag when no SKU mapped. */
+  distributorItemName?: string | null;
+  /** Distributor's door-style name for this line. Overrides the header style when set. */
+  doorStyle?: string | null;
   qty: number;
   unitPrice?: number | null;
 }
@@ -54,6 +59,7 @@ export const NETSUITE_CSV_COLUMNS = [
   "Fulfillment",
   "Door Style",
   "Item",
+  "Distributor Item Name",
   "Description",
   "Quantity",
   "Rate",
@@ -84,6 +90,7 @@ export function buildNetsuiteOrderCsv(
     const qty = Number.isFinite(line.qty) ? line.qty : 0;
     const rate = line.unitPrice ?? null;
     const amount = rate != null ? Number((rate * qty).toFixed(2)) : null;
+    const doorStyle = (line.doorStyle ?? header.styleName ?? "").toString();
     rows.push(
       [
         header.orderNumber,
@@ -91,8 +98,9 @@ export function buildNetsuiteOrderCsv(
         orderDate,
         header.customerName ?? "",
         header.deliveryMethod === "pickup" ? "Pickup" : "Ship",
-        header.styleName ?? "",
+        doorStyle,
         sku,
+        line.distributorItemName ?? "",
         line.description ?? "",
         qty,
         rate != null ? rate.toFixed(2) : "",
@@ -128,7 +136,10 @@ export function buildOrderEmailText(
   for (const line of lines) {
     const sku = resolveSku(line);
     const price = line.unitPrice != null ? ` @ $${line.unitPrice.toFixed(2)}` : "";
-    out.push(`  ${line.qty} x  ${sku}  — ${line.description ?? ""}${price}`);
+    // A provided distributor item name replaces the catalog description. An
+    // empty name stays empty so a white-label description is not substituted.
+    const label = line.distributorItemName == null ? (line.description ?? "") : line.distributorItemName;
+    out.push(`  ${line.qty} x  ${sku}  — ${label}${price}`);
   }
   if (opts?.totalAmount) {
     out.push("");

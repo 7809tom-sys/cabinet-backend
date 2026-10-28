@@ -9,15 +9,17 @@ import {
   orderRequests,
   type OrderLineItem,
 } from "../../drizzle/schema";
-import { buildNetsuiteOrderCsv } from "@shared/netsuiteOrder";
+import { distributorFacingName, resolveDistributorPoLine } from "@shared/distributorPoLine";
 import { getDb } from "../db";
 import { emailSettingsReady, sendEmail, sendEmailViaSettings } from "../email";
 import { ensureAffiliatePipelineDeal } from "./crmPipelineAttach";
+import { fetchDistributorPoCatalog } from "./distributorPoCatalog";
 import {
   assignLinesToDistributors,
-  composeDistributorOrderEmail,
+  buildDistributorEmailContent,
   deliverDistributorEmails,
   parseCcEmails,
+  poViewToEmailLine,
   summarizeDistributorEmails,
   usableEmail,
   type DistributorEmailRecord,
@@ -476,12 +478,7 @@ async function loadPortions(db: Database, order: typeof orderRequests.$inferSele
       cabinetId: distributorSkus.cabinetId,
       styleId: distributorSkus.styleId,
       distributorId: distributorSkus.distributorId,
-      distributorSku: distributorSkus.distributorSku,
-      distributorCode: distributors.code,
-      styleCode: doorStyles.styleCode,
     }).from(distributorSkus)
-      .innerJoin(distributors, eq(distributorSkus.distributorId, distributors.id))
-      .innerJoin(doorStyles, eq(distributorSkus.styleId, doorStyles.id))
       .where(and(
         inArray(distributorSkus.cabinetId, cabinetIds),
         inArray(distributorSkus.styleId, Array.from(styleIds)),
@@ -489,36 +486,48 @@ async function loadPortions(db: Database, order: typeof orderRequests.$inferSele
       ))
     : [];
   const skuDistributor = new Map<string, number>();
-  const poSku = new Map<string, string>();
   for (const row of skuRows) {
     const key = `${row.cabinetId}-${row.styleId}`;
-    if (!skuDistributor.has(key)) {
-      skuDistributor.set(key, row.distributorId);
-      poSku.set(key, `${row.distributorCode}-${row.styleCode}-${row.distributorSku}`.toLowerCase());
-    }
+    if (!skuDistributor.has(key)) skuDistributor.set(key, row.distributorId);
   }
   let fallback = order.distributorId ?? null;
   if (fallback == null && order.styleId) {
     const [style] = await db.select({ distributorId: doorStyles.distributorId }).from(doorStyles).where(eq(doorStyles.id, order.styleId)).limit(1);
     fallback = style?.distributorId ?? null;
   }
-  const groups = assignLinesToDistributors(lines.map((line) => {
-    const key = line.cabinetId && line.styleId ? `${line.cabinetId}-${line.styleId}` : "";
-    return {
-      distributorId: line.distributorId,
-      cabinetId: line.cabinetId,
-      styleId: line.styleId ?? order.styleId,
-      sku: line.distributorSku || (key ? poSku.get(key) : null) || line.masterCode || line.rawCode || "",
-      description: line.description,
-      doorStyle: line.doorStyle || order.styleName,
-      qty: line.qty,
-    };
-  }), skuDistributor, fallback);
+  const groups = assignLinesToDistributors(lines.map((line) => ({
+    distributorId: line.distributorId,
+    cabinetId: line.cabinetId,
+    styleId: line.styleId ?? order.styleId,
+    sku: "",
+    description: "",
+    doorStyle: null,
+    qty: line.qty,
+    masterCode: line.masterCode,
+    rawCode: line.rawCode,
+    catalogDescription: line.description,
+    lineDistributorSku: line.distributorSku,
+    productKind: line.productKind,
+    vendorProductId: line.vendorProductId,
+    storedDoorStyle: line.doorStyle,
+  })), skuDistributor, fallback);
   if (groups.size === 0) return [];
   const ids = Array.from(groups.keys());
+  const catalog = await fetchDistributorPoCatalog(db, Array.from(groups.values()).flat().map((line) => ({
+    cabinetId: line.cabinetId,
+    styleId: line.styleId,
+    masterCode: line.masterCode,
+    rawCode: line.rawCode,
+    description: line.catalogDescription,
+    qty: line.qty,
+    doorStyle: line.storedDoorStyle,
+    distributorSku: line.lineDistributorSku,
+    productKind: line.productKind,
+    vendorProductId: line.vendorProductId,
+  })));
   const dists = await db.select({
     id: distributors.id,
-    name: distributors.name,
+    code: distributors.code,
     brandName: distributors.brandName,
     orderEmail: distributors.orderEmail,
     ccEmails: distributors.ccEmails,
@@ -529,10 +538,21 @@ async function loadPortions(db: Database, order: typeof orderRequests.$inferSele
     const bucket = groups.get(id) ?? [];
     return {
       distributorId: id,
-      distributorName: dist?.brandName || dist?.name || `Distributor ${id}`,
+      distributorName: distributorFacingName({ id, brandName: dist?.brandName, code: dist?.code }),
       orderEmail: dist?.orderEmail ?? null,
       ccEmails: parseCcEmails(dist?.ccEmails),
-      lines: bucket.map((line) => ({ sku: line.sku, description: line.description, doorStyle: line.doorStyle, qty: line.qty })),
+      lines: bucket.map((line) => poViewToEmailLine(resolveDistributorPoLine({
+        cabinetId: line.cabinetId,
+        styleId: line.styleId,
+        masterCode: line.masterCode,
+        rawCode: line.rawCode,
+        description: line.catalogDescription,
+        qty: line.qty,
+        doorStyle: line.storedDoorStyle,
+        distributorSku: line.lineDistributorSku,
+        productKind: line.productKind,
+        vendorProductId: line.vendorProductId,
+      }, id, catalog))),
     };
   });
 }
@@ -609,7 +629,7 @@ export async function notifyOrderDistributors(orderId: number, opts?: { force?: 
       prior,
       force: Boolean(opts?.force),
       send: async (portion) => {
-        const message = composeDistributorOrderEmail({
+        const message = buildDistributorEmailContent({
           orderNumber: order.requestNumber,
           orderDate: new Date(order.createdAt).toISOString().slice(0, 10),
           customerName: order.originatorName,
@@ -618,21 +638,16 @@ export async function notifyOrderDistributors(orderId: number, opts?: { force?: 
           lines: portion.lines,
           poNumber: order.distributorInvoiceReference,
           notes: order.notes,
-        });
-        const csv = buildNetsuiteOrderCsv({
-          orderNumber: order.requestNumber,
-          customerName: order.originatorName,
-          styleName: order.styleName,
           deliveryMethod: order.deliveryMethod,
-          orderDate: new Date(order.createdAt).toISOString(),
-        }, portion.lines.map((line) => ({ poSku: line.sku, description: line.description, qty: line.qty })));
+        });
         const payload = {
           to: portion.orderEmail || "",
           cc: portion.ccEmails,
           subject: message.subject,
           text: message.text,
+          html: message.html,
           replyTo: usableEmail(order.originatorEmail) ?? undefined,
-          attachments: [{ filename: `PO-${order.requestNumber}.csv`, content: csv, contentType: "text/csv" }],
+          attachments: [{ filename: `PO-${order.requestNumber}.csv`, content: message.csv, contentType: "text/csv" }],
         };
         const result = emailSettingsReady(settings) ? await sendEmailViaSettings(settings, payload) : await sendEmail(payload);
         if (result.success) console.log(`[OrderEmail] Sent order ${order.requestNumber} to distributor ${portion.distributorId} (${portion.orderEmail}).`);

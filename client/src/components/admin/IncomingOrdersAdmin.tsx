@@ -41,7 +41,21 @@ type EnrichedLine = {
   poSku: string | null;
   distributorName?: string | null;
   colorFinish?: string | null;
+  distributorSku?: string | null;
+  distributorItemName?: string | null;
+  distributorDoorStyle?: string | null;
+  distributorSkuMapped?: boolean;
 };
+
+function distributorSkuLabel(line: EnrichedLine): string {
+  if (line.distributorSkuMapped) return line.distributorSku || "—";
+  return line.masterCode || line.rawCode || "—";
+}
+
+function distributorItemLabel(line: EnrichedLine): string {
+  if (line.distributorSkuMapped === false) return "no distributor SKU mapped";
+  return line.distributorItemName || "—";
+}
 
 type OrderRow = {
   id: number;
@@ -80,10 +94,9 @@ const STATUS_COLORS: Record<Status, string> = {
 
 function copyPoSkus(lines: EnrichedLine[]) {
   const text = lines
-    .filter((l) => l.poSku)
-    .map((l) => `${l.qty}x  ${l.poSku}  — ${l.description}`)
+    .map((l) => `${l.qty}x  ${distributorSkuLabel(l)}  — ${distributorItemLabel(l)}${l.distributorDoorStyle ? ` · ${l.distributorDoorStyle}` : ""}`)
     .join("\n");
-  navigator.clipboard.writeText(text).then(() => toast.success("PO SKUs copied to clipboard"));
+  navigator.clipboard.writeText(text).then(() => toast.success("Distributor SKUs copied to clipboard"));
 }
 
 function OrderDetailDialog({
@@ -209,7 +222,7 @@ function OrderDetailDialog({
         {/* PO SKU table */}
         <div>
           <div className="flex items-center justify-between mb-2">
-            <h3 className="text-sm font-semibold">Line Items — PO SKUs</h3>
+            <h3 className="text-sm font-semibold">Line Items — distributor nomenclature</h3>
             <Button
               variant="outline"
               size="sm"
@@ -217,16 +230,16 @@ function OrderDetailDialog({
               onClick={() => copyPoSkus(order.lineItems)}
             >
               <Copy className="h-3.5 w-3.5" />
-              Copy PO SKUs
+              Copy distributor SKUs
             </Button>
           </div>
-          <div className="rounded-lg border overflow-hidden">
+          <div className="rounded-lg border overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/50">
                   <TableHead className="w-12 text-center">Qty</TableHead>
-                  <TableHead>PO SKU</TableHead>
-                  <TableHead>Description</TableHead>
+                  <TableHead>Distributor SKU</TableHead>
+                  <TableHead>Distributor item</TableHead>
                   <TableHead className="text-right">Unit</TableHead>
                   <TableHead className="text-right">Line Total</TableHead>
                 </TableRow>
@@ -236,20 +249,23 @@ function OrderDetailDialog({
                   <TableRow key={i} className={!l.matched ? "opacity-60" : ""}>
                     <TableCell className="text-center font-mono font-semibold">{l.qty}</TableCell>
                     <TableCell>
-                      {l.poSku ? (
-                        <span className="font-mono text-sm font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded">
-                          {l.poSku}
-                        </span>
-                      ) : (
-                        <span className="font-mono text-xs text-muted-foreground italic">
-                          {l.masterCode || l.rawCode || "—"}
-                        </span>
+                      <span className={`font-mono text-sm font-semibold px-2 py-0.5 rounded ${l.distributorSkuMapped === false ? "text-amber-700 bg-amber-500/10" : "text-primary bg-primary/10"}`}>
+                        {distributorSkuLabel(l)}
+                      </span>
+                      {l.poSku && l.poSku !== distributorSkuLabel(l) && (
+                        <div className="mt-1 font-mono text-[11px] text-muted-foreground">PO {l.poSku}</div>
                       )}
                     </TableCell>
                     <TableCell className="text-sm">
-                      {l.description}
+                      <div>{distributorItemLabel(l)}</div>
+                      {l.distributorDoorStyle && (
+                        <div className="text-[11px] text-muted-foreground">Door: {l.distributorDoorStyle}</div>
+                      )}
+                      {l.description && l.description !== l.distributorItemName && (
+                        <div className="text-[11px] text-muted-foreground">{l.description}</div>
+                      )}
                       {!l.matched && (
-                        <Badge variant="destructive" className="ml-2 text-xs">unmatched</Badge>
+                        <Badge variant="destructive" className="mt-1 text-xs">unmatched</Badge>
                       )}
                     </TableCell>
                     <TableCell className="text-right font-mono text-sm">
@@ -263,9 +279,9 @@ function OrderDetailDialog({
               </TableBody>
             </Table>
           </div>
-          {order.lineItems.some((l) => !l.poSku) && (
+          {order.lineItems.some((l) => l.distributorSkuMapped === false) && (
             <p className="text-xs text-muted-foreground mt-2">
-              * Lines without a PO SKU are unmatched or missing a door style assignment.
+              * Lines marked &quot;no distributor SKU mapped&quot; will show the catalog code and that flag on the distributor email.
             </p>
           )}
         </div>
@@ -634,7 +650,7 @@ export default function IncomingOrdersAdmin() {
                         onClick={() => copyPoSkus(order.lineItems)}
                       >
                         <Copy className="h-3 w-3" />
-                        Copy PO SKUs
+                        Copy distributor SKUs
                       </Button>
                     </div>
                     <div className="rounded border overflow-hidden">
@@ -642,8 +658,8 @@ export default function IncomingOrdersAdmin() {
                         <TableHeader>
                           <TableRow className="bg-muted/40">
                             <TableHead className="w-10 text-center text-xs">Qty</TableHead>
-                            <TableHead className="text-xs">PO SKU</TableHead>
-                            <TableHead className="text-xs">Description</TableHead>
+                            <TableHead className="text-xs">Distributor SKU</TableHead>
+                            <TableHead className="text-xs">Distributor item</TableHead>
                             <TableHead className="text-right text-xs">Total</TableHead>
                           </TableRow>
                         </TableHeader>
@@ -654,17 +670,12 @@ export default function IncomingOrdersAdmin() {
                                 {l.qty}
                               </TableCell>
                               <TableCell className="py-2">
-                                {l.poSku ? (
-                                  <span className="font-mono text-xs font-semibold text-primary bg-primary/10 px-1.5 py-0.5 rounded">
-                                    {l.poSku}
-                                  </span>
-                                ) : (
-                                  <span className="font-mono text-xs text-muted-foreground italic">
-                                    {l.masterCode || "—"}
-                                  </span>
-                                )}
+                                <span className="font-mono text-xs font-semibold">{distributorSkuLabel(l)}</span>
                               </TableCell>
-                              <TableCell className="text-xs py-2">{l.description}</TableCell>
+                              <TableCell className="text-xs py-2">
+                                {distributorItemLabel(l)}
+                                {l.distributorDoorStyle ? <span className="text-muted-foreground"> · {l.distributorDoorStyle}</span> : null}
+                              </TableCell>
                               <TableCell className="text-right font-mono text-xs py-2">
                                 {l.linePrice != null ? `$${l.linePrice.toFixed(2)}` : "—"}
                               </TableCell>
