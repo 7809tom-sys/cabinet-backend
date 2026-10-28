@@ -764,6 +764,10 @@ export const cabinets = mysqlTable("cabinets", {
   pkgWidth: decimal("pkgWidth", { precision: 6, scale: 2 }),
   pkgHeight: decimal("pkgHeight", { precision: 6, scale: 2 }),
   pkgWeight: decimal("pkgWeight", { precision: 8, scale: 2 }), // packaged/shipping weight in lbs
+  // Catalog-item offer. Lives on the cabinet master, next to package facts,
+  // because one product can have many supplier price rows. Default off so
+  // existing cabinets stay on quoted freight. Not a distributor freight rule.
+  freeShipping: boolean("freeShipping").default(false).notNull(),
   isActive: boolean("isActive").default(true).notNull(),
   // Conflict / Needs-Review status.
   // 'conflict' hides the product from the public catalog, storefront, and Design Tool.

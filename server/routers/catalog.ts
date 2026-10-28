@@ -1248,6 +1248,7 @@ export const doorStylesRouter = router({
             numberOfDrawers: cabinets.numberOfDrawers,
             graphicType: cabinets.graphicType,
             catalogImageUrl: cabinets.catalogImageUrl,
+            freeShipping: cabinets.freeShipping,
           })
           .from(cabinets)
           .where(and(
@@ -1701,6 +1702,7 @@ export const cabinetsRouter = router({
             catalogImageUrl: cabinets.catalogImageUrl,
             placementType: cabinets.placementType,
             isCornerCabinet: cabinets.isCornerCabinet,
+            freeShipping: cabinets.freeShipping,
           })
           .from(cabinets)
           .where(and(

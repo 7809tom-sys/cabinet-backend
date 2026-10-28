@@ -74,6 +74,7 @@ import {
   type AuthoritativeParcelPackage,
 } from "@shared/parcelEligibility";
 import { freightClassFromDensity, genericCabinetPackage } from "@shared/genericCabinetPackaging";
+import { isCatalogFreeShippingIdentity, loadCatalogFreeShippingIndex } from "../lib/catalogFreeShipping";
 
 // ─── Settings loading + defaults ────────────────────────────────────────────────
 const DEFAULT_SETTINGS: FreightSettings = {
@@ -1724,10 +1725,29 @@ export const freightRouter = router({
       // Carrier integrations currently consume a destination ZIP, while the
       // signed checkout authorization remains bound to the full normalized address.
       const kitchenDesignId = await resolveAuthorizedFreightQuoteDesignId(ctx.user, input.kitchenDesignId);
-      const quoteInput = { ...input, kitchenDesignId, deliveryAddress, destinationZip };
+      let quoteInput = { ...input, kitchenDesignId, deliveryAddress, destinationZip };
+      const freeShippingDb = await getDb();
+      const freeShippingIndex = freeShippingDb
+        ? await loadCatalogFreeShippingIndex(freeShippingDb, quoteInput.items)
+        : { cabinetIds: new Set<number>(), masterCodes: new Set<string>() };
+      const ratedItems = quoteInput.items.filter((item) => !isCatalogFreeShippingIdentity(item, freeShippingIndex));
+      if (quoteInput.items.length > 0 && ratedItems.length === 0) {
+        return {
+          available: true,
+          zoneName: "Free shipping",
+          billableWeightLbs: 0,
+          lines: [{ label: "Free shipping", amountCents: 0 }],
+          freightBeforeMarkupCents: 0,
+          markupCents: 0,
+          damageFeeCents: 0,
+          totalCents: 0,
+          freeFreightApplied: true,
+        };
+      }
+      quoteInput = { ...quoteInput, items: ratedItems };
       const settingsRow = await loadSettingsRow();
       const settings = settingsRow ? rowToSettings(settingsRow) : DEFAULT_SETTINGS;
-      const quoteDistributorIds = Array.from(new Set(input.items
+      const quoteDistributorIds = Array.from(new Set(quoteInput.items
         .map((item) => item.distributorId)
         .filter((id): id is number => typeof id === "number")));
       const distributorUpsCredentials = new Map<number, { clientId: string; clientSecret: string; accountNumber: string; environment: "sandbox" | "production" }>();

@@ -621,6 +621,7 @@ export const storefrontRouter = router({
             graphicType: cabinets.graphicType,
             isCornerCabinet: cabinets.isCornerCabinet,
             catalogImageUrl: cabinets.catalogImageUrl,
+            freeShipping: cabinets.freeShipping,
           })
           .from(cabinets)
           .where(and(
