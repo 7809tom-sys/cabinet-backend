@@ -66,7 +66,7 @@ export default function ApiStatusAdmin() {
     {
       id: "smtp",
       icon: Mail,
-      label: "Email (SMTP)",
+      label: "Email (Resend)",
       description: "Transactional emails, CRM messages, and notification alerts.",
       level: smtpLevel(),
       details: smtp?.configured

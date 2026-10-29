@@ -1,7 +1,7 @@
 import { eq, sql } from "drizzle-orm";
-import { emailSettings, orderRequests, type OrderLineItem } from "../../drizzle/schema";
+import { orderRequests, type OrderLineItem } from "../../drizzle/schema";
 import { getDb } from "../db";
-import { emailSettingsReady, isEmailConfigured, sendEmail, sendEmailViaSettings, type SendEmailOptions, type SendEmailResult } from "../email";
+import { sendEmail, type SendEmailOptions, type SendEmailResult } from "../email";
 import { readOrderCostSnapshots } from "./orderCostSnapshot";
 import { dollarsToCents, formatUsdFromCents, summarizeAdminOrder, type OrderMoneyInput } from "./orderMoney";
 import { onOrderPaid } from "./orderSideEffects";
@@ -230,7 +230,7 @@ export async function deliverOrderReceipt(input: {
   if (!result.success) {
     await input.release();
     const reason = result.notConfigured
-      ? "Email is not configured. Enable SMTP in Admin → Email Settings, or set SMTP_HOST, SMTP_USER, SMTP_PASS, and SMTP_FROM."
+      ? "Email is not configured. Set RESEND_API_KEY and ORDER_EMAIL_FROM."
       : (result.error ?? "Email provider rejected the receipt.");
     console.error(`[Order Receipt] Failed for order ${input.order.requestNumber ?? input.order.id}: ${reason}`);
     return { sent: false, skipped: false, customerEmailed: false, salesCopied: false, customerEmailMissing: message.customerEmailMissing, error: reason };
@@ -245,11 +245,8 @@ export async function deliverOrderReceipt(input: {
   };
 }
 
-async function sendWithConfiguredMail(db: Database, message: SendEmailOptions): Promise<SendEmailResult> {
-  const [settings] = await db.select().from(emailSettings).limit(1);
-  if (emailSettingsReady(settings)) return sendEmailViaSettings(settings, message);
-  if (isEmailConfigured()) return sendEmail(message);
-  return { success: false, notConfigured: true, error: "Email is not configured" };
+async function sendWithConfiguredMail(_db: Database, message: SendEmailOptions): Promise<SendEmailResult> {
+  return sendEmail(message);
 }
 
 export async function sendPaidOrderReceipt(orderId: number, env: NodeJS.ProcessEnv = process.env): Promise<ReceiptDeliveryResult> {

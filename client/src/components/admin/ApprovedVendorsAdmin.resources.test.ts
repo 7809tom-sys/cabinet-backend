@@ -42,7 +42,7 @@ describe("Approved vendor PDF resources", () => {
     expect(source).toContain("Email Supplier Portal invitation");
     expect(source).toContain("trpc.vendors.emailPortalInvite.useMutation");
     expect(source).toContain("Email invite");
-    expect(source).toContain("Admin → Email Settings");
+    expect(source).toContain("Delivery uses Resend.");
     expect(source).toContain("/vendor?vendor=${v.id}");
     expect(source).toContain("Preview ${v.name} Supplier Portal");
   });

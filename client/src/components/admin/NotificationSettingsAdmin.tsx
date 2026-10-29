@@ -112,7 +112,7 @@ export default function NotificationSettingsAdmin() {
           </div>
           <CardDescription>
             Configure which email addresses receive alerts for each event. Separate multiple addresses
-            with commas. Requires SMTP to be configured and enabled.
+            with commas. Delivery uses Resend and sends only while this master switch is on.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -158,7 +158,7 @@ export default function NotificationSettingsAdmin() {
         <CardHeader className="pb-3">
           <CardTitle className="text-base">CRM Help Team Alerts</CardTitle>
           <CardDescription>
-            Route a newly requested CRM help type to its own internal team. Recipient lists can be saved while alerts are off; no email sends until the matching switch, the master notification switch, and SMTP are all enabled.
+            Route a newly requested CRM help type to its own internal team. Recipient lists can be saved while alerts are off; no email sends until the matching switch and the master notification switch are on, and Resend is configured.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -216,8 +216,8 @@ export default function NotificationSettingsAdmin() {
       <div className="flex gap-2 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800">
         <Info className="h-4 w-4 mt-0.5 shrink-0" />
         <span>
-          Notification emails are sent using the SMTP credentials configured in the{" "}
-          <strong>Email Settings</strong> tab. Make sure SMTP is configured and enabled before
+          Notification emails are sent through Resend. Recipient lists are managed on this{" "}
+          tab. Make sure Resend is configured before
           activating notifications.
         </span>
       </div>

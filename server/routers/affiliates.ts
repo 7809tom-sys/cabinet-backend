@@ -13,8 +13,8 @@ import {
   router,
 } from "../_core/trpc";
 import { getDb } from "../db";
-import { affiliates, affiliateTestimonials, orderRequests, affiliateStyleBranding, affiliateDistributorSelections, affiliateFeaturedDistributorEvents, doorStyles, distributors, distributorSkus, affiliatePayouts, affiliateBannerSchedules, affiliatePromoDiscounts, designConsultations, designLeads, affiliateTeamMembers, emailSettings, affiliateHardwareCommissionSnapshots, users } from "../../drizzle/schema";
-import { emailSettingsReady, sendEmailViaSettings } from "../email";
+import { affiliates, affiliateTestimonials, orderRequests, affiliateStyleBranding, affiliateDistributorSelections, affiliateFeaturedDistributorEvents, doorStyles, distributors, distributorSkus, affiliatePayouts, affiliateBannerSchedules, affiliatePromoDiscounts, designConsultations, designLeads, affiliateTeamMembers, affiliateHardwareCommissionSnapshots, users } from "../../drizzle/schema";
+import { resendConfigured, sendEmail } from "../email";
 import { buildSalesDemoInvite, deliverInviteThenGrant, SALES_DEMO_AFFILIATE_SLUG, SALES_DEMO_TEAM_ACCESS } from "../salesDemoInvite";
 import { buildAffiliateSetupInvite } from "../affiliateSetupInvite";
 import { resolveAffiliateAccess } from "../lib/affiliateAccess";
@@ -679,20 +679,26 @@ export const affiliatesRouter = router({
       const email = input.email.trim().toLowerCase();
       const origin = "https://www.cabinetdealz.com";
       const invite = buildSalesDemoInvite({ recipientName: input.name, audience: input.audience, origin });
-      const [emailConfig] = await db.select().from(emailSettings).limit(1);
-      if (!emailSettingsReady(emailConfig)) {
+      if (!resendConfigured()) {
         throw new TRPCError({
           code: "PRECONDITION_FAILED",
-          message: "Email sending is not configured. Enable SMTP in Admin → Email Settings before sending Sales Demo invitations.",
+          message: "Email sending is not configured. Set RESEND_API_KEY and ORDER_EMAIL_FROM before sending Sales Demo invitations.",
         });
       }
       const sent = await deliverInviteThenGrant({
-        deliver: () => sendEmailViaSettings(emailConfig, {
-          to: email,
-          subject: invite.subject,
-          text: invite.text,
-          html: invite.html,
-        }),
+        deliver: async () => {
+          const result = await sendEmail({
+            to: email,
+            subject: invite.subject,
+            text: invite.text,
+            html: invite.html,
+          });
+          if (!result.success) {
+            console.error("[Sales demo invite] Resend failed", result.error ?? "send failed");
+            return { success: false, error: "Unable to send the Sales Demo invitation." };
+          }
+          return result;
+        },
         grant: async () => {
           const [existing] = await db.select().from(affiliateTeamMembers)
             .where(and(eq(affiliateTeamMembers.affiliateId, salesDemo.id), eq(affiliateTeamMembers.email, email)))
@@ -839,7 +845,7 @@ export const affiliatesRouter = router({
 
   // ─── Admin: email a one-time password setup link ─────────────────────────
   // Never send or generate a password on behalf of the affiliate. The token is
-  // stored only after SMTP delivery succeeds and is cleared on first use.
+  // stored only after Resend accepts the message and is cleared on first use.
   adminSendSetupInvite: adminProcedure
     .input(z.object({ id: z.number().int().positive(), email: z.string().email().max(320) }))
     .mutation(async ({ ctx, input }) => {
@@ -862,16 +868,18 @@ export const affiliatesRouter = router({
       const duplicate = await db.select({ id: users.id }).from(users).where(duplicateWhere).limit(1);
       if (duplicate[0]) throw new TRPCError({ code: "CONFLICT", message: "That email is already used by another login. Use a unique affiliate email." });
 
-      const [emailConfig] = await db.select().from(emailSettings).limit(1);
-      if (!emailSettingsReady(emailConfig)) {
-        throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Email sending is not configured. Enable SMTP in Admin → Email Settings before sending an affiliate setup invitation." });
+      if (!resendConfigured()) {
+        throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Email sending is not configured. Set RESEND_API_KEY and ORDER_EMAIL_FROM before sending an affiliate setup invitation." });
       }
 
       const token = randomBytes(48).toString("hex");
       const origin = ctx.req.headers.origin ?? `${ctx.req.protocol}://${ctx.req.get("host")}`;
       const invite = buildAffiliateSetupInvite({ affiliateName: affiliate.storeName, setupToken: token, origin });
-      const delivery = await sendEmailViaSettings(emailConfig, { to: email, subject: invite.subject, text: invite.text });
-      if (!delivery.success) throw new TRPCError({ code: "BAD_GATEWAY", message: delivery.error ?? "Unable to send the affiliate setup invitation." });
+      const delivery = await sendEmail({ to: email, subject: invite.subject, text: invite.text });
+      if (!delivery.success) {
+        console.error("[Affiliate setup invite] Resend failed", delivery.error ?? "send failed");
+        throw new TRPCError({ code: "BAD_GATEWAY", message: "Unable to send the affiliate setup invitation." });
+      }
 
       if (userId == null) {
         const result = await db.insert(users).values({

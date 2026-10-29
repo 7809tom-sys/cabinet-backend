@@ -7,12 +7,11 @@ import { catalogImports, cabinets } from "../../drizzle/schema";
 import { importPafProducts } from "../lib/catalogImportLogic";
 import { omitImportLockedFields } from "@shared/cabinetConflictFlags";
 import type { PafProduct } from "../lib/pafXmlParser";
-import { emailSettings } from "../../drizzle/schema";
-import { sendEmailViaSettings, emailSettingsReady, sendEmail, isEmailConfigured } from "../email";
+import { sendEmail } from "../email";
 
 const NOTIFY_EMAIL = "7809tom@gmail.com";
 
-/** Send an import-result email — tries DB-backed settings first, falls back to env SMTP. */
+/** Send an import-result email through Resend. */
 async function sendImportNotification(opts: {
   fileName: string;
   distributorId: number;
@@ -56,19 +55,9 @@ async function sendImportNotification(opts: {
         ].join("\n");
 
   try {
-    const db = await getDb();
-    if (db) {
-      const rows = await db.select().from(emailSettings).limit(1);
-      const cfg = rows[0];
-      if (emailSettingsReady(cfg)) {
-        await sendEmailViaSettings(cfg, { to: NOTIFY_EMAIL, subject, text: body });
-        return;
-      }
-    }
-    if (isEmailConfigured()) {
-      await sendEmail({ to: NOTIFY_EMAIL, subject, text: body });
-    } else {
-      console.warn("[CatalogImport] Email not configured — skipping import notification.");
+    const result = await sendEmail({ to: NOTIFY_EMAIL, subject, text: body });
+    if (!result.success) {
+      console.warn("[CatalogImport] Import notification was not sent:", result.error ?? "send failed");
     }
   } catch (err) {
     console.warn("[CatalogImport] Failed to send import notification email:", err);

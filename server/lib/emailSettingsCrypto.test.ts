@@ -19,16 +19,16 @@ describe("Email Settings SMTP credential protection", () => {
     expect(decryptEmailSettingsPassword(encrypted)).toBe(password);
   });
 
-  it("requires encrypted persistence for new settings and does not return raw provider failures to administrators", () => {
+  it("requires encrypted persistence for saved settings and does not return raw provider failures to administrators", () => {
     expect(routerSource).toContain("values.smtpPass = encryptEmailSettingsPassword(input.smtpPass)");
-    expect(routerSource).toContain("const smtpPass = decryptEmailSettingsPassword(row.smtpPass)");
-    expect(routerSource).toContain("The saved SMTP connection could not be verified.");
+    expect(routerSource).toContain("The test email could not be sent.");
+    expect(routerSource).not.toContain("nodemailer");
     expect(routerSource).not.toContain("const msg = err instanceof Error ? err.message : String(err)");
   });
 
-  it("decrypts the protected database SMTP credential only inside the server-side delivery path", () => {
-    expect(emailServiceSource).toContain('import { decryptEmailSettingsPassword } from "./lib/emailSettingsCrypto"');
-    expect(emailServiceSource).toContain("const smtpPass = decryptEmailSettingsPassword(s.smtpPass)");
-    expect(emailServiceSource).toContain("auth: { user: s.smtpUser, pass: smtpPass }");
+  it("does not decrypt SMTP passwords on the send path", () => {
+    expect(emailServiceSource).not.toContain("decryptEmailSettingsPassword");
+    expect(emailServiceSource).not.toContain("nodemailer");
+    expect(emailServiceSource).not.toContain("createTransport");
   });
 });

@@ -3,13 +3,13 @@ import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { router, adminProcedure, publicProcedure, supplierProfileProcedure } from "../_core/trpc";
 import { getDb } from "../db";
-import { catalogImports, distributorSkus, distributors, emailSettings, vendorApplications, vendorLines, vendorProducts, orders, orderItems } from "../../drizzle/schema";
+import { catalogImports, distributorSkus, distributors, vendorApplications, vendorLines, vendorProducts, orders, orderItems } from "../../drizzle/schema";
 import { pelicanProducts } from "../../drizzle/pelicanSchema";
 import { storagePut } from "../storage";
 import { approvedVendorLinkedDistributorIds, approvedVendorMatchesDistributor, approvedVendorSourceDistributorId } from "../lib/approvedVendorAccess";
 import { redactVendorLineForClient } from "../../shared/shippingQuote";
 import { buildPendingVendorReview } from "../lib/pendingVendorReview";
-import { emailSettingsReady, sendEmailViaSettings } from "../email";
+import { resendConfigured, sendEmail } from "../email";
 import { buildSupplierPortalInvite } from "../supplierPortalInvite";
 import { featuresForVendor, vendorApprovalChoiceError } from "../../shared/vendorFeatures";
 
@@ -207,7 +207,7 @@ export const vendorsRouter = router({
 
   /**
    * Delivers a private, one-time Supplier Portal setup link. The token is only
-   * persisted after the saved SMTP service accepts the message, so a failed
+   * persisted after Resend accepts the message, so a failed
    * email attempt never creates an active credential.
    */
   emailPortalInvite: adminProcedure
@@ -235,11 +235,10 @@ export const vendorsRouter = router({
         throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Approve this vendor before sending a Supplier Portal invitation." });
       }
 
-      const [settings] = await db.select().from(emailSettings).limit(1);
-      if (!emailSettingsReady(settings)) {
+      if (!resendConfigured()) {
         throw new TRPCError({
           code: "PRECONDITION_FAILED",
-          message: "Email sending is not configured. Enable SMTP in Admin → Email Settings before sending a Supplier Portal invitation.",
+          message: "Email sending is not configured. Set RESEND_API_KEY and ORDER_EMAIL_FROM before sending a Supplier Portal invitation.",
         });
       }
 
@@ -252,16 +251,17 @@ export const vendorsRouter = router({
         inviteToken: token,
         origin,
       });
-      const delivery = await sendEmailViaSettings(settings, {
+      const delivery = await sendEmail({
         to: input.toEmail,
         subject: invite.subject,
         text: invite.text,
         html: invite.html,
       });
       if (!delivery.success) {
+        console.error("[Supplier portal invite] Resend failed", delivery.error ?? "send failed");
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: "The Supplier Portal invitation could not be sent. Verify SMTP in Admin → Email Settings and try again.",
+          message: "The Supplier Portal invitation could not be sent. Check Resend configuration and try again.",
         });
       }
 

@@ -3,14 +3,13 @@ import { randomBytes } from "node:crypto";
 import { z } from "zod";
 import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
 import { getDb, notInConflict } from "../db";
-import { emailSettingsReady, sendEmail, sendEmailViaSettings } from "../email";
+import { sendEmail } from "../email";
 import { storagePut } from "../storage";
 import {
   cabinets,
   distributors,
   distributorSkus,
   doorStyles,
-  emailSettings,
   layoutPresetZones,
   layoutPresets,
   roomShapePresets,
@@ -311,9 +310,6 @@ export const roomLayoutsRouter = router({
     .mutation(async ({ ctx, input }) => {
       const recipient = ctx.user.email?.trim();
       if (!recipient) throw new Error("Your account does not have an email address. Add one before emailing a quote.");
-      const db = await getDb();
-      if (!db) throw new Error("Database not available");
-      const [settings] = await db.select().from(emailSettings).limit(1);
       const subject = `Your Cabinet Dealz quote — $${input.subtotal.toFixed(2)}`;
       const text = [
         "Your Cabinet Dealz 3D room quote is attached.",
@@ -327,9 +323,7 @@ export const roomLayoutsRouter = router({
         content: Buffer.from(input.pdfBase64, "base64"),
         contentType: "application/pdf",
       };
-      const result = emailSettingsReady(settings)
-        ? await sendEmailViaSettings(settings, { to: recipient, subject, text, attachments: [attachment] })
-        : await sendEmail({ to: recipient, subject, text, attachments: [attachment] });
+      const result = await sendEmail({ to: recipient, subject, text, attachments: [attachment] });
       if (!result.success) {
         throw new Error(result.notConfigured ? "Quote email is not configured yet. Please contact Cabinet Dealz support." : result.error ?? "Quote email could not be sent.");
       }

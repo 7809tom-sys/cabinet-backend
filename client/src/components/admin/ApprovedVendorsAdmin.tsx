@@ -275,7 +275,7 @@ function EmailPortalInviteButton({
             />
           </div>
           <p className="text-xs text-muted-foreground">
-            Delivery uses the SMTP connection in <strong>Admin → Email Settings</strong>. If it is not configured, nothing is sent and no setup link is activated.
+            Delivery uses Resend. If Resend is not configured, nothing is sent and no setup link is activated.
           </p>
         </div>
         <DialogFooter>

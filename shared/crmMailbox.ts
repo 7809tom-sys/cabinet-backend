@@ -152,21 +152,21 @@ export type CrmOutboundPlan =
       from: string;
       replyTo?: string;
       signatureHtml: string;
-      smtp: { host: string; port: number; user: string; pass: string };
     };
 
-function platformReady(platform: PlatformSmtpRow): "ok" | "not_configured" | "disabled" {
-  if (!platform || !platform.smtpHost || !platform.smtpUser || !platform.smtpPass) return "not_configured";
-  if (!platform.enabled) return "disabled";
-  return "ok";
+function affiliateReplyAddress(input: {
+  publicEmail?: string;
+  affiliate: StoredAffiliateEmailSettings | null;
+}): string | undefined {
+  const mailbox = (input.affiliate?.smtpFrom || input.affiliate?.smtpUser || "").trim();
+  return input.affiliate?.replyTo.trim() || input.publicEmail || mailbox || undefined;
 }
 
 /**
- * Choose the transport for one CRM send.
- * An affiliate deal uses that affiliate's connected mailbox.
- * Otherwise it falls back to platform SMTP with the store name as the From
- * display name and the affiliate public email as Reply-To.
- * A house deal uses platform SMTP unchanged.
+ * Choose the identity for one CRM send.
+ * Delivery is always the shared Resend sender. An affiliate deal puts the
+ * affiliate or public address in reply-to. Saved SMTP rows do not make a
+ * send ready and are not used as the transport.
  */
 export function resolveCrmOutbound(input: {
   dealAffiliateId: number | null;
@@ -174,54 +174,26 @@ export function resolveCrmOutbound(input: {
   publicEmail: string | null;
   affiliate: StoredAffiliateEmailSettings | null;
   platform: PlatformSmtpRow;
+  resendReady?: boolean;
+  resendFrom?: string;
 }): CrmOutboundPlan {
-  const storeName = input.storeName.trim() || "Cabinet Dealz";
+  const from = input.resendFrom?.trim() ?? "";
+  if (!input.resendReady || !from) return { ok: false, reason: "not_configured" };
   const publicEmail = input.publicEmail?.trim() || undefined;
-  if (input.dealAffiliateId != null && affiliateSmtpReady(input.affiliate) && input.affiliate) {
-    const fromEmail = (input.affiliate.smtpFrom || input.affiliate.smtpUser).trim();
-    return {
-      ok: true,
-      channel: "affiliate",
-      from: formatMailboxFrom(input.affiliate.fromName || storeName, fromEmail),
-      replyTo: input.affiliate.replyTo.trim() || publicEmail,
-      signatureHtml: input.affiliate.signatureHtml,
-      smtp: {
-        host: input.affiliate.smtpHost.trim(),
-        port: input.affiliate.smtpPort,
-        user: input.affiliate.smtpUser.trim(),
-        pass: input.affiliate.smtpPass,
-      },
-    };
-  }
-  const platformState = platformReady(input.platform);
-  if (platformState !== "ok" || !input.platform) return { ok: false, reason: platformState === "disabled" ? "disabled" : "not_configured" };
-  const fromEmail = (input.platform.smtpFrom || input.platform.smtpUser).trim();
   if (input.dealAffiliateId != null) {
     return {
       ok: true,
-      channel: "platform_fallback",
-      from: formatMailboxFrom(storeName, fromEmail),
-      replyTo: publicEmail,
+      channel: affiliateSmtpReady(input.affiliate) ? "affiliate" : "platform_fallback",
+      from,
+      replyTo: affiliateReplyAddress({ publicEmail, affiliate: input.affiliate }),
       signatureHtml: input.affiliate?.signatureHtml ?? "",
-      smtp: {
-        host: input.platform.smtpHost,
-        port: input.platform.smtpPort,
-        user: input.platform.smtpUser,
-        pass: input.platform.smtpPass,
-      },
     };
   }
   return {
     ok: true,
     channel: "platform",
-    from: fromEmail,
+    from,
     signatureHtml: "",
-    smtp: {
-      host: input.platform.smtpHost,
-      port: input.platform.smtpPort,
-      user: input.platform.smtpUser,
-      pass: input.platform.smtpPass,
-    },
   };
 }
 
