@@ -224,6 +224,10 @@ export const doorStylesRouter = router({
         woodSpecies: doorStyles.woodSpecies,
         finish: doorStyles.finish,
         color: doorStyles.color,
+        renderHex: doorStyles.renderHex,
+        doorShape: doorStyles.doorShape,
+        swatchCode: doorStyles.swatchCode,
+        swatchHex: doorStyles.swatchHex,
         boxConstruction: doorStyles.boxConstruction,
         drawerConstruction: doorStyles.drawerConstruction,
         hardware: doorStyles.hardware,
@@ -294,6 +298,10 @@ export const doorStylesRouter = router({
         woodSpecies: doorStyles.woodSpecies,
         finish: doorStyles.finish,
         color: doorStyles.color,
+        renderHex: doorStyles.renderHex,
+        doorShape: doorStyles.doorShape,
+        swatchCode: doorStyles.swatchCode,
+        swatchHex: doorStyles.swatchHex,
         doorSampleImageUrl: doorStyles.doorSampleImageUrl,
         roomSceneImageUrl: doorStyles.roomSceneImageUrl,
         thumbnailImageUrl: doorStyles.thumbnailImageUrl,
@@ -489,6 +497,10 @@ export const doorStylesRouter = router({
         woodSpecies: doorStyles.woodSpecies,
         finish: doorStyles.finish,
         color: doorStyles.color,
+        renderHex: doorStyles.renderHex,
+        doorShape: doorStyles.doorShape,
+        swatchCode: doorStyles.swatchCode,
+        swatchHex: doorStyles.swatchHex,
         boxConstruction: doorStyles.boxConstruction,
         drawerConstruction: doorStyles.drawerConstruction,
         hardware: doorStyles.hardware,
@@ -633,6 +645,10 @@ export const doorStylesRouter = router({
         stileWidth: z.number().min(0).max(99).nullable().optional(),
         centerRailWidth: z.number().min(0).max(99).nullable().optional(),
         panelConstruction: z.enum(["raised", "flat", "slab", "glass"]).nullable().optional(),
+        renderHex: z.string().regex(/^#[0-9a-fA-F]{6}$/).nullable().optional(),
+        doorShape: z.enum(["raised", "recessed-shaker", "slab", "glass"]).nullable().optional(),
+        swatchCode: z.string().max(16).nullable().optional(),
+        swatchHex: z.string().regex(/^#[0-9a-fA-F]{6}$/).nullable().optional(),
         bevelWidth: z.number().min(0).max(12).nullable().optional(),
         bevelDepth: z.number().min(0).max(4).nullable().optional(),
         insideEdgeProfile: z.string().max(64).nullable().optional(),
@@ -676,6 +692,10 @@ export const doorStylesRouter = router({
       if (fields.stileWidth !== undefined) patch.stileWidth = fields.stileWidth ?? null;
       if (fields.centerRailWidth !== undefined) patch.centerRailWidth = fields.centerRailWidth ?? null;
       if (fields.panelConstruction !== undefined) patch.panelConstruction = fields.panelConstruction;
+      if (fields.renderHex !== undefined) patch.renderHex = fields.renderHex?.trim().toLowerCase() || null;
+      if (fields.doorShape !== undefined) patch.doorShape = fields.doorShape;
+      if (fields.swatchCode !== undefined) patch.swatchCode = fields.swatchCode?.trim().toUpperCase() || null;
+      if (fields.swatchHex !== undefined) patch.swatchHex = fields.swatchHex?.trim().toLowerCase() || null;
       if (fields.bevelWidth !== undefined) patch.bevelWidth = fields.bevelWidth ?? null;
       if (fields.bevelDepth !== undefined) patch.bevelDepth = fields.bevelDepth ?? null;
       if (fields.insideEdgeProfile !== undefined) patch.insideEdgeProfile = fields.insideEdgeProfile?.trim() || null;
@@ -1062,6 +1082,10 @@ export const doorStylesRouter = router({
           ourName: doorStyles.ourName,
           doorStyle: doorStyles.doorStyle,
           color: doorStyles.color,
+        renderHex: doorStyles.renderHex,
+        doorShape: doorStyles.doorShape,
+        swatchCode: doorStyles.swatchCode,
+        swatchHex: doorStyles.swatchHex,
           finish: doorStyles.finish,
           woodSpecies: doorStyles.woodSpecies,
           doorSampleImageUrl: doorStyles.doorSampleImageUrl,
@@ -4383,6 +4407,10 @@ export const pricingRouter = router({
           doorStyle: doorStyles.doorStyle,
           finish: doorStyles.finish,
           color: doorStyles.color,
+        renderHex: doorStyles.renderHex,
+        doorShape: doorStyles.doorShape,
+        swatchCode: doorStyles.swatchCode,
+        swatchHex: doorStyles.swatchHex,
           doorSampleImageUrl: doorStyles.doorSampleImageUrl,
           roomSceneImageUrl: doorStyles.roomSceneImageUrl,
           thumbnailImageUrl: doorStyles.thumbnailImageUrl,
@@ -5431,6 +5459,10 @@ export const pricingRouter = router({
           woodSpecies: doorStyles.woodSpecies,
           finish: doorStyles.finish,
           color: doorStyles.color,
+        renderHex: doorStyles.renderHex,
+        doorShape: doorStyles.doorShape,
+        swatchCode: doorStyles.swatchCode,
+        swatchHex: doorStyles.swatchHex,
           boxConstruction: doorStyles.boxConstruction,
           drawerConstruction: doorStyles.drawerConstruction,
           hardware: doorStyles.hardware,
