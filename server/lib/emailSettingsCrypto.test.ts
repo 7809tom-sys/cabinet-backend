@@ -26,9 +26,14 @@ describe("Email Settings SMTP credential protection", () => {
     expect(routerSource).not.toContain("const msg = err instanceof Error ? err.message : String(err)");
   });
 
-  it("does not decrypt SMTP passwords on the send path", () => {
-    expect(emailServiceSource).not.toContain("decryptEmailSettingsPassword");
-    expect(emailServiceSource).not.toContain("nodemailer");
-    expect(emailServiceSource).not.toContain("createTransport");
+  it("decrypts a saved SMTP password only for the SMTP fallback", () => {
+    expect(emailServiceSource).toContain("const smtpPass = decryptEmailSettingsPassword(row.smtpPass)");
+    expect(emailServiceSource).toContain("nodemailer");
+    expect(emailServiceSource).toContain("sent via Resend");
+    expect(emailServiceSource).toContain("sent via SMTP");
+    const resendBranch = emailServiceSource.indexOf("if (resendConfigured(env))");
+    const decryptAt = emailServiceSource.indexOf("decryptEmailSettingsPassword(row.smtpPass)");
+    expect(resendBranch).toBeGreaterThan(-1);
+    expect(decryptAt).toBeGreaterThan(resendBranch);
   });
 });

@@ -2347,6 +2347,7 @@ export const crmEmailLog = mysqlTable("crm_email_log", {
   body: text("body").notNull(),
   sentByUserId: int("sentByUserId"),
   sentByName: varchar("sentByName", { length: 256 }),
+  distributorId: int("distributorId"),
   sentAt: timestamp("sentAt").defaultNow().notNull(),
 });
 

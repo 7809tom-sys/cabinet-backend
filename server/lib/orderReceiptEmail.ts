@@ -2,6 +2,7 @@ import { eq, sql } from "drizzle-orm";
 import { orderRequests, type OrderLineItem } from "../../drizzle/schema";
 import { getDb } from "../db";
 import { sendEmail, type SendEmailOptions, type SendEmailResult } from "../email";
+import { sendCrmCustomerEmail } from "./crmCustomerMail";
 import { readOrderCostSnapshots } from "./orderCostSnapshot";
 import { dollarsToCents, formatUsdFromCents, summarizeAdminOrder, type OrderMoneyInput } from "./orderMoney";
 import { onOrderPaid } from "./orderSideEffects";
@@ -245,8 +246,33 @@ export async function deliverOrderReceipt(input: {
   };
 }
 
-async function sendWithConfiguredMail(_db: Database, message: SendEmailOptions): Promise<SendEmailResult> {
-  return sendEmail(message);
+async function sendWithConfiguredMail(db: Database, order: typeof orderRequests.$inferSelect, message: SendEmailOptions): Promise<SendEmailResult> {
+  const customer = isUsableEmail(order.originatorEmail) ? order.originatorEmail.trim() : null;
+  if (!customer) return sendEmail(message);
+  try {
+    const sent = await sendCrmCustomerEmail(db, {
+      affiliateId: order.affiliateId,
+      ownerUserId: order.userId,
+      title: `Order ${order.requestNumber}`,
+      contactName: order.originatorName,
+      contactEmail: customer,
+      source: "order_request",
+      orderRequestId: order.id,
+      match: "order",
+    }, {
+      to: message.to,
+      bcc: message.bcc,
+      subject: message.subject,
+      text: message.text ?? "",
+      html: message.html ?? "",
+      sentByName: "Order receipt",
+      activityBody: `Paid-order receipt emailed to ${customer}.`,
+    });
+    return { success: true, transport: sent.transport, from: sent.from };
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    return { success: false, notConfigured: reason === "not_configured", error: reason };
+  }
 }
 
 export async function sendPaidOrderReceipt(orderId: number, env: NodeJS.ProcessEnv = process.env): Promise<ReceiptDeliveryResult> {
@@ -265,7 +291,7 @@ export async function sendPaidOrderReceipt(orderId: number, env: NodeJS.ProcessE
     shipping: { carrier: commerce?.shippingCarrier ?? null, method: commerce?.shippingService ?? null },
     claim: () => claimOrderReceipt(db, orderId),
     release: () => releaseOrderReceipt(db, orderId),
-    send: (message) => sendWithConfiguredMail(db, message),
+    send: (message) => sendWithConfiguredMail(db, order, message),
   });
   if (result.error && !result.sent && !result.skipped) {
     throw new Error(result.error);

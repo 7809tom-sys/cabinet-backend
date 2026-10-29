@@ -3,7 +3,8 @@ import { randomBytes } from "node:crypto";
 import { z } from "zod";
 import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
 import { getDb, notInConflict } from "../db";
-import { sendEmail } from "../email";
+import { sendCrmCustomerEmail } from "../lib/crmCustomerMail";
+import { resolveAffiliateAccess } from "../lib/affiliateAccess";
 import { storagePut } from "../storage";
 import {
   cabinets,
@@ -310,6 +311,9 @@ export const roomLayoutsRouter = router({
     .mutation(async ({ ctx, input }) => {
       const recipient = ctx.user.email?.trim();
       if (!recipient) throw new Error("Your account does not have an email address. Add one before emailing a quote.");
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+      const access = await resolveAffiliateAccess(db, { id: ctx.user.id, email: ctx.user.email });
       const subject = `Your Cabinet Dealz quote — $${input.subtotal.toFixed(2)}`;
       const text = [
         "Your Cabinet Dealz 3D room quote is attached.",
@@ -318,14 +322,34 @@ export const roomLayoutsRouter = router({
         `3D presentation: ${input.cabinetFinish} cabinets · ${input.countertopFinish} countertop`,
         "Preview finishes are visual only; final pricing is based on the orderable catalog selections in your design.",
       ].join("\n");
-      const attachment = {
-        filename: "cabinet-dealz-3d-quote.pdf",
-        content: Buffer.from(input.pdfBase64, "base64"),
-        contentType: "application/pdf",
-      };
-      const result = await sendEmail({ to: recipient, subject, text, attachments: [attachment] });
-      if (!result.success) {
-        throw new Error(result.notConfigured ? "Quote email is not configured yet. Please contact Cabinet Dealz support." : result.error ?? "Quote email could not be sent.");
+      const html = `<p>Your Cabinet Dealz 3D room quote is attached.</p><p>Items: ${input.itemCount}<br>Catalog-priced subtotal: $${input.subtotal.toFixed(2)}</p>`;
+      try {
+        await sendCrmCustomerEmail(db, {
+          affiliateId: access?.affiliateId ?? null,
+          ownerUserId: ctx.user.id,
+          title: `3D quote — ${ctx.user.name || recipient}`,
+          contactName: ctx.user.name ?? null,
+          contactEmail: recipient,
+          source: "storefront",
+          match: "email",
+        }, {
+          to: recipient,
+          subject,
+          text,
+          html,
+          attachments: [{
+            filename: "cabinet-dealz-3d-quote.pdf",
+            content: Buffer.from(input.pdfBase64, "base64"),
+            contentType: "application/pdf",
+          }],
+          sentByUserId: ctx.user.id,
+          sentByName: ctx.user.email,
+          activityBody: `3D quote PDF emailed to ${recipient}.`,
+          logBody: text,
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Quote email could not be sent.";
+        throw new Error(message === "not_configured" ? "Quote email is not configured yet. Please contact Cabinet Dealz support." : message);
       }
       return { sentTo: recipient };
     }),

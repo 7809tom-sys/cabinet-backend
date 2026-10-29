@@ -12,8 +12,8 @@ import {
   crmDealDesigns,
   crmEmailLog,
   crmEmailDrafts,
-  affiliateEmailSettings,
   notificationSettings,
+  distributors,
   kitchenDesigns,
   threeDRoomShares,
   affiliates,
@@ -45,9 +45,12 @@ import { buildCrmInvoiceEmailHtml, createCrmInvoicePdf } from "../crmInvoicePdf"
 import { usableInvoicePrefill, verifiedFreightInvoicePrefill } from "../crmInvoicePrefill";
 import { groupedDesignInvoiceMaterials } from "../crmDesignInvoice";
 import { crmCustomerImportIdentities, prepareCrmCustomerImport } from "@shared/crmCustomerListImport";
-import { resendConfigured, sendEmail } from "../email";
-import { deliverCrmMessage } from "../lib/crmOutboundMail";
-import { crmHtmlToText, crmMailboxVisible, resolveCrmOutbound, sanitizeCrmEmailHtml } from "@shared/crmMailbox";
+import { sendEmail } from "../email";
+import { loadCrmOutboundPlan } from "../lib/crmOutboundMail";
+import { sendCrmDealEmail } from "../lib/crmCustomerMail";
+import { buildOrderDistributorMessage } from "../lib/orderSideEffects";
+import { createDistributorPoPdf } from "../lib/distributorPoPdf";
+import { crmHtmlToText, crmMailboxVisible, sanitizeCrmEmailHtml } from "@shared/crmMailbox";
 import {
   newlyRequestedCrmHelpKinds,
   recipientsForCrmHelpNotification,
@@ -101,34 +104,7 @@ async function loadCrmOutbound(
   db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
   dealAffiliateId: number | null,
 ) {
-  const resend = {
-    resendReady: resendConfigured(),
-    resendFrom: process.env.ORDER_EMAIL_FROM?.trim() || undefined,
-  };
-  if (dealAffiliateId == null) {
-    return resolveCrmOutbound({
-      dealAffiliateId: null,
-      storeName: "Cabinet Dealz",
-      publicEmail: null,
-      affiliate: null,
-      platform: null,
-      ...resend,
-    });
-  }
-  const [store] = await db.select({
-    storeName: affiliates.storeName,
-    publicEmail: affiliates.publicEmail,
-    email: affiliates.email,
-  }).from(affiliates).where(eq(affiliates.id, dealAffiliateId)).limit(1);
-  const [affiliate] = await db.select().from(affiliateEmailSettings).where(eq(affiliateEmailSettings.affiliateId, dealAffiliateId)).limit(1);
-  return resolveCrmOutbound({
-    dealAffiliateId,
-    storeName: store?.storeName ?? "Store",
-    publicEmail: store?.publicEmail || store?.email || null,
-    affiliate: affiliate ?? null,
-    platform: null,
-    ...resend,
-  });
+  return loadCrmOutboundPlan(db, dealAffiliateId);
 }
 
 async function notifyCrmHelpTeam(
@@ -1037,9 +1013,8 @@ export const crmRouter = router({
     }),
 
   // ── Send an email to a deal contact ─────────────────────────────────────────
-  // Every send goes through Resend. Affiliate deals set reply-to to the store
-  // address. Every send is logged on the deal. Nothing is sent unless this
-  // procedure is called.
+  // Customer compose, follow-ups, and design links use this path. Delivery is
+  // Resend when configured and SMTP otherwise. Every send is logged on the deal.
   sendEmail: protectedProcedure
     .input(
       z.object({
@@ -1056,26 +1031,19 @@ export const crmRouter = router({
       const plan = await loadCrmOutbound(db, deal.affiliateId);
       const html = sanitizeCrmEmailHtml(input.html?.trim() || crmEmailBodyToHtml(input.body));
       const text = input.html ? crmHtmlToText(input.html) : input.body;
-      await deliverCrmMessage(plan, { to: input.to, subject: input.subject, text, html });
-      const from = plan.ok ? plan.from : "";
       const senderName = ctx.user.email ?? String(ctx.user.id);
-
-      await db.insert(crmEmailLog).values({
+      await sendCrmDealEmail(db, {
         dealId: deal.id,
-        toEmail: input.to,
-        fromEmail: from,
+        affiliateId: deal.affiliateId,
+        to: input.to,
         subject: input.subject,
-        body: input.html?.trim() || input.body,
+        text,
+        html,
         sentByUserId: ctx.user.id,
         sentByName: senderName,
+        activityBody: `Email sent to ${input.to} — ${input.subject}`,
+        logBody: input.html?.trim() || input.body,
       });
-      await db.insert(crmActivities).values({
-        dealId: deal.id,
-        authorUserId: ctx.user.id,
-        kind: "email",
-        body: `Email sent to ${input.to} — ${input.subject}`,
-      });
-      await db.update(crmDeals).set({ updatedAt: new Date() }).where(eq(crmDeals.id, deal.id));
       if (input.draftId) {
         const [draft] = await db.select().from(crmEmailDrafts).where(eq(crmEmailDrafts.id, input.draftId)).limit(1);
         const visible = draft != null && crmMailboxVisible(
@@ -1109,6 +1077,7 @@ export const crmRouter = router({
       }
 
       const plan = await loadCrmOutbound(db, deal.affiliateId);
+      if (!plan.ok) throw new TRPCError({ code: "PRECONDITION_FAILED", message: plan.reason });
 
       let linkedDesignName: string | null = null;
       if (input.linkedDesignId != null) {
@@ -1149,8 +1118,9 @@ export const crmRouter = router({
       };
       const pdf = await createCrmInvoicePdf(invoice);
       const subject = `${brand.storeName} invoice ${invoiceNumber}`;
-      const from = plan.ok ? plan.from : "";
-      await deliverCrmMessage(plan, {
+      await sendCrmDealEmail(db, {
+        dealId: deal.id,
+        affiliateId: deal.affiliateId,
         to,
         subject,
         text: `Your invoice ${invoiceNumber} from ${brand.storeName} is attached.`,
@@ -1160,25 +1130,133 @@ export const crmRouter = router({
           content: pdf,
           contentType: "application/pdf",
         }],
-      });
-
-      await db.insert(crmEmailLog).values({
-        dealId: deal.id,
-        toEmail: to,
-        fromEmail: from,
-        subject,
-        body: `Branded invoice PDF ${invoiceNumber} attached.`,
         sentByUserId: ctx.user.id,
         sentByName: ctx.user.email ?? String(ctx.user.id),
+        activityBody: `Branded invoice PDF ${invoiceNumber} sent to ${to}${linkedDesignName ? ` · Linked design: ${linkedDesignName}` : ""}.`,
+        logBody: `Branded invoice PDF ${invoiceNumber} attached.`,
       });
-      await db.insert(crmActivities).values({
-        dealId: deal.id,
-        authorUserId: ctx.user.id,
-        kind: "email",
-        body: `Branded invoice PDF ${invoiceNumber} sent to ${to}${linkedDesignName ? ` · Linked design: ${linkedDesignName}` : ""}.`,
-      });
-      await db.update(crmDeals).set({ updatedAt: new Date() }).where(eq(crmDeals.id, deal.id));
       return { ok: true, invoiceNumber };
+    }),
+
+  // ── Email the customer a linked design ──────────────────────────────────────
+  sendDesign: protectedProcedure
+    .input(z.object({
+      dealId: z.number().int(),
+      designLinkId: z.number().int(),
+      note: z.string().trim().max(4000).optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const { db, deal } = await getOwnedDeal(ctx, input.dealId);
+      const to = deal.contactEmail?.trim();
+      if (!to) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "missing_recipient" });
+      const [link] = await db.select().from(crmDealDesigns)
+        .where(and(eq(crmDealDesigns.id, input.designLinkId), eq(crmDealDesigns.dealId, deal.id)))
+        .limit(1);
+      if (!link) throw new TRPCError({ code: "NOT_FOUND", message: "Linked design not found." });
+      const [saved] = await db.select({
+        id: kitchenDesigns.id,
+        name: kitchenDesigns.name,
+        affiliateId: kitchenDesigns.affiliateId,
+      }).from(kitchenDesigns).where(eq(kitchenDesigns.id, link.designId)).limit(1);
+      if (!saved) throw new TRPCError({ code: "NOT_FOUND", message: "Saved design not found." });
+      const slug = saved.affiliateId == null
+        ? null
+        : (await db.select({ slug: affiliates.slug }).from(affiliates).where(eq(affiliates.id, saved.affiliateId)).limit(1))[0]?.slug ?? null;
+      const path = designScopePath(slug, saved.id, deal.id);
+      const origin = ctx.req.headers.origin ?? `${ctx.req.protocol}://${ctx.req.get("host")}`;
+      const url = `${origin}${path}`;
+      const note = input.note?.trim();
+      const text = [
+        deal.contactName ? `Hi ${deal.contactName},` : "Hello,",
+        "",
+        `Here is your kitchen design "${saved.name}":`,
+        url,
+        note ? "" : null,
+        note || null,
+      ].filter((line): line is string => line != null).join("\n");
+      const html = `<p>${deal.contactName ? `Hi ${deal.contactName},` : "Hello,"}</p><p>Here is your kitchen design <strong>${saved.name}</strong>.</p><p><a href="${url}">${url}</a></p>${note ? `<p>${note.replace(/&/g, "&amp;").replace(/</g, "&lt;")}</p>` : ""}`;
+      await sendCrmDealEmail(db, {
+        dealId: deal.id,
+        affiliateId: deal.affiliateId,
+        to,
+        subject: `Your kitchen design: ${saved.name}`,
+        text,
+        html,
+        sentByUserId: ctx.user.id,
+        sentByName: ctx.user.email ?? String(ctx.user.id),
+        activityBody: `Design link sent to ${to} — ${saved.name}`,
+        logBody: text,
+      });
+      return { ok: true, sentTo: to, designName: saved.name };
+    }),
+
+  distributorRecipients: protectedProcedure
+    .input(z.object({ dealId: z.number().int() }))
+    .query(async ({ ctx, input }) => {
+      const { db } = await getOwnedDeal(ctx, input.dealId);
+      const rows = await db.select({
+        id: distributors.id,
+        name: distributors.name,
+        orderEmail: distributors.orderEmail,
+      }).from(distributors).where(eq(distributors.isActive, true)).limit(200);
+      return rows
+        .filter((row) => !!row.orderEmail?.trim())
+        .map((row) => ({ id: row.id, name: row.name, orderEmail: row.orderEmail!.trim() }));
+    }),
+
+  // ── Email a distributor from the deal ───────────────────────────────────────
+  emailDistributor: protectedProcedure
+    .input(z.object({
+      dealId: z.number().int(),
+      distributorId: z.number().int(),
+      subject: z.string().trim().min(1).max(512),
+      body: z.string().trim().min(1).max(20000),
+      attachPo: z.boolean().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const { db, deal } = await getOwnedDeal(ctx, input.dealId);
+      const [distributor] = await db.select({
+        id: distributors.id,
+        name: distributors.name,
+        orderEmail: distributors.orderEmail,
+      }).from(distributors).where(eq(distributors.id, input.distributorId)).limit(1);
+      const to = distributor?.orderEmail?.trim();
+      if (!distributor || !to) {
+        throw new TRPCError({ code: "PRECONDITION_FAILED", message: "This distributor does not have an order email." });
+      }
+      const replyTo = ctx.user.email?.trim();
+      if (!replyTo) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Your account does not have an email address for reply-to." });
+      let attachments: { filename: string; content: Buffer; contentType: string }[] | undefined;
+      let logBody = input.body;
+      if (input.attachPo) {
+        if (deal.orderRequestId == null) {
+          throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Link an order before attaching a purchase-order PDF." });
+        }
+        const po = await buildOrderDistributorMessage(db, deal.orderRequestId, distributor.id);
+        if (!po) {
+          throw new TRPCError({ code: "PRECONDITION_FAILED", message: "This distributor has no lines on the deal's order." });
+        }
+        const pdf = await createDistributorPoPdf({ title: po.subject, text: po.text });
+        attachments = [{ filename: `${po.orderNumber}.pdf`, content: pdf, contentType: "application/pdf" }];
+        logBody = `${input.body}\n\nPurchase order PDF ${po.orderNumber}.pdf attached for ${distributor.name}.`;
+      }
+      const html = crmEmailBodyToHtml(input.body);
+      await sendCrmDealEmail(db, {
+        dealId: deal.id,
+        affiliateId: deal.affiliateId,
+        to,
+        subject: input.subject,
+        text: input.body,
+        html,
+        attachments,
+        replyTo,
+        sentByUserId: ctx.user.id,
+        sentByName: replyTo,
+        activityBody: `Distributor email sent to ${distributor.name} (${to}) — ${input.subject}`,
+        logBody,
+        distributorId: distributor.id,
+      });
+      return { ok: true, sentTo: to, distributorName: distributor.name };
     }),
 
   // ── Toggle a task activity done/undone ──────────────────────────────────────

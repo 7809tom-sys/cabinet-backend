@@ -1,12 +1,19 @@
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
+
+const sendMail = vi.hoisted(() => vi.fn(async () => ({ messageId: "smtp_1" })));
+vi.mock("nodemailer", () => ({
+  default: { createTransport: vi.fn(() => ({ sendMail })) },
+}));
+
 import { deliverCrmMessage } from "./lib/crmOutboundMail";
-import { isEmailConfigured, resendConfigured, sendEmail, sendViaResend } from "./email";
+import { isEmailConfigured, resendConfigured, sendEmail, sendViaResend, type EmailSettingsRow } from "./email";
 
 const env = { RESEND_API_KEY: "re_test_key", ORDER_EMAIL_FROM: "Cabinet Dealz <orders@cabinetdealz.com>" };
 
 afterEach(() => {
+  sendMail.mockClear();
   vi.unstubAllGlobals();
   vi.unstubAllEnvs();
   vi.restoreAllMocks();
@@ -28,9 +35,8 @@ function sourceFiles(dir: string): string[] {
 }
 
 describe("Resend email transport", () => {
-  it("fails closed when the API key is unset and does not call the network", async () => {
+  it("returns not configured without calling the network when Resend is unset", async () => {
     const fetchImpl = vi.fn();
-    const error = vi.spyOn(console, "error").mockImplementation(() => {});
     const result = await sendViaResend(
       { to: "a@b.com", subject: "Hi" },
       { SMTP_HOST: "smtp.example.com", SMTP_USER: "user", SMTP_PASS: "secret" } as NodeJS.ProcessEnv,
@@ -39,10 +45,9 @@ describe("Resend email transport", () => {
     expect(result).toMatchObject({ success: false, notConfigured: true });
     expect(result.error).toMatch(/RESEND_API_KEY/);
     expect(fetchImpl).not.toHaveBeenCalled();
-    expect(error.mock.calls.flat().join(" ")).toMatch(/\[OrderEmail\] Resend failed/);
   });
 
-  it("fails closed when the from address is missing and does not print the API key", async () => {
+  it("returns not configured when the from address is missing and does not print the API key", async () => {
     const fetchImpl = vi.fn();
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
     const result = await sendViaResend(
@@ -53,9 +58,7 @@ describe("Resend email transport", () => {
     expect(result).toMatchObject({ success: false, notConfigured: true });
     expect(result.error).toMatch(/ORDER_EMAIL_FROM/);
     expect(fetchImpl).not.toHaveBeenCalled();
-    const logged = error.mock.calls.flat().join(" ");
-    expect(logged).toMatch(/\[OrderEmail\] Resend failed/);
-    expect(logged).not.toContain("re_secret_value");
+    expect(error.mock.calls.flat().join(" ")).not.toContain("re_secret_value");
   });
 
   it("posts attachments and reply-to to the Resend HTTPS API", async () => {
@@ -72,7 +75,7 @@ describe("Resend email transport", () => {
         { filename: "invoice.pdf", content: pdf, contentType: "application/pdf" },
       ],
     }, env, fetchImpl as unknown as typeof fetch);
-    expect(result).toEqual({ success: true, messageId: "email_123" });
+    expect(result).toMatchObject({ success: true, messageId: "email_123", transport: "resend" });
     const [url, init] = fetchImpl.mock.calls[0] as [string, RequestInit];
     expect(url).toBe("https://api.resend.com/emails");
     expect(init.headers).toMatchObject({ Authorization: "Bearer re_test_key" });
@@ -90,7 +93,7 @@ describe("Resend email transport", () => {
     const fetchImpl = vi.fn(async () => new Response(JSON.stringify({ message: "blocked" }), { status: 422 }));
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
     await expect(sendViaResend({ to: "orders@mill.com", subject: "PO" }, env, fetchImpl as unknown as typeof fetch))
-      .resolves.toEqual({ success: false, error: "blocked" });
+      .resolves.toMatchObject({ success: false, error: "blocked", transport: "resend" });
     expect(error.mock.calls.flat().join(" ")).toMatch(/\[OrderEmail\] Resend failed/);
     expect(error.mock.calls.flat().join(" ")).not.toContain("re_test_key");
   });
@@ -109,7 +112,8 @@ describe("Resend email transport", () => {
       SMTP_USER: "user",
       SMTP_PASS: "secret",
     } as NodeJS.ProcessEnv);
-    expect(result).toEqual({ success: true, messageId: "email_456" });
+    expect(result).toMatchObject({ success: true, messageId: "email_456", transport: "resend" });
+    expect(sendMail).not.toHaveBeenCalled();
     const body = JSON.parse(String((fetchImpl.mock.calls[0] as [string, RequestInit])[1].body));
     expect(body.reply_to).toBe("store@example.com");
     expect(body.attachments[0].content_type).toBe("application/pdf");
@@ -123,13 +127,56 @@ describe("Resend email transport", () => {
     expect(resendConfigured({ SMTP_HOST: "smtp.example.com", SMTP_USER: "u", SMTP_PASS: "p" } as NodeJS.ProcessEnv)).toBe(false);
   });
 
-  it("does not keep an SMTP client in the send path", () => {
+  it("uses SMTP when Resend is unset and logs that path", async () => {
+    const fetchImpl = vi.fn();
+    vi.stubGlobal("fetch", fetchImpl);
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const result = await sendEmail({
+      to: "buyer@example.com",
+      subject: "Quote",
+      replyTo: "store@example.com",
+    }, {
+      SMTP_HOST: "smtp.example.com",
+      SMTP_PORT: "587",
+      SMTP_USER: "user@example.com",
+      SMTP_PASS: "secret",
+      SMTP_FROM: "orders@example.com",
+    } as NodeJS.ProcessEnv);
+    expect(result).toMatchObject({ success: true, messageId: "smtp_1", transport: "smtp", from: "orders@example.com" });
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(sendMail).toHaveBeenCalledWith(expect.objectContaining({ replyTo: "store@example.com", from: "orders@example.com" }));
+    expect(log.mock.calls.flat().join(" ")).toMatch(/sent via SMTP/);
+  });
+
+  it("uses saved email settings when Resend and SMTP env are unset", async () => {
+    const settings: EmailSettingsRow = {
+      smtpHost: "smtp.settings.test",
+      smtpPort: 465,
+      smtpUser: "settings@example.com",
+      smtpPass: "plain-secret",
+      smtpFrom: "settings@example.com",
+      enabled: true,
+    };
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const result = await sendEmail({ to: "buyer@example.com", subject: "PO" }, {} as NodeJS.ProcessEnv, settings);
+    expect(result.transport).toBe("smtp");
+    expect(result.success).toBe(true);
+    expect(log.mock.calls.flat().join(" ")).toMatch(/sent via SMTP settings/);
+    expect(JSON.stringify(sendMail.mock.calls)).not.toContain("re_test_key");
+  });
+
+  it("fails closed when neither Resend nor SMTP is configured", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const result = await sendEmail({ to: "buyer@example.com", subject: "PO" }, {} as NodeJS.ProcessEnv, null);
+    expect(result).toMatchObject({ success: false, notConfigured: true });
+    expect(sendMail).not.toHaveBeenCalled();
+    expect(error.mock.calls.flat().join(" ")).toMatch(/\[Email\] send failed/);
+  });
+
+  it("keeps the SMTP client inside the shared sender only", () => {
     const roots = ["server", "shared", "client/src"].map((dir) => path.resolve(dir));
-    const hits = roots.flatMap(sourceFiles).filter((file) => /from ["']nodemailer["']|createTransport\(/.test(readFileSync(file, "utf8")));
-    expect(hits).toEqual([]);
-    const pkg = JSON.parse(readFileSync(path.resolve("package.json"), "utf8")) as { dependencies?: Record<string, string>; devDependencies?: Record<string, string> };
-    expect(pkg.dependencies?.nodemailer).toBeUndefined();
-    expect(pkg.devDependencies?.["@types/nodemailer"]).toBeUndefined();
+    const hits = roots.flatMap(sourceFiles).filter((file) => /from ["']nodemailer["']/.test(readFileSync(file, "utf8")));
+    expect(hits.map((file) => path.relative(process.cwd(), file))).toEqual(["server/email.ts"]);
   });
 });
 
@@ -161,12 +208,39 @@ describe("CRM delivery through Resend", () => {
     expect(log.mock.calls.flat().join(" ")).toMatch(/\[CRM email\] Resend sent/);
   });
 
-  it("logs a Resend failure and does not fall back when Resend is not configured", async () => {
+  it("falls back to SMTP and logs that path when Resend is not configured", async () => {
     vi.stubEnv("RESEND_API_KEY", "");
     vi.stubEnv("ORDER_EMAIL_FROM", "");
     vi.stubEnv("SMTP_HOST", "smtp.example.com");
-    vi.stubEnv("SMTP_USER", "user");
+    vi.stubEnv("SMTP_PORT", "465");
+    vi.stubEnv("SMTP_USER", "user@example.com");
     vi.stubEnv("SMTP_PASS", "secret");
+    vi.stubEnv("SMTP_FROM", "orders@example.com");
+    const fetchImpl = vi.fn();
+    vi.stubGlobal("fetch", fetchImpl);
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const sent = await deliverCrmMessage({
+      ok: true,
+      channel: "platform",
+      from: "Cabinet Dealz",
+      signatureHtml: "",
+    }, {
+      to: "customer@example.com",
+      subject: "Invoice",
+      text: "Attached",
+      html: "<p>Invoice</p>",
+    });
+    expect(sent.transport).toBe("smtp");
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(log.mock.calls.flat().join(" ")).toMatch(/\[CRM email\] SMTP sent/);
+  });
+
+  it("logs a failure and does not send when neither path is configured", async () => {
+    vi.stubEnv("RESEND_API_KEY", "");
+    vi.stubEnv("ORDER_EMAIL_FROM", "");
+    vi.stubEnv("SMTP_HOST", "");
+    vi.stubEnv("SMTP_USER", "");
+    vi.stubEnv("SMTP_PASS", "");
     const fetchImpl = vi.fn();
     vi.stubGlobal("fetch", fetchImpl);
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
@@ -182,6 +256,7 @@ describe("CRM delivery through Resend", () => {
       html: "<p>Invoice</p>",
     })).rejects.toMatchObject({ message: "not_configured" });
     expect(fetchImpl).not.toHaveBeenCalled();
-    expect(error.mock.calls.flat().join(" ")).toMatch(/\[CRM email\] Resend failed/);
+    expect(sendMail).not.toHaveBeenCalled();
+    expect(error.mock.calls.flat().join(" ")).toMatch(/\[CRM email\] Email failed/);
   });
 });
