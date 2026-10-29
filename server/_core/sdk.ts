@@ -6,6 +6,7 @@ import { createRemoteJWKSet, decodeProtectedHeader, jwtVerify } from "jose";
 import { eq } from "drizzle-orm";
 import { users, type User } from "../../drizzle/schema";
 import * as db from "../db";
+import { linkApprovedContractorAccess } from "../lib/contractorAccessGrant";
 import { ENV } from "./env";
 import { readTestAccountUserId, TEST_ACCOUNT_HEADER, testAccountsEnabled } from "../lib/testAccounts";
 // Utility function
@@ -173,7 +174,17 @@ class SDKServer {
     // Owner email stays an administrator even when an older row was saved as a
     // normal user. Vendor sync never changes an admin role.
     const owner = await db.promoteOwnerAdmin(user, claims.email);
-    return db.synchronizeApprovedVendorLogin(owner, claims.email);
+    const signedIn = await db.synchronizeApprovedVendorLogin(owner, claims.email);
+    // Runs on every sign-in, including the first one after createEmailUser.
+    // Owner and vendor sync have already run, so this cannot replace admin
+    // or distributor. It links an approved affiliate contractor request for
+    // this email and grants contractor only when the role is still user.
+    const database = await db.getDb();
+    if (!database) return signedIn;
+    return linkApprovedContractorAccess(database, {
+      ...signedIn,
+      email: signedIn.email ?? claims.email,
+    });
   }
 
   /**
