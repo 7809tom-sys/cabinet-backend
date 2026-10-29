@@ -99,6 +99,11 @@ import { vendorSamplesRouter } from "./routers/vendorSamples";
 import { vendorReferralsRouter } from "./routers/vendorReferrals";
 import { crmCleanupRouter } from "./routers/crmCleanup";
 import { doorRenderingAuditRouter } from "./routers/doorRenderingAudit";
+import { contractorPortalRouter } from "./routers/contractorPortal";
+import { contractorAccessRouter } from "./routers/contractorAccess";
+import { orderTrackingRouter } from "./routers/orderTracking";
+import { loginTestAccount } from "./lib/loginTestAccount";
+import { testAccountsEnabled } from "./lib/testAccounts";
 
 export const appRouter = router({
   system: systemRouter,
@@ -109,7 +114,10 @@ export const appRouter = router({
     // validated client-side. Affiliate owners and team members go to their
     // own portal. Admins, and any explicit /admin return, do not.
     signInDestination: protectedProcedure
-      .input(z.object({ returnPath: z.string().max(2048).nullable() }))
+      .input(z.object({
+        returnPath: z.string().max(2048).nullable(),
+        portal: z.enum(["affiliate", "contractor", "customer"]).nullable().optional(),
+      }))
       .query(async ({ ctx, input }) => {
         const user = ctx.user;
         const returnPath =
@@ -143,12 +151,22 @@ export const appRouter = router({
             );
           }
         }
+        const portal = input.portal === "affiliate" || input.portal === "contractor" || input.portal === "customer"
+          ? input.portal
+          : null;
         return resolveSignInDestination({
           returnPath,
           userRole: user.role,
           resolution,
+          portal,
         });
       }),
+    testAccountsEnabled: publicProcedure.query(() => ({
+      enabled: testAccountsEnabled(process.env.ENABLE_TEST_ACCOUNTS),
+    })),
+    testLogin: publicProcedure
+      .input(z.object({ username: z.string().max(32), password: z.string().max(64) }))
+      .mutation(({ input }) => loginTestAccount(input.username, input.password)),
     logout: publicProcedure.mutation(({ ctx }) => {
       const cookieOptions = getSessionCookieOptions(ctx.req);
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
@@ -233,6 +251,9 @@ export const appRouter = router({
   vendorReferrals: vendorReferralsRouter,
   crmCleanup: crmCleanupRouter,
   doorRenderingAudit: doorRenderingAuditRouter,
+  contractorPortal: contractorPortalRouter,
+  contractorAccess: contractorAccessRouter,
+  orderTracking: orderTrackingRouter,
 });
 
 export type AppRouter = typeof appRouter;

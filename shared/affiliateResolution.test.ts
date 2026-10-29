@@ -17,9 +17,10 @@ function affiliate(partial: AffiliateCandidate): AffiliateCandidate {
 function destination(
   resolution: ReturnType<typeof resolveAffiliateRelationship>,
   returnPath: string,
-  userRole: string | null = "user"
+  userRole: string | null = "user",
+  portal: "affiliate" | "contractor" | "customer" | null = null,
 ) {
-  return resolveSignInDestination({ returnPath, userRole, resolution });
+  return resolveSignInDestination({ returnPath, userRole, resolution, portal });
 }
 
 describe("affiliate sign-in and portal resolution", () => {
@@ -39,6 +40,8 @@ describe("affiliate sign-in and portal resolution", () => {
     expect(resolution.link).toBeNull();
     expect(shouldLinkAffiliateOnLogin("admin", resolution.link)).toBe(false);
     expect(signedInHomeForRole("admin")).toBe("/admin");
+    expect(signedInHomeForRole("contractor")).toBe("/contractor");
+    expect(signedInHomeForRole("user")).toBe("/account");
     expect(destination(resolution, "/admin", "admin")).toMatchObject({
       destination: "/admin",
       resolution: "admin",
@@ -154,6 +157,11 @@ describe("affiliate sign-in and portal resolution", () => {
     expect(destination(resolution, "/account").destination).toBe(
       "/affiliate?viewAs=15"
     );
+    expect(destination(resolution, "/account", "user", "customer").destination).toBe("/customer");
+    expect(destination(resolution, "/affiliate", "user", "contractor").destination).toBe("/contractor");
+    expect(destination(resolution, "/customer", "contractor", "affiliate").destination).toBe(
+      "/affiliate?viewAs=15"
+    );
     expect(destination(resolution, "/admin").destination).toBe("/admin");
 
     const alreadyClaimed = resolveAffiliateRelationship({
@@ -254,6 +262,8 @@ describe("affiliate sign-in and portal resolution", () => {
       resolution: "none",
     });
     expect(destination(resolution, "/affiliate").destination).toBe("/account");
+    expect(destination(resolution, "/affiliate", "user", "affiliate").destination).toBe("/affiliate");
+    expect(destination(resolution, "/signin", "user", "customer").destination).toBe("/customer");
     expect(destination(resolution, "/affiliate?viewAs=4").destination).toBe(
       "/account"
     );

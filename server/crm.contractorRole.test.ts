@@ -5,8 +5,8 @@ import { getDb } from "./db";
 import { crmDeals, crmActivities, users } from "../drizzle/schema";
 import { eq } from "drizzle-orm";
 
-// A "contractor" is a lightweight self-serve role. They get exactly one thing:
-// a CRM board scoped to the deals they own (crmDeals.ownerUserId = them). The
+// An approved contractor gets a CRM board scoped to the deals they own
+// (crmDeals.ownerUserId = them). Self-serve promotion is closed. The
 // distributor / admin ("house") sees ALL deals, including contractor deals.
 
 function ctxFor(id: number, role: string, email: string): TrpcContext {
@@ -109,47 +109,9 @@ describe("contractor role — CRM scope (deals they own)", () => {
   });
 });
 
-describe("becomeContractor — self-serve role upgrade", () => {
-  it("promotes a plain user to contractor and is idempotent; refuses non-user roles", async () => {
-    const db = await getDb();
-    if (!db) return;
-
-    // Seed a plain user we can safely mutate.
-    const email = "become-contractor-test@example.com";
-    await db.delete(users).where(eq(users.email, email));
-    const res = await db.insert(users).values({
-      openId: "become-contractor-openid",
-      name: "Aspiring Contractor",
-      email,
-      role: "user",
-    });
-    const userId = (res as unknown as [{ insertId: number }])[0].insertId;
-
-    try {
-      const caller = appRouter.createCaller(ctxFor(userId, "user", email));
-      const out = await caller.customers.becomeContractor();
-      expect(out.role).toBe("contractor");
-
-      const [after] = await db
-        .select({ role: users.role })
-        .from(users)
-        .where(eq(users.id, userId));
-      expect(after.role).toBe("contractor");
-
-      // Idempotent: calling again (now as contractor) still succeeds.
-      const again = appRouter
-        .createCaller(ctxFor(userId, "contractor", email));
-      const out2 = await again.customers.becomeContractor();
-      expect(out2.role).toBe("contractor");
-
-      // An admin cannot be downgraded/clobbered by self-classifying.
-      const adminCaller = appRouter.createCaller(ctxFor(userId, "admin", email));
-      // (role in ctx is admin, but DB says contractor — the guard reads the DB row,
-      //  which is "contractor", so this is an idempotent success, NOT a clobber.)
-      const out3 = await adminCaller.customers.becomeContractor();
-      expect(out3.role).toBe("contractor");
-    } finally {
-      await db.delete(users).where(eq(users.id, userId));
-    }
+describe("becomeContractor — self-serve role upgrade is closed", () => {
+  it("refuses to promote a customer without an admin approval", async () => {
+    const caller = appRouter.createCaller(ctxFor(999301, "user", "pending@example.com"));
+    await expect(caller.customers.becomeContractor()).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 });

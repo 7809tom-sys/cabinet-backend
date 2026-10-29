@@ -1376,6 +1376,8 @@ export const kitchenDesigns = mysqlTable("kitchen_designs", {
   // A non-null owner keeps affiliate-storefront designs and plans isolated from
   // the Cabinet Dealz house pipeline and attaches them to that affiliate CRM.
   affiliateId: int("affiliateId"),
+  // Set when a contractor assigns this owner-scope plan to one of their customers.
+  contractorCustomerId: int("contractorCustomerId"),
   name: varchar("name", { length: 256 }).notNull(),
   // Master Project grouping: several rooms (kitchen + baths + laundry) can share
   // one projectName, becoming a single job. roomLabel names the room within the
@@ -1852,9 +1854,55 @@ export type InstallationEstimateLineItem = {
   costType: "labor" | "material";
 };
 
+// Customers a contractor organizes designs under. Separate from affiliate CRM
+// contacts and from the homeowner user account.
+export const contractorCustomers = mysqlTable("contractor_customers", {
+  id: int("id").autoincrement().primaryKey(),
+  contractorUserId: int("contractorUserId").notNull(),
+  name: varchar("name", { length: 256 }).notNull(),
+  email: varchar("email", { length: 320 }),
+  phone: varchar("phone", { length: 32 }),
+  notes: text("notes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (t) => ({
+  ownerIdx: index("contractor_customers_owner_idx").on(t.contractorUserId, t.name),
+}));
+export type ContractorCustomer = typeof contractorCustomers.$inferSelect;
+export type InsertContractorCustomer = typeof contractorCustomers.$inferInsert;
+
+// Pending contractor applications. Approval sets users.role to contractor.
+// Rejection leaves the account as a customer (role user).
+export const contractorAccessRequests = mysqlTable("contractor_access_requests", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  businessName: varchar("businessName", { length: 256 }).notNull(),
+  phone: varchar("phone", { length: 32 }).notNull(),
+  licenseNumber: varchar("licenseNumber", { length: 64 }),
+  status: varchar("status", { length: 16 }).default("pending").notNull(),
+  reviewedByUserId: int("reviewedByUserId"),
+  reviewedAt: timestamp("reviewedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (t) => ({
+  userStatusIdx: index("contractor_access_requests_user_idx").on(t.userId, t.status),
+}));
+export type ContractorAccessRequest = typeof contractorAccessRequests.$inferSelect;
+
+// Kitchen cost-sheet rates saved by a contractor. Affiliates keep theirs on
+// affiliates.kitchenCostDefaultsJson. The estimator reads one or the other.
+export const contractorKitchenCostDefaults = mysqlTable("contractor_kitchen_cost_defaults", {
+  contractorUserId: int("contractorUserId").primaryKey(),
+  defaultsJson: text("defaultsJson").notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type ContractorKitchenCostDefault = typeof contractorKitchenCostDefaults.$inferSelect;
+
 export const affiliateInstallationEstimates = mysqlTable("affiliate_installation_estimates", {
   id: int("id").autoincrement().primaryKey(),
-  affiliateId: int("affiliateId").notNull(),
+  // Null only for a contractor-owned estimate. Affiliate rows still set this.
+  affiliateId: int("affiliateId"),
+  contractorUserId: int("contractorUserId"),
   orderRequestId: int("orderRequestId"),
   kitchenDesignId: int("kitchenDesignId"),
   crmDealId: int("crmDealId"),
@@ -2149,6 +2197,8 @@ export const crmDeals = mysqlTable("crm_deals", {
   // Ownership / scope
   affiliateId: int("affiliateId"), // NULL = house/admin deal; else the owning affiliate
   ownerUserId: int("ownerUserId"), // assigned salesperson / partner user (nullable)
+  // Set when this contact belongs to a contractor's customer folder.
+  contractorCustomerId: int("contractorCustomerId"),
   // Pipeline
   title: varchar("title", { length: 256 }).notNull(), // e.g. "Kitchen remodel — J. Rivera"
   stage: mysqlEnum("stage", [

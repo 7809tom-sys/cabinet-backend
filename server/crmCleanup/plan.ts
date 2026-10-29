@@ -150,7 +150,8 @@ export type PlannerStripe = {
 
 export type PlannerEstimate = {
   id: number;
-  affiliateId: number;
+  /** Null for a contractor-owned estimate. Affiliate rows still set this. */
+  affiliateId: number | null;
   orderRequestId: number | null;
   kitchenDesignId: number | null;
   crmDealId: number | null;

@@ -596,7 +596,12 @@ export const crmRouter = router({
       // owner must choose an eligible affiliate estimate from this same customer
       // or directly linked order; that selected estimate becomes a separately
       // labeled Labor line in the consolidated CRM invoice draft.
-      const laborEstimateRows = deal.affiliateId == null || (!deal.orderRequestId && !deal.contactEmail && !deal.laborEstimateId)
+      const laborOwner = deal.affiliateId != null
+        ? eq(affiliateInstallationEstimates.affiliateId, deal.affiliateId)
+        : deal.ownerUserId != null
+          ? eq(affiliateInstallationEstimates.contractorUserId, deal.ownerUserId)
+          : null;
+      const laborEstimateRows = laborOwner == null || (!deal.orderRequestId && !deal.contactEmail && !deal.laborEstimateId)
         ? []
         : await db.select({
           id: affiliateInstallationEstimates.id,
@@ -608,7 +613,7 @@ export const crmRouter = router({
           totalAmount: affiliateInstallationEstimates.totalAmount,
           updatedAt: affiliateInstallationEstimates.updatedAt,
         }).from(affiliateInstallationEstimates)
-          .where(eq(affiliateInstallationEstimates.affiliateId, deal.affiliateId))
+          .where(laborOwner!)
           .orderBy(desc(affiliateInstallationEstimates.updatedAt))
           .limit(100);
       const laborEstimates = laborEstimateRows.filter((estimate) => (
@@ -787,12 +792,30 @@ export const crmRouter = router({
   setLaborEstimate: protectedProcedure
     .input(z.object({ dealId: z.number().int(), laborEstimateId: z.number().int().positive().nullable() }))
     .mutation(async ({ ctx, input }) => {
-      const { db, deal } = await getOwnedDeal(ctx, input.dealId);
+      const { db, deal, scope } = await getOwnedDeal(ctx, input.dealId);
       if (input.laborEstimateId == null) {
         await db.update(crmDeals)
           .set({ laborEstimateId: null, updatedAt: new Date() })
           .where(eq(crmDeals.id, deal.id));
         return { ok: true, laborEstimateId: null };
+      }
+      if (scope.kind === "contractor") {
+        const rows = await db.select({
+          id: affiliateInstallationEstimates.id,
+          crmDealId: affiliateInstallationEstimates.crmDealId,
+          contractorUserId: affiliateInstallationEstimates.contractorUserId,
+          orderRequestId: affiliateInstallationEstimates.orderRequestId,
+          customerEmail: affiliateInstallationEstimates.customerEmail,
+          status: affiliateInstallationEstimates.status,
+        }).from(affiliateInstallationEstimates)
+          .where(eq(affiliateInstallationEstimates.id, input.laborEstimateId))
+          .limit(1);
+        const laborEstimate = rows[0];
+        if (!laborEstimate || laborEstimate.contractorUserId !== scope.userId || laborEstimate.status === "cancelled" || !laborEstimateMatchesDeal(laborEstimate, deal)) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Labor estimate is not available for this deal." });
+        }
+        await db.update(crmDeals).set({ laborEstimateId: laborEstimate.id, updatedAt: new Date() }).where(eq(crmDeals.id, deal.id));
+        return { ok: true, laborEstimateId: laborEstimate.id };
       }
       if (deal.affiliateId == null) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Labor estimates are available only for affiliate deals." });
