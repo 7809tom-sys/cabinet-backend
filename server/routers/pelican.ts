@@ -12,7 +12,9 @@ import { positiveAuthorizedSurfaceBase } from "../../shared/surfacePricing";
 import { auditPelicanDesignerReadiness, isPelicanDesignerSelectable, pelicanDesignerRenderFlags } from "../lib/pelicanDesignerReadiness";
 import { comparisonProfileForPelicanProduct } from "../../shared/pelicanComparablePackaging";
 import { loadAffiliateStorefrontPricing } from "../lib/affiliateStorefrontPricing";
-import { resolveMarkupBps } from "../../shared/affiliateBranding";
+import { resolveAffiliateRetail, resolveMarkupBps } from "../../shared/affiliateBranding";
+import { isAttachProductCategory, resolveAffiliateTierCost } from "../../shared/affiliatePricingTier";
+import { dollarsToCents } from "../lib/affiliateTierPricing";
 
 /**
  * Any stored pelican_products.category. The value is trimmed and capped at the
@@ -114,9 +116,24 @@ function withPricing<T extends { listPrice: string | null; yourCost: string | nu
   affiliateMarkupBps?: number,
 ): T & { sellPrice: number | null; markupBps: number; platformSellPrice: number | null; affiliateMarkupBps: number } {
   const platformSellPrice = computeSellPrice(product, map);
-  const sellPrice = platformSellPrice == null || affiliateMarkupBps == null
-    ? platformSellPrice
-    : Math.round(platformSellPrice * (1 + affiliateMarkupBps / 10000) * 100) / 100;
+  let sellPrice = platformSellPrice;
+  if (platformSellPrice != null && affiliateMarkupBps != null) {
+    if (isAttachProductCategory(product.category)) {
+      const cost = resolveAffiliateTierCost({
+        yourCostCents: dollarsToCents(product.yourCost),
+        listPriceCents: dollarsToCents(product.listPrice),
+        referenceRetailCents: Math.round(platformSellPrice * 100),
+        productClass: "attach",
+        tier: null,
+        platformAffiliateMarkupBps: 0,
+      });
+      sellPrice = cost.affiliateCostCents == null
+        ? Math.round(platformSellPrice * (1 + affiliateMarkupBps / 10000) * 100) / 100
+        : resolveAffiliateRetail(cost.affiliateCostCents, { globalMarkupBps: affiliateMarkupBps }).retailCents / 100;
+    } else {
+      sellPrice = Math.round(platformSellPrice * (1 + affiliateMarkupBps / 10000) * 100) / 100;
+    }
+  }
   return {
     ...product,
     sellPrice,

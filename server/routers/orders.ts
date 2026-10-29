@@ -38,9 +38,9 @@ import {
 import { invokeLLM } from "../_core/llm";
 import { sellPriceForTier } from "@shared/margins";
 import { getPricingSettings } from "../db";
-import { resolveAffiliateStorefrontSale } from "@shared/affiliateBranding";
 import { affiliateStyleBranding } from "../../drizzle/schema";
 import { loadAffiliateStorefrontPricing } from "../lib/affiliateStorefrontPricing";
+import { affiliateStorefrontSale, dollarsToCents } from "../lib/affiliateTierPricing";
 import { buildAffiliateOrderPersistence } from "@shared/affiliateOrderAlias";
 import { createCheckoutSession, getStripe } from "../stripe";
 import { canPlaceSampleOrder, lineClaimsSample } from "../../shared/samples";
@@ -610,9 +610,10 @@ export const ordersRouter = router({
         if (r.cabinetId == null) continue;
         const sourceCostCents = r.yourCost == null ? null : Math.round(Number(r.yourCost) * 100);
         const price = affiliatePricing && sourceCostCents != null && Number.isFinite(sourceCostCents) && sourceCostCents > 0
-          ? resolveAffiliateStorefrontSale(sourceCostCents, affiliatePricing.platformSettings, affiliatePricing.markup, {
+          ? affiliateStorefrontSale(affiliatePricing, sourceCostCents, {
               styleId: input.styleId,
               categoryKey: r.category,
+              listPriceCents: dollarsToCents(r.listPrice),
             }).retailCents / 100
           : requestedAffiliateScope
             ? null
@@ -861,6 +862,7 @@ export const ordersRouter = router({
               category: cabinets.category,
               styleId: distributorSkus.styleId,
               yourCost: distributorSkus.yourCost,
+              listPrice: distributorSkus.listPrice,
             })
             .from(cabinets)
             .innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))
@@ -873,12 +875,11 @@ export const ordersRouter = router({
           for (const row of rows) {
             const sourceCostCents = row.yourCost == null ? null : Math.round(Number(row.yourCost) * 100);
             if (sourceCostCents == null || !Number.isFinite(sourceCostCents) || sourceCostCents <= 0) continue;
-            const saleCents = resolveAffiliateStorefrontSale(
-              sourceCostCents,
-              affiliatePricing.platformSettings,
-              affiliatePricing.markup,
-              { styleId: Number(row.styleId), categoryKey: row.category },
-            ).retailCents;
+            const saleCents = affiliateStorefrontSale(affiliatePricing, sourceCostCents, {
+              styleId: Number(row.styleId),
+              categoryKey: row.category,
+              listPriceCents: dollarsToCents(row.listPrice),
+            }).retailCents;
             saleByLine.set(`${row.masterCode}:${row.styleId}`, saleCents / 100);
           }
         }

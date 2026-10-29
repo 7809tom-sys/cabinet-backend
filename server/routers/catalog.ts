@@ -33,7 +33,8 @@ import {
 import { resolvePresentation, applyMarkup } from "../lib/presentation";
 import { resolveStorefrontTier, visiblePricesForViewer } from "../../shared/pricingTier";
 import { sellPriceForTier } from "@shared/margins";
-import { resolveAffiliateStorefrontSale } from "@shared/affiliateBranding";
+import { loadAffiliateStorefrontPricing } from "../lib/affiliateStorefrontPricing";
+import { affiliateStorefrontSale, dollarsToCents } from "../lib/affiliateTierPricing";
 import { invokeLLM } from "../_core/llm";
 import sharp from "sharp";
 import { generateImage } from "../_core/imageGeneration";
@@ -55,7 +56,6 @@ import { resolveCanonicalCatalogSources } from "../lib/canonicalCatalogSources";
 import { isWallWineRackCabinet } from "../../shared/wallWineRack";
 import { designerCabinetReadinessBySku } from "../lib/designerCabinetReadiness";
 import { landedCostFromList, landedCostMultiplier } from "../lib/distributorCostMultiplier";
-import { loadAffiliateStorefrontPricing } from "../lib/affiliateStorefrontPricing";
 import { loadCodeEquivalenceGroups } from "../lib/codeEquivalenceLoader";
 import { framelessCatalogPresentation } from "../lib/framelessCatalogPresentation";
 
@@ -4485,12 +4485,14 @@ export const pricingRouter = router({
             isAdmin,
           );
           const sourceCostCents = r.yourCost == null ? null : Math.round(Number(r.yourCost) * 100);
-          const affiliateSale = affiliatePricing && sourceCostCents != null && Number.isFinite(sourceCostCents) && sourceCostCents > 0
-            ? resolveAffiliateStorefrontSale(sourceCostCents, affiliatePricing.platformSettings, affiliatePricing.markup, {
+          const affiliateSaleQuote = affiliatePricing && sourceCostCents != null && Number.isFinite(sourceCostCents) && sourceCostCents > 0
+            ? affiliateStorefrontSale(affiliatePricing, sourceCostCents, {
                 styleId: Number(r.styleId),
                 categoryKey: r.category,
-              }).retailCents / 100
+                listPriceCents: dollarsToCents(r.listPrice),
+              })
             : null;
+          const affiliateSale = affiliateSaleQuote ? affiliateSaleQuote.retailCents / 100 : null;
           const publicPrices = affiliatePricing
             ? {
                 // An affiliate page shows its actual sale price, not a public
@@ -4503,8 +4505,9 @@ export const pricingRouter = router({
               }
             : gated;
           const rawCost = r.yourCost == null ? null : Number(r.yourCost);
-          const affiliateAdjustedCost =
-            rawCost != null && Number.isFinite(rawCost) && affiliateFeeSettings
+          const affiliateAdjustedCost = affiliateSaleQuote
+            ? (affiliateSaleQuote.affiliateCostCents / 100).toFixed(2)
+            : rawCost != null && Number.isFinite(rawCost) && affiliateFeeSettings
               ? (priceLadder(Math.round(rawCost * 100), affiliateFeeSettings).affiliateCents / 100).toFixed(2)
               : null;
           return {

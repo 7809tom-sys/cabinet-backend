@@ -4,7 +4,8 @@ import { eq, and, sql, inArray, gte, lte, isNull, ne, or } from "drizzle-orm";
 import { publicProcedure, router } from "../_core/trpc";
 import { getDb, notInConflict, getPricingSettings } from "../db";
 import { sellPriceForTier } from "@shared/margins";
-import { resolveAffiliateStorefrontSale } from "@shared/affiliateBranding";
+import { loadAffiliateStorefrontPricing } from "../lib/affiliateStorefrontPricing";
+import { affiliateStorefrontSale, dollarsToCents } from "../lib/affiliateTierPricing";
 import {
   cabinets,
   distributors,
@@ -21,7 +22,6 @@ import {
 import { filterCabinetSourceRows, loadAffiliateCatalogGate } from "../lib/affiliateCatalogGate";
 import { orderCabinetsByAliasRank, rankLoadedCabinetSearch } from "../lib/cabinetAliasSearch";
 import { resolveCanonicalCatalogSources } from "../lib/canonicalCatalogSources";
-import { loadAffiliateStorefrontPricing } from "../lib/affiliateStorefrontPricing";
 
 // ─── Family-locked storefront browsing ─────────────────────────────────────────
 // RULE: a shopping/quote session is locked to ONE distributor + ONE cabinet
@@ -671,9 +671,10 @@ export const storefrontRouter = router({
       const priced = rows.slice(input.offset, input.offset + input.limit).map(({ wholesalePrice, adjustedListPrice, yourCost, retailPriceBasis, ...r }) => {
         const sourceCostCents = yourCost == null ? null : Math.round(Number(yourCost) * 100);
         const affiliateSale = affiliatePricing && sourceCostCents != null && Number.isFinite(sourceCostCents) && sourceCostCents > 0
-          ? resolveAffiliateStorefrontSale(sourceCostCents, affiliatePricing.platformSettings, affiliatePricing.markup, {
+          ? affiliateStorefrontSale(affiliatePricing, sourceCostCents, {
               styleId: input.styleId,
               categoryKey: r.category,
+              listPriceCents: dollarsToCents(r.listPrice),
             }).retailCents / 100
           : null;
         return {
@@ -834,9 +835,10 @@ export const storefrontRouter = router({
       const items = rows.slice(0, input.limit).map(({ wholesalePrice, adjustedListPrice, yourCost, retailPriceBasis, ...r }) => {
         const sourceCostCents = yourCost == null ? null : Math.round(Number(yourCost) * 100);
         const affiliateSale = affiliatePricing && sourceCostCents != null && Number.isFinite(sourceCostCents) && sourceCostCents > 0
-          ? resolveAffiliateStorefrontSale(sourceCostCents, affiliatePricing.platformSettings, affiliatePricing.markup, {
+          ? affiliateStorefrontSale(affiliatePricing, sourceCostCents, {
               styleId: input.styleId,
               categoryKey: r.category,
+              listPriceCents: dollarsToCents(r.listPrice),
             }).retailCents / 100
           : null;
         return {
@@ -923,9 +925,10 @@ export const storefrontRouter = router({
       const { wholesalePrice, adjustedListPrice, yourCost, retailPriceBasis, ...rest } = g;
       const sourceCostCents = yourCost == null ? null : Math.round(Number(yourCost) * 100);
       const affiliateSale = affiliatePricing && sourceCostCents != null && Number.isFinite(sourceCostCents) && sourceCostCents > 0
-        ? resolveAffiliateStorefrontSale(sourceCostCents, affiliatePricing.platformSettings, affiliatePricing.markup, {
+        ? affiliateStorefrontSale(affiliatePricing, sourceCostCents, {
             styleId: input.styleId,
             categoryKey: rest.category,
+            listPriceCents: dollarsToCents(rest.listPrice),
           }).retailCents / 100
         : null;
       return {
