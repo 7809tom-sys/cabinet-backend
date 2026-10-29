@@ -13,7 +13,6 @@ import {
   crmEmailLog,
   crmEmailDrafts,
   affiliateEmailSettings,
-  emailSettings,
   notificationSettings,
   kitchenDesigns,
   threeDRoomShares,
@@ -44,7 +43,7 @@ import { buildCrmInvoiceEmailHtml, createCrmInvoicePdf } from "../crmInvoicePdf"
 import { usableInvoicePrefill, verifiedFreightInvoicePrefill } from "../crmInvoicePrefill";
 import { groupedDesignInvoiceMaterials } from "../crmDesignInvoice";
 import { crmCustomerImportIdentities, prepareCrmCustomerImport } from "@shared/crmCustomerListImport";
-import { sendEmailViaSettings } from "../email";
+import { resendConfigured, sendEmail } from "../email";
 import { deliverCrmMessage } from "../lib/crmOutboundMail";
 import { crmHtmlToText, crmMailboxVisible, resolveCrmOutbound, sanitizeCrmEmailHtml } from "@shared/crmMailbox";
 import {
@@ -100,14 +99,18 @@ async function loadCrmOutbound(
   db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
   dealAffiliateId: number | null,
 ) {
-  const [platform] = await db.select().from(emailSettings).limit(1);
+  const resend = {
+    resendReady: resendConfigured(),
+    resendFrom: process.env.ORDER_EMAIL_FROM?.trim() || undefined,
+  };
   if (dealAffiliateId == null) {
     return resolveCrmOutbound({
       dealAffiliateId: null,
       storeName: "Cabinet Dealz",
       publicEmail: null,
       affiliate: null,
-      platform: platform ?? null,
+      platform: null,
+      ...resend,
     });
   }
   const [store] = await db.select({
@@ -121,7 +124,8 @@ async function loadCrmOutbound(
     storeName: store?.storeName ?? "Store",
     publicEmail: store?.publicEmail || store?.email || null,
     affiliate: affiliate ?? null,
-    platform: platform ?? null,
+    platform: null,
+    ...resend,
   });
 }
 
@@ -131,14 +135,9 @@ async function notifyCrmHelpTeam(
   kind: CrmHelpNotificationKind,
 ): Promise<void> {
   try {
-    const [notificationRows, emailRows] = await Promise.all([
-      db.select().from(notificationSettings).limit(1),
-      db.select().from(emailSettings).limit(1),
-    ]);
-    const settings = notificationRows[0];
+    const [settings] = await db.select().from(notificationSettings).limit(1);
     const recipients = recipientsForCrmHelpNotification(settings, kind);
-    const email = emailRows[0];
-    if (!email || recipients.length === 0) return;
+    if (recipients.length === 0) return;
 
     const requestLabel = kind === "design" ? "Design Help" : "Shipping Cost Help";
     const customer = deal.contactName || deal.contactEmail || "Customer";
@@ -150,13 +149,16 @@ async function notifyCrmHelpTeam(
       "",
       "Open Administration → CRM to review the deal and respond.",
     ].join("\n");
-    await sendEmailViaSettings(email, {
+    const delivery = await sendEmail({
       to: recipients[0]!,
       cc: recipients.slice(1),
       subject: `CRM: ${requestLabel} requested — ${deal.title}`,
       text,
       html: crmEmailBodyToHtml(text),
     });
+    if (!delivery.success) {
+      console.error("[CRM] Help team notification failed", delivery.error ?? "send failed");
+    }
   } catch (error) {
     // A mail outage cannot prevent the help request itself from being saved.
     console.error("[CRM] Help team notification failed", error);
@@ -954,9 +956,9 @@ export const crmRouter = router({
         .orderBy(desc(crmEmailLog.sentAt));
     }),
 
-  // ── SMTP readiness for the composer (no secrets returned) ────────────────────
-  // Affiliate deals report the affiliate mailbox when it is connected, otherwise
-  // the platform fallback. Passwords are never included.
+  // ── Resend readiness for the composer (no secrets returned) ──────────────────
+  // Ready when RESEND_API_KEY and ORDER_EMAIL_FROM are set, even if no SMTP
+  // row is saved. Affiliate deals include replyTo for the store address.
   emailReadiness: protectedProcedure
     .input(z.object({ dealId: z.number().int().optional() }).optional())
     .query(async ({ ctx, input }) => {
@@ -989,9 +991,9 @@ export const crmRouter = router({
     }),
 
   // ── Send an email to a deal contact ─────────────────────────────────────────
-  // Affiliate deals use that affiliate's connected mailbox, or the platform
-  // SMTP with the store name and the affiliate public Reply-To. Every send is
-  // logged on the deal. Nothing is sent unless this procedure is called.
+  // Every send goes through Resend. Affiliate deals set reply-to to the store
+  // address. Every send is logged on the deal. Nothing is sent unless this
+  // procedure is called.
   sendEmail: protectedProcedure
     .input(
       z.object({

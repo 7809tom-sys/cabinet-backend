@@ -4,12 +4,8 @@ import { getDb } from "../db";
 import { emailSettings, brandingSettings, notificationSettings } from "../../drizzle/schema";
 import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
 import { TRPCError } from "@trpc/server";
-import nodemailer from "nodemailer";
-import {
-  decryptEmailSettingsPassword,
-  encryptEmailSettingsPassword,
-  isEncryptedEmailSettingsPassword,
-} from "../lib/emailSettingsCrypto";
+import { encryptEmailSettingsPassword } from "../lib/emailSettingsCrypto";
+import { resendConfigured, sendEmail } from "../email";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -55,9 +51,9 @@ export const emailSettingsRouter = router({
     await adminOnly(ctx.user.role);
     const row = await getOrCreateEmailSettings();
     if (!row) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
-    // Never return the password to the client
+    // Never return the password to the client. Readiness is Resend, not the saved SMTP row.
     const { smtpPass: _pass, ...safe } = row;
-    return { ...safe, hasPassword: !!_pass && _pass.length > 0 };
+    return { ...safe, hasPassword: !!_pass && _pass.length > 0, resendReady: resendConfigured() };
   }),
 
   saveEmailSettings: protectedProcedure
@@ -99,36 +95,19 @@ export const emailSettingsRouter = router({
     .input(z.object({ toEmail: z.string().email() }))
     .mutation(async ({ ctx, input }) => {
       await adminOnly(ctx.user.role);
-      const row = await getOrCreateEmailSettings();
-      if (!row) return { ok: false, error: "Settings not found" };
-      if (!row.smtpHost || !row.smtpUser || !row.smtpPass) {
-        return { ok: false, error: "SMTP credentials not configured. Save your settings first." };
+      if (!resendConfigured()) {
+        return { ok: false, error: "Email is not configured. Set RESEND_API_KEY and ORDER_EMAIL_FROM." };
       }
-      try {
-        const smtpPass = decryptEmailSettingsPassword(row.smtpPass);
-        const transport = nodemailer.createTransport({
-          host: row.smtpHost,
-          port: row.smtpPort,
-          secure: row.smtpPort === 465,
-          auth: { user: row.smtpUser, pass: smtpPass },
-        });
-        await transport.verify();
-        await transport.sendMail({
-          from: row.smtpFrom || row.smtpUser,
-          to: input.toEmail,
-          subject: "Cabinet Dealz — SMTP Test",
-          text: "Your SMTP connection is working correctly. This is a test email from Cabinet Dealz.",
-          html: "<p>Your SMTP connection is working correctly.</p><p>This is a test email from <strong>Cabinet Dealz</strong>.</p>",
-        });
-        if (!isEncryptedEmailSettingsPassword(row.smtpPass)) {
-          await (await getDb())?.update(emailSettings)
-            .set({ smtpPass: encryptEmailSettingsPassword(smtpPass) })
-            .where(eq(emailSettings.id, row.id));
-        }
-        return { ok: true };
-      } catch {
-        return { ok: false, error: "The saved SMTP connection could not be verified. Check the host, port, username, and password, then save before retrying." };
+      const result = await sendEmail({
+        to: input.toEmail,
+        subject: "Cabinet Dealz — email test",
+        text: "Your Resend connection is working. This is a test email from Cabinet Dealz.",
+        html: "<p>Your Resend connection is working.</p><p>This is a test email from <strong>Cabinet Dealz</strong>.</p>",
+      });
+      if (!result.success) {
+        return { ok: false, error: "The test email could not be sent. Check Resend configuration and try again." };
       }
+      return { ok: true };
     }),
 
   // ── Branding Settings ───────────────────────────────────────────────────────
@@ -217,23 +196,20 @@ export const emailSettingsRouter = router({
     const db = await getDb();
     if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
 
-    const [emailRows, shippingRows, paymentRows] = await Promise.all([
-      db.select().from(emailSettings).limit(1),
-      // Import inline to avoid circular deps
+    const [shippingRows, paymentRows] = await Promise.all([
       db.execute("SELECT liveApiKey, liveProvider, quoteMode, enabled FROM shipping_settings LIMIT 1"),
       db.execute("SELECT apiLoginId, clientKey, hasTransactionKey, enabled, environment FROM payment_settings LIMIT 1"),
     ]);
 
-    const email = emailRows[0] ?? null;
     const shipping = (shippingRows as unknown as { rows: Record<string, unknown>[] }).rows?.[0] ?? null;
     const payment = (paymentRows as unknown as { rows: Record<string, unknown>[] }).rows?.[0] ?? null;
 
     return {
       smtp: {
-        configured: !!(email?.smtpHost && email?.smtpUser && email?.smtpPass),
-        enabled: email?.enabled ?? false,
-        host: email?.smtpHost ?? "",
-        user: email?.smtpUser ?? "",
+        configured: resendConfigured(),
+        enabled: resendConfigured(),
+        host: resendConfigured() ? "Resend" : "",
+        user: resendConfigured() ? (process.env.ORDER_EMAIL_FROM?.trim() ?? "") : "",
       },
       shipping: {
         configured: !!(shipping?.liveApiKey),

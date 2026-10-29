@@ -5,13 +5,12 @@ import {
   distributorSkus,
   distributors,
   doorStyles,
-  emailSettings,
   orderRequests,
   type OrderLineItem,
 } from "../../drizzle/schema";
 import { distributorFacingName, resolveDistributorPoLine } from "@shared/distributorPoLine";
 import { getDb } from "../db";
-import { emailSettingsReady, sendEmail, sendEmailViaSettings } from "../email";
+import { sendEmail } from "../email";
 import { ensureAffiliatePipelineDeal } from "./crmPipelineAttach";
 import { fetchDistributorPoCatalog } from "./distributorPoCatalog";
 import {
@@ -623,7 +622,6 @@ export async function notifyOrderDistributors(orderId: number, opts?: { force?: 
         error: null,
       }))
       : priorRead.records;
-    const [settings] = await db.select().from(emailSettings).limit(1);
     const records = await deliverDistributorEmails({
       portions,
       prior,
@@ -649,7 +647,7 @@ export async function notifyOrderDistributors(orderId: number, opts?: { force?: 
           replyTo: usableEmail(order.originatorEmail) ?? undefined,
           attachments: [{ filename: `PO-${order.requestNumber}.csv`, content: message.csv, contentType: "text/csv" }],
         };
-        const result = emailSettingsReady(settings) ? await sendEmailViaSettings(settings, payload) : await sendEmail(payload);
+        const result = await sendEmail(payload);
         if (result.success) console.log(`[OrderEmail] Sent order ${order.requestNumber} to distributor ${portion.distributorId} (${portion.orderEmail}).`);
         else console.error(`[OrderEmail] Failed order ${order.requestNumber} to distributor ${portion.distributorId}: ${result.error || "not sent"}`);
         return { ok: result.success, error: result.error };

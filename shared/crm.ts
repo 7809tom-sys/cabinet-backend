@@ -71,12 +71,12 @@ export const CRM_EMAIL_BLOCK_MESSAGES: Record<
   { en: string; es: string }
 > = {
   not_configured: {
-    en: "Email sending isn't set up yet. Add your SMTP details in Email Settings first.",
-    es: "El envío de correo aún no está configurado. Agregue su SMTP en Configuración de correo.",
+    en: "Email sending isn't set up yet. Resend must be configured before CRM mail can be sent.",
+    es: "El envío de correo aún no está configurado. Resend debe estar configurado para enviar correo desde el CRM.",
   },
   disabled: {
-    en: "Email sending is turned off. Enable it in Email Settings to send from a deal.",
-    es: "El envío de correo está desactivado. Actívelo en Configuración de correo.",
+    en: "Email sending is turned off. Resend must be configured before CRM mail can be sent.",
+    es: "El envío de correo está desactivado. Resend debe estar configurado para enviar correo desde el CRM.",
   },
 };
 

@@ -36,41 +36,76 @@ const affiliateSettings = {
   enabled: true,
 };
 
+const resend = {
+  resendReady: true,
+  resendFrom: "Cabinet Dealz <orders@cabinetdealz.com>",
+};
+
 describe("CRM outbound mail", () => {
-  it("uses the affiliate mailbox when that affiliate has connected email", () => {
+  it("uses the shared Resend sender and the affiliate reply-to", () => {
     const plan = resolveCrmOutbound({
       dealAffiliateId: 7,
       storeName: "Reaves Way Cabinet Shop",
       publicEmail: "public@reaves.test",
       affiliate: affiliateSettings,
       platform,
+      ...resend,
     });
     expect(plan.ok).toBe(true);
     if (!plan.ok) return;
     expect(plan.channel).toBe("affiliate");
-    expect(plan.from).toBe('"Reaves Way" <store@gmail.com>');
+    expect(plan.from).toBe(resend.resendFrom);
     expect(plan.replyTo).toBe("hello@reaves.test");
-    expect(plan.smtp.pass).toBe("affiliate-secret");
+    expect(plan).not.toHaveProperty("smtp");
   });
 
-  it("falls back to platform SMTP with the store name and public reply-to", () => {
+  it("uses the public address as reply-to when the affiliate mailbox is not connected", () => {
     const plan = resolveCrmOutbound({
       dealAffiliateId: 7,
       storeName: "Reaves Way Cabinet Shop",
       publicEmail: "public@reaves.test",
-      affiliate: { ...affiliateSettings, enabled: false },
-      platform,
+      affiliate: { ...affiliateSettings, enabled: false, replyTo: "" },
+      platform: null,
+      ...resend,
     });
     expect(plan.ok).toBe(true);
     if (!plan.ok) return;
     expect(plan.channel).toBe("platform_fallback");
-    expect(plan.from).toBe('"Reaves Way Cabinet Shop" <sales@cabinetdealz.com>');
+    expect(plan.from).toBe(resend.resendFrom);
     expect(plan.replyTo).toBe("public@reaves.test");
-    expect(plan.smtp.user).toBe("platform@cabinetdealz.com");
-    expect(plan.smtp.pass).toBe("platform-secret");
   });
 
-  it("keeps house deals on the platform mailbox", () => {
+  it("uses the affiliate mailbox address as reply-to when reply-to and public email are blank", () => {
+    const plan = resolveCrmOutbound({
+      dealAffiliateId: 7,
+      storeName: "Reaves Way Cabinet Shop",
+      publicEmail: null,
+      affiliate: { ...affiliateSettings, replyTo: "" },
+      platform: null,
+      ...resend,
+    });
+    expect(plan.ok).toBe(true);
+    if (!plan.ok) return;
+    expect(plan.replyTo).toBe("store@gmail.com");
+  });
+
+  it("keeps house deals on the shared Resend sender", () => {
+    const plan = resolveCrmOutbound({
+      dealAffiliateId: null,
+      storeName: "Cabinet Dealz",
+      publicEmail: null,
+      affiliate: null,
+      platform: null,
+      ...resend,
+    });
+    expect(plan.ok).toBe(true);
+    if (!plan.ok) return;
+    expect(plan.channel).toBe("platform");
+    expect(plan.from).toBe(resend.resendFrom);
+    expect(plan.replyTo).toBeUndefined();
+  });
+
+  it("is not ready when Resend is not configured, even if SMTP rows are complete", () => {
     const plan = resolveCrmOutbound({
       dealAffiliateId: null,
       storeName: "Cabinet Dealz",
@@ -78,22 +113,21 @@ describe("CRM outbound mail", () => {
       affiliate: null,
       platform,
     });
-    expect(plan.ok).toBe(true);
-    if (!plan.ok) return;
-    expect(plan.channel).toBe("platform");
-    expect(plan.from).toBe("sales@cabinetdealz.com");
-    expect(plan.replyTo).toBeUndefined();
+    expect(plan).toEqual({ ok: false, reason: "not_configured" });
   });
 
-  it("blocks fallback when platform mail is disabled and the affiliate is not connected", () => {
+  it("stays ready when platform SMTP is disabled as long as Resend is configured", () => {
     const plan = resolveCrmOutbound({
       dealAffiliateId: 7,
       storeName: "Shop",
       publicEmail: "public@shop.test",
       affiliate: null,
       platform: { ...platform, enabled: false },
+      ...resend,
     });
-    expect(plan).toEqual({ ok: false, reason: "disabled" });
+    expect(plan.ok).toBe(true);
+    if (!plan.ok) return;
+    expect(plan.replyTo).toBe("public@shop.test");
   });
 });
 

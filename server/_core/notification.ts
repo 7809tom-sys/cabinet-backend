@@ -52,7 +52,7 @@ const escapeHtml = (value: string): string =>
   value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
 /**
- * Emails a project-owner notification to OWNER_EMAIL through the site's SMTP
+ * Emails a project-owner notification to OWNER_EMAIL through Resend
  * (sendEmail). Returns `true` when the message was sent, `false` when email is
  * not configured or delivery failed (callers treat alerts as best-effort).
  * Validation errors bubble up as TRPC errors so callers can fix the payload.

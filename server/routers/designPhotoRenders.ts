@@ -12,7 +12,7 @@ import { storageGetSignedUrl, storagePut } from "../storage";
 import { checkTwilioVerification, hashPhoneE164, isTwilioVerifyConfigured, normalizePhoneE164, sendTwilioVerification } from "../lib/twilioVerify";
 import { generateGeminiExactPlanTest, isGeminiImageConfigured, pollGeminiExactPlanTest, startGeminiExactPlanTest, verifyGeminiImageAccess } from "../lib/geminiImageProvider";
 import { finalizeRoomScenePrompt } from "../lib/roomScenePromptRules";
-import { sendEmail } from "../email";
+import { resendConfigured, sendEmail } from "../email";
 import { resolveAffiliateAccess } from "../lib/affiliateAccess";
 import { GEMINI_MATERIAL_MANIFEST_WIRE_VERSION, hasCurrentGeminiMaterialManifestWireVersion, serializeGeminiMaterialManifestForWire } from "../../shared/geminiMaterialManifest";
 
@@ -1163,7 +1163,7 @@ export const designPhotoRendersRouter = router({
       const notifications = notificationRows[0];
       return {
         handoffs: requests.filter((request) => Boolean(request.manualHandoffPreparedAt && request.manualHandoffBoardUrl && request.manualHandoffPrompt)),
-        emailDeliveryConfigured: Boolean(notifications?.enabled && internalManualHandoffRecipients(notifications.onNewDesignLead).length > 0),
+        emailDeliveryConfigured: resendConfigured() && Boolean(notifications?.enabled && internalManualHandoffRecipients(notifications.onNewDesignLead).length > 0),
       };
     }),
 

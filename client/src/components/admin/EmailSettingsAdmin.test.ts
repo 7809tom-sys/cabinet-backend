@@ -4,17 +4,16 @@ import { readFileSync } from "node:fs";
 const source = readFileSync(new URL("./EmailSettingsAdmin.tsx", import.meta.url), "utf8");
 
 describe("Email Settings administration UX", () => {
-  it("shows a clear configured and sending state", () => {
-    expect(source).toContain('"Active" : isConfigured ? "Configured (disabled)" : "Not configured"');
-    expect(source).toContain('form.enabled ? "On — sending enabled" : "Off — sending paused"');
+  it("shows Resend readiness instead of treating saved SMTP as the sender", () => {
+    expect(source).toContain('resendReady ? "Resend active" : "Resend not configured"');
+    expect(source).toContain("This switch is not used for delivery. Mail sends whenever Resend is configured.");
     expect(source).toContain('aria-label="Enable email sending"');
   });
 
-  it("requires saved current settings before a test email can be sent", () => {
-    expect(source).toContain("const hasUnsavedChanges = Boolean(");
-    expect(source).toContain("const canSendTest = Boolean(testEmail.trim() && isConfigured && !testing && !hasUnsavedChanges)");
+  it("sends a test email through Resend without waiting for saved SMTP", () => {
+    expect(source).toContain("const canSendTest = Boolean(testEmail.trim() && !testing)");
     expect(source).toContain("disabled={!canSendTest}");
-    expect(source).toContain("Save your email-setting changes before sending a test message.");
+    expect(source).toContain("This test sends through Resend and does not use the SMTP fields above.");
   });
 
   it("preserves in-progress SMTP entries through a background refetch and offers a Hostinger preset", () => {
@@ -24,7 +23,7 @@ describe("Email Settings administration UX", () => {
     expect(source).toContain('const HOSTINGER_SMTP_HOST = "smtp.hostinger.com"');
     expect(source).toContain('const HOSTINGER_SMTP_PORT = "465"');
     expect(source).toContain("Use Hostinger preset");
-    expect(source).toContain("Test unavailable until the saved settings include");
+    expect(source).toContain("The SMTP fields below are not used for delivery.");
   });
 
   it("does not claim that database persistence itself is the security feature", () => {

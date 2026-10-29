@@ -27,6 +27,6 @@ describe("CRM help type persistence", () => {
     expect(router).toContain("newlyRequestedCrmHelpKinds(deal, input)");
     expect(router).toContain("notifyCrmHelpTeam(db, deal, kind)");
     expect(router).toContain("recipientsForCrmHelpNotification(settings, kind)");
-    expect(router).toContain("sendEmailViaSettings");
+    expect(router).toContain("await sendEmail({");
   });
 });

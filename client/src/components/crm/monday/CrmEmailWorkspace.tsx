@@ -204,8 +204,8 @@ export function CrmEmailWorkspaceView({
             <span className="block text-sm font-semibold text-[#1a2b4a]">Email setup</span>
             <span className="text-xs text-slate-500">
               {audience === "affiliate"
-                ? (settings?.connected ? `Connected via ${settings.provider}` : "Not connected — CRM mail falls back to Cabinet Dealz")
-                : "Affiliate connection status. Passwords stay on the server."}
+                ? "CRM mail is sent through Resend. The address below is used as reply-to."
+                : "CRM mail is sent through Resend. Reply-to uses each store's saved address."}
             </span>
           </span>
           <span className="text-xs text-[#c9a227]">{setupOpen ? "Hide" : "Show"}</span>
@@ -235,7 +235,7 @@ export function CrmEmailWorkspaceView({
                 <Field label="Reply-to"><Input value={setup.replyTo} onChange={(event) => setSetup({ ...setup, replyTo: event.target.value })} /></Field>
                 <label className="flex items-center gap-2 text-sm md:col-span-2">
                   <input type="checkbox" checked={setup.enabled} onChange={(event) => setSetup({ ...setup, enabled: event.target.checked })} />
-                  Use this mailbox for CRM sends
+                  Save this mailbox address for reply-to
                 </label>
                 <label className="text-xs font-medium text-slate-600 md:col-span-2">Signature
                   <textarea className="mt-1 min-h-20 w-full rounded-md border px-2 py-2 text-sm" value={setup.signatureHtml} onChange={(event) => setSetup({ ...setup, signatureHtml: event.target.value })} />
@@ -265,7 +265,7 @@ export function CrmEmailWorkspaceView({
                     ))}
                   </tbody>
                 </table>
-                <p className="mt-2 text-xs text-slate-500">House mail still uses Admin → Email Settings. Stored passwords are not shown.</p>
+                <p className="mt-2 text-xs text-slate-500">Sending uses Resend. A saved reply-to or mailbox address is where customer replies go. Stored passwords are not shown.</p>
               </div>
             )}
           </div>

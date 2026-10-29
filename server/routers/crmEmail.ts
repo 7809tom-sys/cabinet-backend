@@ -102,9 +102,9 @@ export const crmEmailRouter = router({
     testSend: protectedProcedure.input(z.object({
       to: z.string().email(),
       provider: z.enum(CRM_EMAIL_PROVIDERS),
-      smtpHost: z.string().min(1).max(255),
-      smtpPort: z.number().int().min(1).max(65535),
-      smtpUser: z.string().min(1).max(255),
+      smtpHost: z.string().max(255).optional().default(""),
+      smtpPort: z.number().int().min(1).max(65535).optional().default(587),
+      smtpUser: z.string().max(255).optional().default(""),
       smtpPass: z.string().max(2000).optional(),
       smtpFrom: z.string().max(320).optional(),
       fromName: z.string().max(256).optional(),
@@ -116,16 +116,14 @@ export const crmEmailRouter = router({
         throw new TRPCError({ code: "FORBIDDEN", message: "Test email from your own affiliate CRM." });
       }
       const [existing] = await db.select().from(affiliateEmailSettings).where(eq(affiliateEmailSettings.affiliateId, scope.affiliateId)).limit(1);
-      const pass = input.smtpPass?.trim() || existing?.smtpPass || "";
-      if (!pass) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Enter the mailbox password before sending a test." });
-      const [aff] = await db.select({ storeName: affiliates.storeName }).from(affiliates).where(eq(affiliates.id, scope.affiliateId)).limit(1);
+      const replyTo = (input.smtpFrom || input.smtpUser).trim();
       try {
         await deliverCrmMessage({
           ok: true,
           channel: "affiliate",
-          from: `"${(input.fromName || aff?.storeName || "Store").replace(/[\r\n"]/g, "")}" <${(input.smtpFrom || input.smtpUser).trim()}>`,
-          signatureHtml: "",
-          smtp: { host: input.smtpHost.trim(), port: input.smtpPort, user: input.smtpUser.trim(), pass },
+          from: process.env.ORDER_EMAIL_FROM?.trim() || "Cabinet Dealz",
+          replyTo,
+          signatureHtml: existing?.signatureHtml ?? "",
         }, {
           to: input.to,
           subject: "Cabinet Dealz CRM test",
