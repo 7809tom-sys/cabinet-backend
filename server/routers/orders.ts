@@ -37,6 +37,7 @@ import {
 } from "@shared/codeMatch";
 import { invokeLLM } from "../_core/llm";
 import { sellPriceForTier } from "@shared/margins";
+import { resolvePricingFor } from "@shared/pricingTier";
 import { getPricingSettings } from "../db";
 import { resolveAffiliateStorefrontSale } from "@shared/affiliateBranding";
 import { affiliateStyleBranding } from "../../drizzle/schema";
@@ -812,14 +813,14 @@ export const ordersRouter = router({
       // Server-side tier enforcement: non-admin users always get their assigned pricingTier.
       // Admins may pass any tier (for quoting on behalf of a customer).
       const isAdmin = (ctx as { user?: { role?: string } }).user?.role === "admin";
-      const userDbTier = (ctx as { user?: { pricingTier?: string } }).user?.pricingTier;
+      const pricing = resolvePricingFor(ctx.user);
       const resolvedTier: "Wholesale" | "Contractor" | "Homeowner" = isAdmin
         ? input.tier
-        : userDbTier === "wholesale"
+        : pricing.tier === "wholesale"
           ? "Wholesale"
-          : userDbTier === "contractor"
+          : pricing.tier === "contractor"
             ? "Contractor"
-            : "Homeowner"; // guests and homeowners default to Homeowner
+            : "Homeowner";
       const scopeSlug = input.storeScope.trim().toLowerCase();
       const affiliatePricing = await loadAffiliateStorefrontPricing(scopeSlug);
       if (scopeSlug !== "owner" && !affiliatePricing) {

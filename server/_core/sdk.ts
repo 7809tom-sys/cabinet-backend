@@ -3,9 +3,11 @@ import { ForbiddenError } from "@shared/_core/errors";
 import axios from "axios";
 import type { Request } from "express";
 import { createRemoteJWKSet, decodeProtectedHeader, jwtVerify } from "jose";
-import type { User } from "../../drizzle/schema";
+import { eq } from "drizzle-orm";
+import { users, type User } from "../../drizzle/schema";
 import * as db from "../db";
 import { ENV } from "./env";
+import { readTestAccountUserId, TEST_ACCOUNT_HEADER, testAccountsEnabled } from "../lib/testAccounts";
 // Utility function
 const isNonEmptyString = (value: unknown): value is string =>
   typeof value === "string" && value.length > 0;
@@ -224,6 +226,23 @@ class SDKServer {
   }
 
   async authenticateRequest(req: Request): Promise<AuthenticatedUser> {
+    if (testAccountsEnabled(process.env.ENABLE_TEST_ACCOUNTS) && ENV.cookieSecret) {
+      const raw = req.headers[TEST_ACCOUNT_HEADER];
+      const token = Array.isArray(raw) ? raw[0] : raw;
+      if (typeof token === "string" && token) {
+        const userId = await readTestAccountUserId(token, ENV.cookieSecret);
+        if (userId) {
+          const database = await db.getDb();
+          const [user] = database
+            ? await database.select().from(users).where(eq(users.id, userId)).limit(1)
+            : [];
+          if (user && (user.openId === "test-account-customer" || user.openId === "test-account-contractor")) {
+            return user;
+          }
+        }
+      }
+    }
+
     const bearerUser = await this.authenticateSupabaseBearer(req);
     if (bearerUser) return bearerUser;
 

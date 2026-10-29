@@ -54,6 +54,9 @@ export type SignInDestination = {
   ambiguousAffiliateIds: number[];
 };
 
+/** Chosen on an affiliate landing or referral sign-in before the password step. */
+export type SignInPortal = "affiliate" | "contractor" | "customer";
+
 export function normalizeAffiliateEmail(
   email: string | null | undefined
 ): string {
@@ -70,6 +73,7 @@ export function signedInHomeForRole(
 ): string {
   if (userRole === "admin") return "/admin";
   if (userRole === "distributor") return "/vendor";
+  if (userRole === "contractor") return "/contractor";
   return "/account";
 }
 
@@ -265,14 +269,57 @@ export function shouldLinkAffiliateOnLogin(
  * Where to navigate after sign-in. `returnPath` is already the role home when
  * the client did not ask for a specific page.
  */
+function portalDestination(
+  portal: SignInPortal | null | undefined,
+  resolution: AffiliateResolution,
+  ambiguousAffiliateIds: number[],
+): SignInDestination | null {
+  if (portal === "contractor") {
+    return {
+      destination: "/contractor",
+      affiliateId: resolution.access?.affiliateId ?? null,
+      resolution: resolution.access ? "affiliate" : "none",
+      ambiguousAffiliateIds,
+    };
+  }
+  if (portal === "customer") {
+    return {
+      destination: "/customer",
+      affiliateId: resolution.access?.affiliateId ?? null,
+      resolution: resolution.access ? "affiliate" : "none",
+      ambiguousAffiliateIds,
+    };
+  }
+  if (portal === "affiliate") {
+    if (resolution.access) {
+      return {
+        destination: affiliatePortalPath(resolution.access.affiliateId),
+        affiliateId: resolution.access.affiliateId,
+        resolution: "affiliate",
+        ambiguousAffiliateIds: [],
+      };
+    }
+    return {
+      destination: "/affiliate",
+      affiliateId: null,
+      resolution: ambiguousAffiliateIds.length > 0 ? "ambiguous" : "none",
+      ambiguousAffiliateIds,
+    };
+  }
+  return null;
+}
+
 export function resolveSignInDestination({
   returnPath,
   userRole,
   resolution,
+  portal = null,
 }: {
   returnPath: string;
   userRole?: string | null;
   resolution: AffiliateResolution;
+  /** Set only when the person picked Affiliate, Contractor, or Customer. */
+  portal?: SignInPortal | null;
 }): SignInDestination {
   const ambiguousAffiliateIds = resolution.ambiguousAffiliateIds;
   if (userRole === "admin") {
@@ -283,6 +330,8 @@ export function resolveSignInDestination({
       ambiguousAffiliateIds,
     };
   }
+  const chosen = portalDestination(portal, resolution, ambiguousAffiliateIds);
+  if (chosen) return chosen;
   // Admin role wins above. An explicit /admin request is never replaced either,
   // including when the same email is also an affiliate login.
   if (isAdminReturnPath(returnPath)) {

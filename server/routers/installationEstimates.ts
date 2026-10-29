@@ -1,7 +1,7 @@
 import { and, desc, eq, inArray, isNull, or } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
-import { affiliateInstallationEstimates, affiliateTeamMembers, affiliates, cabinets, crmActivities, crmDealDesigns, crmDeals, kitchenDesigns, orderRequests } from "../../drizzle/schema";
+import { affiliateInstallationEstimates, affiliateTeamMembers, affiliates, cabinets, contractorKitchenCostDefaults, crmActivities, crmDealDesigns, crmDeals, kitchenDesigns, orderRequests } from "../../drizzle/schema";
 import { getDb } from "../db";
 import { syncStoredOrderCrm } from "../lib/orderSideEffects";
 import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
@@ -18,7 +18,10 @@ const estimateLineSchema = z.object({
   costType: z.enum(INSTALLATION_COST_TYPES).default("labor"),
 });
 
+const audienceSchema = z.enum(["affiliate", "contractor"]).optional();
+
 const estimateInputSchema = z.object({
+  audience: audienceSchema,
   affiliateId: z.number().int().positive().optional(),
   orderRequestId: z.number().int().positive().nullable().optional(),
   customerName: z.string().trim().max(256).nullable().optional(),
@@ -64,16 +67,41 @@ async function resolveAffiliateId(user: AuthUser, requestedAffiliateId?: number,
   throw new TRPCError({ code: "FORBIDDEN", message: "You do not have access to affiliate installation estimates." });
 }
 
+type EstimateOwner = { kind: "affiliate"; affiliateId: number } | { kind: "contractor"; userId: number };
+
+async function resolveEstimateOwner(
+  user: AuthUser,
+  input?: { audience?: "affiliate" | "contractor"; affiliateId?: number },
+  requireDesigner = false,
+): Promise<EstimateOwner> {
+  if (input?.audience === "contractor") {
+    if (user.role !== "contractor") {
+      throw new TRPCError({ code: "FORBIDDEN", message: "Contractor installation estimates are available to approved contractor accounts." });
+    }
+    return { kind: "contractor", userId: user.id };
+  }
+  return { kind: "affiliate", affiliateId: await resolveAffiliateId(user, input?.affiliateId, requireDesigner) };
+}
+
+function ownerWhere(owner: EstimateOwner) {
+  return owner.kind === "affiliate"
+    ? eq(affiliateInstallationEstimates.affiliateId, owner.affiliateId)
+    : eq(affiliateInstallationEstimates.contractorUserId, owner.userId);
+}
+
 export const installationEstimatesRouter = router({
   kitchenPlans: protectedProcedure
-    .input(z.object({ affiliateId: z.number().int().positive().optional() }).optional())
+    .input(z.object({ audience: audienceSchema, affiliateId: z.number().int().positive().optional() }).optional())
     .query(async ({ ctx, input }) => {
-      const affiliateId = await resolveAffiliateId(ctx.user, input?.affiliateId, true);
+      const owner = await resolveEstimateOwner(ctx.user, input, true);
       const db = await getDb();
       if (!db) return [];
+      const scope = owner.kind === "affiliate"
+        ? eq(kitchenDesigns.affiliateId, owner.affiliateId)
+        : and(eq(kitchenDesigns.userId, owner.userId), isNull(kitchenDesigns.affiliateId));
       const designs = await db.select({ id: kitchenDesigns.id, name: kitchenDesigns.name, projectName: kitchenDesigns.projectName, roomLabel: kitchenDesigns.roomLabel, updatedAt: kitchenDesigns.updatedAt, placedCabinets: kitchenDesigns.placedCabinets })
         .from(kitchenDesigns)
-        .where(and(eq(kitchenDesigns.affiliateId, affiliateId), or(isNull(kitchenDesigns.roomType), eq(kitchenDesigns.roomType, "Kitchen"), eq(kitchenDesigns.roomType, "kitchen"))))
+        .where(and(scope, or(isNull(kitchenDesigns.roomType), eq(kitchenDesigns.roomType, "Kitchen"), eq(kitchenDesigns.roomType, "kitchen"))))
         .orderBy(desc(kitchenDesigns.updatedAt));
       const ids = Array.from(new Set(designs.flatMap((design) => (Array.isArray(design.placedCabinets) ? design.placedCabinets : []).map((item) => Number((item as { cabinetId?: number } | null)?.cabinetId)).filter((id) => Number.isInteger(id) && id > 0))));
       const catalogRows = ids.length
@@ -92,17 +120,18 @@ export const installationEstimatesRouter = router({
     }),
 
   kitchenCostDefaults: protectedProcedure
-    .input(z.object({ affiliateId: z.number().int().positive().optional() }).optional())
+    .input(z.object({ audience: audienceSchema, affiliateId: z.number().int().positive().optional() }).optional())
     .query(async ({ ctx, input }) => {
-      const affiliateId = await resolveAffiliateId(ctx.user, input?.affiliateId);
+      const owner = await resolveEstimateOwner(ctx.user, input);
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
-      const [affiliate] = await db.select({ kitchenCostDefaultsJson: affiliates.kitchenCostDefaultsJson })
-        .from(affiliates).where(eq(affiliates.id, affiliateId)).limit(1);
+      const storedJson = owner.kind === "affiliate"
+        ? (await db.select({ kitchenCostDefaultsJson: affiliates.kitchenCostDefaultsJson }).from(affiliates).where(eq(affiliates.id, owner.affiliateId)).limit(1))[0]?.kitchenCostDefaultsJson
+        : (await db.select({ defaultsJson: contractorKitchenCostDefaults.defaultsJson }).from(contractorKitchenCostDefaults).where(eq(contractorKitchenCostDefaults.contractorUserId, owner.userId)).limit(1))[0]?.defaultsJson;
       const blank = createBlankKitchenCostDefaults();
-      if (!affiliate?.kitchenCostDefaultsJson) return { defaults: blank, hasSavedDefaults: false };
+      if (!storedJson) return { defaults: blank, hasSavedDefaults: false };
       try {
-        const saved = z.array(kitchenCostDefaultSchema).parse(JSON.parse(affiliate.kitchenCostDefaultsJson));
+        const saved = z.array(kitchenCostDefaultSchema).parse(JSON.parse(storedJson));
         const byDescription = new Map(saved.map((row) => [row.description, row]));
         return { defaults: blank.map((row) => ({ ...row, ...(byDescription.get(row.description) ?? {}) })), hasSavedDefaults: true };
       } catch {
@@ -111,9 +140,9 @@ export const installationEstimatesRouter = router({
     }),
 
   saveKitchenCostDefaults: protectedProcedure
-    .input(z.object({ affiliateId: z.number().int().positive().optional(), defaults: kitchenCostDefaultsInputSchema }))
+    .input(z.object({ audience: audienceSchema, affiliateId: z.number().int().positive().optional(), defaults: kitchenCostDefaultsInputSchema }))
     .mutation(async ({ ctx, input }) => {
-      const affiliateId = await resolveAffiliateId(ctx.user, input.affiliateId);
+      const owner = await resolveEstimateOwner(ctx.user, input);
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
       const byDescription = new Map(input.defaults.map((row) => [row.description, row]));
@@ -122,25 +151,31 @@ export const installationEstimatesRouter = router({
         materialUnitCost: byDescription.get(row.description)?.materialUnitCost ?? 0,
         laborUnitCost: byDescription.get(row.description)?.laborUnitCost ?? 0,
       }));
-      await db.update(affiliates).set({ kitchenCostDefaultsJson: JSON.stringify(normalized) }).where(eq(affiliates.id, affiliateId));
+      const payload = JSON.stringify(normalized);
+      if (owner.kind === "affiliate") {
+        await db.update(affiliates).set({ kitchenCostDefaultsJson: payload }).where(eq(affiliates.id, owner.affiliateId));
+      } else {
+        await db.insert(contractorKitchenCostDefaults).values({ contractorUserId: owner.userId, defaultsJson: payload })
+          .onDuplicateKeyUpdate({ set: { defaultsJson: payload } });
+      }
       return { success: true, defaults: normalized };
     }),
 
   list: protectedProcedure
-    .input(z.object({ affiliateId: z.number().int().positive().optional() }).optional())
+    .input(z.object({ audience: audienceSchema, affiliateId: z.number().int().positive().optional() }).optional())
     .query(async ({ ctx, input }) => {
-      const affiliateId = await resolveAffiliateId(ctx.user, input?.affiliateId);
+      const owner = await resolveEstimateOwner(ctx.user, input);
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
       return db.select().from(affiliateInstallationEstimates)
-        .where(eq(affiliateInstallationEstimates.affiliateId, affiliateId))
+        .where(ownerWhere(owner))
         .orderBy(desc(affiliateInstallationEstimates.updatedAt));
     }),
 
   create: protectedProcedure
     .input(estimateInputSchema)
     .mutation(async ({ ctx, input }) => {
-      const affiliateId = await resolveAffiliateId(ctx.user, input.affiliateId, input.roomType === "Kitchen" && input.kitchenDesignId != null);
+      const owner = await resolveEstimateOwner(ctx.user, input, input.roomType === "Kitchen" && input.kitchenDesignId != null);
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
       const result = await db.transaction(async (tx) => {
@@ -148,11 +183,14 @@ export const installationEstimatesRouter = router({
         let cabinetBreakdown: KitchenCabinetBreakdown | null = null;
         let kitchenDesignName: string | null = null;
         if (kitchenDesignId != null) {
+          const designScope = owner.kind === "affiliate"
+            ? eq(kitchenDesigns.affiliateId, owner.affiliateId)
+            : and(eq(kitchenDesigns.userId, owner.userId), isNull(kitchenDesigns.affiliateId));
           const [design] = await tx.select({ id: kitchenDesigns.id, name: kitchenDesigns.name, affiliateId: kitchenDesigns.affiliateId, placedCabinets: kitchenDesigns.placedCabinets })
             .from(kitchenDesigns)
-            .where(and(eq(kitchenDesigns.id, kitchenDesignId), eq(kitchenDesigns.affiliateId, affiliateId), or(isNull(kitchenDesigns.roomType), eq(kitchenDesigns.roomType, "Kitchen"), eq(kitchenDesigns.roomType, "kitchen"))))
+            .where(and(eq(kitchenDesigns.id, kitchenDesignId), designScope, or(isNull(kitchenDesigns.roomType), eq(kitchenDesigns.roomType, "Kitchen"), eq(kitchenDesigns.roomType, "kitchen"))))
             .limit(1).for("update");
-          if (!design) throw new TRPCError({ code: "NOT_FOUND", message: "The selected kitchen plan was not found in this affiliate store." });
+          if (!design) throw new TRPCError({ code: "NOT_FOUND", message: owner.kind === "contractor" ? "The selected kitchen plan was not found on your contractor account." : "The selected kitchen plan was not found in this affiliate store." });
           kitchenDesignName = design.name;
           const placed = (Array.isArray(design.placedCabinets) ? design.placedCabinets : []) as Array<{ cabinetId?: number | null; qty?: number | null }>;
           const ids = Array.from(new Set(placed.filter(Boolean).map((item) => Number(item.cabinetId)).filter((id) => Number.isInteger(id) && id > 0)));
@@ -162,14 +200,18 @@ export const installationEstimatesRouter = router({
           cabinetBreakdown = countKitchenCabinets(placed, new Map(catalogRows.map((row) => [row.id, row])));
         }
         if (input.orderRequestId != null) {
+          const orderScope = owner.kind === "affiliate"
+            ? eq(orderRequests.affiliateId, owner.affiliateId)
+            : eq(orderRequests.userId, owner.userId);
           const [order] = await tx.select({ id: orderRequests.id }).from(orderRequests)
-            .where(and(eq(orderRequests.id, input.orderRequestId), eq(orderRequests.affiliateId, affiliateId))).limit(1);
+            .where(and(eq(orderRequests.id, input.orderRequestId), orderScope)).limit(1);
           if (!order) throw new TRPCError({ code: "NOT_FOUND", message: "The material order was not found in this affiliate store." });
         }
         const totals = calculateInstallationEstimate(input.lineItems, input.taxAmount, input.markupPercent);
         const shareToken = crypto.randomUUID().replace(/-/g, "");
         const result = await tx.insert(affiliateInstallationEstimates).values({
-          affiliateId,
+          affiliateId: owner.kind === "affiliate" ? owner.affiliateId : null,
+          contractorUserId: owner.kind === "contractor" ? owner.userId : null,
           shareToken,
           orderRequestId: input.orderRequestId ?? null,
           kitchenDesignId,
@@ -188,7 +230,8 @@ export const installationEstimatesRouter = router({
         });
         const estimateId = Number((result as unknown as [{ insertId: number }])[0].insertId);
         let crmDealId: number | null = null;
-        if (input.roomType === "Kitchen" && (kitchenDesignId != null || input.customerName || input.customerEmail || input.customerPhone)) {
+        const affiliateId = owner.kind === "affiliate" ? owner.affiliateId : null;
+        if (affiliateId != null && input.roomType === "Kitchen" && (kitchenDesignId != null || input.customerName || input.customerEmail || input.customerPhone)) {
           let matching = kitchenDesignId == null ? [] : await tx.select({ id: crmDeals.id })
             .from(crmDealDesigns).innerJoin(crmDeals, eq(crmDeals.id, crmDealDesigns.dealId))
             .where(and(eq(crmDealDesigns.designId, kitchenDesignId), eq(crmDeals.affiliateId, affiliateId)))
@@ -232,13 +275,13 @@ export const installationEstimatesRouter = router({
     }),
 
   updateStatus: protectedProcedure
-    .input(z.object({ id: z.number().int().positive(), affiliateId: z.number().int().positive().optional(), status: z.enum(["draft", "shared", "accepted", "cancelled"]) }))
+    .input(z.object({ id: z.number().int().positive(), audience: audienceSchema, affiliateId: z.number().int().positive().optional(), status: z.enum(["draft", "shared", "accepted", "cancelled"]) }))
     .mutation(async ({ ctx, input }) => {
-      const affiliateId = await resolveAffiliateId(ctx.user, input.affiliateId);
+      const owner = await resolveEstimateOwner(ctx.user, input);
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
       await db.update(affiliateInstallationEstimates).set({ status: input.status })
-        .where(and(eq(affiliateInstallationEstimates.id, input.id), eq(affiliateInstallationEstimates.affiliateId, affiliateId)));
+        .where(and(eq(affiliateInstallationEstimates.id, input.id), ownerWhere(owner)));
       return { success: true };
     }),
 
@@ -251,9 +294,11 @@ export const installationEstimatesRouter = router({
         .where(and(eq(affiliateInstallationEstimates.shareToken, input.token), or(eq(affiliateInstallationEstimates.status, "shared"), eq(affiliateInstallationEstimates.status, "accepted"))))
         .limit(1);
       if (!estimate) throw new TRPCError({ code: "NOT_FOUND", message: "Installation document is not available." });
-      const [affiliate] = await db.select({ storeName: affiliates.storeName, logoUrl: affiliates.logoUrl, primaryColor: affiliates.primaryColor, publicEmail: affiliates.publicEmail, publicPhone: affiliates.publicPhone })
-        .from(affiliates).where(eq(affiliates.id, estimate.affiliateId)).limit(1);
-      return { estimate, affiliate: affiliate ?? null };
+      const [affiliate] = estimate.affiliateId
+        ? await db.select({ storeName: affiliates.storeName, logoUrl: affiliates.logoUrl, primaryColor: affiliates.primaryColor, publicEmail: affiliates.publicEmail, publicPhone: affiliates.publicPhone })
+          .from(affiliates).where(eq(affiliates.id, estimate.affiliateId)).limit(1)
+        : [undefined];
+      return { estimate, affiliate: affiliate ?? { storeName: "CabinetDealz", logoUrl: null, primaryColor: null, publicEmail: null, publicPhone: null } };
     }),
 
   // The material-order confirmation can only reveal a separate installation
