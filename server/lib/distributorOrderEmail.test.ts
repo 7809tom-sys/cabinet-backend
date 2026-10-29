@@ -4,6 +4,9 @@ import {
   buildDistributorEmailContent,
   composeDistributorOrderEmail,
   deliverDistributorEmails,
+  distributorPoAttachmentNames,
+  distributorPoPaymentTerms,
+  orderPurchaseOrderCharges,
   parseCcEmails,
   summarizeDistributorEmails,
   type DistributorPortion,
@@ -44,7 +47,11 @@ describe("distributor order email", () => {
     expect(message.text).toContain("Three drawer base cabinet, 24 inch");
     expect(message.text).toContain("Aspen White");
     expect(message.text).not.toContain("Lumina");
-    expect(message.html).toContain("Distributor Item Name");
+    expect(message.html).toContain("Description");
+    expect(message.html).toContain("Payment terms");
+    expect(message.html).toContain("Bill to");
+    expect(message.html).toContain("Cabinet Dealz");
+    expect(message.document.title).toBe("Purchase Order");
     expect(message.html).toContain("3DB24");
     expect(message.html).toContain("3 Drawer Base 24");
     expect(message.html).toContain("Aspen White");
@@ -173,6 +180,72 @@ describe("distributor order email", () => {
     });
     expect(thrown[0]).toMatchObject({ status: "failed", error: "socket hang up" });
     expect(summarizeDistributorEmails(thrown).distributorEmailError).toContain("socket hang up");
+  });
+
+  it("prints distributor cost, shipping, tax, and a passed-through fee", () => {
+    const message = buildDistributorEmailContent({
+      orderNumber: "CD-100",
+      orderDate: "2026-10-27",
+      customerName: "Jamie Carter",
+      shipTo: ["123 Oak Street"],
+      distributorName: "Millwork Co",
+      poNumber: null,
+      notes: null,
+      deliveryMethod: "ship",
+      billTo: { name: "Reaves Way Cabinet Shop", lines: ["10 Store Street", "Austin, TX 78701"] },
+      vendorLines: ["Clark & Son Warehouse", "1 Depot Road"],
+      charges: orderPurchaseOrderCharges({
+        deliveryMethod: "ship",
+        freightQuoteCents: 7500,
+        freightQuoteVerified: true,
+        taxAmount: "12.50",
+      }).concat({ label: "Liftgate", amount: 40 }),
+      paymentTerms: "Net 15",
+      lines: [{ ...portion.lines[0], unitCost: 80 }],
+    });
+    expect(message.text).toContain("2 x 3DB24 — 3 Drawer Base 24");
+    expect(message.text).toContain("@ $80.00 = $160.00");
+    expect(message.text).toContain("Subtotal: $160.00");
+    expect(message.text).toContain("Shipping: $75.00");
+    expect(message.text).toContain("Tax: $12.50");
+    expect(message.text).toContain("Liftgate: $40.00");
+    expect(message.text).toContain("Total: $287.50");
+    expect(message.text).toContain("Payment terms: Net 15");
+    expect(message.text).toContain("Reaves Way Cabinet Shop");
+    expect(message.text).toContain("1 Depot Road");
+    expect(message.html).toContain("Unit Cost");
+    expect(message.html).toContain("$160.00");
+    expect(message.html).toContain("$287.50");
+    expect(message.document.showPrices).toBe(true);
+    expect(message.document.billTo.name).toBe("Reaves Way Cabinet Shop");
+    const rows = message.csv.split("\r\n");
+    expect(rows[1]).toContain(",2,80.00,160.00");
+    expect(distributorPoAttachmentNames("CD-100")).toEqual({ pdf: "PO-CD-100.pdf", csv: "PO-CD-100.csv" });
+  });
+
+  it("uses the payment-terms env var and omits money when the order has no cost", () => {
+    expect(distributorPoPaymentTerms({} as NodeJS.ProcessEnv)).toBe("Per distributor agreement");
+    expect(distributorPoPaymentTerms({ DISTRIBUTOR_PO_PAYMENT_TERMS: "  Net 30 " } as NodeJS.ProcessEnv)).toBe("Net 30");
+    expect(orderPurchaseOrderCharges({ deliveryMethod: "pickup", freightQuoteCents: 5000, taxAmount: "0" })).toEqual([]);
+    expect(orderPurchaseOrderCharges({ deliveryMethod: "ship", freightQuoteCents: 0, freightQuoteVerified: true, taxAmount: null })).toEqual([
+      { label: "Shipping", amount: 0 },
+    ]);
+    const message = composeDistributorOrderEmail({
+      orderNumber: "CD-100",
+      orderDate: "2026-10-27",
+      customerName: null,
+      shipTo: [],
+      distributorName: "Millwork Co",
+      poNumber: null,
+      notes: null,
+      lines: portion.lines,
+      paymentTerms: "Per distributor agreement",
+    });
+    expect(message.document.showPrices).toBe(false);
+    expect(message.document.total).toBeNull();
+    expect(message.html).not.toContain("Unit Cost");
+    expect(message.text).toContain("Payment terms: Per distributor agreement");
+    expect(message.text).toContain("No ship-to address was stored on this order.");
   });
 
   it("keeps only usable CC addresses", () => {

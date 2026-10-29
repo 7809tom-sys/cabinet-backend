@@ -4,8 +4,11 @@
 // order email, CSV, and any other PO document must use the code and name that
 // distributor already sells: distributor_skus.distributorSku plus
 // supplierCabinetName / supplierDescription, or vendor_products.vendorSku plus
-// name for hardware. Door style uses door_styles.distributorName. The company
-// on the PO uses distributors.brandName, never the neutral white-label line name.
+// name for hardware. When those supplier fields are blank, the cabinet catalog
+// description fills the item name. The shopper line description is never copied
+// onto the PO. Door style uses door_styles.distributorName, plus color when the
+// name does not already include it. The company on the PO uses
+// distributors.brandName, never the neutral white-label line name.
 
 import { normalizeCode } from "./cabinetCodeMatch";
 
@@ -80,6 +83,8 @@ export type IndexedDistributorCatalog = {
   vendorsByDistributorCode: Map<string, VendorProductRecord[]>;
   stylesById: Map<number, DistributorStyleRecord>;
   cabinetIdByCode: Map<string, number>;
+  /** cabinets.description, used only when the distributor did not store a name. */
+  cabinetDescriptionById: Map<number, string>;
 };
 
 function clean(value: string | null | undefined): string {
@@ -122,6 +127,7 @@ export function indexDistributorCatalog(input: {
   vendorProducts?: readonly VendorProductRecord[];
   styles?: readonly DistributorStyleRecord[];
   cabinetCodes?: readonly { cabinetId: number; code: string | null | undefined }[];
+  cabinetDescriptions?: readonly { cabinetId: number; description?: string | null }[];
   equivalences?: readonly { codeA: string | null | undefined; codeB: string | null | undefined }[];
 }): IndexedDistributorCatalog {
   const skuByCabinetStyleDistributor = new Map<string, DistributorSkuRecord>();
@@ -164,6 +170,13 @@ export function indexDistributorCatalog(input: {
     }
   }
 
+  const cabinetDescriptionById = new Map<number, string>();
+  for (const row of input.cabinetDescriptions ?? []) {
+    const description = clean(row.description);
+    if (!description || !Number.isFinite(row.cabinetId) || row.cabinetId <= 0) continue;
+    cabinetDescriptionById.set(row.cabinetId, description);
+  }
+
   return {
     skuByCabinetStyleDistributor,
     skusByCabinetDistributor,
@@ -172,7 +185,13 @@ export function indexDistributorCatalog(input: {
     vendorsByDistributorCode,
     stylesById,
     cabinetIdByCode,
+    cabinetDescriptionById,
   };
+}
+
+function catalogItemName(catalog: IndexedDistributorCatalog, cabinetId: number | null): string {
+  if (cabinetId == null || cabinetId <= 0) return "";
+  return clean(catalog.cabinetDescriptionById?.get(cabinetId));
 }
 
 function namesFrom(name: string | null | undefined, description: string | null | undefined): { name: string; description: string } {
@@ -186,9 +205,15 @@ function namesFrom(name: string | null | undefined, description: string | null |
   return { name: "", description: "" };
 }
 
+function joinColor(label: string, color: string): string {
+  if (!color || label.toLowerCase().includes(color.toLowerCase())) return label;
+  return `${label} ${color}`;
+}
+
 function doorStyleLabel(line: DistributorPoLineInput, style: DistributorStyleRecord | undefined): string | null {
   const distributorName = clean(style?.distributorName);
-  if (distributorName) return distributorName;
+  const color = clean(style?.color);
+  if (distributorName) return joinColor(distributorName, color);
   const physical = [style?.doorStyle, style?.color, style?.finish].map((part) => clean(part)).filter(Boolean);
   const unique = Array.from(new Set(physical));
   if (unique.length) return unique.join(" ");
@@ -305,7 +330,10 @@ export function resolveDistributorPoLine(
   const cabinetId = cabinetIdFor(line, catalog);
   const sku = findSku(line, distributorId, catalog, cabinetId, line.styleId ?? null);
   if (!sku) return unmapped(code);
-  const names = namesFrom(sku.supplierCabinetName, sku.supplierDescription);
+  const native = namesFrom(sku.supplierCabinetName, sku.supplierDescription);
+  const names = native.name
+    ? native
+    : { name: catalogItemName(catalog, cabinetId ?? (sku.cabinetId != null && sku.cabinetId > 0 ? sku.cabinetId : null)), description: "" };
   return {
     qty,
     sku: clean(sku.distributorSku) || code || "—",
