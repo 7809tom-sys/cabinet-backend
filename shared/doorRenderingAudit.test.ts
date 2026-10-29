@@ -115,6 +115,15 @@ describe("door rendering audit run selection", () => {
     expect(styleChangedSinceLastRender(current, "bbb")).toBe(true);
     expect(styleChangedSinceLastRender({ ...current, samplePhotoUrl: "/manus-storage/new.png" }, "aaa")).toBe(true);
     expect(styleChangedSinceLastRender(style({ styleId: 2 }), null)).toBe(true);
+    expect(styleChangedSinceLastRender({
+      ...current,
+      expectedFingerprint: "door-audit-v2-720x1080|raised|raised|Raised Panel|#2a211c|#434341",
+    }, "door-audit-v2-720x1080")).toBe(true);
+    expect(styleChangedSinceLastRender({
+      ...current,
+      latest: { samplePhotoUrl: "/manus-storage/sample.png", renderingCommit: "door-audit-v2-720x1080|raised|raised|Raised Panel|#2a211c|#434341" },
+      expectedFingerprint: "door-audit-v2-720x1080|raised|raised|Raised Panel|#2a211c|#434341",
+    }, "door-audit-v2-720x1080")).toBe(false);
   });
 
   it("skips unchanged styles by default and caps a run at 40", () => {

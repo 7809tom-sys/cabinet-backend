@@ -37,6 +37,8 @@ export type DoorRenderScoreSet = {
 export type DoorRenderingAuditCandidate = {
   styleId: number;
   samplePhotoUrl: string | null;
+  /** Resolved profile, color, and swatch. When set, this is what "changed" compares. */
+  expectedFingerprint?: string | null;
   latest: {
     samplePhotoUrl: string;
     renderingCommit: string | null;
@@ -83,7 +85,8 @@ export function styleChangedSinceLastRender(
   if (!normalizeAuditUrl(style.samplePhotoUrl)) return false;
   if (!style.latest) return true;
   if (normalizeAuditUrl(style.samplePhotoUrl) !== normalizeAuditUrl(style.latest.samplePhotoUrl)) return true;
-  if (renderingCommit && renderingCommit !== (style.latest.renderingCommit ?? "")) return true;
+  const expected = style.expectedFingerprint ?? renderingCommit;
+  if (expected && expected !== (style.latest.renderingCommit ?? "")) return true;
   return false;
 }
 

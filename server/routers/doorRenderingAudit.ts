@@ -14,6 +14,7 @@
 import { TRPCError } from "@trpc/server";
 import { and, asc, count as countRows, desc, eq, inArray, max } from "drizzle-orm";
 import { z } from "zod";
+import { doorAuditFingerprintForStyle } from "../../shared/doorRenderIdentity";
 import {
   distributors,
   doorRenderingAuditResults,
@@ -108,6 +109,10 @@ const styleColumns = {
   woodSpecies: doorStyles.woodSpecies,
   finish: doorStyles.finish,
   color: doorStyles.color,
+  renderHex: doorStyles.renderHex,
+  doorShape: doorStyles.doorShape,
+  swatchCode: doorStyles.swatchCode,
+  swatchHex: doorStyles.swatchHex,
   doorSampleImageUrl: doorStyles.doorSampleImageUrl,
   doorSampleVerified: doorStyles.doorSampleVerified,
   cornerSwatchImageUrl: doorStyles.cornerSwatchImageUrl,
@@ -121,6 +126,8 @@ const styleColumns = {
   drawerFrontType: doorStyles.drawerFrontType,
   grainDirection: doorStyles.grainDirection,
   finishSheen: doorStyles.finishSheen,
+  profileDescription: doorStyles.profileDescription,
+  profileNotes: doorStyles.profileNotes,
 };
 
 type StyleRow = {
@@ -137,6 +144,10 @@ type StyleRow = {
   woodSpecies: string | null;
   finish: string | null;
   color: string | null;
+  renderHex: string | null;
+  doorShape: string | null;
+  swatchCode: string | null;
+  swatchHex: string | null;
   doorSampleImageUrl: string | null;
   doorSampleVerified: boolean;
   cornerSwatchImageUrl: string | null;
@@ -150,6 +161,8 @@ type StyleRow = {
   drawerFrontType: string | null;
   grainDirection: string | null;
   finishSheen: string | null;
+  profileDescription: string | null;
+  profileNotes: string | null;
 };
 
 function renderBrief(style: StyleRow) {
@@ -167,6 +180,29 @@ function renderBrief(style: StyleRow) {
     color: style.color,
     finish: style.finish,
     woodSpecies: style.woodSpecies,
+    renderHex: style.renderHex,
+    doorShape: style.doorShape,
+    swatchCode: style.swatchCode,
+    swatchHex: style.swatchHex,
+    profileDescription: style.profileDescription,
+    profileNotes: style.profileNotes,
+    sourceFingerprint: doorAuditFingerprintForStyle({
+      version: "door-audit-v2-720x1080",
+      ourName: style.ourName,
+      styleCode: style.styleCode,
+      doorStyle: style.doorStyle,
+      doorPanelType: style.doorPanelType,
+      panelConstruction: style.panelConstruction,
+      doorShape: style.doorShape,
+      profileDescription: style.profileDescription,
+      profileNotes: style.profileNotes,
+      color: style.color,
+      finish: style.finish,
+      woodSpecies: style.woodSpecies,
+      renderHex: style.renderHex,
+      swatchCode: style.swatchCode,
+      swatchHex: style.swatchHex,
+    }),
     cornerSwatchImageUrl: style.cornerSwatchImageUrl,
     profile: {
       doorStyle: style.doorStyle,
@@ -371,9 +407,27 @@ async function createRun(
   const renderingCommit = normalizeRenderingCommit(input.renderingCommit);
   const candidates: DoorRenderingAuditCandidate[] = styles.map((style) => {
     const latest = index.versionById.get(index.latestIdByStyle.get(style.id) ?? -1) ?? null;
+    const version = (renderingCommit ?? "door-audit-v2-720x1080").split("|")[0] || "door-audit-v2-720x1080";
     return {
       styleId: style.id,
       samplePhotoUrl: style.doorSampleImageUrl,
+      expectedFingerprint: doorAuditFingerprintForStyle({
+        version,
+        ourName: style.ourName,
+        styleCode: style.styleCode,
+        doorStyle: style.doorStyle,
+        doorPanelType: style.doorPanelType,
+        panelConstruction: style.panelConstruction,
+        doorShape: style.doorShape,
+        profileDescription: style.profileDescription,
+        profileNotes: style.profileNotes,
+        color: style.color,
+        finish: style.finish,
+        woodSpecies: style.woodSpecies,
+        renderHex: style.renderHex,
+        swatchCode: style.swatchCode,
+        swatchHex: style.swatchHex,
+      }),
       latest: latest
         ? { samplePhotoUrl: latest.samplePhotoUrl, renderingCommit: latest.renderingCommit }
         : null,

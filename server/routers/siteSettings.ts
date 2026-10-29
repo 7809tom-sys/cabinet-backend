@@ -75,4 +75,27 @@ export const siteSettingsRouter = router({
         .where(eq(siteSettings.id, 1));
       return getOrCreateSettings();
     }),
+
+  /** Admin: door-render exposure and CIEDE2000 limit, shared by the Designer and the audit. */
+  updateRenderControls: protectedProcedure
+    .input(z.object({
+      renderExposure: z.number().min(0.2).max(2).nullable(),
+      colorMatchDeltaE: z.number().min(0.5).max(20).nullable(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      if (ctx.user.role !== "admin") {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Admin only" });
+      }
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+      await getOrCreateSettings();
+      await db
+        .update(siteSettings)
+        .set({
+          renderExposure: input.renderExposure == null ? null : input.renderExposure.toFixed(2),
+          colorMatchDeltaE: input.colorMatchDeltaE == null ? null : input.colorMatchDeltaE.toFixed(2),
+        })
+        .where(eq(siteSettings.id, 1));
+      return getOrCreateSettings();
+    }),
 });

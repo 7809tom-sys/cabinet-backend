@@ -406,6 +406,12 @@ export const doorStyles = mysqlTable("door_styles", {
   woodSpecies: varchar("woodSpecies", { length: 64 }),
   finish: varchar("finish", { length: 128 }),
   color: varchar("color", { length: 64 }),
+  // Admin render color. Wins over the name fallback when set.
+  renderHex: varchar("renderHex", { length: 7 }),
+  // raised | recessed-shaker | slab | glass. Null keeps distributor parsing.
+  doorShape: varchar("doorShape", { length: 32 }),
+  swatchCode: varchar("swatchCode", { length: 16 }),
+  swatchHex: varchar("swatchHex", { length: 7 }),
   boxConstruction: varchar("boxConstruction", { length: 128 }),
   drawerConstruction: varchar("drawerConstruction", { length: 128 }),
   hardware: varchar("hardware", { length: 128 }),
@@ -2958,6 +2964,10 @@ export const siteSettings = mysqlTable("site_settings", {
   // GA4 Measurement IDs are public web-stream identifiers, not secrets. A
   // nullable value lets the owner disable analytics without deleting settings.
   googleAnalyticsMeasurementId: varchar("googleAnalyticsMeasurementId", { length: 32 }),
+  // Null keeps the automatic door exposure (0.84, softer on a very dark stain).
+  renderExposure: decimal("renderExposure", { precision: 4, scale: 2 }),
+  // Null keeps the CIEDE2000 pass limit at 3.
+  colorMatchDeltaE: decimal("colorMatchDeltaE", { precision: 4, scale: 2 }),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
 export type SiteSettings = typeof siteSettings.$inferSelect;
