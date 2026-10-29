@@ -258,7 +258,8 @@ describe("design photo render safeguards", () => {
     expect(source).toContain('eq(designImageRequests.kitchenDesignId, input.designId)');
     expect(source).toContain('eq(designImageRequests.verificationStatus, "verified")');
     expect(source).toContain('eq(designImageRequests.generationStatus, "completed")');
-    expect(source).toContain("if (result.success)");
+    expect(source).toContain("sendCrmDealEmail");
+    expect(source).toContain("sendCrmCustomerEmail");
     expect(source).toContain("imageReadyEmailSentAt: new Date()");
   });
 

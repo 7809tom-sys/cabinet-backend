@@ -809,7 +809,7 @@ function DealDrawer({ dealId, lang, summary, onClose, onCompose }: { dealId: num
   const laborEstimates = (data?.laborEstimates ?? []) as CrmLaborEstimate[];
   const emails = (data?.emails ?? []) as {
     id: number; toEmail: string; fromEmail: string; subject: string; body: string;
-    sentByName: string | null; sentAt: string | Date;
+    sentByName: string | null; sentAt: string | Date; distributorId?: number | null;
   }[];
   const linkedIds = new Set(linkedDesigns.map((l) => l.designId));
   const availableDesigns = (linkable ?? []).filter((d) => !linkedIds.has(d.id));
@@ -1316,7 +1316,7 @@ function EmailSection({
   lang: Lang;
   emails: {
     id: number; toEmail: string; fromEmail: string; subject: string; body: string;
-    sentByName: string | null; sentAt: string | Date;
+    sentByName: string | null; sentAt: string | Date; distributorId?: number | null;
   }[];
   dealId: number;
 }) {
@@ -1341,6 +1341,32 @@ function EmailSection({
     setBody("");
   }
 
+  const [distributorOpen, setDistributorOpen] = useState(false);
+  const [distributorId, setDistributorId] = useState("");
+  const [distributorSubject, setDistributorSubject] = useState("");
+  const [distributorBody, setDistributorBody] = useState("");
+  const [attachPo, setAttachPo] = useState(false);
+  const recipients = trpc.crm.distributorRecipients.useQuery({ dealId }, { enabled: distributorOpen });
+  const sendDesign = trpc.crm.sendDesign.useMutation({
+    onSuccess: (result) => {
+      toast.success(lang === "es" ? `Diseño enviado a ${result.sentTo}` : `Design sent to ${result.sentTo}`);
+      utils.crm.deal.invalidate({ id: dealId });
+      utils.crm.emailLog.invalidate({ dealId });
+      utils.crm.board.invalidate();
+    },
+    onError: (e) => toast.error(e.message || (lang === "es" ? "No se pudo enviar el diseño" : "Couldn't send the design")),
+  });
+  const emailDistributor = trpc.crm.emailDistributor.useMutation({
+    onSuccess: (result) => {
+      toast.success(lang === "es" ? `Correo enviado a ${result.distributorName}` : `Emailed ${result.distributorName}`);
+      setDistributorOpen(false);
+      setDistributorBody("");
+      utils.crm.deal.invalidate({ id: dealId });
+      utils.crm.emailLog.invalidate({ dealId });
+      utils.crm.board.invalidate();
+    },
+    onError: (e) => toast.error(e.message || (lang === "es" ? "No se pudo enviar al distribuidor" : "Couldn't email the distributor")),
+  });
   const send = trpc.crm.sendEmail.useMutation({
     onSuccess: () => {
       toast.success(lang === "es" ? "Correo enviado" : "Email sent");
@@ -1377,7 +1403,32 @@ function EmailSection({
     <div>
       <div className="flex items-center justify-between mb-2">
         <p className="text-xs font-semibold text-muted-foreground">{heading}</p>
-        <Dialog open={open} onOpenChange={setOpen}>
+        <div className="flex flex-wrap justify-end gap-1">
+          {linkedDesigns[0] && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="bg-card h-7"
+              data-testid="crm-send-design"
+              disabled={!deal.contactEmail || !canSend || sendDesign.isPending}
+              onClick={() => sendDesign.mutate({ dealId, designLinkId: linkedDesigns[0].id })}
+            >
+              {sendDesign.isPending ? (lang === "es" ? "Enviando…" : "Sending…") : (lang === "es" ? "Enviar diseño" : "Send design")}
+            </Button>
+          )}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="bg-card h-7"
+            data-testid="crm-email-distributor"
+            disabled={!canSend}
+            onClick={() => setDistributorOpen(true)}
+          >
+            {lang === "es" ? "Enviar al distribuidor" : "Email distributor"}
+          </Button>
+          <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
             <Button variant="outline" size="sm" className="bg-card h-7">
               <Send className="h-3.5 w-3.5 mr-1" />
@@ -1454,6 +1505,53 @@ function EmailSection({
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        </div>
+        <Dialog open={distributorOpen} onOpenChange={setDistributorOpen}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>{lang === "es" ? "Enviar al distribuidor" : "Email distributor"}</DialogTitle>
+            </DialogHeader>
+            <div className="grid gap-3">
+              <Field label={lang === "es" ? "Distribuidor" : "Distributor"}>
+                <select
+                  className="w-full rounded-md border bg-background px-2 py-2 text-sm"
+                  aria-label={lang === "es" ? "Distribuidor" : "Distributor"}
+                  value={distributorId}
+                  onChange={(event) => setDistributorId(event.target.value)}
+                >
+                  <option value="">{lang === "es" ? "Elegir" : "Choose"}</option>
+                  {(recipients.data ?? []).map((row) => (
+                    <option key={row.id} value={String(row.id)}>{row.name} — {row.orderEmail}</option>
+                  ))}
+                </select>
+              </Field>
+              <Field label={lang === "es" ? "Asunto" : "Subject"}>
+                <Input value={distributorSubject} onChange={(event) => setDistributorSubject(event.target.value)} />
+              </Field>
+              <Field label={lang === "es" ? "Mensaje" : "Message"}>
+                <Textarea rows={6} value={distributorBody} onChange={(event) => setDistributorBody(event.target.value)} />
+              </Field>
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={attachPo} onChange={(event) => setAttachPo(event.target.checked)} />
+                {lang === "es" ? "Adjuntar PDF de la orden de compra" : "Attach purchase-order PDF"}
+              </label>
+            </div>
+            <DialogFooter>
+              <Button
+                disabled={emailDistributor.isPending || !distributorId || !distributorSubject.trim() || !distributorBody.trim()}
+                onClick={() => emailDistributor.mutate({
+                  dealId,
+                  distributorId: Number(distributorId),
+                  subject: distributorSubject.trim(),
+                  body: distributorBody.trim(),
+                  attachPo,
+                })}
+              >
+                {emailDistributor.isPending ? (lang === "es" ? "Enviando…" : "Sending…") : (lang === "es" ? "Enviar" : "Send")}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
 
       {/* Sent history */}
@@ -1471,6 +1569,7 @@ function EmailSection({
                 </div>
                 <div className="text-muted-foreground truncate">
                   {lang === "es" ? "Para" : "To"}: {m.toEmail}
+                  {m.distributorId ? (lang === "es" ? " · Distribuidor" : " · Distributor") : ""}
                 </div>
               </summary>
               <div className="mt-2 border-t border-border pt-2 text-muted-foreground">

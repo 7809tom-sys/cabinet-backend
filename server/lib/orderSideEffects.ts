@@ -11,6 +11,7 @@ import {
 import { distributorFacingName, resolveDistributorPoLine } from "@shared/distributorPoLine";
 import { getDb } from "../db";
 import { sendEmail } from "../email";
+import { insertCrmEmailLog } from "./crmCustomerMail";
 import { ensureAffiliatePipelineDeal } from "./crmPipelineAttach";
 import { fetchDistributorPoCatalog } from "./distributorPoCatalog";
 import {
@@ -466,6 +467,75 @@ export async function logOrderStep(orderId: number, step: "email_sent" | "verifi
   }
 }
 
+export async function buildOrderDistributorMessage(
+  db: Database,
+  orderId: number,
+  distributorId: number,
+): Promise<{ subject: string; text: string; html: string; orderNumber: string } | null> {
+  const [order] = await db.select().from(orderRequests).where(eq(orderRequests.id, orderId)).limit(1);
+  if (!order) return null;
+  const portions = await loadPortions(db, order);
+  const portion = portions.find((row) => row.distributorId === distributorId);
+  if (!portion) return null;
+  const message = buildDistributorEmailContent({
+    orderNumber: order.requestNumber,
+    orderDate: new Date(order.createdAt).toISOString().slice(0, 10),
+    customerName: order.originatorName,
+    shipTo: shipTo(order),
+    distributorName: portion.distributorName,
+    lines: portion.lines,
+    poNumber: order.distributorInvoiceReference,
+    notes: order.notes,
+    deliveryMethod: order.deliveryMethod,
+  });
+  return { subject: message.subject, text: message.text, html: message.html, orderNumber: order.requestNumber };
+}
+
+async function logAutomaticDistributorEmail(
+  db: Database,
+  order: typeof orderRequests.$inferSelect,
+  portion: DistributorPortion,
+  message: { subject: string; text: string },
+  fromEmail: string,
+): Promise<void> {
+  if (!portion.orderEmail) return;
+  try {
+    let dealId: number | null = null;
+    const [existing] = await db.select({ id: crmDeals.id }).from(crmDeals).where(eq(crmDeals.orderRequestId, order.id)).limit(1);
+    dealId = existing?.id ?? null;
+    if (dealId == null) {
+      const ensured = await ensureAffiliatePipelineDeal(db, {
+        affiliateId: order.affiliateId,
+        ownerUserId: null,
+        title: `Order ${order.requestNumber}`,
+        contactName: order.originatorName,
+        contactEmail: order.originatorEmail,
+        source: "order_request",
+        orderRequestId: order.id,
+        match: "order",
+      });
+      dealId = ensured.id;
+    }
+    await insertCrmEmailLog(db, {
+      dealId,
+      distributorId: portion.distributorId,
+      toEmail: portion.orderEmail,
+      fromEmail: fromEmail || "Cabinet Dealz",
+      subject: message.subject,
+      body: message.text,
+      sentByName: "Automatic distributor PO",
+    });
+    await db.insert(crmActivities).values({
+      dealId,
+      authorUserId: null,
+      kind: "email",
+      body: `Automatic purchase order emailed to ${portion.distributorName} (${portion.orderEmail}).`,
+    });
+  } catch (error) {
+    console.error(`[CRM email] Distributor PO for order ${order.requestNumber} was sent but not logged: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
 async function loadPortions(db: Database, order: typeof orderRequests.$inferSelect): Promise<DistributorPortion[]> {
   const lines = (order.lineItems ?? []) as OrderLineItem[];
   const cabinetIds = lines.map((line) => line.cabinetId).filter((id): id is number => typeof id === "number");
@@ -648,8 +718,10 @@ export async function notifyOrderDistributors(orderId: number, opts?: { force?: 
           attachments: [{ filename: `PO-${order.requestNumber}.csv`, content: message.csv, contentType: "text/csv" }],
         };
         const result = await sendEmail(payload);
-        if (result.success) console.log(`[OrderEmail] Sent order ${order.requestNumber} to distributor ${portion.distributorId} (${portion.orderEmail}).`);
-        else console.error(`[OrderEmail] Failed order ${order.requestNumber} to distributor ${portion.distributorId}: ${result.error || "not sent"}`);
+        if (result.success) {
+          console.log(`[OrderEmail] sent via ${result.transport === "smtp" ? "SMTP" : "Resend"} order ${order.requestNumber} to distributor ${portion.distributorId} (${portion.orderEmail}).`);
+          await logAutomaticDistributorEmail(db, order, portion, message, result.from ?? "");
+        } else console.error(`[OrderEmail] Failed order ${order.requestNumber} to distributor ${portion.distributorId}: ${result.error || "not sent"}`);
         return { ok: result.success, error: result.error };
       },
     });

@@ -1562,6 +1562,13 @@
       "when": 1794500000000,
       "tag": "0224_order_admin_reconciliation",
       "breakpoints": true
+    },
+    {
+      "idx": 224,
+      "version": "5",
+      "when": 1794600000000,
+      "tag": "0225_crm_email_log_distributor",
+      "breakpoints": true
     }
   ]
 }

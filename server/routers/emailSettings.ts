@@ -5,7 +5,7 @@ import { emailSettings, brandingSettings, notificationSettings } from "../../dri
 import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
 import { TRPCError } from "@trpc/server";
 import { encryptEmailSettingsPassword } from "../lib/emailSettingsCrypto";
-import { resendConfigured, sendEmail } from "../email";
+import { emailSettingsReady, envSmtpConfigured, isEmailConfigured, outboundFromAddress, resendConfigured, sendEmail, type EmailSettingsRow } from "../email";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -196,20 +196,31 @@ export const emailSettingsRouter = router({
     const db = await getDb();
     if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
 
-    const [shippingRows, paymentRows] = await Promise.all([
+    const [emailRows, shippingRows, paymentRows] = await Promise.all([
+      db.select().from(emailSettings).limit(1),
       db.execute("SELECT liveApiKey, liveProvider, quoteMode, enabled FROM shipping_settings LIMIT 1"),
       db.execute("SELECT apiLoginId, clientKey, hasTransactionKey, enabled, environment FROM payment_settings LIMIT 1"),
     ]);
 
+    const email = emailRows[0] ?? null;
+    const saved: EmailSettingsRow | null = email ? {
+      smtpHost: email.smtpHost,
+      smtpPort: email.smtpPort,
+      smtpUser: email.smtpUser,
+      smtpPass: email.smtpPass,
+      smtpFrom: email.smtpFrom,
+      enabled: email.enabled,
+    } : null;
     const shipping = (shippingRows as unknown as { rows: Record<string, unknown>[] }).rows?.[0] ?? null;
     const payment = (paymentRows as unknown as { rows: Record<string, unknown>[] }).rows?.[0] ?? null;
+    const ready = isEmailConfigured(process.env, saved);
 
     return {
       smtp: {
-        configured: resendConfigured(),
-        enabled: resendConfigured(),
-        host: resendConfigured() ? "Resend" : "",
-        user: resendConfigured() ? (process.env.ORDER_EMAIL_FROM?.trim() ?? "") : "",
+        configured: ready,
+        enabled: ready,
+        host: resendConfigured() ? "Resend" : envSmtpConfigured() ? (process.env.SMTP_HOST ?? "") : emailSettingsReady(saved) ? (email?.smtpHost ?? "") : "",
+        user: outboundFromAddress(process.env, saved),
       },
       shipping: {
         configured: !!(shipping?.liveApiKey),

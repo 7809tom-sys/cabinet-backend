@@ -13,6 +13,7 @@ import { checkTwilioVerification, hashPhoneE164, isTwilioVerifyConfigured, norma
 import { generateGeminiExactPlanTest, isGeminiImageConfigured, pollGeminiExactPlanTest, startGeminiExactPlanTest, verifyGeminiImageAccess } from "../lib/geminiImageProvider";
 import { finalizeRoomScenePrompt } from "../lib/roomScenePromptRules";
 import { resendConfigured, sendEmail } from "../email";
+import { sendCrmCustomerEmail, sendCrmDealEmail } from "../lib/crmCustomerMail";
 import { resolveAffiliateAccess } from "../lib/affiliateAccess";
 import { GEMINI_MATERIAL_MANIFEST_WIRE_VERSION, hasCurrentGeminiMaterialManifestWireVersion, serializeGeminiMaterialManifestForWire } from "../../shared/geminiMaterialManifest";
 
@@ -31,14 +32,48 @@ async function sendCustomerImageReadyEmail(
 ) {
   if (request.imageReadyEmailSentAt || request.generationStatus !== "completed" || !request.imageUrl) return;
   const planUrl = `https://www.cabinetdealz.com/design?load=${request.kitchenDesignId}&preview=3d`;
-  const result = await sendEmail({
-    to: request.email,
-    subject: "Your CabinetDealz kitchen image is ready",
-    text: `Hello,\n\nYour kitchen image is ready. Open your saved kitchen plan to view it: ${planUrl}\n\nThis image is linked to the verified plan you submitted.`,
-    html: `<p>Hello,</p><p><strong>Your kitchen image is ready.</strong></p><p><a href="${planUrl}">Open your saved kitchen plan and view the image</a></p><p>This image is linked to the verified plan you submitted.</p>`,
-  });
-  if (result.success) {
+  const text = `Hello,\n\nYour kitchen image is ready. Open your saved kitchen plan to view it: ${planUrl}\n\nThis image is linked to the verified plan you submitted.`;
+  const html = `<p>Hello,</p><p><strong>Your kitchen image is ready.</strong></p><p><a href="${planUrl}">Open your saved kitchen plan and view the image</a></p><p>This image is linked to the verified plan you submitted.</p>`;
+  const subject = "Your CabinetDealz kitchen image is ready";
+  try {
+    if (request.crmDealId) {
+      const [deal] = await db.select({ id: crmDeals.id, affiliateId: crmDeals.affiliateId }).from(crmDeals).where(eq(crmDeals.id, request.crmDealId)).limit(1);
+      if (deal) {
+        await sendCrmDealEmail(db, {
+          dealId: deal.id,
+          affiliateId: deal.affiliateId,
+          to: request.email,
+          subject,
+          text,
+          html,
+          sentByName: "Cabinet Dealz",
+          activityBody: `Design image ready email sent to ${request.email}.`,
+        });
+        await db.update(designImageRequests).set({ imageReadyEmailSentAt: new Date() }).where(eq(designImageRequests.id, request.id));
+        return;
+      }
+    }
+    const [design] = await db.select({ affiliateId: kitchenDesigns.affiliateId, name: kitchenDesigns.name }).from(kitchenDesigns).where(eq(kitchenDesigns.id, request.kitchenDesignId)).limit(1);
+    await sendCrmCustomerEmail(db, {
+      affiliateId: design?.affiliateId ?? null,
+      ownerUserId: request.userId,
+      title: `Kitchen image — ${request.name || request.email}`,
+      contactName: request.name,
+      contactEmail: request.email,
+      contactPhone: request.phoneE164,
+      source: "verified_plan_image_request",
+      match: "email",
+    }, {
+      to: request.email,
+      subject,
+      text,
+      html,
+      sentByName: "Cabinet Dealz",
+      activityBody: `Design image ready email sent to ${request.email}.`,
+    });
     await db.update(designImageRequests).set({ imageReadyEmailSentAt: new Date() }).where(eq(designImageRequests.id, request.id));
+  } catch (error) {
+    console.error(`[CRM email] Kitchen image ready email was not sent to ${request.email}: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
 
