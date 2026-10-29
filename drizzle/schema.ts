@@ -406,12 +406,10 @@ export const doorStyles = mysqlTable("door_styles", {
   woodSpecies: varchar("woodSpecies", { length: 64 }),
   finish: varchar("finish", { length: 128 }),
   color: varchar("color", { length: 64 }),
-  // Admin render color. Wins over the name fallback when set.
+  // Approved render color and the color-gate reference. Wins over the name fallback when set.
   renderHex: varchar("renderHex", { length: 7 }),
   // raised | recessed-shaker | slab | glass. Null keeps distributor parsing.
   doorShape: varchar("doorShape", { length: 32 }),
-  swatchCode: varchar("swatchCode", { length: 16 }),
-  swatchHex: varchar("swatchHex", { length: 7 }),
   boxConstruction: varchar("boxConstruction", { length: 128 }),
   drawerConstruction: varchar("drawerConstruction", { length: 128 }),
   hardware: varchar("hardware", { length: 128 }),

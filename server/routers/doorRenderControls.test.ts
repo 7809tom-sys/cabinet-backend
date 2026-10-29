@@ -21,3 +21,21 @@ describe("door render controls SQL", () => {
     }
   });
 });
+
+describe("drop door swatch fields SQL", () => {
+  it("is a hand-run TiDB script with one statement per numbered block", () => {
+    const sql = readFileSync("docs/sql/0236_drop_door_swatch_fields.tidb.sql", "utf8");
+    expect(sql).toContain("ALTER TABLE cabinet_dealz.door_styles DROP COLUMN IF EXISTS swatchCode;");
+    expect(sql).toContain("ALTER TABLE cabinet_dealz.door_styles DROP COLUMN IF EXISTS swatchHex;");
+    expect(sql).toContain("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA='cabinet_dealz' AND TABLE_NAME='door_styles' AND COLUMN_NAME IN ('swatchCode','swatchHex');");
+    expect(sql).toContain("cabinet_dealz.door_styles");
+    expect(sql).not.toContain("--> statement-breakpoint");
+    expect(sql).not.toMatch(/\b(?:count|value|result|rows)\s+AS\b/i);
+    const blocks = sql.split(/\n-- \d+[^\n]*\n/).slice(1);
+    expect(blocks).toHaveLength(3);
+    for (const block of blocks) {
+      const statements = block.split(";").map((part) => part.trim()).filter(Boolean);
+      expect(statements).toHaveLength(1);
+    }
+  });
+});

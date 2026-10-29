@@ -111,8 +111,6 @@ const styleColumns = {
   color: doorStyles.color,
   renderHex: doorStyles.renderHex,
   doorShape: doorStyles.doorShape,
-  swatchCode: doorStyles.swatchCode,
-  swatchHex: doorStyles.swatchHex,
   doorSampleImageUrl: doorStyles.doorSampleImageUrl,
   doorSampleVerified: doorStyles.doorSampleVerified,
   cornerSwatchImageUrl: doorStyles.cornerSwatchImageUrl,
@@ -146,8 +144,6 @@ type StyleRow = {
   color: string | null;
   renderHex: string | null;
   doorShape: string | null;
-  swatchCode: string | null;
-  swatchHex: string | null;
   doorSampleImageUrl: string | null;
   doorSampleVerified: boolean;
   cornerSwatchImageUrl: string | null;
@@ -182,8 +178,6 @@ function renderBrief(style: StyleRow) {
     woodSpecies: style.woodSpecies,
     renderHex: style.renderHex,
     doorShape: style.doorShape,
-    swatchCode: style.swatchCode,
-    swatchHex: style.swatchHex,
     profileDescription: style.profileDescription,
     profileNotes: style.profileNotes,
     sourceFingerprint: doorAuditFingerprintForStyle({
@@ -200,8 +194,6 @@ function renderBrief(style: StyleRow) {
       finish: style.finish,
       woodSpecies: style.woodSpecies,
       renderHex: style.renderHex,
-      swatchCode: style.swatchCode,
-      swatchHex: style.swatchHex,
     }),
     cornerSwatchImageUrl: style.cornerSwatchImageUrl,
     profile: {
@@ -425,8 +417,6 @@ async function createRun(
         finish: style.finish,
         woodSpecies: style.woodSpecies,
         renderHex: style.renderHex,
-        swatchCode: style.swatchCode,
-        swatchHex: style.swatchHex,
       }),
       latest: latest
         ? { samplePhotoUrl: latest.samplePhotoUrl, renderingCommit: latest.renderingCommit }

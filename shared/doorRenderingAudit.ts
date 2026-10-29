@@ -37,7 +37,7 @@ export type DoorRenderScoreSet = {
 export type DoorRenderingAuditCandidate = {
   styleId: number;
   samplePhotoUrl: string | null;
-  /** Resolved profile, color, and swatch. When set, this is what "changed" compares. */
+  /** Resolved profile and approved render hex. When set, this is what "changed" compares. */
   expectedFingerprint?: string | null;
   latest: {
     samplePhotoUrl: string;
