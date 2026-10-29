@@ -13,11 +13,14 @@ import {
   router,
 } from "../_core/trpc";
 import { getDb } from "../db";
-import { affiliates, affiliateTestimonials, orderRequests, affiliateStyleBranding, affiliateDistributorSelections, affiliateFeaturedDistributorEvents, doorStyles, distributors, distributorSkus, affiliatePayouts, affiliateBannerSchedules, affiliatePromoDiscounts, designConsultations, designLeads, affiliateTeamMembers, affiliateHardwareCommissionSnapshots, users } from "../../drizzle/schema";
+import { affiliates, affiliatePricingTiers, affiliateTestimonials, orderRequests, affiliateStyleBranding, affiliateDistributorSelections, affiliateFeaturedDistributorEvents, doorStyles, distributors, distributorSkus, affiliatePayouts, affiliateBannerSchedules, affiliatePromoDiscounts, designConsultations, designLeads, affiliateTeamMembers, affiliateHardwareCommissionSnapshots, users } from "../../drizzle/schema";
 import { resendConfigured, sendEmail } from "../email";
 import { buildSalesDemoInvite, deliverInviteThenGrant, SALES_DEMO_AFFILIATE_SLUG, SALES_DEMO_TEAM_ACCESS } from "../salesDemoInvite";
 import { buildAffiliateSetupInvite } from "../affiliateSetupInvite";
 import { resolveAffiliateAccess } from "../lib/affiliateAccess";
+import { loadAffiliatePricingById } from "../lib/affiliateStorefrontPricing";
+import { affiliateTierDashboard, affiliateTierView, checkedTierDraft, nextTierCode } from "../lib/affiliateTierPricing";
+import { unassignedAffiliateTier } from "@shared/affiliatePricingTier";
 import { toAdminAffiliate, toPublicStorefront, toViewerAffiliate } from "../lib/affiliatePrivacy";
 import { encryptW9TaxId, maskW9TaxId, w9TaxIdLast4 } from "../lib/w9TaxIdCrypto";
 import { resolveConsultationViewer } from "../lib/consultationAffiliate";
@@ -562,7 +565,12 @@ export const affiliatesRouter = router({
     const db = await getDb();
     if (!db) return [];
     const rows = await db.select().from(affiliates).orderBy(desc(affiliates.createdAt));
-    return rows.map(toAdminAffiliate);
+    const tiers = await db.select().from(affiliatePricingTiers);
+    const tierById = new Map(tiers.map((tier) => [tier.id, tier]));
+    return rows.map((row) => ({
+      ...toAdminAffiliate(row),
+      pricingTier: affiliateTierDashboard(row.pricingTierId == null ? null : tierById.get(row.pricingTierId) ?? null),
+    }));
   }),
 
   adminGet: adminProcedure
@@ -1169,11 +1177,15 @@ export const affiliatesRouter = router({
       orders.map((o) => ({ totalAmount: o.totalAmount === null ? null : Number(o.totalAmount), status: o.status })),
       rate
     );
+    const [tierRow] = mine.pricingTierId == null
+      ? []
+      : await db.select().from(affiliatePricingTiers).where(eq(affiliatePricingTiers.id, mine.pricingTierId)).limit(1);
     return {
       affiliate: toViewerAffiliate(mine, access),
       orders,
       summary,
       commissionRate: rate,
+      pricingTier: affiliateTierDashboard(tierRow ?? null),
     };
   }),
 
@@ -1594,6 +1606,9 @@ export const affiliatesRouter = router({
         orders.map((o) => ({ totalAmount: o.totalAmount === null ? null : Number(o.totalAmount), status: o.status })),
         rate
       );
+      const [tierRow] = a.pricingTierId == null
+        ? []
+        : await db.select().from(affiliatePricingTiers).where(eq(affiliatePricingTiers.id, a.pricingTierId)).limit(1);
       return {
         affiliate: {
           ...toAdminAffiliate(a),
@@ -1605,6 +1620,7 @@ export const affiliatesRouter = router({
         orders,
         summary,
         commissionRate: rate,
+        pricingTier: affiliateTierDashboard(tierRow ?? null),
       };
     }),
 
@@ -2360,4 +2376,106 @@ export const affiliatesRouter = router({
   updatePayoutVerification: adminProcedure
     .input(z.object({ affiliateId: z.number(), status: z.string(), notes: z.string().optional() }))
     .mutation(async () => ({ ok: true })),
+
+  adminPricingTiers: adminProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) return [];
+    const rows = await db.select().from(affiliatePricingTiers).orderBy(affiliatePricingTiers.sortOrder, affiliatePricingTiers.tierName);
+    return rows.map((row) => affiliateTierView(row));
+  }),
+
+  adminSavePricingTier: adminProcedure
+    .input(z.object({
+      id: z.number().int().positive().optional(),
+      tierName: z.string().min(1).max(128),
+      basis: z.enum(["cost_multiplier", "list_discount"]),
+      basisPoints: z.number().int(),
+      volumeThresholdCents: z.number().int().nullable(),
+      examplePlaceholder: z.boolean(),
+      active: z.boolean(),
+      sortOrder: z.number().int(),
+      notes: z.string().max(2000).nullable(),
+    }))
+    .mutation(async ({ input }) => {
+      const checked = checkedTierDraft({
+        tierName: input.tierName,
+        basis: input.basis,
+        basisPoints: input.basisPoints,
+        volumeThresholdCents: input.volumeThresholdCents,
+        examplePlaceholder: input.examplePlaceholder,
+        notes: input.notes,
+        active: input.active,
+        sortOrder: input.sortOrder,
+      });
+      if (!checked.ok) throw new TRPCError({ code: "BAD_REQUEST", message: checked.message });
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      const draft = checked.draft;
+      if (input.id) {
+        const [existing] = await db.select({ id: affiliatePricingTiers.id }).from(affiliatePricingTiers).where(eq(affiliatePricingTiers.id, input.id)).limit(1);
+        if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "Pricing tier not found." });
+        await db.update(affiliatePricingTiers).set({
+          tierName: draft.tierName,
+          basisKind: draft.basis,
+          basisPoints: draft.basisPoints,
+          volumeThresholdCents: draft.volumeThresholdCents,
+          examplePlaceholder: draft.examplePlaceholder,
+          activeFlag: draft.active,
+          sortOrder: draft.sortOrder,
+          notesText: draft.notes,
+        }).where(eq(affiliatePricingTiers.id, input.id));
+        return { id: input.id };
+      }
+      const codes = (await db.select({ tierCode: affiliatePricingTiers.tierCode }).from(affiliatePricingTiers)).map((row) => row.tierCode);
+      const inserted = await db.insert(affiliatePricingTiers).values({
+        tierCode: nextTierCode(draft.tierName, codes),
+        tierName: draft.tierName,
+        basisKind: draft.basis,
+        basisPoints: draft.basisPoints,
+        volumeThresholdCents: draft.volumeThresholdCents,
+        examplePlaceholder: draft.examplePlaceholder,
+        sortOrder: draft.sortOrder,
+        activeFlag: draft.active,
+        notesText: draft.notes,
+      });
+      const id = (inserted as unknown as [{ insertId: number }])[0].insertId;
+      return { id };
+    }),
+
+  adminAssignPricingTier: adminProcedure
+    .input(z.object({
+      affiliateId: z.number().int().positive(),
+      pricingTierId: z.number().int().positive().nullable(),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      const [affiliate] = await db.select({ id: affiliates.id }).from(affiliates).where(eq(affiliates.id, input.affiliateId)).limit(1);
+      if (!affiliate) throw new TRPCError({ code: "NOT_FOUND", message: "Affiliate not found." });
+      if (input.pricingTierId != null) {
+        const [tier] = await db.select({ id: affiliatePricingTiers.id, activeFlag: affiliatePricingTiers.activeFlag })
+          .from(affiliatePricingTiers)
+          .where(eq(affiliatePricingTiers.id, input.pricingTierId))
+          .limit(1);
+        if (!tier?.activeFlag) throw new TRPCError({ code: "BAD_REQUEST", message: "Choose an active pricing tier." });
+      }
+      await db.update(affiliates).set({ pricingTierId: input.pricingTierId }).where(eq(affiliates.id, input.affiliateId));
+      return { id: input.affiliateId, pricingTierId: input.pricingTierId };
+    }),
+
+  myPricingTier: partnerProcedure
+    .input(z.object({ affiliateId: z.number().int().positive().optional() }).optional())
+    .query(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) return unassignedAffiliateTier();
+      let affiliateId = input?.affiliateId ?? null;
+      if (ctx.user.role !== "admin" || affiliateId == null) {
+        const access = await resolveAffiliateAccess(db, ctx.user);
+        if (ctx.user.role !== "admin") affiliateId = access?.affiliateId ?? null;
+        else if (affiliateId == null) affiliateId = access?.affiliateId ?? null;
+      }
+      if (affiliateId == null) return unassignedAffiliateTier();
+      const pricing = await loadAffiliatePricingById(affiliateId);
+      return pricing?.tierDashboard ?? unassignedAffiliateTier();
+    }),
 });

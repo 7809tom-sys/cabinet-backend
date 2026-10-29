@@ -101,4 +101,28 @@ describe("resolveAffiliateStorefrontSale", () => {
     expect(sale.retailCents).toBe(12_600);
     expect(sale.retailCents).toBeGreaterThanOrEqual(sale.affiliateCostCents);
   });
+
+  it("uses an assigned cost-multiplier tier, then the affiliate markup", () => {
+    const sale = resolveAffiliateStorefrontSale(
+      10_000,
+      { ...DEFAULT_PRICING_SETTINGS, affiliateMarkupBps: 500 },
+      { globalMarkupBps: 2_000 },
+      { categoryKey: "Base", tier: { basis: "cost_multiplier", basisPoints: 12_000 } },
+    );
+    expect(sale.affiliateCostCents).toBe(12_000);
+    expect(sale.retailCents).toBe(14_400);
+    expect(sale.costSource).toBe("tier_cost_multiplier");
+  });
+
+  it("prices flooring with the 40/60 split before the affiliate markup", () => {
+    const sale = resolveAffiliateStorefrontSale(
+      10_000,
+      DEFAULT_PRICING_SETTINGS,
+      { globalMarkupBps: 2_000 },
+      { categoryKey: "Flooring", listPriceCents: 20_000, tier: { basis: "cost_multiplier", basisPoints: 5_000 } },
+    );
+    expect(sale.affiliateCostCents).toBe(14_000);
+    expect(sale.retailCents).toBe(16_800);
+    expect(sale.costSource).toBe("attach_split");
+  });
 });

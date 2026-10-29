@@ -13,7 +13,8 @@ import { invokeLLM } from "../_core/llm";
 import { generateRoomSceneImage, photorealRoomScenePrompt } from "../lib/roomScenePromptRules";
 import { autoFillSpan, type FillCabinet, type FillMode } from "../../shared/fillEngine";
 import { sellPriceForTier } from "@shared/margins";
-import { resolveAffiliateStorefrontSale } from "@shared/affiliateBranding";
+import { loadAffiliateStorefrontPricing, loadAffiliatePricingById } from "../lib/affiliateStorefrontPricing";
+import { affiliateStorefrontSale, dollarsToCents } from "../lib/affiliateTierPricing";
 import { getPricingSettings } from "../db";
 import { resolveStorefrontTier, visiblePricesForViewer } from "../../shared/pricingTier";
 import { resolveAffiliateAccess } from "../lib/affiliateAccess";
@@ -29,7 +30,6 @@ import { priceLadder } from "../../shared/pricing";
 import { resolveCanonicalCatalogSources } from "../lib/canonicalCatalogSources";
 import { isWallWineRackCabinet } from "../../shared/wallWineRack";
 import { applyDistributorCabinetConfig, parseDistributorCabinetConfig } from "../lib/distributorCabinetConfig";
-import { loadAffiliateStorefrontPricing } from "../lib/affiliateStorefrontPricing";
 import {
   AEF_PRINTED_GEOMETRY_MARKER,
   aefPrintedGeometryForSku,
@@ -1037,6 +1037,7 @@ export const designRouter = router({
           }))
           .max(2000),
         distributorId: z.number().optional(),
+        affiliateSlug: z.string().trim().min(1).max(64).optional(),
       })
     )
     .query(async ({ ctx, input }) => {
@@ -1215,6 +1216,7 @@ export const designRouter = router({
           homeownerPrice: distributorSkus.homeownerPrice,
           adjustedListPrice: distributorSkus.adjustedListPrice,
           yourCost: distributorSkus.yourCost,
+          category: cabinets.category,
           retailPriceBasis: distributors.retailPriceBasis,
           vendorWholesale: distributorSkus.vendorWholesale,
           vendorMarkupPercent: distributors.markupPercent,
@@ -1223,11 +1225,15 @@ export const designRouter = router({
         // correct tier price (cost × markup).
         .from(distributorSkus)
         .innerJoin(distributors, eq(distributors.id, distributorSkus.distributorId))
+        .innerJoin(cabinets, eq(cabinets.id, distributorSkus.cabinetId))
         .where(and(...conditions));
 
       // Best (cheapest contractor) row per requested pair. An authorized legacy
       // alias may resolve to a different canonical cabinet id in the query, but
       // it must return under the requested id for the saved design's price map.
+      // Affiliate storefronts choose the lowest Cabinetdealz cost so the later
+      // tier price matches the owner estimator.
+      const affiliatePricing = await loadAffiliateStorefrontPricing(input.affiliateSlug);
       const best = new Map<string, { requestedCabinetId: number; row: (typeof rows)[number]; exact: boolean }>();
       for (const r of rows) {
         const requestedIds = requestedIdsBySourcePair.get(`${r.cabinetId}:${r.styleId}`) ?? [];
@@ -1241,8 +1247,12 @@ export const designRouter = router({
           if (!cur) { best.set(key, { requestedCabinetId, row: r, exact }); continue; }
           // The requested code's own row always beats an alias-group swap.
           if (exact !== cur.exact) { if (exact) best.set(key, { requestedCabinetId, row: r, exact }); continue; }
-          const a = Number(r.contractorPrice ?? r.wholesalePrice ?? Infinity);
-          const b = Number(cur.row.contractorPrice ?? cur.row.wholesalePrice ?? Infinity);
+          const a = affiliatePricing
+            ? Number(r.yourCost ?? Infinity)
+            : Number(r.contractorPrice ?? r.wholesalePrice ?? Infinity);
+          const b = affiliatePricing
+            ? Number(cur.row.yourCost ?? Infinity)
+            : Number(cur.row.contractorPrice ?? cur.row.wholesalePrice ?? Infinity);
           if (a < b) best.set(key, { requestedCabinetId, row: r, exact });
         }
       }
@@ -1251,19 +1261,30 @@ export const designRouter = router({
       // verified cost/list basis through the saved tier markup; never bypass
       // this resolver with stale stored columns.
       const ps = await getPricingSettings();
-      return Array.from(best.values()).map(({ requestedCabinetId, row, exact }) => ({
-        cabinetId: requestedCabinetId,
-        styleId: Number(row.styleId),
-        /** Code the active line actually sells; differs from the placed code only after an equivalence swap. */
-        resolvedMasterCode: masterCodeByCabinetId.get(Number(row.cabinetId)) ?? masterCodeByRequestedId.get(requestedCabinetId) ?? null,
-        resolvedCabinetId: Number(row.cabinetId),
-        aliasSwapped: !exact,
-        listPrice: row.listPrice,
-        adjustedListPrice: row.adjustedListPrice,
-        wholesalePrice: sellPriceForTier(row, ps, "wholesale")?.toFixed(2) ?? null,
-        contractorPrice: sellPriceForTier(row, ps, "contractor")?.toFixed(2) ?? null,
-        homeownerPrice: sellPriceForTier(row, ps, "homeowner")?.toFixed(2) ?? null,
-      }));
+      return Array.from(best.values()).map(({ requestedCabinetId, row, exact }) => {
+        const sourceCostCents = dollarsToCents(row.yourCost);
+        const affiliateSale = affiliatePricing && sourceCostCents != null && sourceCostCents > 0
+          ? affiliateStorefrontSale(affiliatePricing, sourceCostCents, {
+              categoryKey: row.category,
+              styleId: Number(row.styleId),
+              listPriceCents: dollarsToCents(row.listPrice),
+            }).retailCents / 100
+          : null;
+        const saleText = affiliateSale != null ? affiliateSale.toFixed(2) : null;
+        return {
+          cabinetId: requestedCabinetId,
+          styleId: Number(row.styleId),
+          /** Code the active line actually sells; differs from the placed code only after an equivalence swap. */
+          resolvedMasterCode: masterCodeByCabinetId.get(Number(row.cabinetId)) ?? masterCodeByRequestedId.get(requestedCabinetId) ?? null,
+          resolvedCabinetId: Number(row.cabinetId),
+          aliasSwapped: !exact,
+          listPrice: affiliatePricing ? null : row.listPrice,
+          adjustedListPrice: affiliatePricing ? null : row.adjustedListPrice,
+          wholesalePrice: saleText ?? sellPriceForTier(row, ps, "wholesale")?.toFixed(2) ?? null,
+          contractorPrice: saleText ?? sellPriceForTier(row, ps, "contractor")?.toFixed(2) ?? null,
+          homeownerPrice: saleText ?? sellPriceForTier(row, ps, "homeowner")?.toFixed(2) ?? null,
+        };
+      });
     }),
 
   /**
@@ -1276,6 +1297,7 @@ export const designRouter = router({
       targetStyleId: z.number().int().positive(),
       distributorId: z.number().int().positive().optional(),
       tier: z.enum(["homeowner", "contractor", "wholesale"]),
+      affiliateSlug: z.string().trim().min(1).max(64).optional(),
       cabinets: z.array(z.object({
         uid: z.string().min(1).max(160),
         cabinetId: z.number().int().nonnegative(),
@@ -1331,9 +1353,18 @@ export const designRouter = router({
         .where(and(...conditions));
 
       const pricingSettings = await getPricingSettings();
+      const affiliatePricing = await loadAffiliateStorefrontPricing(input.affiliateSlug);
       const bestCandidateByCabinetId = new Map<number, PricedPlanSwitchCandidate>();
       for (const row of rows) {
-        const customerPrice = sellPriceForTier(row, pricingSettings, input.tier);
+        const sourceCostCents = dollarsToCents(row.yourCost);
+        const affiliateSale = affiliatePricing && sourceCostCents != null && sourceCostCents > 0
+          ? affiliateStorefrontSale(affiliatePricing, sourceCostCents, {
+              categoryKey: row.category,
+              styleId: input.targetStyleId,
+              listPriceCents: dollarsToCents(row.listPrice),
+            }).retailCents / 100
+          : null;
+        const customerPrice = affiliateSale ?? sellPriceForTier(row, pricingSettings, input.tier);
         if (customerPrice == null || customerPrice <= 0) continue;
         const candidate: PricedPlanSwitchCandidate = {
           cabinetId: row.cabinetId,
@@ -3185,6 +3216,7 @@ Return an empty actions array ONLY if the user asked a pure question with no wal
           distributorId: distributorSkus.distributorId,
           listPrice: distributorSkus.listPrice,
           yourCost: distributorSkus.yourCost,
+          category: cabinets.category,
           wholesalePrice: distributorSkus.wholesalePrice,
           adjustedListPrice: distributorSkus.adjustedListPrice,
           retailPriceBasis: distributors.retailPriceBasis,
@@ -3211,13 +3243,28 @@ Return an empty actions array ONLY if the user asked a pure question with no wal
 
       const pricing = await getPricingSettings();
       const affiliateFees = await getPlatformPricingSettings();
+      const affiliatePricing = requestedAffiliate
+        ? await loadAffiliatePricingById(requestedAffiliate.id)
+        : null;
       const items = canonicalItems.map((item) => {
         const row = best.get(`${item.masterCode}:${item.styleId}`);
-        const customerUnitPrice = row ? sellPriceForTier(row, pricing, "homeowner") : null;
-        const rawCost = row?.yourCost == null ? null : Number(row.yourCost);
-        const affiliateUnitCost = rawCost != null && Number.isFinite(rawCost)
-          ? priceLadder(Math.round(rawCost * 100), affiliateFees).affiliateCents / 100
+        const sourceCostCents = dollarsToCents(row?.yourCost);
+        const quote = affiliatePricing && sourceCostCents != null && sourceCostCents > 0
+          ? affiliateStorefrontSale(affiliatePricing, sourceCostCents, {
+              categoryKey: row?.category,
+              styleId: item.styleId,
+              listPriceCents: dollarsToCents(row?.listPrice),
+            })
           : null;
+        const customerUnitPrice = quote
+          ? quote.retailCents / 100
+          : row ? sellPriceForTier(row, pricing, "homeowner") : null;
+        const rawCost = row?.yourCost == null ? null : Number(row.yourCost);
+        const affiliateUnitCost = quote
+          ? quote.affiliateCostCents / 100
+          : rawCost != null && Number.isFinite(rawCost)
+            ? priceLadder(Math.round(rawCost * 100), affiliateFees).affiliateCents / 100
+            : null;
         return {
           masterCode: item.requestedMasterCode,
           styleId: item.styleId,
@@ -3239,6 +3286,9 @@ Return an empty actions array ONLY if the user asked a pure question with no wal
           affiliate: Math.round(totals.affiliate * 100) / 100,
           position: Math.round(totals.position * 100) / 100,
         },
+        tierLabel: affiliatePricing?.tierDashboard.tierName
+          ? `${affiliatePricing.tierDashboard.tierName} — ${affiliatePricing.tierDashboard.summary}`
+          : affiliatePricing?.tierDashboard.summary ?? null,
       };
     }),
 
@@ -3335,9 +3385,10 @@ Return an empty actions array ONLY if the user asked a pure question with no wal
         const r = selected.row;
         const sourceCostCents = r.yourCost == null ? null : Math.round(Number(r.yourCost) * 100);
         const affiliateSale = affiliatePricing && sourceCostCents != null && Number.isFinite(sourceCostCents) && sourceCostCents > 0
-          ? resolveAffiliateStorefrontSale(sourceCostCents, affiliatePricing.platformSettings, affiliatePricing.markup, {
+          ? affiliateStorefrontSale(affiliatePricing, sourceCostCents, {
               styleId: Number(r.styleId),
               categoryKey: r.category,
+              listPriceCents: dollarsToCents(r.listPrice),
             }).retailCents / 100
           : null;
         return [{
@@ -3345,17 +3396,28 @@ Return an empty actions array ONLY if the user asked a pure question with no wal
           styleId: Number(r.styleId),
           distributorId: item.distributorId ?? null,
           ...visiblePricesForViewer(
-            {
-              listPrice: r.listPrice,
-              adjustedListPrice: r.adjustedListPrice,
-              wholesalePrice: sellPriceForTier(r, ps, "wholesale")?.toFixed(2) ?? null,
-              contractorPrice: sellPriceForTier(r, ps, "contractor")?.toFixed(2) ?? null,
-              homeownerPrice: affiliateSale != null
-                ? affiliateSale.toFixed(2)
-                : sellPriceForTier(r, ps, "homeowner")?.toFixed(2) ?? null,
-            },
+            affiliateSale != null
+              ? {
+                  // Affiliate storefront price is the customer price for every
+                  // viewer. resolvePricingFor may select the contractor column
+                  // for an approved contractor; leaving that column empty makes
+                  // the contractor fallback use this sale instead of a
+                  // Cabinetdealz trade price.
+                  listPrice: null,
+                  adjustedListPrice: null,
+                  wholesalePrice: null,
+                  contractorPrice: null,
+                  homeownerPrice: affiliateSale.toFixed(2),
+                }
+              : {
+                  listPrice: r.listPrice,
+                  adjustedListPrice: r.adjustedListPrice,
+                  wholesalePrice: sellPriceForTier(r, ps, "wholesale")?.toFixed(2) ?? null,
+                  contractorPrice: sellPriceForTier(r, ps, "contractor")?.toFixed(2) ?? null,
+                  homeownerPrice: sellPriceForTier(r, ps, "homeowner")?.toFixed(2) ?? null,
+                },
             resolveStorefrontTier(ctx.user),
-            ctx.user?.role === "admin",
+            ctx.user?.role === "admin" && affiliateSale == null,
           ),
         }];
       });

@@ -38,6 +38,8 @@ import {
   shouldCreateCommission,
 } from "@shared/salesPrograms";
 import { resolveAffiliateAccess } from "../lib/affiliateAccess";
+import { loadAffiliatePricingById } from "../lib/affiliateStorefrontPricing";
+import { sumPlacedAffiliateSale } from "../lib/affiliateTierPricing";
 import { verifyUsAddress, formatEnteredAddress } from "../lib/addressVerification";
 import { buildCrmInvoiceEmailHtml, createCrmInvoicePdf } from "../crmInvoicePdf";
 import { usableInvoicePrefill, verifiedFreightInvoicePrefill } from "../crmInvoicePrefill";
@@ -460,6 +462,7 @@ export const crmRouter = router({
           createdAt: kitchenDesigns.createdAt,
           updatedAt: kitchenDesigns.updatedAt,
           selectedStyleId: kitchenDesigns.selectedStyleId,
+          selectedDistributorId: kitchenDesigns.selectedDistributorId,
           selectedSurfaces: kitchenDesigns.selectedSurfaces,
           placedCabinets: kitchenDesigns.placedCabinets,
         })
@@ -474,6 +477,23 @@ export const crmRouter = router({
       const viewsByDesignId = new Map<number, typeof viewRows>();
       for (const v of viewRows) viewsByDesignId.set(v.designId, [...(viewsByDesignId.get(v.designId) ?? []), v]);
       const savedDesignById = new Map(savedDesignRows.map((design) => [design.id, design]));
+      const tierSaleByDesignId = new Map<number, number>();
+      if (deal.affiliateId != null) {
+        const affiliatePricing = await loadAffiliatePricingById(deal.affiliateId);
+        if (affiliatePricing) {
+          for (const design of savedDesignRows) {
+            if (design.affiliateId !== deal.affiliateId) continue;
+            const total = await sumPlacedAffiliateSale(
+              db,
+              affiliatePricing,
+              design.placedCabinets,
+              design.selectedStyleId,
+              design.selectedDistributorId ?? null,
+            );
+            if (total != null && total > 0) tierSaleByDesignId.set(design.id, total);
+          }
+        }
+      }
 	  const scopedLinkedDesignIds = savedDesignRows.filter((design) => design.affiliateId === deal.affiliateId).map((design) => design.id);
       const shareRows = scopedLinkedDesignIds.length === 0
         ? []
@@ -497,8 +517,9 @@ export const crmRouter = router({
 	      if (!savedDesign || savedDesign.affiliateId !== deal.affiliateId) return [];
         const share = shareByDesignId.get(link.designId);
         const shareSubtotal = Number(share?.orderSubtotal ?? 0);
+        const tierSale = tierSaleByDesignId.get(link.designId) ?? 0;
         const submittedOrderValue = linkedOrder?.kitchenDesignId === link.designId ? Number(linkedOrder.totalAmount ?? 0) : 0;
-        const designValue = shareSubtotal > 0 ? shareSubtotal : submittedOrderValue > 0 ? submittedOrderValue : 0;
+        const designValue = tierSale > 0 ? tierSale : shareSubtotal > 0 ? shareSubtotal : submittedOrderValue > 0 ? submittedOrderValue : 0;
 	      const creatorAffiliate = savedDesign.affiliateId == null ? null : linkedAffiliateById.get(savedDesign.affiliateId) ?? null;
         return [{
           ...link,
@@ -517,7 +538,9 @@ export const crmRouter = router({
           // A zero plan share is not an authorized sell price. Keep it out of
           // the invoice until a verified saved-order subtotal exists.
           catalogSubtotal: designValue > 0 ? designValue.toFixed(2) : null,
-          catalogSubtotalSource: shareSubtotal > 0
+          catalogSubtotalSource: tierSale > 0
+            ? "Affiliate pricing tier"
+            : shareSubtotal > 0
             ? "Saved design catalog subtotal"
             : submittedOrderValue > 0
               ? "Submitted order value"

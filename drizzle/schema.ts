@@ -1964,6 +1964,9 @@ export const affiliates = mysqlTable("affiliates", {
   // affiliate cost to produce the customer-facing retail price. Per-style and
   // per-category overrides live in affiliateStyleBranding / as JSON below.
   defaultMarkupBps: int("defaultMarkupBps").default(2000).notNull(), // 20% default
+  // Assigned affiliate buy-cost tier. Null keeps the platform affiliate markup.
+  // The tier row lives in affiliate_pricing_tiers. Hand-run SQL adds the column.
+  pricingTierId: int("pricingTierId"),
   // Separate list-price markup for Decorative Hardware. It never participates in
   // cabinet or surface price calculations. The baseline is the supplier list
   // price; affiliates may set an above-list value, including zero.
@@ -2007,6 +2010,26 @@ export const affiliates = mysqlTable("affiliates", {
 
 export type Affiliate = typeof affiliates.$inferSelect;
 export type InsertAffiliate = typeof affiliates.$inferInsert;
+
+// Admin-defined affiliate buy-cost tiers. Example rows are placeholders.
+// Volume threshold is assignment guidance and is not applied automatically.
+export const affiliatePricingTiers = mysqlTable("affiliate_pricing_tiers", {
+  id: int("id").autoincrement().primaryKey(),
+  tierCode: varchar("tierCode", { length: 64 }).notNull().unique(),
+  tierName: varchar("tierName", { length: 128 }).notNull(),
+  basisKind: varchar("basisKind", { length: 32 }).notNull(),
+  basisPoints: int("basisPoints").notNull(),
+  volumeThresholdCents: int("volumeThresholdCents"),
+  examplePlaceholder: boolean("examplePlaceholder").default(false).notNull(),
+  sortOrder: int("sortOrder").default(0).notNull(),
+  activeFlag: boolean("activeFlag").default(true).notNull(),
+  notesText: text("notesText"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type AffiliatePricingTier = typeof affiliatePricingTiers.$inferSelect;
+export type InsertAffiliatePricingTier = typeof affiliatePricingTiers.$inferInsert;
 
 // ─── Affiliate-approved imported testimonials ────────────────────────────────
 // These are never created by Cabinet Dealz. Each row is copied from an
