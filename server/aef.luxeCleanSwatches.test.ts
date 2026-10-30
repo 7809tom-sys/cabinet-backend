@@ -4,11 +4,26 @@ import { distributors, doorStyles } from "../drizzle/schema";
 import { getDb } from "./db";
 
 const CLEAN_SWATCHES = {
-  LSA: { finish: "Luxe Classic", imageUrl: "/manus-storage/aef-luxe-lsa-clean-swatch_4154dedb.png" },
-  LSC: { finish: "Luxe Classic", imageUrl: "/manus-storage/aef-luxe-lsc-clean-swatch_c92285a6.png" },
-  LSN: { finish: "Luxe Classic", imageUrl: "/manus-storage/aef-luxe-lsn-clean-swatch_00031ec3.png" },
-  LSP: { finish: "Luxe Select", imageUrl: "/manus-storage/aef-luxe-lsp-clean-swatch_7c5b26bf.png" },
-  LSR: { finish: "Luxe Select", imageUrl: "/manus-storage/aef-luxe-lsr-clean-swatch_c47e44e1.png" },
+  LSA: {
+    finish: "Luxe Classic",
+    imageUrl: "/manus-storage/aef-luxe-lsa-clean-swatch_4154dedb.png",
+  },
+  LSC: {
+    finish: "Luxe Classic",
+    imageUrl: "/manus-storage/aef-luxe-lsc-clean-swatch_c92285a6.png",
+  },
+  LSN: {
+    finish: "Luxe Classic",
+    imageUrl: "/manus-storage/aef-luxe-lsn-clean-swatch_00031ec3.png",
+  },
+  LSP: {
+    finish: "Luxe Select",
+    imageUrl: "/manus-storage/aef-luxe-lsp-clean-swatch_7c5b26bf.png",
+  },
+  LSR: {
+    finish: "Luxe Select",
+    imageUrl: "/manus-storage/aef-luxe-lsr-clean-swatch_c47e44e1.png",
+  },
 } as const;
 
 const CODES = Object.keys(CLEAN_SWATCHES) as Array<keyof typeof CLEAN_SWATCHES>;
@@ -18,7 +33,11 @@ describe("AEF Luxe clean door swatches", () => {
     const db = await getDb();
     if (!db) return;
 
-    const [aef] = await db.select({ id: distributors.id }).from(distributors).where(eq(distributors.code, "AEF")).limit(1);
+    const [aef] = await db
+      .select({ id: distributors.id })
+      .from(distributors)
+      .where(eq(distributors.code, "AEF"))
+      .limit(1);
     expect(aef).toBeDefined();
 
     const rows = await db
@@ -32,20 +51,27 @@ describe("AEF Luxe clean door swatches", () => {
         thumbnail: doorStyles.thumbnailImageUrl,
       })
       .from(doorStyles)
-      .where(and(eq(doorStyles.distributorId, aef!.id), inArray(doorStyles.styleCode, CODES)));
+      .where(
+        and(
+          eq(doorStyles.distributorId, aef!.id),
+          inArray(doorStyles.styleCode, CODES)
+        )
+      );
 
     expect(rows).toHaveLength(CODES.length);
-    expect(rows.map((row) => row.styleCode).sort()).toEqual([...CODES].sort());
+    expect(rows.map(row => row.styleCode).sort()).toEqual([...CODES].sort());
     for (const row of rows) {
-      const expected = CLEAN_SWATCHES[row.styleCode as keyof typeof CLEAN_SWATCHES];
+      const expected =
+        CLEAN_SWATCHES[row.styleCode as keyof typeof CLEAN_SWATCHES];
       expect(row).toMatchObject({
         finish: expected.finish,
         active: true,
         verified: true,
         door: expected.imageUrl,
-        drawer: expected.imageUrl,
         thumbnail: expected.imageUrl,
       });
+      // docs/sql/0238_clear_copied_drawer_swatches.tidb.sql clears the door file copied into the drawer slot.
+      expect(row.drawer === expected.imageUrl || row.drawer == null).toBe(true);
     }
   });
 });
