@@ -1,8 +1,9 @@
 import { and, eq, isNotNull } from "drizzle-orm";
-import { affiliateContractorMarkups, contractorAccessRequests } from "../../drizzle/schema";
-import { pricingSettingsWithAffiliateContractorMarkup } from "../../shared/affiliateContractorMarkup";
-import { sellPriceForTier, type CostBaseRow, type TierMarkupBps } from "../../shared/margins";
-import { getDb, getPricingSettings, type PricingSettingsView } from "../db";
+import { affiliateContractorMarkups, affiliatePricingTiers, affiliates, contractorAccessRequests } from "../../drizzle/schema";
+import { DEFAULT_PRICING_SETTINGS } from "../../shared/pricing";
+import { sellPriceForTier, type AffiliateContractorCostContext, type CostBaseRow, type TierMarkupBps } from "../../shared/margins";
+import { affiliateTierRule, type StoredAffiliateTier } from "./affiliateTierPricing";
+import { getDb, getPlatformPricingSettings, getPricingSettings, type PricingSettingsView } from "../db";
 
 type Viewer = { id: number; role: string } | null | undefined;
 
@@ -30,13 +31,71 @@ export function latestAffiliateSubmission(rows: ApprovedSubmission[], userId: nu
   return eligible[0] ?? null;
 }
 
+type PriceDb = NonNullable<Awaited<ReturnType<typeof getDb>>>;
+
 /**
- * Markup basis points for the affiliate who submitted this contractor's latest
- * approved request. Null when the contractor was not submitted by an affiliate
- * or that affiliate has not saved a markup (site default applies).
+ * The submitting store. A request that already names affiliateId uses that
+ * store. Older requests fall back to the submitter only when that login owns
+ * exactly one store. Several stores and no affiliateId leave the tier unknown,
+ * so the platform affiliate markup is the cost until a store is known.
+ */
+async function submittingAffiliateId(db: PriceDb, submission: ApprovedSubmission): Promise<number | null> {
+  if (submission.affiliateId != null) return submission.affiliateId;
+  if (submission.submittedByUserId == null) return null;
+  const stores = await db.select({ id: affiliates.id })
+    .from(affiliates)
+    .where(eq(affiliates.userId, submission.submittedByUserId))
+    .limit(2);
+  return stores.length === 1 ? stores[0].id : null;
+}
+
+/** Active buy-cost rule for one store. Inactive or missing tiers stay null. */
+async function storeAffiliateTier(db: PriceDb, affiliateId: number): Promise<AffiliateContractorCostContext["tier"]> {
+  try {
+    const [affiliate] = await db.select({ pricingTierId: affiliates.pricingTierId })
+      .from(affiliates)
+      .where(eq(affiliates.id, affiliateId))
+      .limit(1);
+    if (affiliate?.pricingTierId == null) return null;
+    const [row] = await db.select({
+      id: affiliatePricingTiers.id,
+      tierCode: affiliatePricingTiers.tierCode,
+      tierName: affiliatePricingTiers.tierName,
+      basisKind: affiliatePricingTiers.basisKind,
+      basisPoints: affiliatePricingTiers.basisPoints,
+      volumeThresholdCents: affiliatePricingTiers.volumeThresholdCents,
+      examplePlaceholder: affiliatePricingTiers.examplePlaceholder,
+      sortOrder: affiliatePricingTiers.sortOrder,
+      activeFlag: affiliatePricingTiers.activeFlag,
+      notesText: affiliatePricingTiers.notesText,
+    }).from(affiliatePricingTiers)
+      .where(eq(affiliatePricingTiers.id, affiliate.pricingTierId))
+      .limit(1);
+    if (!row) return null;
+    const stored: StoredAffiliateTier = row;
+    return affiliateTierRule(stored);
+  } catch (error) {
+    console.warn(
+      "[Pricing] Affiliate tier lookup skipped",
+      error instanceof Error ? error.message : "unknown error",
+    );
+    return null;
+  }
+}
+
+/**
+ * Affiliate-cost context for a contractor whose latest approved request was
+ * filed by a store that has saved a markup row. Loaded once per call.
+ *
+ * Null when the contractor has no affiliate store, or that store has no markup
+ * row. Null keeps today's site contractor tier: Cabinet Dealz cost times
+ * pricing_settings.contractorMarkupBps. A saved markup is applied over that
+ * store's affiliate cost, not over Cabinet Dealz cost.
  * A missing table, before docs/sql/0238 is applied, keeps the site default.
  */
-export async function affiliateMarkupBpsForContractorUser(userId: number): Promise<number | null> {
+export async function affiliateContractorCostContextForContractorUser(
+  userId: number,
+): Promise<AffiliateContractorCostContext | null> {
   const db = await getDb();
   if (!db) return null;
   try {
@@ -65,7 +124,24 @@ export async function affiliateMarkupBpsForContractorUser(userId: number): Promi
         .from(affiliateContractorMarkups)
         .where(eq(affiliateContractorMarkups.affiliateUserId, submission.submittedByUserId))
         .limit(1);
-    return markup?.markupBps ?? null;
+    // No markup row: keep the site contractor default. Do not switch the base.
+    if (markup?.markupBps == null) return null;
+    const affiliateId = await submittingAffiliateId(db, submission);
+    const tier = affiliateId == null ? null : await storeAffiliateTier(db, affiliateId);
+    let platformAffiliateMarkupBps = DEFAULT_PRICING_SETTINGS.affiliateMarkupBps;
+    try {
+      platformAffiliateMarkupBps = (await getPlatformPricingSettings()).affiliateMarkupBps;
+    } catch (error) {
+      console.warn(
+        "[Pricing] Platform affiliate markup lookup skipped",
+        error instanceof Error ? error.message : "unknown error",
+      );
+    }
+    return {
+      markupBps: markup.markupBps,
+      tier,
+      platformAffiliateMarkupBps,
+    };
   } catch (error) {
     if (!missingTableWarned) {
       missingTableWarned = true;
@@ -78,12 +154,35 @@ export async function affiliateMarkupBpsForContractorUser(userId: number): Promi
   }
 }
 
-/** Site pricing, with contractorMarkupBps replaced only for a contractor whose affiliate set a markup. */
-export async function getPricingSettingsForViewer(user: Viewer): Promise<PricingSettingsView> {
+/**
+ * Markup basis points for the affiliate who submitted this contractor's latest
+ * approved request. Null when the contractor was not submitted by an affiliate
+ * or that affiliate has not saved a markup (site contractor default applies).
+ */
+export async function affiliateMarkupBpsForContractorUser(userId: number): Promise<number | null> {
+  const context = await affiliateContractorCostContextForContractorUser(userId);
+  return context?.markupBps ?? null;
+}
+
+/**
+ * Attach a store cost context only for role "contractor" when a markup row exists.
+ * Other roles, and contractors with no markup row, keep the settings object unchanged.
+ */
+export function attachAffiliateContractorCost<T extends TierMarkupBps>(
+  settings: T,
+  role: string | null | undefined,
+  context: AffiliateContractorCostContext | null,
+): T & { affiliateContractorCost?: AffiliateContractorCostContext | null } {
+  if (role !== "contractor" || context == null) return settings;
+  return { ...settings, affiliateContractorCost: context };
+}
+
+/** Site pricing. A contractor with a saved store markup prices over that store's affiliate cost. */
+export async function getPricingSettingsForViewer(user: Viewer): Promise<PricingSettingsView & TierMarkupBps> {
   const settings = await getPricingSettings();
   if (!user || user.role !== "contractor") return settings;
-  const markupBps = await affiliateMarkupBpsForContractorUser(user.id);
-  return pricingSettingsWithAffiliateContractorMarkup(settings, markupBps);
+  const context = await affiliateContractorCostContextForContractorUser(user.id);
+  return attachAffiliateContractorCost(settings, user.role, context);
 }
 
 type PricedLine = {
@@ -102,7 +201,7 @@ type PriceRow = CostBaseRow & {
   distributorId: number;
 };
 
-/** Replace a cabinet line's unit price with cost × (1 + affiliate markup). Hardware and surfaces stay put. */
+/** Replace a cabinet line's unit price with the affiliate's cost × (1 + markup). Hardware and surfaces stay put. */
 export function withAffiliateContractorUnitPrice<T extends PricedLine>(
   line: T,
   rows: readonly PriceRow[],

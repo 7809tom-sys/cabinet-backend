@@ -1,12 +1,19 @@
-import { clampBps, NEUTRAL_BPS, sellPriceForTier, type CostBaseRow, type TierMarkupBps } from "./margins";
+import {
+  clampBps,
+  contractorPriceOverAffiliateCost,
+  NEUTRAL_BPS,
+  type AffiliateContractorCostContext,
+  type CostBaseRow,
+  type TierMarkupBps,
+} from "./margins";
 
-/** Lowest allowed affiliate markup over cost. 0% sells at our cost. */
+/** Lowest allowed affiliate markup over the affiliate's cost. 0% sells at that cost. */
 export const AFFILIATE_CONTRACTOR_MARKUP_MIN_PERCENT = 0;
-/** Highest allowed affiliate markup over cost. */
+/** Highest allowed affiliate markup over the affiliate's cost. */
 export const AFFILIATE_CONTRACTOR_MARKUP_MAX_PERCENT = 200;
 
 /**
- * Stored markupBps is the markup itself: 100 basis points = 1 percent over cost.
+ * Stored markupBps is the markup itself: 100 basis points = 1 percent over the affiliate's cost.
  * 29.50% is 2950. It is not the site-wide contractor multiplier, where 10000 = ×1.
  */
 export function markupPercentToBps(percent: number): number {
@@ -25,8 +32,9 @@ export function isAffiliateContractorMarkupPercent(value: number): boolean {
 }
 
 /**
- * Site contractorMarkupBps is a multiplier on cost (12900 = ×1.29 = 29% over cost).
- * Express that same multiplier as percent over cost, rounded to 2 decimals.
+ * Site contractorMarkupBps is a multiplier on Cabinet Dealz cost (12900 = ×1.29).
+ * Express that same multiplier as percent over that cost, rounded to 2 decimals.
+ * It is the fallback when an affiliate has not saved a contractor markup.
  */
 export function siteContractorMarkupPercent(contractorMarkupBps: number): number {
   const multiplier = Number(contractorMarkupBps);
@@ -34,11 +42,21 @@ export function siteContractorMarkupPercent(contractorMarkupBps: number): number
   return Math.round((multiplier / NEUTRAL_BPS - 1) * 100 * 100) / 100;
 }
 
-/** Multiplier basis points sellPriceForTier already applies: 10000 + markup bps. */
+/**
+ * Multiplier basis points for a saved markup: 10000 + markup bps, with the
+ * same 0%..+1000% cap as other tier markups. Live prices apply this to the
+ * submitting store's affiliate cost, not to Cabinet Dealz cost.
+ */
 export function contractorMultiplierBpsFromMarkup(markupBps: number): number {
   return clampBps(NEUTRAL_BPS + markupBps);
 }
 
+/**
+ * Rewrites only the site contractor multiplier. It does not change the cost
+ * base. Viewer pricing does not use this for a store that saved a markup;
+ * that path attaches affiliateContractorCost and prices over the affiliate's cost.
+ * A null markup leaves the site contractor multiplier unchanged.
+ */
 export function pricingSettingsWithAffiliateContractorMarkup<T extends TierMarkupBps>(
   settings: T,
   markupBps: number | null,
@@ -47,15 +65,19 @@ export function pricingSettingsWithAffiliateContractorMarkup<T extends TierMarku
   return { ...settings, contractorMarkupBps: contractorMultiplierBpsFromMarkup(markupBps) };
 }
 
-/** Contractor-tier sell price from our cost and an affiliate percent-over-cost. */
+/**
+ * Contractor sell price over the affiliate's cost.
+ * With no tier and a zero platform affiliate markup, that cost equals Cabinet Dealz cost.
+ */
 export function affiliateContractorSellPrice(
   row: CostBaseRow,
-  settings: TierMarkupBps,
+  _settings: TierMarkupBps,
   markupPercent: number,
+  cost?: Pick<AffiliateContractorCostContext, "tier" | "platformAffiliateMarkupBps">,
 ): number | null {
-  return sellPriceForTier(
-    row,
-    pricingSettingsWithAffiliateContractorMarkup(settings, markupPercentToBps(markupPercent)),
-    "contractor",
-  );
+  return contractorPriceOverAffiliateCost(row, {
+    markupBps: markupPercentToBps(markupPercent),
+    tier: cost?.tier ?? null,
+    platformAffiliateMarkupBps: cost?.platformAffiliateMarkupBps ?? 0,
+  });
 }

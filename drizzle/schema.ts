@@ -1918,8 +1918,10 @@ export const contractorKitchenCostDefaults = mysqlTable("contractor_kitchen_cost
 });
 export type ContractorKitchenCostDefault = typeof contractorKitchenCostDefaults.$inferSelect;
 
-// Per-affiliate markup over cost for contractors that affiliate submitted.
-// markupBps is percent-over-cost (100 = 1.00%), not the site multiplier.
+// Per-affiliate markup over the affiliate's cost for contractors that affiliate submitted.
+// markupBps is percent over the affiliate's cost (100 = 1.00%), not the site multiplier.
+// The contractor price is that store's affiliate cost × (1 + markupBps/10000).
+// A missing row keeps the site contractor multiplier on Cabinet Dealz cost.
 // Hand-run SQL: docs/sql/0238_affiliate_contractor_markups.tidb.sql.
 // One markup per store. affiliateUserId records who saved it. A login that
 // owns several stores does not share one percent across all of them.
