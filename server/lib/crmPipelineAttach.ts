@@ -2,6 +2,7 @@ import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { crmDeals } from "../../drizzle/schema";
 import type { getDb } from "../db";
 import { pickPipelineDeal, type PipelineCandidate } from "@shared/crmMailbox";
+import { contactEmailToBackfill } from "./invoiceRecipient";
 
 type Db = NonNullable<Awaited<ReturnType<typeof getDb>>>;
 
@@ -47,7 +48,11 @@ export async function ensureAffiliatePipelineDeal(db: Db, draft: PipelineDealDra
       .where(and(eq(crmDeals.orderRequestId, draft.orderRequestId), scopeCondition(draft.affiliateId)))
       .limit(5);
     const picked = pickPipelineDeal(rows, { affiliateId: draft.affiliateId, match: "order", orderRequestId: draft.orderRequestId });
-    if (picked) return { id: picked.id, created: false };
+    if (picked) {
+      const backfill = contactEmailToBackfill(picked.contactEmail, email);
+      if (backfill) await db.update(crmDeals).set({ contactEmail: backfill }).where(eq(crmDeals.id, picked.id));
+      return { id: picked.id, created: false };
+    }
   }
   if (draft.match === "email" && email) {
     const rows = await db

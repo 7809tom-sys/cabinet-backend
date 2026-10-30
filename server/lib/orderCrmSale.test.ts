@@ -69,6 +69,49 @@ describe("order CRM sale sync", () => {
     expect(again[0].activities).toHaveLength(1);
   });
 
+  it("copies the order email onto a New Sale lead that was linked without one", () => {
+    const existing = [deal({
+      id: 3,
+      orderRequestId: 11700001,
+      stage: "qualified",
+      contactEmail: null,
+      contactName: null,
+      contactPhone: null,
+    })];
+    const paid = order({
+      id: 11700001,
+      requestNumber: "CD-20261022-OLOUT",
+      status: "confirmed",
+      paidAt: "2026-10-22T15:00:00.000Z",
+      originatorEmail: "homeowner@example.com",
+      originatorName: "Home Owner",
+    });
+    const next = applyOrderCrmSync(existing, paid);
+    expect(next).toHaveLength(1);
+    expect(next[0]).toMatchObject({
+      stage: "new_sale",
+      contactEmail: "homeowner@example.com",
+      contactName: "Home Owner",
+    });
+  });
+
+  it("does not replace a contact email the lead already has", () => {
+    const existing = [deal({ id: 3, orderRequestId: 8, contactEmail: "kept@example.com" })];
+    const paid = order({
+      id: 8,
+      status: "confirmed",
+      paidAt: "2026-10-27T15:00:00.000Z",
+      originatorEmail: "other@example.com",
+    });
+    expect(applyOrderCrmSync(existing, paid)[0].contactEmail).toBe("kept@example.com");
+  });
+
+  it("fills a blank email when an unpaid order stays qualified", () => {
+    const existing = [deal({ id: 4, orderRequestId: 8, stage: "qualified", contactEmail: null })];
+    const next = applyOrderCrmSync(existing, order({ id: 8, status: "submitted", originatorEmail: "ada@example.com" }));
+    expect(next[0]).toMatchObject({ stage: "qualified", contactEmail: "ada@example.com" });
+  });
+
   it("creates the deal directly in new_sale when payment lands first", () => {
     const paid = order({ id: 9, status: "confirmed", stripePaymentIntentId: "pi_123", paidAt: "2026-10-27T15:00:00.000Z" });
     const next = applyOrderCrmSync([], paid);

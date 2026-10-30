@@ -1,5 +1,6 @@
 // Moves the single crm_deals row already linked by orderRequestId.
 // Submitted unpaid stays qualified. Paid becomes New Sale. A refund keeps the row.
+import { contactEmailToBackfill } from "./invoiceRecipient";
 
 export type CrmOrderView = {
   id: number;
@@ -95,6 +96,26 @@ function nextId(deals: MemoryDeal[]): number {
   return deals.reduce((max, deal) => Math.max(max, deal.id), 0) + 1;
 }
 
+/** Fill contact fields that the lead is still missing. Never overwrite a stored email. */
+export function blankCrmContactPatch(
+  deal: { contactEmail?: string | null; contactName?: string | null; contactPhone?: string | null } | null,
+  order: Pick<CrmOrderView, "originatorEmail" | "originatorName" | "originatorPhone">,
+): { contactEmail?: string; contactName?: string; contactPhone?: string } {
+  const patch: { contactEmail?: string; contactName?: string; contactPhone?: string } = {};
+  const email = contactEmailToBackfill(deal?.contactEmail, order.originatorEmail);
+  if (email) patch.contactEmail = email;
+  if (!deal?.contactName?.trim() && order.originatorName?.trim()) patch.contactName = order.originatorName.trim();
+  if (!deal?.contactPhone?.trim() && order.originatorPhone?.trim()) patch.contactPhone = order.originatorPhone.trim();
+  return patch;
+}
+
+function applyBlankContact(target: MemoryDeal, order: CrmOrderView) {
+  const patch = blankCrmContactPatch(target, order);
+  if (patch.contactEmail) target.contactEmail = patch.contactEmail;
+  if (patch.contactName) target.contactName = patch.contactName;
+  if (patch.contactPhone) target.contactPhone = patch.contactPhone;
+}
+
 function blankDeal(id: number, order: CrmOrderView, stage: string): MemoryDeal {
   return {
     id,
@@ -117,8 +138,14 @@ export function applyOrderCrmSync(deals: MemoryDeal[], order: CrmOrderView, now 
   const plan = planOrderCrmSync(order, existing, now);
   if (plan.kind === "skip") return next;
   if (plan.kind === "qualified") {
-    if (plan.create) next.push(blankDeal(nextId(next), order, "qualified"));
-    else if (plan.setStage && existing) existing.stage = "qualified";
+    if (plan.create) {
+      const created = blankDeal(nextId(next), order, "qualified");
+      applyBlankContact(created, order);
+      next.push(created);
+    } else if (existing) {
+      if (plan.setStage) existing.stage = "qualified";
+      applyBlankContact(existing, order);
+    }
     return next;
   }
   const target = existing ?? blankDeal(nextId(next), order, "new_sale");
@@ -127,6 +154,7 @@ export function applyOrderCrmSync(deals: MemoryDeal[], order: CrmOrderView, now 
   target.orderRequestId = order.id;
   target.estimatedValue = plan.estimatedValue;
   target.closedAt = target.closedAt ?? plan.closedAt;
+  applyBlankContact(target, order);
   if (plan.logActivity && !target.activities.some((body) => body.includes(`[order-crm:${order.id}:new_sale]`))) {
     target.activities.push(plan.activityBody);
   }

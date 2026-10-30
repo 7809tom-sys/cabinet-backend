@@ -35,6 +35,7 @@ import {
 } from "./distributorOrderEmail";
 import {
   applyCrmBackfill,
+  blankCrmContactPatch,
   orderIsPaid,
   orderStepActivityBody,
   planOrderCrmSync,
@@ -390,7 +391,9 @@ export async function syncStoredOrderCrm(orderId: number, opts?: { preferredDeal
     const [order] = await db.select().from(orderRequests).where(eq(orderRequests.id, orderId)).limit(1);
     if (!order) return;
     const deal = await findDealForOrder(db, order.id, opts?.preferredDealId);
-    const plan = planOrderCrmSync(toCrmOrder(order), deal ? dealView(deal) : null);
+    const crmOrder = toCrmOrder(order);
+    const plan = planOrderCrmSync(crmOrder, deal ? dealView(deal) : null);
+    const contactPatch = blankCrmContactPatch(deal, crmOrder);
     if (plan.kind === "skip") {
       await writeCrmSync(db, order.id, "skipped", null, deal?.id ?? null);
       return;
@@ -401,8 +404,11 @@ export async function syncStoredOrderCrm(orderId: number, opts?: { preferredDeal
         await writeCrmSync(db, order.id, "qualified", null, ensured.id);
         return;
       }
-      if (plan.setStage && deal.stage === "new") {
-        await db.update(crmDeals).set({ stage: "qualified" }).where(eq(crmDeals.id, deal.id));
+      if ((plan.setStage && deal.stage === "new") || Object.keys(contactPatch).length > 0) {
+        await db.update(crmDeals).set({
+          ...(plan.setStage && deal.stage === "new" ? { stage: "qualified" as const } : {}),
+          ...contactPatch,
+        }).where(eq(crmDeals.id, deal.id));
       }
       await writeCrmSync(db, order.id, "qualified", null, deal.id);
       return;
@@ -422,6 +428,7 @@ export async function syncStoredOrderCrm(orderId: number, opts?: { preferredDeal
         stage: "new_sale",
         estimatedValue: order.totalAmount,
         closedAt: deal?.closedAt ?? (order.paidAt ? new Date(order.paidAt) : new Date()),
+        ...contactPatch,
       }).where(eq(crmDeals.id, dealId));
     } catch (error) {
       const schemaRejected = isEnumValueError(error) || isMissingSchemaError(error);
