@@ -7,6 +7,7 @@ import { eq } from "drizzle-orm";
 import { affiliates, users, type User } from "../../drizzle/schema";
 import * as db from "../db";
 import { linkApprovedContractorAccess } from "../lib/contractorAccessGrant";
+import { describedDatabaseError } from "../lib/orderSchemaGuard";
 import { affiliateSlugFromHostCandidates } from "../lib/affiliateSubdomain";
 import { ENV } from "./env";
 import { readTestAccountUserId, TEST_ACCOUNT_HEADER, testAccountsEnabled } from "../lib/testAccounts";
@@ -205,13 +206,18 @@ class SDKServer {
     // this email and grants contractor only when the role is still user.
     const database = await db.getDb();
     if (!database) return signedIn;
-    const signupSlug = storeSlugFromSignIn(req, claims.storeScope);
-    if (signupSlug) {
-      const [store] = await database.select({ id: affiliates.id, status: affiliates.status })
-        .from(affiliates)
-        .where(eq(affiliates.slug, signupSlug))
-        .limit(1);
-      if (store?.status === "active") await db.assignSignupAffiliateOnce(signedIn.id, store.id);
+    try {
+      const signupSlug = storeSlugFromSignIn(req, claims.storeScope);
+      if (signupSlug) {
+        const [store] = await database.select({ id: affiliates.id, status: affiliates.status })
+          .from(affiliates)
+          .where(eq(affiliates.slug, signupSlug))
+          .limit(1);
+        if (store?.status === "active") await db.assignSignupAffiliateOnce(signedIn.id, store.id);
+      }
+    } catch (error) {
+      // A missing column or a bad store lookup must not turn a valid token into ctx.user = null.
+      console.error("[Auth] signup affiliate stamp failed", describedDatabaseError(error));
     }
     return linkApprovedContractorAccess(database, {
       ...signedIn,

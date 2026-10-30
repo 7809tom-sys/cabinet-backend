@@ -28,6 +28,19 @@ export function schemaErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+/** Driver text when MySQL/TiDB wrapped the failure. Falls back to Error.message. */
+export function describedDatabaseError(error: unknown): string {
+  const driver: string[] = [];
+  const wrapped: string[] = [];
+  for (const row of schemaErrorRows(error)) {
+    if (typeof row.sqlMessage === "string" && row.sqlMessage.trim()) driver.push(row.sqlMessage.trim());
+    if (typeof row.message === "string" && row.message.trim()) wrapped.push(row.message.trim());
+  }
+  if (driver.length > 0) return driver[0];
+  if (wrapped.length > 0) return wrapped[0];
+  return error instanceof Error ? error.message : String(error);
+}
+
 type SchemaErrorRow = {
   code?: unknown;
   errno?: unknown;

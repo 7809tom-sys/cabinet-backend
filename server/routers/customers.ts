@@ -6,15 +6,16 @@ import { getDb } from "../db";
 import { users, carts, cartItems, kitchenDesigns, affiliates } from "../../drizzle/schema";
 import { DIRECT_STORE_NAME } from "@shared/customerDirectory";
 import { PRICING_TIERS } from "@shared/pricingTier";
+import { queryOrLogMissingColumn } from "../lib/signupAffiliateStamp";
 
 const tierEnum = z.enum(["homeowner", "contractor", "wholesale"]);
 
 /**
  * Customers admin router.
  *
- * The owner watches who is on the site (via the live-chat ping), then logs into
- * the admin and assigns each customer a pricing tier here. The assigned tier
- * controls which price column that user sees + checks out at everywhere.
+ * An admin watches who is on the site (via the live-chat ping), then assigns
+ * each customer a pricing tier here. Every role "admin" has the same authority.
+ * The assigned tier controls which price column that user sees and checks out at.
  *
  * All procedures are admin-only.
  */
@@ -34,6 +35,8 @@ export const customersRouter = router({
     .query(async ({ input }) => {
       const db = await getDb();
       if (!db) return { rows: [], total: 0, page: 1, pageSize: 25, counts: {} };
+
+      return queryOrLogMissingColumn("customers.list", async () => {
 
       const conds = [] as any[];
       if (input.tier) conds.push(eq(users.pricingTier, input.tier));
@@ -100,6 +103,7 @@ export const customersRouter = router({
         pageSize: input.pageSize,
         counts,
       };
+      });
     }),
 
   // Assign / change a customer's pricing tier.

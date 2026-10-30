@@ -509,7 +509,7 @@ export const affiliateCustomersRouter = router({
 
   setStatus: protectedProcedure
     .input(z.object({
-      affiliateId: z.number().int().positive().nullable().optional(),
+      ...directoryFields,
       customerKey: z.string().min(3).max(400),
       status: statusEnum,
     }))
@@ -533,7 +533,7 @@ export const affiliateCustomersRouter = router({
 
   addNote: protectedProcedure
     .input(z.object({
-      affiliateId: z.number().int().positive().nullable().optional(),
+      ...directoryFields,
       customerKey: z.string().min(3).max(400),
       body: z.string().trim().min(1).max(8000),
     }))
@@ -554,7 +554,7 @@ export const affiliateCustomersRouter = router({
 
   setFollowUp: protectedProcedure
     .input(z.object({
-      affiliateId: z.number().int().positive().nullable().optional(),
+      ...directoryFields,
       customerKey: z.string().min(3).max(400),
       followUpAt: z.string().datetime().nullable(),
     }))
@@ -571,7 +571,7 @@ export const affiliateCustomersRouter = router({
 
   openDeal: protectedProcedure
     .input(z.object({
-      affiliateId: z.number().int().positive().nullable().optional(),
+      ...directoryFields,
       customerKey: z.string().min(3).max(400),
     }))
     .mutation(async ({ ctx, input }) => {
