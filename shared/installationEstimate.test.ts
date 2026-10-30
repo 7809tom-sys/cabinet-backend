@@ -27,9 +27,10 @@ describe("calculateInstallationEstimate", () => {
     expect(estimate.lineItems.map((line) => line.costType)).toEqual(["labor", "material"]);
   });
 
-  it("rejects fractional quantities while accepting decimal unit prices", () => {
-    expect(() => calculateInstallationEstimate([{ description: "Demo", quantity: 0.01, unitCost: 500 }]))
-      .toThrow("Quantity must be a positive whole number");
+  it("accepts kitchen-plan quantities such as square feet and decimal unit prices", () => {
+    expect(calculateInstallationEstimate([{ description: "Counter top", quantity: 12.4, unitCost: 10 }]).lineItems[0].lineTotal).toBe(124);
     expect(calculateInstallationEstimate([{ description: "Demo", quantity: 2, unitCost: 35.75 }]).totalAmount).toBe(71.5);
+    expect(() => calculateInstallationEstimate([{ description: "Demo", quantity: 0, unitCost: 500 }]))
+      .toThrow("Quantity must be greater than zero");
   });
 });

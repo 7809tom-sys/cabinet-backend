@@ -39,6 +39,8 @@ import { invokeLLM } from "../_core/llm";
 import { sellPriceForTier } from "@shared/margins";
 import { resolvePricingFor } from "@shared/pricingTier";
 import { getPricingSettings } from "../db";
+import { affiliateMarkupBpsForContractorUser, getPricingSettingsForViewer, withAffiliateContractorUnitPrice } from "../lib/affiliateContractorPricing";
+import { pricingSettingsWithAffiliateContractorMarkup } from "../../shared/affiliateContractorMarkup";
 import { affiliateStyleBranding } from "../../drizzle/schema";
 import { loadAffiliateStorefrontPricing } from "../lib/affiliateStorefrontPricing";
 import { affiliateStorefrontSale, dollarsToCents } from "../lib/affiliateTierPricing";
@@ -414,7 +416,7 @@ export const ordersRouter = router({
         tier: tierEnum.default("Contractor"),
       })
     )
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
       const db = await getDb();
       const empty = {
         touchUpKit: [] as RecAddOn[],
@@ -425,7 +427,7 @@ export const ordersRouter = router({
       };
       if (!db) return empty;
 
-      const ps = await getPricingSettings();
+      const ps = await getPricingSettingsForViewer(ctx.user);
       const cols = {
         id: cabinets.id,
         masterCode: cabinets.masterCode,
@@ -560,7 +562,7 @@ export const ordersRouter = router({
       if (!db || input.cabinetIds.length === 0) {
         return { prices: [] as { cabinetId: number; unitPrice: number | null; originalUnitPrice: number | null; promoName: string | null; myCost: number | null; freeShipping: boolean }[] };
       }
-      const ps = await getPricingSettings();
+      const ps = await getPricingSettingsForViewer(ctx.user);
       const rows = await db
         .select({
           cabinetId: distributorSkus.cabinetId,
@@ -964,11 +966,18 @@ export const ordersRouter = router({
           .map((line) => line.styleId ?? input.styleId ?? null)
           .filter((id): id is number => typeof id === "number" && id > 0)));
         if (promoCabinetIds.length > 0 && promoStyleIds.length > 0) {
-          const [promoRules, promoRows, promoSettings] = await Promise.all([
+          const markupBps = ctx.user?.role === "contractor" && resolvedTier === "Contractor"
+            ? await affiliateMarkupBpsForContractorUser(ctx.user.id)
+            : null;
+          const [promoRules, promoRows, siteSettings] = await Promise.all([
             loadActivePromotionRules(db),
             loadPublishedCabinetPriceRows(db, promoCabinetIds, promoStyleIds),
             getPricingSettings(),
           ]);
+          const promoSettings = pricingSettingsWithAffiliateContractorMarkup(siteSettings, markupBps);
+          if (markupBps != null) {
+            normalizedLines = normalizedLines.map((line) => withAffiliateContractorUnitPrice(line, promoRows, promoSettings));
+          }
           normalizedLines = normalizedLines.map((line) => priceLineWithPromotion(
             line,
             promoRows,

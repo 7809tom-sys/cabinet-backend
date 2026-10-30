@@ -166,8 +166,8 @@ beforeEach(() => {
 });
 
 describe("installationEstimates plan import", () => {
-  it("validates whole quantities before DB access, protects plan imports, and allows a CRM member's ordinary estimate", async () => {
-    await expect(caller().create({ ...estimateInput, lineItems: [{ ...estimateInput.lineItems[0], quantity: 1.5 }] }))
+  it("rejects an empty estimate before DB access, protects plan imports, and allows a CRM member's ordinary estimate", async () => {
+    await expect(caller().create({ ...estimateInput, lineItems: [{ ...estimateInput.lineItems[0], quantity: 0 }] }))
       .rejects.toMatchObject({ code: "BAD_REQUEST" });
     expect(getDbMock).not.toHaveBeenCalled();
 
@@ -236,5 +236,73 @@ describe("installationEstimates plan import", () => {
     expect(failed.crmDeals).toEqual([]);
     expect(failed.crmDealDesigns).toEqual([]);
     expect(failed.crmActivities).toEqual([]);
+  });
+
+  it("links a contractor labor estimate to that contractor's CRM, and lets an admin name the contractor", async () => {
+    const state = seed({
+      kitchenDesigns: [{
+        id: 101,
+        userId: 44,
+        affiliateId: null,
+        name: "Pat Kitchen",
+        projectName: null,
+        roomLabel: "Kitchen",
+        roomType: "Kitchen",
+        updatedAt: new Date("2026-01-02"),
+        placedCabinets: [{ cabinetId: 1, qty: 1 }],
+      }],
+    });
+    db = fakeDb(state);
+    getDbMock.mockResolvedValue(db);
+    const contractor = caller({ id: 44, email: "pat@shop.test", role: "contractor" });
+    const result = await contractor.create({
+      audience: "contractor",
+      ...estimateInput,
+      lineItems: [{ description: "Counter top", quantity: 12.4, unitCost: 10, costType: "labor" }],
+    });
+    expect(result).toMatchObject({ crmDealId: 1, kitchenDesignId: 101 });
+    expect(state.affiliateInstallationEstimates[0].lineItems[0]).toMatchObject({ quantity: 12.4, lineTotal: 124 });
+    expect(state.affiliateInstallationEstimates[0]).toMatchObject({
+      affiliateId: null,
+      contractorUserId: 44,
+      kitchenDesignId: 101,
+      crmDealId: 1,
+    });
+    expect(state.crmDeals[0]).toMatchObject({
+      affiliateId: null,
+      ownerUserId: 44,
+      laborEstimateId: 1,
+    });
+    expect(state.crmDealDesigns[0]).toMatchObject({ dealId: 1, designId: 101 });
+
+    await expect(caller({ id: 8, email: "ada@shop.test", role: "partner" }).create({
+      audience: "contractor",
+      ...estimateInput,
+    })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(contractor.create({ audience: "contractor", contractorUserId: 45, ...estimateInput }))
+      .rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(caller({ id: 2, email: "rich@shop.test", role: "admin" }).list({ audience: "contractor" }))
+      .rejects.toMatchObject({ code: "BAD_REQUEST", message: "Pass contractorUserId to view a contractor's records." });
+
+    const adminState = seed({
+      kitchenDesigns: [{
+        id: 101,
+        userId: 44,
+        affiliateId: null,
+        name: "Pat Kitchen",
+        roomType: "Kitchen",
+        updatedAt: new Date("2026-01-02"),
+        placedCabinets: [{ cabinetId: 1, qty: 1 }],
+      }],
+    });
+    db = fakeDb(adminState);
+    getDbMock.mockResolvedValue(db);
+    await caller({ id: 2, email: "rich@shop.test", role: "admin" }).create({
+      audience: "contractor",
+      contractorUserId: 44,
+      ...estimateInput,
+    });
+    expect(adminState.affiliateInstallationEstimates[0]).toMatchObject({ contractorUserId: 44, affiliateId: null });
+    expect(adminState.crmDeals[0]).toMatchObject({ ownerUserId: 44, affiliateId: null });
   });
 });

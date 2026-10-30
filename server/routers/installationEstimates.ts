@@ -10,19 +10,26 @@ import { createBlankKitchenCostDefaults, KITCHEN_COST_SHEET_DESCRIPTIONS } from 
 import { countKitchenCabinets, countKitchenCabinetWork, emptyKitchenCabinetBreakdown, type KitchenCabinetBreakdown } from "../../shared/kitchenPlanCabinetBreakdown";
 import { resolveInstallationEstimateAffiliateId } from "../../shared/installationEstimateAccess";
 import { canActAsOrderOwner, orderActorError, readOrderAccessToken } from "../lib/orderActorGuard";
+import { requireContractorRecordUserId } from "../lib/contractorRecordScope";
 
 const estimateLineSchema = z.object({
   description: z.string().trim().min(1).max(256),
-  quantity: z.number().int("Quantity must be a whole number").positive().max(10_000),
+  quantity: z.number().positive().max(10_000),
   unitCost: z.number().min(0).max(1_000_000),
   costType: z.enum(INSTALLATION_COST_TYPES).default("labor"),
 });
 
 const audienceSchema = z.enum(["affiliate", "contractor"]).optional();
 
-const estimateInputSchema = z.object({
+const recordScopeFields = {
   audience: audienceSchema,
+  scope: audienceSchema,
   affiliateId: z.number().int().positive().optional(),
+  contractorUserId: z.number().int().positive().optional(),
+};
+
+const estimateInputSchema = z.object({
+  ...recordScopeFields,
   orderRequestId: z.number().int().positive().nullable().optional(),
   customerName: z.string().trim().max(256).nullable().optional(),
   customerEmail: z.string().trim().email().max(320).nullable().optional(),
@@ -69,16 +76,37 @@ async function resolveAffiliateId(user: AuthUser, requestedAffiliateId?: number,
 
 type EstimateOwner = { kind: "affiliate"; affiliateId: number } | { kind: "contractor"; userId: number };
 
+type EstimateScopeInput = {
+  audience?: "affiliate" | "contractor";
+  scope?: "affiliate" | "contractor";
+  affiliateId?: number;
+  contractorUserId?: number;
+};
+
+function audienceOf(user: AuthUser, input?: EstimateScopeInput): "affiliate" | "contractor" | undefined {
+  if (input?.audience && input.scope && input.audience !== input.scope) {
+    throw new TRPCError({ code: "BAD_REQUEST", message: "audience and scope must match." });
+  }
+  const explicit = input?.scope ?? input?.audience;
+  if (explicit) return explicit;
+  if (user.role === "contractor") return "contractor";
+  if (user.role === "admin" && input?.contractorUserId != null) return "contractor";
+  return undefined;
+}
+
 async function resolveEstimateOwner(
   user: AuthUser,
-  input?: { audience?: "affiliate" | "contractor"; affiliateId?: number },
+  input?: EstimateScopeInput,
   requireDesigner = false,
 ): Promise<EstimateOwner> {
-  if (input?.audience === "contractor") {
-    if (user.role !== "contractor") {
+  if (audienceOf(user, input) === "contractor") {
+    if (user.role !== "admin" && user.role !== "contractor") {
       throw new TRPCError({ code: "FORBIDDEN", message: "Contractor installation estimates are available to approved contractor accounts." });
     }
-    return { kind: "contractor", userId: user.id };
+    return { kind: "contractor", userId: requireContractorRecordUserId(user, input?.contractorUserId) };
+  }
+  if (input?.contractorUserId != null && user.role !== "admin") {
+    throw new TRPCError({ code: "FORBIDDEN", message: "Only an admin can view another contractor's records." });
   }
   return { kind: "affiliate", affiliateId: await resolveAffiliateId(user, input?.affiliateId, requireDesigner) };
 }
@@ -91,7 +119,7 @@ function ownerWhere(owner: EstimateOwner) {
 
 export const installationEstimatesRouter = router({
   kitchenPlans: protectedProcedure
-    .input(z.object({ audience: audienceSchema, affiliateId: z.number().int().positive().optional() }).optional())
+    .input(z.object(recordScopeFields).optional())
     .query(async ({ ctx, input }) => {
       const owner = await resolveEstimateOwner(ctx.user, input, true);
       const db = await getDb();
@@ -120,7 +148,7 @@ export const installationEstimatesRouter = router({
     }),
 
   kitchenCostDefaults: protectedProcedure
-    .input(z.object({ audience: audienceSchema, affiliateId: z.number().int().positive().optional() }).optional())
+    .input(z.object(recordScopeFields).optional())
     .query(async ({ ctx, input }) => {
       const owner = await resolveEstimateOwner(ctx.user, input);
       const db = await getDb();
@@ -140,7 +168,7 @@ export const installationEstimatesRouter = router({
     }),
 
   saveKitchenCostDefaults: protectedProcedure
-    .input(z.object({ audience: audienceSchema, affiliateId: z.number().int().positive().optional(), defaults: kitchenCostDefaultsInputSchema }))
+    .input(z.object({ ...recordScopeFields, defaults: kitchenCostDefaultsInputSchema }))
     .mutation(async ({ ctx, input }) => {
       const owner = await resolveEstimateOwner(ctx.user, input);
       const db = await getDb();
@@ -162,7 +190,7 @@ export const installationEstimatesRouter = router({
     }),
 
   list: protectedProcedure
-    .input(z.object({ audience: audienceSchema, affiliateId: z.number().int().positive().optional() }).optional())
+    .input(z.object(recordScopeFields).optional())
     .query(async ({ ctx, input }) => {
       const owner = await resolveEstimateOwner(ctx.user, input);
       const db = await getDb();
@@ -205,7 +233,7 @@ export const installationEstimatesRouter = router({
             : eq(orderRequests.userId, owner.userId);
           const [order] = await tx.select({ id: orderRequests.id }).from(orderRequests)
             .where(and(eq(orderRequests.id, input.orderRequestId), orderScope)).limit(1);
-          if (!order) throw new TRPCError({ code: "NOT_FOUND", message: "The material order was not found in this affiliate store." });
+          if (!order) throw new TRPCError({ code: "NOT_FOUND", message: owner.kind === "contractor" ? "The material order was not found on your contractor account." : "The material order was not found in this affiliate store." });
         }
         const totals = calculateInstallationEstimate(input.lineItems, input.taxAmount, input.markupPercent);
         const shareToken = crypto.randomUUID().replace(/-/g, "");
@@ -230,17 +258,19 @@ export const installationEstimatesRouter = router({
         });
         const estimateId = Number((result as unknown as [{ insertId: number }])[0].insertId);
         let crmDealId: number | null = null;
-        const affiliateId = owner.kind === "affiliate" ? owner.affiliateId : null;
-        if (affiliateId != null && input.roomType === "Kitchen" && (kitchenDesignId != null || input.customerName || input.customerEmail || input.customerPhone)) {
+        if (input.roomType === "Kitchen" && (kitchenDesignId != null || input.customerName || input.customerEmail || input.customerPhone)) {
+          const dealScope = owner.kind === "affiliate"
+            ? eq(crmDeals.affiliateId, owner.affiliateId)
+            : and(eq(crmDeals.ownerUserId, owner.userId), isNull(crmDeals.affiliateId));
           let matching = kitchenDesignId == null ? [] : await tx.select({ id: crmDeals.id })
             .from(crmDealDesigns).innerJoin(crmDeals, eq(crmDeals.id, crmDealDesigns.dealId))
-            .where(and(eq(crmDealDesigns.designId, kitchenDesignId), eq(crmDeals.affiliateId, affiliateId)))
+            .where(and(eq(crmDealDesigns.designId, kitchenDesignId), dealScope))
             .orderBy(desc(crmDeals.updatedAt)).limit(1);
           if (!matching.length && input.orderRequestId) matching = await tx.select({ id: crmDeals.id }).from(crmDeals)
-            .where(and(eq(crmDeals.affiliateId, affiliateId), eq(crmDeals.orderRequestId, input.orderRequestId)))
+            .where(and(dealScope, eq(crmDeals.orderRequestId, input.orderRequestId)))
             .orderBy(desc(crmDeals.updatedAt)).limit(1);
           if (!matching.length && input.customerEmail) matching = await tx.select({ id: crmDeals.id }).from(crmDeals)
-            .where(and(eq(crmDeals.affiliateId, affiliateId), eq(crmDeals.contactEmail, input.customerEmail)))
+            .where(and(dealScope, eq(crmDeals.contactEmail, input.customerEmail)))
             .orderBy(desc(crmDeals.updatedAt)).limit(1);
           if (matching[0]) {
             crmDealId = matching[0].id;
@@ -248,7 +278,10 @@ export const installationEstimatesRouter = router({
           } else {
             const breakdown = cabinetBreakdown ?? emptyKitchenCabinetBreakdown();
             const title = `${kitchenDesignName ?? "Kitchen installation"}${input.customerName ? ` — ${input.customerName}` : ""}`.slice(0, 256);
-            const dealResult = await tx.insert(crmDeals).values({ affiliateId, ownerUserId: ctx.user.id, title, stage: "new", priority: "medium", contactName: input.customerName ?? null, contactEmail: input.customerEmail ?? null, contactPhone: input.customerPhone ?? null, source: "manual", orderRequestId: input.orderRequestId ?? null, laborEstimateId: estimateId, notes: `Auto-created from the Kitchen labor estimator.${kitchenDesignId != null ? ` Saved plan: ${kitchenDesignName ?? `#${kitchenDesignId}`}.` : ""} Cabinet count — Base: ${breakdown.base}, Wall: ${breakdown.wall}, Tall: ${breakdown.tall}, Total: ${breakdown.total}.` });
+            const ownedBy = owner.kind === "affiliate"
+              ? { affiliateId: owner.affiliateId, ownerUserId: ctx.user.id }
+              : { affiliateId: null as number | null, ownerUserId: owner.userId };
+            const dealResult = await tx.insert(crmDeals).values({ ...ownedBy, title, stage: "new", priority: "medium", contactName: input.customerName ?? null, contactEmail: input.customerEmail ?? null, contactPhone: input.customerPhone ?? null, source: "manual", orderRequestId: input.orderRequestId ?? null, laborEstimateId: estimateId, notes: `Auto-created from the Kitchen labor estimator.${kitchenDesignId != null ? ` Saved plan: ${kitchenDesignName ?? `#${kitchenDesignId}`}.` : ""} Cabinet count — Base: ${breakdown.base}, Wall: ${breakdown.wall}, Tall: ${breakdown.tall}, Total: ${breakdown.total}.` });
             crmDealId = Number((dealResult as unknown as [{ insertId: number }])[0].insertId);
           }
           if (kitchenDesignId != null && crmDealId != null) {
@@ -275,7 +308,7 @@ export const installationEstimatesRouter = router({
     }),
 
   updateStatus: protectedProcedure
-    .input(z.object({ id: z.number().int().positive(), audience: audienceSchema, affiliateId: z.number().int().positive().optional(), status: z.enum(["draft", "shared", "accepted", "cancelled"]) }))
+    .input(z.object({ id: z.number().int().positive(), ...recordScopeFields, status: z.enum(["draft", "shared", "accepted", "cancelled"]) }))
     .mutation(async ({ ctx, input }) => {
       const owner = await resolveEstimateOwner(ctx.user, input);
       const db = await getDb();

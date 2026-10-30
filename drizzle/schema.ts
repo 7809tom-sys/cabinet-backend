@@ -1909,6 +1909,17 @@ export const contractorKitchenCostDefaults = mysqlTable("contractor_kitchen_cost
 });
 export type ContractorKitchenCostDefault = typeof contractorKitchenCostDefaults.$inferSelect;
 
+// Per-affiliate markup over cost for contractors that affiliate submitted.
+// markupBps is percent-over-cost (100 = 1.00%), not the site multiplier.
+// Hand-run SQL: docs/sql/0238_affiliate_contractor_markups.tidb.sql.
+export const affiliateContractorMarkups = mysqlTable("affiliate_contractor_markups", {
+  affiliateUserId: int("affiliateUserId").primaryKey(),
+  markupBps: int("markupBps").notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  updatedByUserId: int("updatedByUserId"),
+});
+export type AffiliateContractorMarkup = typeof affiliateContractorMarkups.$inferSelect;
+
 export const affiliateInstallationEstimates = mysqlTable("affiliate_installation_estimates", {
   id: int("id").autoincrement().primaryKey(),
   // Null only for a contractor-owned estimate. Affiliate rows still set this.
