@@ -1,9 +1,10 @@
 import { z } from "zod";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { protectedProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
 import { resolveAffiliateAccess } from "../lib/affiliateAccess";
+import { listAccessibleAffiliateIds } from "../lib/affiliateSiteScope";
 import {
   affiliateInstallationEstimates,
   affiliates,
@@ -24,7 +25,11 @@ import {
   activitySummary,
   customerPagePath,
   decideDirectoryAccess,
+  DIRECT_STORE_NAME,
   mergeCustomers,
+  recordInDirectoryScope,
+  type DirectoryMode,
+  type DirectoryScopeInput,
   normalizeEmail,
   normalizePhone,
   statusFromStage,
@@ -52,25 +57,56 @@ function iso(value: Date | string | null | undefined): string {
   return Number.isNaN(date.getTime()) ? new Date(0).toISOString() : date.toISOString();
 }
 
-async function actorAccess(user: { id: number; email: string | null; role: string }) {
-  if (user.role === "admin") return null;
+type DirectoryUser = { id: number; email: string | null; role: string };
+
+async function directoryActor(user: DirectoryUser) {
   const db = await getDb();
-  if (!db) return null;
-  return resolveAffiliateAccess(db, user);
+  if (!db) return { role: user.role, access: null };
+  const [access, affiliateIds] = await Promise.all([
+    resolveAffiliateAccess(db, user),
+    listAccessibleAffiliateIds(db, user, { crm: true }),
+  ]);
+  if (access) {
+    const ids = affiliateIds.length > 0 ? affiliateIds : [access.affiliateId];
+    return { role: user.role, access: { ...access, affiliateIds: ids } };
+  }
+  if (affiliateIds.length === 0) return { role: user.role, access: null };
+  return {
+    role: user.role,
+    access: {
+      affiliateId: affiliateIds[0],
+      affiliateIds,
+      isOwner: true,
+      accessCrm: true,
+      accessDesigner: true,
+    },
+  };
 }
 
-async function requireDirectory(user: { id: number; email: string | null; role: string }, requestedAffiliateId: number | null) {
-  const decision = decideDirectoryAccess(
-    { role: user.role, access: await actorAccess(user) },
-    requestedAffiliateId,
-  );
-  if (!decision.ok) throw new TRPCError({ code: "FORBIDDEN", message: decision.message });
+async function requireDirectory(user: DirectoryUser, requested: DirectoryScopeInput) {
+  const decision = decideDirectoryAccess(await directoryActor(user), requested);
+  if (!decision.ok) {
+    const code = decision.message.startsWith("Choose") || decision.message.startsWith("Open the admin")
+      ? "BAD_REQUEST"
+      : "FORBIDDEN";
+    throw new TRPCError({ code, message: decision.message });
+  }
   const db = await getDb();
   if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
-  return { db, affiliateId: decision.affiliateId };
+  return { db, affiliateId: decision.affiliateId, mode: decision.mode };
 }
 
-async function loadRaw(db: NonNullable<Awaited<ReturnType<typeof getDb>>>, affiliateId: number | null): Promise<RawCustomerRecord[]> {
+type DirectoryScope = { mode: DirectoryMode; affiliateId: number | null };
+
+function scoped<T extends { affiliateId: number | null }>(rows: T[], scope: DirectoryScope): T[] {
+  return rows.filter((row) => recordInDirectoryScope(row.affiliateId, scope));
+}
+
+async function loadRaw(
+  db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
+  scope: DirectoryScope,
+): Promise<RawCustomerRecord[]> {
+  const affiliateId = scope.mode === "store" ? scope.affiliateId : null;
   const rows: RawCustomerRecord[] = [];
   const designQuery = db
     .select({
@@ -87,7 +123,14 @@ async function loadRaw(db: NonNullable<Awaited<ReturnType<typeof getDb>>>, affil
     })
     .from(kitchenDesigns)
     .leftJoin(users, eq(users.id, kitchenDesigns.userId));
-  const designs = affiliateId == null ? await designQuery : await designQuery.where(eq(kitchenDesigns.affiliateId, affiliateId));
+  const designs = scoped(
+    scope.mode === "all"
+      ? await designQuery
+      : scope.mode === "house"
+        ? await designQuery.where(isNull(kitchenDesigns.affiliateId))
+        : await designQuery.where(eq(kitchenDesigns.affiliateId, affiliateId!)),
+    scope,
+  );
   for (const design of designs) {
     rows.push({
       affiliateId: design.affiliateId,
@@ -105,7 +148,14 @@ async function loadRaw(db: NonNullable<Awaited<ReturnType<typeof getDb>>>, affil
   }
 
   const leadQuery = db.select().from(designLeads);
-  const leads = affiliateId == null ? await leadQuery : await leadQuery.where(eq(designLeads.affiliateId, affiliateId));
+  const leads = scoped(
+    scope.mode === "all"
+      ? await leadQuery
+      : scope.mode === "house"
+        ? await leadQuery.where(isNull(designLeads.affiliateId))
+        : await leadQuery.where(eq(designLeads.affiliateId, affiliateId!)),
+    scope,
+  );
   for (const lead of leads) {
     rows.push({
       affiliateId: lead.affiliateId,
@@ -121,7 +171,14 @@ async function loadRaw(db: NonNullable<Awaited<ReturnType<typeof getDb>>>, affil
   }
 
   const orderQuery = db.select().from(orderRequests);
-  const orders = affiliateId == null ? await orderQuery : await orderQuery.where(eq(orderRequests.affiliateId, affiliateId));
+  const orders = scoped(
+    scope.mode === "all"
+      ? await orderQuery
+      : scope.mode === "house"
+        ? await orderQuery.where(isNull(orderRequests.affiliateId))
+        : await orderQuery.where(eq(orderRequests.affiliateId, affiliateId!)),
+    scope,
+  );
   for (const order of orders) {
     const source: CustomerSource = order.status === "confirmed" ? "order" : "quote";
     rows.push({
@@ -142,7 +199,14 @@ async function loadRaw(db: NonNullable<Awaited<ReturnType<typeof getDb>>>, affil
   }
 
   const dealQuery = db.select().from(crmDeals);
-  const deals = affiliateId == null ? await dealQuery : await dealQuery.where(eq(crmDeals.affiliateId, affiliateId));
+  const deals = scoped(
+    scope.mode === "all"
+      ? await dealQuery
+      : scope.mode === "house"
+        ? await dealQuery.where(isNull(crmDeals.affiliateId))
+        : await dealQuery.where(eq(crmDeals.affiliateId, affiliateId!)),
+    scope,
+  );
   for (const deal of deals) {
     rows.push({
       affiliateId: deal.affiliateId,
@@ -160,9 +224,14 @@ async function loadRaw(db: NonNullable<Awaited<ReturnType<typeof getDb>>>, affil
   }
 
   const estimateQuery = db.select().from(affiliateInstallationEstimates);
-  const estimates = affiliateId == null
-    ? await estimateQuery
-    : await estimateQuery.where(eq(affiliateInstallationEstimates.affiliateId, affiliateId));
+  const estimates = scoped(
+    scope.mode === "all"
+      ? await estimateQuery
+      : scope.mode === "house"
+        ? await estimateQuery.where(isNull(affiliateInstallationEstimates.affiliateId))
+        : await estimateQuery.where(eq(affiliateInstallationEstimates.affiliateId, affiliateId!)),
+    scope,
+  );
   for (const estimate of estimates) {
     rows.push({
       affiliateId: estimate.affiliateId,
@@ -182,7 +251,14 @@ async function loadRaw(db: NonNullable<Awaited<ReturnType<typeof getDb>>>, affil
   }
 
   const projectQuery = db.select().from(customerProjects);
-  const projects = affiliateId == null ? await projectQuery : await projectQuery.where(eq(customerProjects.affiliateId, affiliateId));
+  const projects = scoped(
+    scope.mode === "all"
+      ? await projectQuery
+      : scope.mode === "house"
+        ? await projectQuery.where(isNull(customerProjects.affiliateId))
+        : await projectQuery.where(eq(customerProjects.affiliateId, affiliateId!)),
+    scope,
+  );
   for (const project of projects) {
     rows.push({
       affiliateId: project.affiliateId,
@@ -196,6 +272,26 @@ async function loadRaw(db: NonNullable<Awaited<ReturnType<typeof getDb>>>, affil
   }
 
   if (affiliateId != null) {
+    const accounts = await db.select({
+      id: users.id,
+      name: users.name,
+      email: users.email,
+      companyName: users.companyName,
+      createdAt: users.createdAt,
+      lastSignedIn: users.lastSignedIn,
+    }).from(users).where(eq(users.signupAffiliateId, affiliateId));
+    for (const account of accounts) {
+      rows.push({
+        affiliateId,
+        userId: account.id,
+        name: account.name,
+        email: account.email,
+        company: account.companyName,
+        source: "storefront",
+        seenAt: account.createdAt,
+        activityAt: account.lastSignedIn,
+      });
+    }
     const [store] = await db.select({ slug: affiliates.slug }).from(affiliates).where(eq(affiliates.id, affiliateId)).limit(1);
     if (store?.slug) {
       const favorites = await db
@@ -260,23 +356,48 @@ async function ensureDeal(
   return Number((result as unknown as [{ insertId: number }])[0]?.insertId ?? 0);
 }
 
+const directoryFields = {
+  affiliateId: z.number().int().positive().nullable().optional(),
+  adminAll: z.literal(true).optional(),
+  house: z.literal(true).optional(),
+};
+
+function directoryRequest(input?: { affiliateId?: number | null; adminAll?: true; house?: true }): DirectoryScopeInput {
+  return {
+    affiliateId: input?.affiliateId ?? undefined,
+    adminAll: input?.adminAll,
+    house: input?.house,
+  };
+}
+
+async function storeNames(db: NonNullable<Awaited<ReturnType<typeof getDb>>>, ids: number[]) {
+  if (ids.length === 0) return new Map<number, string>();
+  const stores = await db.select({ id: affiliates.id, storeName: affiliates.storeName }).from(affiliates).where(inArray(affiliates.id, ids));
+  return new Map(stores.map((store) => [store.id, store.storeName]));
+}
+
 export const affiliateCustomersRouter = router({
   list: protectedProcedure
-    .input(z.object({ affiliateId: z.number().int().positive().nullable().optional() }).optional())
+    .input(z.object(directoryFields).optional())
     .query(async ({ ctx, input }) => {
-      const { db, affiliateId } = await requireDirectory(ctx.user, input?.affiliateId ?? null);
-      const customers = mergeCustomers(await loadRaw(db, affiliateId)).map(({ designs, quotes, ...customer }) => customer);
+      const { db, affiliateId, mode } = await requireDirectory(ctx.user, directoryRequest(input));
+      const merged = mergeCustomers(await loadRaw(db, { mode, affiliateId })).map(({ designs, quotes, ...customer }) => customer);
+      const names = await storeNames(db, Array.from(new Set(merged.map((customer) => customer.affiliateId).filter((id): id is number => id != null))));
+      const customers = merged.map((customer) => ({
+        ...customer,
+        ownerStoreName: customer.affiliateId == null ? DIRECT_STORE_NAME : names.get(customer.affiliateId) ?? `Affiliate #${customer.affiliateId}`,
+      }));
       return { customers, browsingNote: BROWSING_HISTORY_NOTE, consultationsIncluded: false as const };
     }),
 
   get: protectedProcedure
     .input(z.object({
-      affiliateId: z.number().int().positive().nullable().optional(),
+      ...directoryFields,
       customerKey: z.string().min(3).max(400),
     }))
     .query(async ({ ctx, input }) => {
-      const { db, affiliateId } = await requireDirectory(ctx.user, input.affiliateId ?? null);
-      const raw = await loadRaw(db, affiliateId);
+      const { db, affiliateId, mode } = await requireDirectory(ctx.user, directoryRequest(input));
+      const raw = await loadRaw(db, { mode, affiliateId });
       const customer = findCustomer(mergeCustomers(raw), input.customerKey);
       if (!customer || (affiliateId != null && customer.affiliateId != null && customer.affiliateId !== affiliateId)) {
         throw new TRPCError({ code: "NOT_FOUND", message: "Customer not found." });
@@ -344,6 +465,7 @@ export const affiliateCustomersRouter = router({
 
   summaries: protectedProcedure
     .input(z.object({
+      ...directoryFields,
       deals: z.array(z.object({
         id: z.number().int(),
         contactEmail: z.string().nullable().optional(),
@@ -352,23 +474,21 @@ export const affiliateCustomersRouter = router({
       })).max(300),
     }))
     .query(async ({ ctx, input }) => {
-      const access = await actorAccess(ctx.user);
-      const decision = decideDirectoryAccess(
-        { role: ctx.user.role, access },
-        ctx.user.role === "admin" ? null : access?.affiliateId ?? null,
-      );
-      if (!decision.ok) throw new TRPCError({ code: "FORBIDDEN", message: decision.message });
-      const db = await getDb();
-      if (!db) return { byDealId: {} as Record<number, { text: string; href: string; customerKey: string }> };
-      const affiliateIds = Array.from(new Set(input.deals.map((deal) => deal.affiliateId ?? null)));
+      const { db, affiliateId, mode } = await requireDirectory(ctx.user, directoryRequest(input));
+      const dealIds = Array.from(new Set(input.deals.map((deal) => deal.affiliateId ?? null)));
       const directories = new Map<string, UnifiedCustomer[]>();
-      for (const id of affiliateIds) {
-        if (decision.affiliateId != null && id !== decision.affiliateId) continue;
-        directories.set(String(id), mergeCustomers(await loadRaw(db, id)));
+      for (const id of dealIds) {
+        const dealScope: DirectoryScope = mode === "all"
+          ? (id == null ? { mode: "house", affiliateId: null } : { mode: "store", affiliateId: id })
+          : { mode, affiliateId };
+        if (mode === "store" && id !== affiliateId) continue;
+        if (mode === "house" && id != null) continue;
+        directories.set(String(id), mergeCustomers(await loadRaw(db, dealScope)));
       }
       const byDealId: Record<number, { text: string; href: string; customerKey: string }> = {};
       for (const deal of input.deals) {
-        if (decision.affiliateId != null && (deal.affiliateId ?? null) !== decision.affiliateId) continue;
+        if (mode === "store" && (deal.affiliateId ?? null) !== affiliateId) continue;
+        if (mode === "house" && deal.affiliateId != null) continue;
         const customers = directories.get(String(deal.affiliateId ?? null)) ?? [];
         const email = normalizeEmail(deal.contactEmail);
         const phone = normalizePhone(deal.contactPhone);
@@ -394,10 +514,10 @@ export const affiliateCustomersRouter = router({
       status: statusEnum,
     }))
     .mutation(async ({ ctx, input }) => {
-      const { db, affiliateId } = await requireDirectory(ctx.user, input.affiliateId ?? null);
-      const customer = findCustomer(mergeCustomers(await loadRaw(db, affiliateId)), input.customerKey);
+      const { db, affiliateId, mode } = await requireDirectory(ctx.user, directoryRequest(input));
+      const customer = findCustomer(mergeCustomers(await loadRaw(db, { mode, affiliateId })), input.customerKey);
       if (!customer) throw new TRPCError({ code: "NOT_FOUND", message: "Customer not found." });
-      const dealId = await ensureDeal(db, { affiliateId, userId: ctx.user.id, customer, stage: input.status });
+      const dealId = await ensureDeal(db, { affiliateId: mode === "all" ? customer.affiliateId : affiliateId, userId: ctx.user.id, customer, stage: input.status });
       await db.update(crmDeals).set({
         stage: input.status,
         closedAt: input.status === "won" || input.status === "lost" ? new Date() : null,
@@ -418,10 +538,10 @@ export const affiliateCustomersRouter = router({
       body: z.string().trim().min(1).max(8000),
     }))
     .mutation(async ({ ctx, input }) => {
-      const { db, affiliateId } = await requireDirectory(ctx.user, input.affiliateId ?? null);
-      const customer = findCustomer(mergeCustomers(await loadRaw(db, affiliateId)), input.customerKey);
+      const { db, affiliateId, mode } = await requireDirectory(ctx.user, directoryRequest(input));
+      const customer = findCustomer(mergeCustomers(await loadRaw(db, { mode, affiliateId })), input.customerKey);
       if (!customer) throw new TRPCError({ code: "NOT_FOUND", message: "Customer not found." });
-      const dealId = await ensureDeal(db, { affiliateId, userId: ctx.user.id, customer });
+      const dealId = await ensureDeal(db, { affiliateId: mode === "all" ? customer.affiliateId : affiliateId, userId: ctx.user.id, customer });
       await db.insert(crmActivities).values({
         dealId,
         authorUserId: ctx.user.id,
@@ -439,10 +559,10 @@ export const affiliateCustomersRouter = router({
       followUpAt: z.string().datetime().nullable(),
     }))
     .mutation(async ({ ctx, input }) => {
-      const { db, affiliateId } = await requireDirectory(ctx.user, input.affiliateId ?? null);
-      const customer = findCustomer(mergeCustomers(await loadRaw(db, affiliateId)), input.customerKey);
+      const { db, affiliateId, mode } = await requireDirectory(ctx.user, directoryRequest(input));
+      const customer = findCustomer(mergeCustomers(await loadRaw(db, { mode, affiliateId })), input.customerKey);
       if (!customer) throw new TRPCError({ code: "NOT_FOUND", message: "Customer not found." });
-      const dealId = await ensureDeal(db, { affiliateId, userId: ctx.user.id, customer });
+      const dealId = await ensureDeal(db, { affiliateId: mode === "all" ? customer.affiliateId : affiliateId, userId: ctx.user.id, customer });
       await db.update(crmDeals).set({
         nextFollowUpAt: input.followUpAt ? new Date(input.followUpAt) : null,
       }).where(eq(crmDeals.id, dealId));
@@ -455,10 +575,10 @@ export const affiliateCustomersRouter = router({
       customerKey: z.string().min(3).max(400),
     }))
     .mutation(async ({ ctx, input }) => {
-      const { db, affiliateId } = await requireDirectory(ctx.user, input.affiliateId ?? null);
-      const customer = findCustomer(mergeCustomers(await loadRaw(db, affiliateId)), input.customerKey);
+      const { db, affiliateId, mode } = await requireDirectory(ctx.user, directoryRequest(input));
+      const customer = findCustomer(mergeCustomers(await loadRaw(db, { mode, affiliateId })), input.customerKey);
       if (!customer) throw new TRPCError({ code: "NOT_FOUND", message: "Customer not found." });
-      const dealId = await ensureDeal(db, { affiliateId, userId: ctx.user.id, customer });
+      const dealId = await ensureDeal(db, { affiliateId: mode === "all" ? customer.affiliateId : affiliateId, userId: ctx.user.id, customer });
       return { dealId };
     }),
 });

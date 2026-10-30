@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import { and, eq, isNull, or, sql, ne } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { createPool } from "mysql2";
-import { InsertUser, users, cabinets, vendorLines, distributors, distributorSkus } from "../drizzle/schema";
+import { InsertUser, users, cabinets, vendorLines, distributors, distributorSkus, affiliates } from "../drizzle/schema";
 import { ENV } from './_core/env';
 import {
   approvedVendorContactAccess,
@@ -278,6 +278,8 @@ export async function createEmailUser(params: {
   inviteToken?: string | null;
   authId?: string | null;
   loginMethod?: string | null;
+  /** Storefront slug from signup. "owner" and a missing store leave the column null. */
+  signupStoreScope?: string | null;
 }): Promise<{ id: number; openId: string } | null> {
   const db = await getDb();
   if (!db) return null;
@@ -336,6 +338,16 @@ export async function createEmailUser(params: {
     }
   }
 
+  let signupAffiliateId: number | null = null;
+  const signupSlug = params.signupStoreScope?.trim().toLowerCase() ?? "";
+  if (signupSlug && signupSlug !== "owner") {
+    const [store] = await db.select({ id: affiliates.id, status: affiliates.status })
+      .from(affiliates)
+      .where(eq(affiliates.slug, signupSlug))
+      .limit(1);
+    if (store?.status === "active") signupAffiliateId = store.id;
+  }
+
   await db.insert(users).values({
     openId,
     name: params.name ?? null,
@@ -348,6 +360,7 @@ export async function createEmailUser(params: {
     role,
     distributorId,
     approvedVendorLineId,
+    signupAffiliateId,
     lastSignedIn: new Date(),
   });
 
@@ -378,6 +391,16 @@ export async function createEmailUser(params: {
   // on the next sign-in without downgrading admin or affiliate.
   await linkApprovedContractorAccess(db, created);
   return { id: created.id, openId: created.openId };
+}
+
+/** Sets users.signupAffiliateId only while it is still null. */
+export async function assignSignupAffiliateOnce(userId: number, affiliateId: number | null): Promise<void> {
+  if (affiliateId == null) return;
+  const db = await getDb();
+  if (!db) return;
+  await db.update(users)
+    .set({ signupAffiliateId: affiliateId })
+    .where(and(eq(users.id, userId), isNull(users.signupAffiliateId)));
 }
 
 /**

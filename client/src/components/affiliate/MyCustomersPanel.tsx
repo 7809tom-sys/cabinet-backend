@@ -41,12 +41,15 @@ type PreviewDetail = {
 
 export function MyCustomersPanel({
   affiliateId,
+  house = false,
   initialCustomerKey = null,
   previewCustomers = null,
   previewDetail = null,
   canAssist = true,
 }: {
   affiliateId: number | null;
+  /** Unattributed Cabinet Dealz customers. Does not include other affiliates. */
+  house?: boolean;
   initialCustomerKey?: string | null;
   previewCustomers?: ListCustomer[] | null;
   previewDetail?: PreviewDetail | null;
@@ -54,7 +57,7 @@ export function MyCustomersPanel({
 }) {
   const utils = trpc.useUtils();
   const list = trpc.affiliateCustomers.list.useQuery(
-    { affiliateId },
+    affiliateId != null ? { affiliateId } : house ? { house: true } : { adminAll: true },
     { enabled: previewCustomers == null, retry: false },
   );
   const [search, setSearch] = useState("");
@@ -173,6 +176,7 @@ export function MyCustomersPanel({
       )}
       <CustomerDetailSheet
         affiliateId={affiliateId}
+        house={house}
         customerKey={selectedKey}
         previewDetail={previewDetail}
         canAssist={canAssist}
@@ -183,8 +187,15 @@ export function MyCustomersPanel({
   );
 }
 
-function CustomerDetailSheet({ affiliateId, customerKey, previewDetail, canAssist, onClose, onChanged }: {
+function customerScope(affiliateId: number | null, house: boolean) {
+  if (affiliateId != null) return { affiliateId };
+  if (house) return { house: true as const };
+  return { adminAll: true as const };
+}
+
+function CustomerDetailSheet({ affiliateId, house = false, customerKey, previewDetail, canAssist, onClose, onChanged }: {
   affiliateId: number | null;
+  house?: boolean;
   customerKey: string | null;
   previewDetail?: PreviewDetail | null;
   canAssist: boolean;
@@ -192,7 +203,7 @@ function CustomerDetailSheet({ affiliateId, customerKey, previewDetail, canAssis
   onChanged: () => void;
 }) {
   const detail = trpc.affiliateCustomers.get.useQuery(
-    { affiliateId, customerKey: customerKey ?? "" },
+    { ...customerScope(affiliateId, house), customerKey: customerKey ?? "" },
     { enabled: customerKey != null && previewDetail == null, retry: false },
   );
   const setStatus = trpc.affiliateCustomers.setStatus.useMutation({ onSuccess: onChanged, onError: (error) => toast.error(error.message) });
@@ -236,18 +247,18 @@ function CustomerDetailSheet({ affiliateId, customerKey, previewDetail, canAssis
               <p className="text-xs text-muted-foreground">{customer.sources.join(", ")} · first seen {when(customer.firstSeen)} · {money(quoteTotal)}</p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <select className="h-9 rounded-md border bg-background px-2 text-sm" value={customer.status} onChange={(event) => setStatus.mutate({ affiliateId, customerKey: customer.key, status: event.target.value as CustomerStatus })}>
+              <select className="h-9 rounded-md border bg-background px-2 text-sm" value={customer.status} onChange={(event) => setStatus.mutate({ ...customerScope(affiliateId, house), customerKey: customer.key, status: event.target.value as CustomerStatus })}>
                 {STATUSES.filter((item) => item !== "all").map((item) => <option key={item} value={item}>{item}</option>)}
               </select>
               <Input type="date" aria-label="Follow-up date" onChange={(event) => {
                 if (!event.target.value) return;
-                setFollowUp.mutate({ affiliateId, customerKey: customer.key, followUpAt: new Date(`${event.target.value}T12:00:00`).toISOString() });
+                setFollowUp.mutate({ ...customerScope(affiliateId, house), customerKey: customer.key, followUpAt: new Date(`${event.target.value}T12:00:00`).toISOString() });
               }} />
-              <Button size="sm" variant="outline" onClick={() => openDeal.mutate({ affiliateId, customerKey: customer.key })}>Create or open CRM deal</Button>
+              <Button size="sm" variant="outline" onClick={() => openDeal.mutate({ ...customerScope(affiliateId, house), customerKey: customer.key })}>Create or open CRM deal</Button>
             </div>
             <div className="space-y-2">
               <Textarea value={note} onChange={(event) => setNote(event.target.value)} placeholder="Add a note" />
-              <Button size="sm" disabled={!note.trim() || addNote.isPending} onClick={() => addNote.mutate({ affiliateId, customerKey: customer.key, body: note.trim() })}>Add note</Button>
+              <Button size="sm" disabled={!note.trim() || addNote.isPending} onClick={() => addNote.mutate({ ...customerScope(affiliateId, house), customerKey: customer.key, body: note.trim() })}>Add note</Button>
             </div>
             <section>
               <h3 className="text-sm font-semibold mb-2">Designs, quotes, and projects</h3>

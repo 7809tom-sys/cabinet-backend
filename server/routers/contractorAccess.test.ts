@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { contractorAccessRequests, users } from "../../drizzle/schema";
+import { affiliates, affiliateTeamMembers, contractorAccessRequests, users } from "../../drizzle/schema";
 
 const { getDbMock } = vi.hoisted(() => ({ getDbMock: vi.fn() }));
 
@@ -18,6 +18,7 @@ type StoredRequest = {
   phone: string | null;
   licenseNumber: string | null;
   status: string;
+  affiliateId?: number | null;
   reviewedByUserId: number | null;
   reviewedAt: Date | null;
   createdAt: Date;
@@ -52,18 +53,25 @@ function chain(rows: unknown[]) {
 describe("contractorAccess", () => {
   let userRows: StoredUser[];
   let requestRows: StoredRequest[];
+  let affiliateRows: Array<{ id: number; userId: number | null; email: string | null; status: string; slug: string }>;
   let updates: { table: string; set: Record<string, unknown> }[];
   let nextId: number;
 
   beforeEach(() => {
     userRows = [];
     requestRows = [];
+    affiliateRows = [{ id: 70, userId: 9, email: "ada@shop.test", status: "active", slug: "ada-store" }];
     updates = [];
     nextId = 1;
     getDbMock.mockReset();
     getDbMock.mockResolvedValue({
       select: () => ({
-        from: (table: unknown) => chain(table === users ? userRows : requestRows),
+        from: (table: unknown) => chain(
+          table === users ? userRows
+            : table === affiliates ? affiliateRows
+              : table === affiliateTeamMembers ? []
+                : requestRows,
+        ),
       }),
       insert: (table: unknown) => ({
         values: async (values: Record<string, unknown>) => {
@@ -79,6 +87,7 @@ describe("contractorAccess", () => {
             phone: null,
             licenseNumber: null,
             status: "pending",
+            affiliateId: null,
             reviewedByUserId: null,
             reviewedAt: null,
             createdAt: new Date(),
@@ -270,6 +279,7 @@ describe("contractorAccess", () => {
         phone: "555-0101",
         licenseNumber: null,
         status: "pending",
+        affiliateId: 70,
         reviewedByUserId: null,
         reviewedAt: null,
         createdAt: new Date("2026-02-01T00:00:00Z"),
@@ -284,6 +294,7 @@ describe("contractorAccess", () => {
         phone: "555-0102",
         licenseNumber: "L",
         status: "approved",
+        affiliateId: 70,
         reviewedByUserId: 1,
         reviewedAt: new Date("2026-03-02T00:00:00Z"),
         createdAt: new Date("2026-03-01T00:00:00Z"),
@@ -298,6 +309,7 @@ describe("contractorAccess", () => {
         phone: "555-0103",
         licenseNumber: null,
         status: "pending",
+        affiliateId: 80,
         reviewedByUserId: null,
         reviewedAt: null,
         createdAt: new Date("2026-04-01T00:00:00Z"),
@@ -392,7 +404,7 @@ describe("contractorAccess", () => {
       "contractorName",
       "contractorEmail",
     ]));
-    expect(joins).toBe(2);
+    expect(joins).toBe(3);
     expect(rows).toMatchObject([
       {
         id: 7,
@@ -540,7 +552,7 @@ describe("contractorAccess", () => {
 
     updates.length = 0;
     await expect(caller({ id: 4, role: "partner", email: "other@shop.test" }).affiliateReview({ id: 4, decision: "rejected" }))
-      .rejects.toMatchObject({ code: "FORBIDDEN", message: "You can only review contractors you submitted." });
+      .rejects.toMatchObject({ code: "FORBIDDEN", message: "You can only review contractors for this store." });
     await expect(caller({ id: 8, role: "contractor", email: "pat@shop.test" }).affiliateReview({ id: 4, decision: "approved" }))
       .rejects.toMatchObject({ code: "FORBIDDEN", message: "Only an affiliate can review contractors they submitted." });
 

@@ -214,6 +214,9 @@ export default function CustomersAdmin() {
                           <Building2 className="h-3.5 w-3.5" /> {u.companyName}
                         </span>
                       )}
+                      <span className="inline-flex items-center gap-1">
+                        <Building2 className="h-3.5 w-3.5" /> {u.ownerStoreName}
+                      </span>
                       {u.lastSignedIn && (
                         <span className="inline-flex items-center gap-1">
                           <Clock className="h-3.5 w-3.5" /> Last seen {new Date(u.lastSignedIn).toLocaleDateString()}

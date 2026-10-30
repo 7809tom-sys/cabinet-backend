@@ -2,7 +2,7 @@ import { and, desc, eq, isNull, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/mysql-core";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
-import { affiliateContractorMarkups, contractorAccessRequests, users } from "../../drizzle/schema";
+import { affiliateContractorMarkups, affiliates, contractorAccessRequests, users } from "../../drizzle/schema";
 import { getDb, getPricingSettings } from "../db";
 import {
   isAffiliateContractorMarkupPercent,
@@ -19,10 +19,13 @@ import {
   normalizeContractorEmail,
   type ContractorRequestIdentity,
 } from "../lib/contractorAccessPolicy";
+import { DIRECT_STORE_NAME } from "@shared/customerDirectory";
+import { affiliateIdFromStoreScope, listAccessibleAffiliateIds, resolveAffiliateSiteScope, resolveContractorSubmitAffiliateId, rowBelongsToSite } from "../lib/affiliateSiteScope";
 import { adminProcedure, protectedProcedure, router } from "../_core/trpc";
 
 const STATUSES = ["pending", "approved", "rejected"] as const;
 const requestSubmitter = alias(users, "contractorAccessSubmitter");
+const requestStore = alias(affiliates, "contractorAccessStore");
 
 const businessNameSchema = z.string().trim().min(2).max(256);
 const phoneSchema = z.string().trim().min(7).max(32);
@@ -102,6 +105,29 @@ function markupAffiliateUserId(user: { id: number; role: string }, affiliateUser
   return user.role === "admin" && affiliateUserId != null ? affiliateUserId : user.id;
 }
 
+/** Store for this markup. A login with several stores must name one. No store keeps the legacy user key. */
+async function markupTarget(
+  db: Database,
+  user: { id: number; email: string | null; role: string },
+  input?: { affiliateUserId?: number; affiliateId?: number; slug?: string },
+): Promise<{ affiliateUserId: number; affiliateId: number | null }> {
+  const affiliateUserId = markupAffiliateUserId(user, input?.affiliateUserId);
+  const subject = user.role === "admin" && input?.affiliateUserId != null
+    ? { id: input.affiliateUserId, email: null, role: "partner" }
+    : user;
+  let affiliateId = input?.affiliateId ?? null;
+  if (input?.slug) affiliateId = await affiliateIdFromStoreScope(db, input.slug);
+  const accessible = await listAccessibleAffiliateIds(db, subject);
+  if (affiliateId == null && accessible.length === 1) affiliateId = accessible[0];
+  if (affiliateId == null && accessible.length > 1) {
+    throw new TRPCError({ code: "BAD_REQUEST", message: "Choose which affiliate store to view." });
+  }
+  if (affiliateId != null && user.role !== "admin" && !accessible.includes(affiliateId)) {
+    throw new TRPCError({ code: "FORBIDDEN", message: "You can only change your own contractor markup." });
+  }
+  return { affiliateUserId, affiliateId };
+}
+
 type AccessRequest = typeof contractorAccessRequests.$inferSelect;
 
 async function applyContractorAccessDecision(
@@ -145,6 +171,8 @@ export const contractorAccessRouter = router({
     businessName: businessNameSchema,
     phone: phoneSchema,
     licenseNumber: licenseNumberSchema,
+    storeScope: z.string().trim().min(1).max(64).optional(),
+    slug: z.string().trim().min(1).max(64).optional(),
   })).mutation(async ({ ctx, input }) => {
     if (ctx.user.role === "contractor") {
       throw new TRPCError({ code: "BAD_REQUEST", message: "This account is already an approved contractor." });
@@ -169,8 +197,10 @@ export const contractorAccessRouter = router({
       }
       return { id: pending.id, status: "pending" as const };
     }
+    const affiliateId = await affiliateIdFromStoreScope(db, input.storeScope ?? input.slug);
     const result = await db.insert(contractorAccessRequests).values({
       userId: ctx.user.id,
+      affiliateId,
       businessName: input.businessName,
       phone: input.phone,
       licenseNumber: input.licenseNumber || null,
@@ -184,6 +214,9 @@ export const contractorAccessRouter = router({
     businessName: businessNameSchema,
     phone: phoneSchema,
     licenseNumber: licenseNumberSchema,
+    affiliateId: z.number().int().positive().optional(),
+    slug: z.string().trim().min(1).max(64).optional(),
+    storeScope: z.string().trim().min(1).max(64).optional(),
   })).mutation(async ({ ctx, input }) => {
     requireAffiliateDesk(ctx.user.role);
     const db = await getDb();
@@ -199,9 +232,15 @@ export const contractorAccessRouter = router({
       contractorEmail: email,
     });
     if (pending) return { id: pending.id, status: "pending" as const, duplicate: true };
+    const affiliateId = await resolveContractorSubmitAffiliateId(db, ctx.user, {
+      affiliateId: input.affiliateId,
+      slug: input.slug,
+      storeScope: input.storeScope,
+    });
     const result = await db.insert(contractorAccessRequests).values({
       userId: matched?.id ?? null,
       submittedByUserId: ctx.user.id,
+      affiliateId,
       contractorName: input.contractorName,
       contractorEmail: email,
       businessName: input.businessName,
@@ -211,11 +250,17 @@ export const contractorAccessRouter = router({
     });
     return { id: insertedId(result), status: "pending" as const, duplicate: false };
   }),
-  myAffiliateRequests: protectedProcedure.query(async ({ ctx }) => {
+  myAffiliateRequests: protectedProcedure
+    .input(z.object({
+      affiliateId: z.number().int().positive().optional(),
+      slug: z.string().trim().min(1).max(64).optional(),
+    }).optional())
+    .query(async ({ ctx, input }) => {
     requireAffiliateDesk(ctx.user.role);
     const db = await getDb();
     if (!db) return [];
-    const rows = await db.select({
+    const scope = await resolveAffiliateSiteScope(db, ctx.user, input ?? undefined);
+    const requestQuery = db.select({
       id: contractorAccessRequests.id,
       contractorName: contractorAccessRequests.contractorName,
       contractorEmail: contractorAccessRequests.contractorEmail,
@@ -227,11 +272,13 @@ export const contractorAccessRouter = router({
       reviewedAt: contractorAccessRequests.reviewedAt,
       userId: contractorAccessRequests.userId,
       submittedByUserId: contractorAccessRequests.submittedByUserId,
-    }).from(contractorAccessRequests)
-      .where(eq(contractorAccessRequests.submittedByUserId, ctx.user.id))
-      .orderBy(desc(contractorAccessRequests.createdAt));
+      affiliateId: contractorAccessRequests.affiliateId,
+    }).from(contractorAccessRequests);
+    const rows = scope.mode === "store"
+      ? await requestQuery.where(eq(contractorAccessRequests.affiliateId, scope.affiliateId)).orderBy(desc(contractorAccessRequests.createdAt))
+      : await requestQuery.orderBy(desc(contractorAccessRequests.createdAt));
     return rows
-      .filter((row) => row.submittedByUserId === ctx.user.id)
+      .filter((row) => rowBelongsToSite(row.affiliateId, scope))
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
       .map((row) => ({
         id: row.id,
@@ -250,6 +297,7 @@ export const contractorAccessRouter = router({
   list: adminProcedure.input(z.object({
     status: z.enum(STATUSES).optional(),
     submittedByUserId: z.number().int().positive().optional(),
+    affiliateId: z.number().int().positive().optional(),
   }).optional()).query(async ({ input }) => {
     const db = await getDb();
     if (!db) return [];
@@ -269,13 +317,17 @@ export const contractorAccessRouter = router({
       submittedByEmail: requestSubmitter.email,
       contractorName: contractorAccessRequests.contractorName,
       contractorEmail: contractorAccessRequests.contractorEmail,
+      affiliateId: contractorAccessRequests.affiliateId,
+      ownerStoreName: requestStore.storeName,
     }).from(contractorAccessRequests)
       .leftJoin(users, eq(users.id, contractorAccessRequests.userId))
       .leftJoin(requestSubmitter, eq(requestSubmitter.id, contractorAccessRequests.submittedByUserId))
+      .leftJoin(requestStore, eq(requestStore.id, contractorAccessRequests.affiliateId))
       .orderBy(desc(contractorAccessRequests.createdAt));
     return rows
       .filter((row) => (input?.status ? row.status === input.status : true))
       .filter((row) => (input?.submittedByUserId != null ? row.submittedByUserId === input.submittedByUserId : true))
+      .filter((row) => (input?.affiliateId != null ? row.affiliateId === input.affiliateId : true))
       .map((row) => ({
         id: row.id,
         userId: row.userId,
@@ -293,6 +345,9 @@ export const contractorAccessRouter = router({
         submittedByEmail: row.submittedByEmail ?? null,
         contractorName: row.contractorName ?? null,
         contractorEmail: row.contractorEmail ?? null,
+        affiliateId: row.affiliateId ?? null,
+        ownerAffiliateId: row.affiliateId ?? null,
+        ownerStoreName: row.affiliateId == null ? DIRECT_STORE_NAME : (row.ownerStoreName ?? `Affiliate #${row.affiliateId}`),
       }));
   }),
   review: adminProcedure.input(z.object({
@@ -308,6 +363,8 @@ export const contractorAccessRouter = router({
   affiliateReview: protectedProcedure.input(z.object({
     id: z.number().int().positive(),
     decision: z.enum(["approved", "rejected"]),
+    affiliateId: z.number().int().positive().optional(),
+    adminAll: z.literal(true).optional(),
   })).mutation(async ({ ctx, input }) => {
     if (!canReviewAffiliateContractorRequest(ctx.user.role)) {
       throw new TRPCError({
@@ -319,11 +376,34 @@ export const contractorAccessRouter = router({
     if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
     const [request] = await db.select().from(contractorAccessRequests).where(eq(contractorAccessRequests.id, input.id)).limit(1);
     if (!request) throw new TRPCError({ code: "NOT_FOUND", message: "Request not found." });
-    if (ctx.user.role !== "admin" && request.submittedByUserId !== ctx.user.id) {
-      throw new TRPCError({
-        code: "FORBIDDEN",
-        message: "You can only review contractors you submitted.",
-      });
+    if (ctx.user.role !== "admin") {
+      const submittedByCaller = request.submittedByUserId === ctx.user.id;
+      let storeMatch = false;
+      if (request.affiliateId != null) {
+        try {
+          const scope = await resolveAffiliateSiteScope(db, ctx.user, { affiliateId: request.affiliateId });
+          storeMatch = scope.mode === "store" && scope.affiliateId === request.affiliateId;
+        } catch {
+          storeMatch = false;
+        }
+      }
+      if (!submittedByCaller && !storeMatch) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You can only review contractors for this store.",
+        });
+      }
+    } else if (!input.adminAll && request.affiliateId != null) {
+      if (input.affiliateId != null && input.affiliateId !== request.affiliateId) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "You can only review contractors for this store." });
+      }
+      if (input.affiliateId == null) {
+        const accessible = await listAccessibleAffiliateIds(db, ctx.user);
+        const ownStore = accessible.length === 1 && accessible[0] === request.affiliateId;
+        if (!ownStore) {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Open the admin directory to review every store." });
+        }
+      }
     }
     if (request.status !== "pending") {
       throw new TRPCError({
@@ -335,15 +415,25 @@ export const contractorAccessRouter = router({
   }),
   affiliateMarkup: protectedProcedure.input(z.object({
     affiliateUserId: z.number().int().positive().optional(),
+    affiliateId: z.number().int().positive().optional(),
+    slug: z.string().trim().min(1).max(64).optional(),
   }).optional()).query(async ({ ctx, input }) => {
-    const affiliateUserId = markupAffiliateUserId(ctx.user, input?.affiliateUserId);
     const db = await getDb();
     if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+    const target = await markupTarget(db, ctx.user, input);
     const settings = await getPricingSettings();
-    const [row] = await db.select({ markupBps: affiliateContractorMarkups.markupBps })
-      .from(affiliateContractorMarkups)
-      .where(eq(affiliateContractorMarkups.affiliateUserId, affiliateUserId))
-      .limit(1);
+    const markupRows = await db.select({
+      markupBps: affiliateContractorMarkups.markupBps,
+      affiliateId: affiliateContractorMarkups.affiliateId,
+      affiliateUserId: affiliateContractorMarkups.affiliateUserId,
+    }).from(affiliateContractorMarkups).where(target.affiliateId != null
+      ? eq(affiliateContractorMarkups.affiliateId, target.affiliateId)
+      : eq(affiliateContractorMarkups.affiliateUserId, target.affiliateUserId));
+    const row = markupRows.find((item) => (
+      target.affiliateId != null
+        ? item.affiliateId === target.affiliateId || (item.affiliateId == null && item.affiliateUserId === target.affiliateUserId)
+        : item.affiliateUserId === target.affiliateUserId
+    )) ?? markupRows[0];
     return {
       markupPercent: row ? markupBpsToPercent(row.markupBps) : null,
       siteDefaultPercent: siteContractorMarkupPercent(settings.contractorMarkupBps),
@@ -351,6 +441,8 @@ export const contractorAccessRouter = router({
   }),
   setAffiliateMarkup: protectedProcedure.input(z.object({
     affiliateUserId: z.number().int().positive().optional(),
+    affiliateId: z.number().int().positive().optional(),
+    slug: z.string().trim().min(1).max(64).optional(),
     markupPercent: z.number().nullable().superRefine((value, ctx) => {
       if (value == null) return;
       if (!isAffiliateContractorMarkupPercent(value)) {
@@ -361,20 +453,23 @@ export const contractorAccessRouter = router({
       }
     }),
   })).mutation(async ({ ctx, input }) => {
-    const affiliateUserId = markupAffiliateUserId(ctx.user, input.affiliateUserId);
     const db = await getDb();
     if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+    const target = await markupTarget(db, ctx.user, input);
     if (input.markupPercent == null) {
       await db.delete(affiliateContractorMarkups)
-        .where(eq(affiliateContractorMarkups.affiliateUserId, affiliateUserId));
+        .where(target.affiliateId != null
+          ? eq(affiliateContractorMarkups.affiliateId, target.affiliateId)
+          : eq(affiliateContractorMarkups.affiliateUserId, target.affiliateUserId));
     } else {
       const markupBps = markupPercentToBps(input.markupPercent);
       await db.insert(affiliateContractorMarkups).values({
-        affiliateUserId,
+        affiliateUserId: target.affiliateUserId,
+        affiliateId: target.affiliateId,
         markupBps,
         updatedByUserId: ctx.user.id,
       }).onDuplicateKeyUpdate({
-        set: { markupBps, updatedByUserId: ctx.user.id },
+        set: { markupBps, updatedByUserId: ctx.user.id, affiliateId: target.affiliateId, affiliateUserId: target.affiliateUserId },
       });
     }
     const settings = await getPricingSettings();

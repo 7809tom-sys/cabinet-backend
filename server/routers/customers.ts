@@ -3,7 +3,8 @@ import { and, eq, or, like, desc, sql, inArray } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { adminProcedure, protectedProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
-import { users, carts, cartItems, kitchenDesigns } from "../../drizzle/schema";
+import { users, carts, cartItems, kitchenDesigns, affiliates } from "../../drizzle/schema";
+import { DIRECT_STORE_NAME } from "@shared/customerDirectory";
 import { PRICING_TIERS } from "@shared/pricingTier";
 
 const tierEnum = z.enum(["homeowner", "contractor", "wholesale"]);
@@ -63,12 +64,19 @@ export const customersRouter = router({
           pricingTier: users.pricingTier,
           createdAt: users.createdAt,
           lastSignedIn: users.lastSignedIn,
+          signupAffiliateId: users.signupAffiliateId,
         })
         .from(users)
         .where(where)
         .orderBy(desc(users.lastSignedIn))
         .limit(input.pageSize)
         .offset((input.page - 1) * input.pageSize);
+
+      const storeIds = Array.from(new Set(rows.map((row) => row.signupAffiliateId).filter((id): id is number => id != null)));
+      const stores = storeIds.length
+        ? await db.select({ id: affiliates.id, storeName: affiliates.storeName }).from(affiliates).where(inArray(affiliates.id, storeIds))
+        : [];
+      const storeNameById = new Map(stores.map((store) => [store.id, store.storeName]));
 
       // Tier counts across the whole table (not just the current page/filter).
       const tierRows = await db
@@ -80,7 +88,13 @@ export const customersRouter = router({
       for (const r of tierRows) counts[r.tier as string] = Number(r.n);
 
       return {
-        rows,
+        rows: rows.map((row) => ({
+          ...row,
+          ownerAffiliateId: row.signupAffiliateId ?? null,
+          ownerStoreName: row.signupAffiliateId == null
+            ? DIRECT_STORE_NAME
+            : storeNameById.get(row.signupAffiliateId) ?? `Affiliate #${row.signupAffiliateId}`,
+        })),
         total: Number(total),
         page: input.page,
         pageSize: input.pageSize,

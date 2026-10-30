@@ -22,7 +22,7 @@ function caller(user: { id: number; role: string; email: string | null }) {
 }
 
 describe("contractorAccess affiliate markup", () => {
-  let markups: Array<{ affiliateUserId: number; markupBps: number; updatedByUserId: number | null }>;
+  let markups: Array<{ affiliateUserId: number; affiliateId?: number | null; markupBps: number; updatedByUserId: number | null }>;
 
   beforeEach(() => {
     markups = [];
@@ -41,20 +41,21 @@ describe("contractorAccess affiliate markup", () => {
         from: (table: unknown) => {
           const rows = table === affiliateContractorMarkups ? markups : [];
           const builder = {
-            where: () => builder,
+            where: () => Promise.resolve(rows),
             limit: async (count: number) => rows.slice(0, count),
           };
           return builder;
         },
       }),
       insert: (table: unknown) => ({
-        values: (values: { affiliateUserId: number; markupBps: number; updatedByUserId: number | null }) => ({
-          onDuplicateKeyUpdate: async ({ set }: { set: { markupBps: number; updatedByUserId: number | null } }) => {
+        values: (values: { affiliateUserId: number; affiliateId?: number | null; markupBps: number; updatedByUserId: number | null }) => ({
+          onDuplicateKeyUpdate: async ({ set }: { set: { markupBps: number; updatedByUserId: number | null; affiliateId?: number | null } }) => {
             if (table !== affiliateContractorMarkups) throw new Error("unexpected insert");
             const existing = markups.find((row) => row.affiliateUserId === values.affiliateUserId);
             if (existing) {
               existing.markupBps = set.markupBps;
               existing.updatedByUserId = set.updatedByUserId;
+              existing.affiliateId = set.affiliateId ?? values.affiliateId ?? null;
             } else {
               markups.push({ ...values, ...set });
             }
@@ -79,7 +80,7 @@ describe("contractorAccess affiliate markup", () => {
     const affiliate = caller({ id: 9, role: "affiliate", email: "ada@shop.test" });
     const saved = await affiliate.setAffiliateMarkup({ markupPercent: 29.5 });
     expect(saved).toEqual({ markupPercent: 29.5, siteDefaultPercent: 29 });
-    expect(markups).toEqual([{ affiliateUserId: 9, markupBps: 2950, updatedByUserId: 9 }]);
+    expect(markups).toEqual([{ affiliateUserId: 9, affiliateId: null, markupBps: 2950, updatedByUserId: 9 }]);
     await expect(affiliate.affiliateMarkup()).resolves.toEqual({ markupPercent: 29.5, siteDefaultPercent: 29 });
 
     await expect(caller({ id: 4, role: "partner", email: "other@shop.test" }).setAffiliateMarkup({
@@ -93,7 +94,7 @@ describe("contractorAccess affiliate markup", () => {
       siteDefaultPercent: 29,
     });
     await admin.setAffiliateMarkup({ affiliateUserId: 9, markupPercent: 0 });
-    expect(markups[0]).toMatchObject({ affiliateUserId: 9, markupBps: 0, updatedByUserId: 2 });
+    expect(markups[0]).toMatchObject({ affiliateUserId: 9, affiliateId: null, markupBps: 0, updatedByUserId: 2 });
     await admin.setAffiliateMarkup({ affiliateUserId: 9, markupPercent: null });
     expect(markups).toEqual([]);
 
