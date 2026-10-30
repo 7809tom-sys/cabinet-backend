@@ -1875,11 +1875,16 @@ export const contractorCustomers = mysqlTable("contractor_customers", {
 export type ContractorCustomer = typeof contractorCustomers.$inferSelect;
 export type InsertContractorCustomer = typeof contractorCustomers.$inferInsert;
 
-// Pending contractor applications. Approval sets users.role to contractor.
-// Rejection leaves the account as a customer (role user).
+// Contractor applications. Self-service rows always have userId set.
+// Affiliate-submitted rows (submittedByUserId set) may have a null userId until
+// that contractorEmail signs in. Approval of a linked account sets users.role
+// to contractor. Rejection leaves an existing account as a customer (role user).
 export const contractorAccessRequests = mysqlTable("contractor_access_requests", {
   id: int("id").autoincrement().primaryKey(),
-  userId: int("userId").notNull(),
+  userId: int("userId"),
+  submittedByUserId: int("submittedByUserId"),
+  contractorName: varchar("contractorName", { length: 256 }),
+  contractorEmail: varchar("contractorEmail", { length: 320 }),
   businessName: varchar("businessName", { length: 256 }).notNull(),
   phone: varchar("phone", { length: 32 }).notNull(),
   licenseNumber: varchar("licenseNumber", { length: 64 }),
@@ -1890,6 +1895,8 @@ export const contractorAccessRequests = mysqlTable("contractor_access_requests",
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 }, (t) => ({
   userStatusIdx: index("contractor_access_requests_user_idx").on(t.userId, t.status),
+  emailStatusIdx: index("contractor_access_requests_email_status_idx").on(t.contractorEmail, t.status),
+  submitterIdx: index("contractor_access_requests_submitter_idx").on(t.submittedByUserId),
 }));
 export type ContractorAccessRequest = typeof contractorAccessRequests.$inferSelect;
 

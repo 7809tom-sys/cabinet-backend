@@ -9,6 +9,7 @@ import {
   approvedVendorMatchesDistributor,
 } from "./lib/approvedVendorAccess";
 import { installMysqlPoolFreeShippingGuard, primeCabinetFreeShippingColumn } from "./lib/cabinetFreeShippingSchema";
+import { linkApprovedContractorAccess } from "./lib/contractorAccessGrant";
 import { isOwnerEmail, shouldPromoteOwnerToAdmin } from "./lib/ownerAdmin";
 
 /**
@@ -169,6 +170,11 @@ export async function upsertUser(user: InsertUser): Promise<void> {
     await db.insert(users).values(values).onDuplicateKeyUpdate({
       set: updateSet,
     });
+    // Legacy OAuth upsert. Supabase sign-in uses createEmailUser and
+    // authenticateSupabaseBearer, which call the same linker. An approved
+    // affiliate contractor request for this email is linked here too.
+    const saved = await getUserByOpenId(user.openId);
+    if (saved) await linkApprovedContractorAccess(db, saved);
   } catch (error) {
     console.error("[Database] Failed to upsert user:", error);
     throw error;
@@ -364,7 +370,14 @@ export async function createEmailUser(params: {
   }
 
   const created = await getUserByEmailLower(params.emailLower);
-  return created ? { id: created.id, openId: created.openId } : null;
+  if (!created) return null;
+  // First sign-up. If an affiliate already had this email approved, link the
+  // request and grant contractor when the new role is still user. Later
+  // sign-ins run the same linker from authenticateSupabaseBearer, after owner
+  // and vendor role sync, so an approval that lands after signup is picked up
+  // on the next sign-in without downgrading admin or affiliate.
+  await linkApprovedContractorAccess(db, created);
+  return { id: created.id, openId: created.openId };
 }
 
 /**
