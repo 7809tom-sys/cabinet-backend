@@ -49,6 +49,7 @@ import { sendEmail } from "../email";
 import { loadCrmOutboundPlan } from "../lib/crmOutboundMail";
 import { sendCrmDealEmail } from "../lib/crmCustomerMail";
 import { distributorPoAttachmentNames } from "../lib/distributorOrderEmail";
+import { contactEmailToBackfill, loadDealInvoiceRecipient, usableInvoiceEmail } from "../lib/invoiceRecipient";
 import { buildOrderDistributorMessage } from "../lib/orderSideEffects";
 import { createDistributorPoPdf } from "../lib/distributorPoPdf";
 import { crmHtmlToText, crmMailboxVisible, sanitizeCrmEmailHtml } from "@shared/crmMailbox";
@@ -645,7 +646,11 @@ export const crmRouter = router({
         laborAmount: laborPrefill.amount,
         laborSource: laborPrefill.source,
       };
-      return { deal, activities, linkedDesigns, emails, invoiceBrand, invoicePrefill, laborEstimates };
+      const invoiceRecipient = await loadDealInvoiceRecipient(db, {
+        contactEmail: deal.contactEmail,
+        orderRequestId: deal.orderRequestId,
+      });
+      return { deal, activities, linkedDesigns, emails, invoiceBrand, invoicePrefill, invoiceRecipient, laborEstimates };
     }),
 
   // ── Saved designs compatible with this CRM scope/deal ──────────────────────
@@ -1057,11 +1062,13 @@ export const crmRouter = router({
     }),
 
   // ── Send a final branded invoice PDF to the CRM lead contact ────────────────
-  // The recipient always comes from the scoped deal itself; callers cannot turn
-  // this into an arbitrary outbound-email endpoint.
+  // The address is the one the deal owner typed, otherwise the lead, the linked
+  // order, the stored Stripe checkout row, the customer account, or a live
+  // Stripe customer email. A blank lead is filled in when the invoice is sent.
   sendInvoiceEmail: protectedProcedure
     .input(z.object({
       dealId: z.number().int(),
+      to: z.string().trim().email().max(320).optional(),
       lines: z.array(z.object({
         description: z.string().trim().min(1).max(256),
         amount: z.number().finite().min(0).max(10_000_000),
@@ -1072,9 +1079,18 @@ export const crmRouter = router({
     }))
     .mutation(async ({ ctx, input }) => {
       const { db, deal } = await getOwnedDeal(ctx, input.dealId);
-      const to = deal.contactEmail?.trim();
+      const typed = usableInvoiceEmail(input.to);
+      const resolved = typed ? null : await loadDealInvoiceRecipient(db, {
+        contactEmail: deal.contactEmail,
+        orderRequestId: deal.orderRequestId,
+      });
+      const to = typed ?? resolved?.email ?? null;
       if (!to) {
         throw new TRPCError({ code: "PRECONDITION_FAILED", message: "missing_recipient" });
+      }
+      const backfill = contactEmailToBackfill(deal.contactEmail, to);
+      if (backfill) {
+        await db.update(crmDeals).set({ contactEmail: backfill }).where(eq(crmDeals.id, deal.id));
       }
 
       const plan = await loadCrmOutbound(db, deal.affiliateId);

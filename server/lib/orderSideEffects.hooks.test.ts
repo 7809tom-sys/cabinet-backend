@@ -36,6 +36,9 @@ describe("order CRM and distributor email hooks", () => {
     expect(source("../routers/installationEstimates.ts")).toContain("syncStoredOrderCrm");
     expect(source("./orderSideEffects.ts")).not.toContain("crm_contacts");
     expect(source("./orderCrmSale.ts")).toContain('target.stage = "new_sale"');
+    expect(source("./orderCrmSale.ts")).toContain("applyBlankContact(target, order)");
+    expect(source("./orderSideEffects.ts")).toContain("blankCrmContactPatch");
+    expect(source("./orderSideEffects.ts")).toContain("...contactPatch");
     expect(source("./orderImageGenerated.ts")).toContain("export async function markOrderImageGenerated");
   });
 });
