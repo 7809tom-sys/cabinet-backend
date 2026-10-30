@@ -47,7 +47,12 @@ export const users = mysqlTable("users", {
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
-});
+  // Storefront that created this account. Set once; never overwritten.
+  // Null means the account was not opened on an affiliate store (house / direct).
+  signupAffiliateId: int("signupAffiliateId"),
+}, (t) => ({
+  signupAffiliateIdx: index("users_signup_affiliate_idx").on(t.signupAffiliateId),
+}));
 
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
@@ -1883,6 +1888,9 @@ export const contractorAccessRequests = mysqlTable("contractor_access_requests",
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId"),
   submittedByUserId: int("submittedByUserId"),
+  // Store that filed or received this request. Null is Cabinet Dealz (direct)
+  // or a row the backfill could not assign. affiliates.userId is not unique.
+  affiliateId: int("affiliateId"),
   contractorName: varchar("contractorName", { length: 256 }),
   contractorEmail: varchar("contractorEmail", { length: 320 }),
   businessName: varchar("businessName", { length: 256 }).notNull(),
@@ -1897,6 +1905,7 @@ export const contractorAccessRequests = mysqlTable("contractor_access_requests",
   userStatusIdx: index("contractor_access_requests_user_idx").on(t.userId, t.status),
   emailStatusIdx: index("contractor_access_requests_email_status_idx").on(t.contractorEmail, t.status),
   submitterIdx: index("contractor_access_requests_submitter_idx").on(t.submittedByUserId),
+  affiliateIdx: index("contractor_access_requests_affiliate_idx").on(t.affiliateId),
 }));
 export type ContractorAccessRequest = typeof contractorAccessRequests.$inferSelect;
 
@@ -1912,12 +1921,21 @@ export type ContractorKitchenCostDefault = typeof contractorKitchenCostDefaults.
 // Per-affiliate markup over cost for contractors that affiliate submitted.
 // markupBps is percent-over-cost (100 = 1.00%), not the site multiplier.
 // Hand-run SQL: docs/sql/0238_affiliate_contractor_markups.tidb.sql.
+// One markup per store. affiliateUserId records who saved it. A login that
+// owns several stores does not share one percent across all of them.
+// Hand-run SQL: docs/sql/0238 creates the user-keyed table; 0239 adds affiliateId
+// and replaces the primary key so two stores can each have a row.
 export const affiliateContractorMarkups = mysqlTable("affiliate_contractor_markups", {
-  affiliateUserId: int("affiliateUserId").primaryKey(),
+  id: int("id").autoincrement().primaryKey(),
+  affiliateUserId: int("affiliateUserId").notNull(),
+  affiliateId: int("affiliateId"),
   markupBps: int("markupBps").notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   updatedByUserId: int("updatedByUserId"),
-});
+}, (t) => ({
+  affiliateIdx: uniqueIndex("affiliate_contractor_markups_affiliate_idx").on(t.affiliateId),
+  userIdx: index("affiliate_contractor_markups_user_idx").on(t.affiliateUserId),
+}));
 export type AffiliateContractorMarkup = typeof affiliateContractorMarkups.$inferSelect;
 
 export const affiliateInstallationEstimates = mysqlTable("affiliate_installation_estimates", {

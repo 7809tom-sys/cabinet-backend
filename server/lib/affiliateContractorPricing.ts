@@ -11,6 +11,7 @@ type ApprovedSubmission = {
   userId: number | null;
   status: string;
   submittedByUserId: number | null;
+  affiliateId?: number | null;
   reviewedAt: Date | null;
 };
 
@@ -44,6 +45,7 @@ export async function affiliateMarkupBpsForContractorUser(userId: number): Promi
       userId: contractorAccessRequests.userId,
       status: contractorAccessRequests.status,
       submittedByUserId: contractorAccessRequests.submittedByUserId,
+      affiliateId: contractorAccessRequests.affiliateId,
       reviewedAt: contractorAccessRequests.reviewedAt,
     }).from(contractorAccessRequests).where(and(
       eq(contractorAccessRequests.userId, userId),
@@ -52,10 +54,17 @@ export async function affiliateMarkupBpsForContractorUser(userId: number): Promi
     ));
     const submission = latestAffiliateSubmission(requests, userId);
     if (submission?.submittedByUserId == null) return null;
-    const [markup] = await db.select({ markupBps: affiliateContractorMarkups.markupBps })
-      .from(affiliateContractorMarkups)
-      .where(eq(affiliateContractorMarkups.affiliateUserId, submission.submittedByUserId))
-      .limit(1);
+    // Prefer the store that filed the request. A user-keyed row is only the
+    // fallback for requests filed before affiliateId existed.
+    const [markup] = submission.affiliateId != null
+      ? await db.select({ markupBps: affiliateContractorMarkups.markupBps })
+        .from(affiliateContractorMarkups)
+        .where(eq(affiliateContractorMarkups.affiliateId, submission.affiliateId))
+        .limit(1)
+      : await db.select({ markupBps: affiliateContractorMarkups.markupBps })
+        .from(affiliateContractorMarkups)
+        .where(eq(affiliateContractorMarkups.affiliateUserId, submission.submittedByUserId))
+        .limit(1);
     return markup?.markupBps ?? null;
   } catch (error) {
     if (!missingTableWarned) {

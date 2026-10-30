@@ -18,7 +18,7 @@ describe("contractor record scope", () => {
 
   it("resolves CRM scope from the admin role, not a specific account", async () => {
     const admin = { user: { id: 2, email: "rich@shop.test", role: "admin" } };
-    await expect(resolveScope(admin)).resolves.toEqual({ kind: "house" });
+    await expect(resolveScope(admin, { adminAll: true })).resolves.toEqual({ kind: "house" });
     await expect(resolveScope(admin, { contractorUserId: 44 })).resolves.toEqual({ kind: "contractor", userId: 44 });
     const contractor = { user: { id: 44, email: "pat@shop.test", role: "contractor" } };
     await expect(resolveScope(contractor)).resolves.toEqual({ kind: "contractor", userId: 44 });

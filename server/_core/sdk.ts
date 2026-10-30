@@ -4,14 +4,36 @@ import axios from "axios";
 import type { Request } from "express";
 import { createRemoteJWKSet, decodeProtectedHeader, jwtVerify } from "jose";
 import { eq } from "drizzle-orm";
-import { users, type User } from "../../drizzle/schema";
+import { affiliates, users, type User } from "../../drizzle/schema";
 import * as db from "../db";
 import { linkApprovedContractorAccess } from "../lib/contractorAccessGrant";
+import { affiliateSlugFromHostCandidates } from "../lib/affiliateSubdomain";
 import { ENV } from "./env";
 import { readTestAccountUserId, TEST_ACCOUNT_HEADER, testAccountsEnabled } from "../lib/testAccounts";
 // Utility function
 const isNonEmptyString = (value: unknown): value is string =>
   typeof value === "string" && value.length > 0;
+
+function headerValue(value: string | string[] | undefined): string | null {
+  if (Array.isArray(value)) return value[0] ?? null;
+  return value ?? null;
+}
+
+/** Store slug from signup metadata, the public host, or a /store/:slug referrer. */
+function storeSlugFromSignIn(req: Request, metadataSlug: string | null): string | null {
+  const meta = metadataSlug?.trim().toLowerCase() ?? "";
+  if (meta && meta !== "owner") return meta;
+  const hostSlug = affiliateSlugFromHostCandidates([
+    req.headers["x-original-host"],
+    req.headers["x-forwarded-host"],
+    req.headers["x-host"],
+    req.headers.host,
+  ]);
+  if (hostSlug) return hostSlug;
+  const referer = headerValue(req.headers.referer) ?? "";
+  const match = referer.match(/\/store\/([a-z0-9-]+)/i);
+  return match?.[1]?.toLowerCase() ?? null;
+}
 
 const ASYMMETRIC_ALGS = ["ES256", "RS256"] as const;
 
@@ -77,6 +99,7 @@ class SDKServer {
     name: string | null;
     companyName: string | null;
     inviteToken: string | null;
+    storeScope: string | null;
   } | null> {
     if (!isNonEmptyString(token)) return null;
 
@@ -102,6 +125,7 @@ class SDKServer {
         name: pick(user_metadata?.name) ?? pick(user_metadata?.full_name),
         companyName: pick(user_metadata?.companyName),
         inviteToken: pick(user_metadata?.inviteToken),
+        storeScope: pick(user_metadata?.storeScope) ?? pick(user_metadata?.affiliateSlug),
       };
     } catch (error) {
       console.warn("[Auth] Supabase token verification failed", authFailureDetail(error, token));
@@ -181,6 +205,14 @@ class SDKServer {
     // this email and grants contractor only when the role is still user.
     const database = await db.getDb();
     if (!database) return signedIn;
+    const signupSlug = storeSlugFromSignIn(req, claims.storeScope);
+    if (signupSlug) {
+      const [store] = await database.select({ id: affiliates.id, status: affiliates.status })
+        .from(affiliates)
+        .where(eq(affiliates.slug, signupSlug))
+        .limit(1);
+      if (store?.status === "active") await db.assignSignupAffiliateOnce(signedIn.id, store.id);
+    }
     return linkApprovedContractorAccess(database, {
       ...signedIn,
       email: signedIn.email ?? claims.email,
@@ -205,13 +237,13 @@ class SDKServer {
       loginMethod: claims.provider,
     };
     try {
-      await db.createEmailUser({ ...params, inviteToken: claims.inviteToken });
+      await db.createEmailUser({ ...params, inviteToken: claims.inviteToken, signupStoreScope: claims.storeScope });
     } catch (error) {
       if (!claims.inviteToken) throw error;
       // A used or invalid setup link must not lock the person out of their
       // account; they get an ordinary account and can request a new link.
       console.warn("[Auth] Supplier setup link rejected at first sign-in", String(error));
-      await db.createEmailUser(params);
+      await db.createEmailUser({ ...params, signupStoreScope: claims.storeScope });
     }
     return db.getUserByAuthId(claims.sub);
   }

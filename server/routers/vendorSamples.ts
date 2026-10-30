@@ -15,6 +15,7 @@ import {
   type OrderLineItem,
 } from "../../drizzle/schema";
 import { resolveAffiliateAccess } from "../lib/affiliateAccess";
+import { resolveAffiliateSiteScope, rowBelongsToSite } from "../lib/affiliateSiteScope";
 import { assertVendorScope, listVendorScopes } from "../lib/vendorFulfillmentStore";
 import { distributorScope } from "../../shared/vendorFulfillment";
 import {
@@ -353,13 +354,22 @@ export const vendorSamplesRouter = router({
     return { id, affiliateId };
   }),
 
-  myOrders: protectedProcedure.query(async ({ ctx }) => {
+  myOrders: protectedProcedure.input(z.object({
+    affiliateId: z.number().int().positive().optional(),
+    slug: z.string().trim().min(1).max(64).optional(),
+    adminAll: z.literal(true).optional(),
+  }).optional()).query(async ({ ctx, input }) => {
     const db = await requireDb();
     const actor = await actorFor(db, ctx.user);
     if (!canPlaceSampleOrder(actor)) return [];
     const rows = await db.select().from(orderRequests).where(eq(orderRequests.orderKind, "sample")).orderBy(desc(orderRequests.createdAt)).limit(200);
-    if (actor.role === "admin") return rows;
-    return rows.filter((row) => row.affiliateId === actor.affiliateId);
+    if (input?.adminAll && actor.role === "admin") return rows;
+    if (input?.affiliateId != null || input?.slug) {
+      const scope = await resolveAffiliateSiteScope(db, ctx.user, input);
+      return rows.filter((row) => rowBelongsToSite(row.affiliateId, scope));
+    }
+    if (actor.affiliateId != null) return rows.filter((row) => row.affiliateId === actor.affiliateId);
+    return [];
   }),
 
   adminOrders: adminProcedure.query(async () => {

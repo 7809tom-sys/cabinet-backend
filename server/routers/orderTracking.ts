@@ -1,7 +1,8 @@
+import { z } from "zod";
 import { desc, eq, inArray, or, sql } from "drizzle-orm";
 import { orderRequests, orderShipments } from "../../drizzle/schema";
 import { getDb } from "../db";
-import { resolveAffiliateAccess } from "../lib/affiliateAccess";
+import { resolveAffiliateSiteScope, rowBelongsToSite } from "../lib/affiliateSiteScope";
 import { columnPresent, readOrderSchemaSupport } from "../lib/orderSchemaSupport";
 import { protectedProcedure, router } from "../_core/trpc";
 import {
@@ -70,24 +71,31 @@ function lineItemsOf(value: unknown): OrderTrackingLine[] {
 }
 
 export const orderTrackingRouter = router({
-  list: protectedProcedure.query(async ({ ctx }) => {
+  list: protectedProcedure
+    .input(z.object({
+      affiliateId: z.number().int().positive().optional(),
+      slug: z.string().trim().min(1).max(64).optional(),
+      adminAll: z.literal(true).optional(),
+    }).optional())
+    .query(async ({ ctx, input }) => {
     const db = await getDb();
     if (!db) return [];
-    const access = await resolveAffiliateAccess(db, ctx.user);
-    const affiliateCanSeeReferred = Boolean(access && (access.isOwner || access.accessCrm));
     const email = (ctx.user.email ?? "").trim();
+    const site = input?.adminAll || input?.affiliateId != null || input?.slug
+      ? await resolveAffiliateSiteScope(db, ctx.user, input)
+      : null;
     const viewer = {
       userId: ctx.user.id,
       email: ctx.user.email ?? null,
       role: ctx.user.role,
-      affiliateId: access?.affiliateId ?? null,
-      affiliateCanSeeReferred,
+      affiliateId: site?.mode === "store" ? site.affiliateId : null,
+      affiliateCanSeeReferred: site?.mode === "store" || site?.mode === "all",
     };
     const filters = [eq(orderRequests.userId, ctx.user.id)];
     if (email) filters.push(eq(orderRequests.originatorEmail, email));
-    if (affiliateCanSeeReferred && access) filters.push(eq(orderRequests.affiliateId, access.affiliateId));
+    if (site?.mode === "store") filters.push(eq(orderRequests.affiliateId, site.affiliateId));
 
-    const orders = await db.select({
+    const orderQuery = db.select({
       id: orderRequests.id,
       userId: orderRequests.userId,
       affiliateId: orderRequests.affiliateId,
@@ -105,12 +113,19 @@ export const orderTrackingRouter = router({
       lineItems: orderRequests.lineItems,
       qboInvoiceId: orderRequests.qboInvoiceId,
       styleName: orderRequests.styleName,
-    }).from(orderRequests)
-      .where(or(...filters))
+    }).from(orderRequests);
+    const orders = await (site?.mode === "all" ? orderQuery : orderQuery.where(or(...filters)))
       .orderBy(desc(orderRequests.createdAt))
       .limit(100);
 
-    const visible = orders.filter((order) => orderVisibleToViewer(order, viewer));
+    const visible = orders.filter((order) => {
+      if (site?.mode === "all") return true;
+      if (site?.mode === "store") return rowBelongsToSite(order.affiliateId, site);
+      return orderVisibleToViewer(
+        { userId: order.userId, originatorEmail: order.originatorEmail, affiliateId: null },
+        { ...viewer, affiliateCanSeeReferred: false, affiliateId: null },
+      );
+    });
     const ids = visible.map((order) => order.id);
     const shipments = ids.length
       ? await db.select({

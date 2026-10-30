@@ -19,6 +19,14 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Spinner } from "@/components/ui/spinner";
 import { Eye, EyeOff } from "lucide-react";
+import { affiliateSlugFromHostname, affiliateSlugFromPath } from "@/lib/affiliateContext";
+
+function signupStoreScope(): string | undefined {
+  if (typeof window === "undefined") return undefined;
+  return affiliateSlugFromPath(window.location.pathname)
+    ?? affiliateSlugFromHostname(window.location.hostname)
+    ?? undefined;
+}
 
 function errMessage(error: unknown, fallback: string): string {
   if (error instanceof TRPCClientError) return error.message || fallback;
@@ -161,7 +169,7 @@ export default function SignIn() {
       options: {
         emailRedirectTo: authRedirectUrl(),
         // Read by the server when it creates the users row.
-        data: { name: name.trim() || undefined, companyName: companyName.trim() || undefined },
+        data: { name: name.trim() || undefined, companyName: companyName.trim() || undefined, storeScope: signupStoreScope() },
       },
     });
     if (error) {

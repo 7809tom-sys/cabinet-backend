@@ -166,7 +166,7 @@ export function CrmBoard({ lang = "en", affiliateId }: { lang?: Lang; affiliateI
     ? { affiliateId }
     : masterAffiliateId != null
       ? { affiliateId: masterAffiliateId }
-      : undefined;
+      : { adminAll: true as const };
   const { data, isLoading, error } = trpc.crm.board.useQuery(boardInput, {
     refetchInterval: 20000,
     refetchOnWindowFocus: true,
@@ -197,7 +197,9 @@ export function CrmBoard({ lang = "en", affiliateId }: { lang?: Lang; affiliateI
     [data?.deals],
   );
   const summaries = trpc.affiliateCustomers.summaries.useQuery(
-    { deals: summaryDeals },
+    affiliateId != null
+      ? { deals: summaryDeals, affiliateId }
+      : { deals: summaryDeals, adminAll: true as const },
     { enabled: summaryDeals.length > 0, retry: false },
   );
   const summaryByDeal = (summaries.data?.byDealId ?? {}) as Record<number, CustomerSummary>;
@@ -303,7 +305,7 @@ export function CrmBoard({ lang = "en", affiliateId }: { lang?: Lang; affiliateI
               <SelectItem value="shipping">Needs Shipping Cost Help</SelectItem>
             </SelectContent>
           </Select>
-          <ImportLeadsDialog lang={lang} />
+          <ImportLeadsDialog lang={lang} affiliateId={affiliateId} />
           <CustomerListImportDialog lang={lang} affiliateId={affiliateId} />
           <NewDealDialog lang={lang} affiliateId={affiliateId} />
         </div>
@@ -677,10 +679,13 @@ function CustomerListImportDialog({ lang, affiliateId }: { lang: Lang; affiliate
 }
 
 // ─── Import leads dialog ──────────────────────────────────────────────────────
-function ImportLeadsDialog({ lang }: { lang: Lang }) {
+function ImportLeadsDialog({ lang, affiliateId }: { lang: Lang; affiliateId?: number }) {
   const utils = trpc.useUtils();
   const [open, setOpen] = useState(false);
-  const { data, isLoading } = trpc.crm.importableLeads.useQuery(undefined, { enabled: open });
+  const { data, isLoading } = trpc.crm.importableLeads.useQuery(
+    affiliateId != null ? { affiliateId } : { adminAll: true as const },
+    { enabled: open },
+  );
   const importLead = trpc.crm.importLead.useMutation({
     onSuccess: () => {
       toast.success(lang === "es" ? "Prospecto importado" : "Lead imported");
@@ -717,7 +722,7 @@ function ImportLeadsDialog({ lang }: { lang: Lang }) {
                         <div className="font-medium text-foreground">{r.requestNumber}</div>
                         <div className="text-xs text-muted-foreground">{r.originatorName ?? "—"} · {money(r.totalAmount)}</div>
                       </div>
-                      <Button size="sm" variant="outline" disabled={importLead.isPending} onClick={() => importLead.mutate({ type: "order_request", id: r.id })}>
+                      <Button size="sm" variant="outline" disabled={importLead.isPending} onClick={() => importLead.mutate({ type: "order_request", id: r.id, ...(affiliateId != null ? { affiliateId } : { adminAll: true as const }) })}>
                         {lang === "es" ? "Importar" : "Import"}
                       </Button>
                     </div>
@@ -795,7 +800,10 @@ function DealDrawer({ dealId, lang, summary, onClose, onCompose }: { dealId: num
 
   const deal = data?.deal as DealRow | undefined;
   const customerDetail = trpc.affiliateCustomers.get.useQuery(
-    { affiliateId: deal?.affiliateId ?? null, customerKey: summary?.customerKey ?? "" },
+    {
+      ...(deal?.affiliateId != null ? { affiliateId: deal.affiliateId } : { house: true as const }),
+      customerKey: summary?.customerKey ?? "",
+    },
     { enabled: dealId != null && Boolean(summary?.customerKey), retry: false },
   );
   const savePackage = trpc.priceShop.saveDesignAsPackage.useMutation({

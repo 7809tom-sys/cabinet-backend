@@ -15,6 +15,8 @@ export type CustomerSource =
 
 export type DirectoryAccess = {
   affiliateId: number;
+  /** Every store this login may open. Defaults to affiliateId when omitted. */
+  affiliateIds?: number[];
   isOwner: boolean;
   accessCrm: boolean;
   accessDesigner: boolean;
@@ -25,17 +27,81 @@ export type DirectoryActor = {
   access: DirectoryAccess;
 };
 
+export type DirectoryMode = "store" | "house" | "all";
+
+export type DirectoryScopeInput = {
+  affiliateId?: number | null;
+  /** /admin only. Returns every store. Ignored unless the caller is an admin. */
+  adminAll?: boolean;
+  /** Unattributed Cabinet Dealz rows only. Not every store. Admin only. */
+  house?: boolean;
+};
+
 export type DirectoryDecision =
-  | { ok: true; affiliateId: number | null }
+  | { ok: true; affiliateId: number | null; mode: DirectoryMode }
   | { ok: false; message: string };
 
-/** Affiliate owners, CRM team members, and admins. Never the public. */
+export const DIRECT_STORE_NAME = "Cabinet Dealz (direct)";
+
+const CHOOSE_STORE = "Choose which affiliate store to view.";
+const ADMIN_OPT_IN = "Open the admin directory to view every store.";
+
+function scopeInput(requested: number | null | DirectoryScopeInput): DirectoryScopeInput {
+  if (requested == null) return {};
+  if (typeof requested === "number") return { affiliateId: requested };
+  return requested;
+}
+
+function allowedStoreIds(actor: DirectoryActor): number[] {
+  const access = actor.access;
+  if (!access) return [];
+  const ids = access.affiliateIds ?? [access.affiliateId];
+  return Array.from(new Set(ids.filter((id) => Number.isInteger(id) && id > 0)));
+}
+
+/**
+ * Affiliate owners, CRM team members, and admins. Never the public.
+ * A null affiliate id is not permission to read every store. The all-store
+ * directory is adminAll, and only an admin can set it.
+ */
 export function decideDirectoryAccess(
   actor: DirectoryActor,
-  requestedAffiliateId: number | null,
+  requested: number | null | DirectoryScopeInput,
 ): DirectoryDecision {
+  const input = scopeInput(requested);
+  if (input.adminAll) {
+    if (actor.role !== "admin") {
+      return { ok: false, message: "Only an admin can view every store." };
+    }
+    return { ok: true, affiliateId: null, mode: "all" };
+  }
+  if (input.house) {
+    if (actor.role !== "admin") {
+      return { ok: false, message: "House customers are on the admin page." };
+    }
+    return { ok: true, affiliateId: null, mode: "house" };
+  }
+  const allowed = allowedStoreIds(actor);
+  if (input.affiliateId != null) {
+    if (actor.role === "admin") {
+      return { ok: true, affiliateId: input.affiliateId, mode: "store" };
+    }
+    const access = actor.access;
+    if (!access) {
+      return { ok: false, message: "No affiliate account is linked to your login." };
+    }
+    if (!access.isOwner && !access.accessCrm) {
+      return { ok: false, message: "CRM access has not been enabled for this team member." };
+    }
+    if (!allowed.includes(input.affiliateId)) {
+      return { ok: false, message: "You can only view customers for your own store." };
+    }
+    return { ok: true, affiliateId: input.affiliateId, mode: "store" };
+  }
   if (actor.role === "admin") {
-    return { ok: true, affiliateId: requestedAffiliateId };
+    if (allowed.length === 1) return { ok: true, affiliateId: allowed[0], mode: "store" };
+    if (allowed.length > 1) return { ok: false, message: CHOOSE_STORE };
+    return { ok: false, message: ADMIN_OPT_IN };
   }
   const access = actor.access;
   if (!access) {
@@ -44,10 +110,18 @@ export function decideDirectoryAccess(
   if (!access.isOwner && !access.accessCrm) {
     return { ok: false, message: "CRM access has not been enabled for this team member." };
   }
-  if (requestedAffiliateId != null && requestedAffiliateId !== access.affiliateId) {
-    return { ok: false, message: "You can only view customers for your own store." };
-  }
-  return { ok: true, affiliateId: access.affiliateId };
+  if (allowed.length > 1) return { ok: false, message: CHOOSE_STORE };
+  return { ok: true, affiliateId: allowed[0] ?? access.affiliateId, mode: "store" };
+}
+
+/** Keep a directory row on the store being viewed. mode "all" is the admin opt-in. */
+export function recordInDirectoryScope(
+  rowAffiliateId: number | null | undefined,
+  scope: { mode: DirectoryMode; affiliateId: number | null },
+): boolean {
+  if (scope.mode === "all") return true;
+  if (scope.mode === "house") return rowAffiliateId == null;
+  return rowAffiliateId === scope.affiliateId;
 }
 
 export function decideAssistAccess(args: {

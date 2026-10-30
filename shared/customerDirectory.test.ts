@@ -58,7 +58,14 @@ describe("customer directory", () => {
     expect(decideDirectoryAccess({ role: "user", access: team }, 7).ok).toBe(true);
     expect(decideDirectoryAccess({ role: "user", access: team }, 8)).toMatchObject({ ok: false });
     expect(decideDirectoryAccess({ role: "user", access: { ...team, accessCrm: false } }, 7)).toMatchObject({ ok: false });
-    expect(decideDirectoryAccess({ role: "admin", access: null }, null)).toMatchObject({ ok: true, affiliateId: null });
+    expect(decideDirectoryAccess({ role: "admin", access: null }, { adminAll: true })).toMatchObject({ ok: true, mode: "all", affiliateId: null });
+    expect(decideDirectoryAccess({ role: "admin", access: { ...team, isOwner: true } }, null)).toMatchObject({ ok: true, mode: "store", affiliateId: 7 });
+    expect(decideDirectoryAccess({ role: "admin", access: { ...team, isOwner: true, affiliateIds: [7, 8] } }, { affiliateId: 8 })).toMatchObject({ ok: true, mode: "store", affiliateId: 8 });
+    expect(decideDirectoryAccess({ role: "admin", access: { ...team, isOwner: true } }, { affiliateId: 8 }).ok).toBe(true);
+    expect(decideDirectoryAccess({ role: "user", access: { ...team, affiliateIds: [7, 8] } }, { affiliateId: 8 }).ok).toBe(true);
+    expect(decideDirectoryAccess({ role: "user", access: { ...team, affiliateIds: [7, 8] } }, null)).toMatchObject({ ok: false });
+    expect(decideDirectoryAccess({ role: "admin", access: null }, null)).toMatchObject({ ok: false });
+    expect(decideDirectoryAccess({ role: "user", access: team }, { adminAll: true })).toMatchObject({ ok: false });
     expect(decideAssistAccess({ role: "user", access: team, designAffiliateId: 7 })).toMatchObject({ ok: false });
     expect(decideAssistAccess({ role: "user", access: { ...team, accessDesigner: true }, designAffiliateId: 8 })).toMatchObject({ ok: false });
     expect(decideAssistAccess({ role: "admin", access: null, designAffiliateId: 8 })).toEqual({ ok: true });

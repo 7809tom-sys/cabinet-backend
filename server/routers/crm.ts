@@ -38,6 +38,7 @@ import {
   shouldCreateCommission,
 } from "@shared/salesPrograms";
 import { resolveAffiliateAccess } from "../lib/affiliateAccess";
+import { listAccessibleAffiliateIds } from "../lib/affiliateSiteScope";
 import { contractorRecordUserId } from "../lib/contractorRecordScope";
 import { loadAffiliatePricingById } from "../lib/affiliateStorefrontPricing";
 import { sumPlacedAffiliateSale } from "../lib/affiliateTierPricing";
@@ -177,8 +178,9 @@ export type CrmScope =
 
 /**
  * Returns the scope for the caller:
- *  - admin → { kind: "house" } (sees ALL deals), or one contractor when
- *    contractorUserId is passed. Any admin role, not a specific account.
+ *  - admin + adminAll → { kind: "house" } (every deal). Any admin, not one account.
+ *  - admin + affiliateId → that store only, including an admin who is also an affiliate.
+ *  - admin with exactly one store and no opt-in → that store, never every deal.
  *  - contractor → { kind: "contractor", userId } (deals they own). Checked
  *    before affiliate team access so a contractor never sees another pipeline.
  *  - designer / sales_rep → { kind: "house" } unless they belong to an affiliate team
@@ -187,12 +189,20 @@ export type CrmScope =
  */
 export async function resolveScope(
   ctx: Ctx,
-  requested?: { contractorUserId?: number },
+  requested?: { contractorUserId?: number; affiliateId?: number; adminAll?: boolean },
 ): Promise<CrmScope> {
   const contractorUserId = contractorRecordUserId(ctx.user, requested?.contractorUserId);
   if (ctx.user.role === "admin") {
     if (contractorUserId != null) return { kind: "contractor", userId: contractorUserId };
-    return { kind: "house" };
+    if (requested?.adminAll) return { kind: "house" };
+    if (requested?.affiliateId != null) return { kind: "affiliate", affiliateId: requested.affiliateId };
+    const db = await getDb();
+    const ids = db ? await listAccessibleAffiliateIds(db, ctx.user) : [];
+    if (ids.length === 1) return { kind: "affiliate", affiliateId: ids[0] };
+    if (ids.length > 1) {
+      throw new TRPCError({ code: "BAD_REQUEST", message: "Choose which affiliate store to view." });
+    }
+    throw new TRPCError({ code: "BAD_REQUEST", message: "Open the admin directory to view every store." });
   }
   if (ctx.user.role === "contractor") return { kind: "contractor", userId: ctx.user.id };
 
@@ -203,6 +213,14 @@ export async function resolveScope(
         code: "FORBIDDEN",
         message: "CRM access has not been enabled for this team member.",
       });
+    }
+    if (requested?.affiliateId != null && requested.affiliateId !== affiliateAccess.affiliateId) {
+      const db = await getDb();
+      const ids = db ? await listAccessibleAffiliateIds(db, ctx.user, { crm: true }) : [];
+      if (!ids.includes(requested.affiliateId)) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "You can only view this store's own records." });
+      }
+      return { kind: "affiliate", affiliateId: requested.affiliateId };
     }
     return { kind: "affiliate", affiliateId: affiliateAccess.affiliateId };
   }
@@ -244,7 +262,10 @@ export async function getOwnedDeal(
 ) {
   const db = await getDb();
   if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
-  const scope = await resolveScope(ctx, requested);
+  const scope = await resolveScope(ctx, {
+    ...requested,
+    adminAll: ctx.user.role === "admin" && requested?.contractorUserId == null,
+  });
   const where = scopeWhere(scope);
   const rows = await db
     .select()
@@ -331,7 +352,9 @@ export const crmRouter = router({
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
-      const callerScope = await resolveScope(ctx);
+      const callerScope = await resolveScope(ctx, input.affiliateId != null
+        ? { affiliateId: input.affiliateId }
+        : { adminAll: ctx.user.role === "admin" });
       const scope = resolveBoardScope(callerScope, input.affiliateId);
       const where = scopeWhere(scope);
       const existingQuery = db.select({ contactEmail: crmDeals.contactEmail, contactPhone: crmDeals.contactPhone }).from(crmDeals);
@@ -362,6 +385,7 @@ export const crmRouter = router({
     .input(z.object({
       affiliateId: z.number().int().optional(),
       contractorUserId: z.number().int().positive().optional(),
+      adminAll: z.literal(true).optional(),
     }).optional())
     .query(async ({ ctx, input }) => {
     const db = await getDb();
@@ -380,7 +404,11 @@ export const crmRouter = router({
     }
     // If an admin passes affiliateId, force the scope to that affiliate's deals.
     // contractorUserId narrows an admin to one contractor's own deals.
-    const callerScope = await resolveScope(ctx, { contractorUserId: input?.contractorUserId });
+    const callerScope = await resolveScope(ctx, {
+      contractorUserId: input?.contractorUserId,
+      affiliateId: input?.affiliateId,
+      adminAll: input?.adminAll,
+    });
     const isMasterView = callerScope.kind === "house";
     const scope = resolveBoardScope(callerScope, input?.affiliateId);
     const where = scopeWhere(scope);
@@ -683,7 +711,10 @@ export const crmRouter = router({
 	  .query(async ({ ctx, input }) => {
 	    const db = await getDb();
 	    if (!db) return [];
-	    const scope = await resolveScope(ctx, { contractorUserId: input?.contractorUserId });
+	    const scope = await resolveScope(ctx, {
+	      contractorUserId: input?.contractorUserId,
+	      adminAll: ctx.user.role === "admin" && input?.contractorUserId == null,
+	    });
 	    const deal = input?.dealId != null ? (await getOwnedDeal(ctx, input.dealId, { contractorUserId: input?.contractorUserId })).deal : null;
 	    const targetAffiliateId = deal
 	      ? deal.affiliateId
@@ -869,7 +900,11 @@ export const crmRouter = router({
       if (input.affiliateId != null && input.contractorUserId != null) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Pass either affiliateId or contractorUserId." });
       }
-      const scope = await resolveScope(ctx, { contractorUserId: input.contractorUserId });
+      const scope = await resolveScope(ctx, {
+        contractorUserId: input.contractorUserId,
+        affiliateId: input.affiliateId,
+        adminAll: ctx.user.role === "admin" && input.affiliateId == null && input.contractorUserId == null,
+      });
       const stage = (input.stage ?? "new") as CrmStage;
       await guardNewSaleStage(db, stage);
       let res: unknown;
@@ -1031,7 +1066,7 @@ export const crmRouter = router({
       if (input?.dealId) {
         affiliateId = (await getOwnedDeal(ctx, input.dealId)).deal.affiliateId;
       } else {
-        const scope = await resolveScope(ctx);
+        const scope = await resolveScope(ctx, ctx.user.role === "admin" ? { adminAll: true } : undefined);
         if (scope.kind === "affiliate") affiliateId = scope.affiliateId;
       }
       const plan = await loadCrmOutbound(db, affiliateId);
@@ -1343,10 +1378,15 @@ export const crmRouter = router({
   // ── Importable leads: platform activity not yet a deal in this scope ─────────
   // Admin: pro applications + house (unattributed) order requests.
   // Affiliate: their own referred order requests.
-  importableLeads: protectedProcedure.query(async ({ ctx }) => {
+  importableLeads: protectedProcedure
+    .input(z.object({
+      affiliateId: z.number().int().positive().optional(),
+      adminAll: z.literal(true).optional(),
+    }).optional())
+    .query(async ({ ctx, input }) => {
     const db = await getDb();
     if (!db) return { orderRequests: [], proApplications: [] };
-    const scope = await resolveScope(ctx);
+    const scope = await resolveScope(ctx, input ?? undefined);
 
     // Contractors don't import platform leads; they only work their own saved-plan deals.
     if (scope.kind === "contractor") return { orderRequests: [], proApplications: [] };
@@ -1392,12 +1432,14 @@ export const crmRouter = router({
       z.object({
         type: z.enum(["order_request", "pro_application"]),
         id: z.number().int(),
+        affiliateId: z.number().int().positive().optional(),
+        adminAll: z.literal(true).optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
-      const scope = await resolveScope(ctx);
+      const scope = await resolveScope(ctx, { affiliateId: input.affiliateId, adminAll: input.adminAll });
       const affiliateId = scope.kind === "affiliate" ? scope.affiliateId : null;
 
       if (input.type === "order_request") {
