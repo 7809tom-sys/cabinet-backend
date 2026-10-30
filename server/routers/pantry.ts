@@ -17,7 +17,7 @@ import {
   type PricingTier,
 } from "../../shared/pricingTier";
 import { sellPriceForTier, type TierMarkupBps } from "@shared/margins";
-import { getPricingSettings } from "../db";
+import { getPricingSettingsForViewer } from "../lib/affiliateContractorPricing";
 
 // A split-pantry part as presented to the client: the viewer-tier unit price for
 // that single piece, plus enough identity to add it to the cart as a real SKU.
@@ -277,7 +277,7 @@ export const pantryRouter = router({
       const [bundles, style, ps] = await Promise.all([
         getSplitPantriesByStyle(input.styleId),
         getDoorStyleById(input.styleId),
-        getPricingSettings(),
+        getPricingSettingsForViewer(ctx.user),
       ]);
       const label = styleLabelOf(style);
       return bundles
@@ -296,7 +296,7 @@ export const pantryRouter = router({
       if (!bundle) return null;
       const [style, ps] = await Promise.all([
         getDoorStyleById(bundle.styleId),
-        getPricingSettings(),
+        getPricingSettingsForViewer(ctx.user),
       ]);
       return toView(bundle, tier, styleLabelOf(style), ps);
     }),

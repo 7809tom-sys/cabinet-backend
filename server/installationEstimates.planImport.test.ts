@@ -237,4 +237,67 @@ describe("installationEstimates plan import", () => {
     expect(failed.crmDealDesigns).toEqual([]);
     expect(failed.crmActivities).toEqual([]);
   });
+
+  it("links a contractor labor estimate to that contractor's CRM, and lets an admin name the contractor", async () => {
+    const state = seed({
+      kitchenDesigns: [{
+        id: 101,
+        userId: 44,
+        affiliateId: null,
+        name: "Pat Kitchen",
+        projectName: null,
+        roomLabel: "Kitchen",
+        roomType: "Kitchen",
+        updatedAt: new Date("2026-01-02"),
+        placedCabinets: [{ cabinetId: 1, qty: 1 }],
+      }],
+    });
+    db = fakeDb(state);
+    getDbMock.mockResolvedValue(db);
+    const contractor = caller({ id: 44, email: "pat@shop.test", role: "contractor" });
+    const result = await contractor.create({ scope: "contractor", ...estimateInput });
+    expect(result).toMatchObject({ crmDealId: 1, kitchenDesignId: 101 });
+    expect(state.affiliateInstallationEstimates[0]).toMatchObject({
+      affiliateId: null,
+      contractorUserId: 44,
+      kitchenDesignId: 101,
+      crmDealId: 1,
+    });
+    expect(state.crmDeals[0]).toMatchObject({
+      affiliateId: null,
+      ownerUserId: 44,
+      laborEstimateId: 1,
+    });
+    expect(state.crmDealDesigns[0]).toMatchObject({ dealId: 1, designId: 101 });
+
+    await expect(caller({ id: 8, email: "ada@shop.test", role: "partner" }).create({
+      scope: "contractor",
+      ...estimateInput,
+    })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(contractor.create({ scope: "contractor", contractorUserId: 45, ...estimateInput }))
+      .rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(caller({ id: 2, email: "rich@shop.test", role: "admin" }).list({ scope: "contractor" }))
+      .rejects.toMatchObject({ code: "BAD_REQUEST", message: "Pass contractorUserId to view a contractor's records." });
+
+    const adminState = seed({
+      kitchenDesigns: [{
+        id: 101,
+        userId: 44,
+        affiliateId: null,
+        name: "Pat Kitchen",
+        roomType: "Kitchen",
+        updatedAt: new Date("2026-01-02"),
+        placedCabinets: [{ cabinetId: 1, qty: 1 }],
+      }],
+    });
+    db = fakeDb(adminState);
+    getDbMock.mockResolvedValue(db);
+    await caller({ id: 2, email: "rich@shop.test", role: "admin" }).create({
+      scope: "contractor",
+      contractorUserId: 44,
+      ...estimateInput,
+    });
+    expect(adminState.affiliateInstallationEstimates[0]).toMatchObject({ contractorUserId: 44, affiliateId: null });
+    expect(adminState.crmDeals[0]).toMatchObject({ ownerUserId: 44, affiliateId: null });
+  });
 });

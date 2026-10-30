@@ -16,6 +16,7 @@ import { sellPriceForTier } from "@shared/margins";
 import { loadAffiliateStorefrontPricing, loadAffiliatePricingById } from "../lib/affiliateStorefrontPricing";
 import { affiliateStorefrontSale, dollarsToCents } from "../lib/affiliateTierPricing";
 import { getPricingSettings } from "../db";
+import { getPricingSettingsForViewer } from "../lib/affiliateContractorPricing";
 import { resolveStorefrontTier, visiblePricesForViewer } from "../../shared/pricingTier";
 import { resolveAffiliateAccess } from "../lib/affiliateAccess";
 import { decideAssistAccess } from "@shared/customerDirectory";
@@ -1260,7 +1261,7 @@ export const designRouter = router({
       // returned line is already available + published and must resolve from a
       // verified cost/list basis through the saved tier markup; never bypass
       // this resolver with stale stored columns.
-      const ps = await getPricingSettings();
+      const ps = await getPricingSettingsForViewer(ctx.user);
       return Array.from(best.values()).map(({ requestedCabinetId, row, exact }) => {
         const sourceCostCents = dollarsToCents(row.yourCost);
         const affiliateSale = affiliatePricing && sourceCostCents != null && sourceCostCents > 0
@@ -1314,7 +1315,7 @@ export const designRouter = router({
         isCornerCabinet: z.boolean(),
       })).max(300),
     }))
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db || input.cabinets.length === 0) return { items: [] };
 
@@ -1352,7 +1353,7 @@ export const designRouter = router({
         .innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))
         .where(and(...conditions));
 
-      const pricingSettings = await getPricingSettings();
+      const pricingSettings = await getPricingSettingsForViewer(ctx.user);
       const affiliatePricing = await loadAffiliateStorefrontPricing(input.affiliateSlug);
       const bestCandidateByCabinetId = new Map<number, PricedPlanSwitchCandidate>();
       for (const row of rows) {
@@ -1435,7 +1436,7 @@ export const designRouter = router({
         distributorId: z.number().optional(),
       })
     )
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db || input.styleIds.length === 0) {
         return [] as Array<{
@@ -1503,7 +1504,7 @@ export const designRouter = router({
       }
       // Tier prices are computed from our cost base × the per-tier markup (matches
       // the admin Margins tab), never from a pre-marked-up stored column.
-      const ps = await getPricingSettings();
+      const ps = await getPricingSettingsForViewer(ctx.user);
       return Array.from(best.values()).map((r) => ({
         styleId: Number(r.styleId),
         cabinetId: r.cabinetId,
@@ -1532,7 +1533,7 @@ export const designRouter = router({
         distributorId: z.number().optional(),
       })
     )
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db || input.styleIds.length === 0) {
         return [] as Array<{
@@ -1609,7 +1610,7 @@ export const designRouter = router({
         const b = Number(cur.contractorPrice ?? cur.wholesalePrice ?? Infinity);
         if (a < b) best.set(key, r);
       }
-      const psTrim = await getPricingSettings();
+      const psTrim = await getPricingSettingsForViewer(ctx.user);
       return Array.from(best.values()).map((r) => ({
         styleId: Number(r.styleId),
         cabinetId: r.cabinetId,
@@ -1640,7 +1641,7 @@ export const designRouter = router({
         distributorId: z.number().optional(),
       })
     )
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db || !(input.width > 0)) return null;
 
@@ -1718,7 +1719,7 @@ export const designRouter = router({
         }
       }
 	      if (best == null) return null;
-	      const psRollout = await getPricingSettings();
+	      const psRollout = await getPricingSettingsForViewer(ctx.user);
 	      return {
 	        ...best,
 	        wholesalePrice: sellPriceForTier(best, psRollout, "wholesale")?.toFixed(2) ?? null,
@@ -2874,7 +2875,7 @@ Return an empty actions array ONLY if the user asked a pure question with no wal
         codes: z.array(z.string()).max(200),
       }),
     )
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db || input.codes.length === 0) return { items: [] as CrossSellItem[] };
 
@@ -2911,7 +2912,7 @@ Return an empty actions array ONLY if the user asked a pure question with no wal
       if (relevant.length === 0) return { items: [] as CrossSellItem[] };
 
       // Accessory unit prices are computed from cost base × per-tier markup.
-      const csPs = await getPricingSettings();
+      const csPs = await getPricingSettingsForViewer(ctx.user);
 
       // Pull candidate accessory SKUs buyable in the chosen style, with the
       // tier price columns needed to resolve a unit price.
@@ -3369,7 +3370,7 @@ Return an empty actions array ONLY if the user asked a pure question with no wal
           )
         );
 
-      const ps = await getPricingSettings();
+      const ps = await getPricingSettingsForViewer(ctx.user);
       return canonicalItems.flatMap((item) => {
         const exactRequestedIdentity = {
           masterCode: item.requestedMasterCode,

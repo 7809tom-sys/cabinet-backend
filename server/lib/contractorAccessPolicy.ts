@@ -7,6 +7,15 @@ export function canManageAffiliateContractorDesk(role: string): boolean {
   return AFFILIATE_DESK_ROLES.has(role);
 }
 
+/** Affiliate accounts are stored as partner. The affiliate label is accepted too. */
+export function isAffiliateRole(role: string): boolean {
+  return role === "partner" || role === "affiliate";
+}
+
+export function canReviewAffiliateContractorRequest(role: string): boolean {
+  return role === "admin" || isAffiliateRole(role);
+}
+
 export function normalizeContractorEmail(value: string | null | undefined): string | null {
   const email = value?.trim().toLowerCase() ?? "";
   return email.length > 0 ? email : null;

@@ -2,6 +2,7 @@ import { z } from "zod";
 import { eq, and, or, isNull, inArray, desc } from "drizzle-orm";
 import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
 import { getDb, notInConflict, getPricingSettings } from "../db";
+import { getPricingSettingsForViewer } from "../lib/affiliateContractorPricing";
 import {
   cabinets,
   distributors,
@@ -210,7 +211,7 @@ export const priceShopRouter = router({
 
     const viewerTier = resolveStorefrontTier(ctx.user);
     const isAdmin = ctx.user?.role === "admin";
-    const ps = await getPricingSettings();
+    const ps = await getPricingSettingsForViewer(ctx.user);
 
     // 1. Resolve master codes → cabinet IDs (support multiple alternatives per item)
     const allMasterCodes = LAYOUT_ITEMS.flatMap((i) => [...i.masterCodes]);
@@ -476,7 +477,7 @@ export const priceShopRouter = router({
     if (!db) return [];
     const viewerTier = resolveStorefrontTier(ctx.user);
     const isAdmin = ctx.user?.role === "admin";
-    const ps = await getPricingSettings();
+    const ps = await getPricingSettingsForViewer(ctx.user);
 
     const allMasterCodes = LAYOUT_ITEMS_10x10.flatMap((i) => [...i.masterCodes]);
     const cabinetRows = await db

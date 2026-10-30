@@ -313,6 +313,7 @@ describe("contractorAccess", () => {
       licenseNumber: "L",
       status: "approved",
       hasAccount: true,
+      submittedByUserId: 9,
     });
     expect(rows[1]).toMatchObject({ contractorName: "Older", hasAccount: false, status: "pending" });
     await expect(caller({ id: 8, role: "user", email: "pat@shop.test" }).myAffiliateRequests())
@@ -508,5 +509,70 @@ describe("contractorAccess", () => {
       code: "NOT_FOUND",
       message: "Account not found.",
     });
+  });
+
+  it("lets the submitting affiliate approve their pending row and blocks everyone else", async () => {
+    userRows.push({ id: 8, role: "user", email: "pat@shop.test", emailLower: "pat@shop.test" });
+    requestRows.push({
+      id: 4,
+      userId: 8,
+      submittedByUserId: 9,
+      contractorName: "Pat",
+      contractorEmail: "pat@shop.test",
+      businessName: "Pat Kitchens",
+      phone: "555-0100",
+      licenseNumber: null,
+      status: "pending",
+      reviewedByUserId: null,
+      reviewedAt: null,
+      createdAt: new Date(),
+    });
+    const affiliate = caller({ id: 9, role: "partner", email: "ada@shop.test" });
+    const approved = await affiliate.affiliateReview({ id: 4, decision: "approved" });
+    expect(approved).toEqual({ ok: true, status: "approved" });
+    expect(updates).toEqual([
+      { table: "users", set: { role: "contractor" } },
+      expect.objectContaining({
+        table: "requests",
+        set: expect.objectContaining({ status: "approved", reviewedByUserId: 9 }),
+      }),
+    ]);
+
+    updates.length = 0;
+    await expect(caller({ id: 4, role: "partner", email: "other@shop.test" }).affiliateReview({ id: 4, decision: "rejected" }))
+      .rejects.toMatchObject({ code: "FORBIDDEN", message: "You can only review contractors you submitted." });
+    await expect(caller({ id: 8, role: "contractor", email: "pat@shop.test" }).affiliateReview({ id: 4, decision: "approved" }))
+      .rejects.toMatchObject({ code: "FORBIDDEN", message: "Only an affiliate can review contractors they submitted." });
+
+    requestRows[0].status = "approved";
+    await expect(affiliate.affiliateReview({ id: 4, decision: "rejected" }))
+      .rejects.toMatchObject({ code: "BAD_REQUEST", message: "Only a pending request can be reviewed." });
+    expect(updates).toEqual([]);
+  });
+
+  it("lets any admin approve any pending row through affiliateReview", async () => {
+    requestRows.push({
+      id: 4,
+      userId: null,
+      submittedByUserId: 9,
+      contractorName: "Pat",
+      contractorEmail: "pat@shop.test",
+      businessName: "Pat Kitchens",
+      phone: "555-0100",
+      licenseNumber: null,
+      status: "pending",
+      reviewedByUserId: null,
+      reviewedAt: null,
+      createdAt: new Date(),
+    });
+    const otherAdmin = caller({ id: 2, role: "admin", email: "rich@shop.test" });
+    const approved = await otherAdmin.affiliateReview({ id: 4, decision: "approved" });
+    expect(approved).toEqual({ ok: true, status: "approved" });
+    expect(updates).toEqual([
+      expect.objectContaining({
+        table: "requests",
+        set: expect.objectContaining({ status: "approved", reviewedByUserId: 2 }),
+      }),
+    ]);
   });
 });

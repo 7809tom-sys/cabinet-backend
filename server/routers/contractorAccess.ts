@@ -2,12 +2,20 @@ import { and, desc, eq, isNull, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/mysql-core";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
-import { contractorAccessRequests, users } from "../../drizzle/schema";
-import { getDb } from "../db";
+import { affiliateContractorMarkups, contractorAccessRequests, users } from "../../drizzle/schema";
+import { getDb, getPricingSettings } from "../db";
+import {
+  isAffiliateContractorMarkupPercent,
+  markupBpsToPercent,
+  markupPercentToBps,
+  siteContractorMarkupPercent,
+} from "../../shared/affiliateContractorMarkup";
 import {
   canManageAffiliateContractorDesk,
+  canReviewAffiliateContractorRequest,
   contractorRequestSource,
   findPendingDuplicate,
+  isAffiliateRole,
   normalizeContractorEmail,
   type ContractorRequestIdentity,
 } from "../lib/contractorAccessPolicy";
@@ -71,6 +79,55 @@ function requireAffiliateDesk(role: string) {
       message: "Only affiliate and admin accounts can add a contractor.",
     });
   }
+}
+
+function requireAffiliateMarkupAccess(role: string) {
+  if (role !== "admin" && !isAffiliateRole(role)) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "Only an affiliate can set contractor markup.",
+    });
+  }
+}
+
+/** Admins may pass affiliateUserId. Everyone else is limited to their own user id. */
+function markupAffiliateUserId(user: { id: number; role: string }, affiliateUserId?: number): number {
+  requireAffiliateMarkupAccess(user.role);
+  if (affiliateUserId != null && affiliateUserId !== user.id && user.role !== "admin") {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "You can only change your own contractor markup.",
+    });
+  }
+  return user.role === "admin" && affiliateUserId != null ? affiliateUserId : user.id;
+}
+
+type AccessRequest = typeof contractorAccessRequests.$inferSelect;
+
+async function applyContractorAccessDecision(
+  db: Database,
+  request: AccessRequest,
+  decision: "approved" | "rejected",
+  reviewerUserId: number,
+) {
+  if (request.userId != null) {
+    const [account] = await db.select({ id: users.id, role: users.role }).from(users).where(eq(users.id, request.userId)).limit(1);
+    if (!account) throw new TRPCError({ code: "NOT_FOUND", message: "Account not found." });
+    if (decision === "approved") {
+      if (account.role !== "user" && account.role !== "contractor") {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "This account already has a staff or affiliate role." });
+      }
+      if (account.role === "user") {
+        await db.update(users).set({ role: "contractor" }).where(eq(users.id, account.id));
+      }
+    }
+  }
+  await db.update(contractorAccessRequests).set({
+    status: decision,
+    reviewedByUserId: reviewerUserId,
+    reviewedAt: new Date(),
+  }).where(eq(contractorAccessRequests.id, request.id));
+  return { ok: true as const, status: decision };
 }
 
 export const contractorAccessRouter = router({
@@ -187,6 +244,7 @@ export const contractorAccessRouter = router({
         createdAt: row.createdAt,
         reviewedAt: row.reviewedAt,
         hasAccount: row.userId != null,
+        submittedByUserId: row.submittedByUserId,
       }));
   }),
   list: adminProcedure.input(z.object({
@@ -245,23 +303,84 @@ export const contractorAccessRouter = router({
     if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
     const [request] = await db.select().from(contractorAccessRequests).where(eq(contractorAccessRequests.id, input.id)).limit(1);
     if (!request) throw new TRPCError({ code: "NOT_FOUND", message: "Request not found." });
-    if (request.userId != null) {
-      const [account] = await db.select({ id: users.id, role: users.role }).from(users).where(eq(users.id, request.userId)).limit(1);
-      if (!account) throw new TRPCError({ code: "NOT_FOUND", message: "Account not found." });
-      if (input.decision === "approved") {
-        if (account.role !== "user" && account.role !== "contractor") {
-          throw new TRPCError({ code: "BAD_REQUEST", message: "This account already has a staff or affiliate role." });
-        }
-        if (account.role === "user") {
-          await db.update(users).set({ role: "contractor" }).where(eq(users.id, account.id));
-        }
-      }
+    return applyContractorAccessDecision(db, request, input.decision, ctx.user.id);
+  }),
+  affiliateReview: protectedProcedure.input(z.object({
+    id: z.number().int().positive(),
+    decision: z.enum(["approved", "rejected"]),
+  })).mutation(async ({ ctx, input }) => {
+    if (!canReviewAffiliateContractorRequest(ctx.user.role)) {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "Only an affiliate can review contractors they submitted.",
+      });
     }
-    await db.update(contractorAccessRequests).set({
-      status: input.decision,
-      reviewedByUserId: ctx.user.id,
-      reviewedAt: new Date(),
-    }).where(eq(contractorAccessRequests.id, request.id));
-    return { ok: true as const, status: input.decision };
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+    const [request] = await db.select().from(contractorAccessRequests).where(eq(contractorAccessRequests.id, input.id)).limit(1);
+    if (!request) throw new TRPCError({ code: "NOT_FOUND", message: "Request not found." });
+    if (ctx.user.role !== "admin" && request.submittedByUserId !== ctx.user.id) {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "You can only review contractors you submitted.",
+      });
+    }
+    if (request.status !== "pending") {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "Only a pending request can be reviewed.",
+      });
+    }
+    return applyContractorAccessDecision(db, request, input.decision, ctx.user.id);
+  }),
+  affiliateMarkup: protectedProcedure.input(z.object({
+    affiliateUserId: z.number().int().positive().optional(),
+  }).optional()).query(async ({ ctx, input }) => {
+    const affiliateUserId = markupAffiliateUserId(ctx.user, input?.affiliateUserId);
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+    const settings = await getPricingSettings();
+    const [row] = await db.select({ markupBps: affiliateContractorMarkups.markupBps })
+      .from(affiliateContractorMarkups)
+      .where(eq(affiliateContractorMarkups.affiliateUserId, affiliateUserId))
+      .limit(1);
+    return {
+      markupPercent: row ? markupBpsToPercent(row.markupBps) : null,
+      siteDefaultPercent: siteContractorMarkupPercent(settings.contractorMarkupBps),
+    };
+  }),
+  setAffiliateMarkup: protectedProcedure.input(z.object({
+    affiliateUserId: z.number().int().positive().optional(),
+    markupPercent: z.number().nullable().superRefine((value, ctx) => {
+      if (value == null) return;
+      if (!isAffiliateContractorMarkupPercent(value)) {
+        ctx.addIssue({
+          code: "custom",
+          message: "Markup percent must be from 0 to 200 with at most 2 decimal places.",
+        });
+      }
+    }),
+  })).mutation(async ({ ctx, input }) => {
+    const affiliateUserId = markupAffiliateUserId(ctx.user, input.affiliateUserId);
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+    if (input.markupPercent == null) {
+      await db.delete(affiliateContractorMarkups)
+        .where(eq(affiliateContractorMarkups.affiliateUserId, affiliateUserId));
+    } else {
+      const markupBps = markupPercentToBps(input.markupPercent);
+      await db.insert(affiliateContractorMarkups).values({
+        affiliateUserId,
+        markupBps,
+        updatedByUserId: ctx.user.id,
+      }).onDuplicateKeyUpdate({
+        set: { markupBps, updatedByUserId: ctx.user.id },
+      });
+    }
+    const settings = await getPricingSettings();
+    return {
+      markupPercent: input.markupPercent,
+      siteDefaultPercent: siteContractorMarkupPercent(settings.contractorMarkupBps),
+    };
   }),
 });

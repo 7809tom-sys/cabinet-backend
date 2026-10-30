@@ -7,6 +7,7 @@ import { publicProcedure, protectedProcedure, adminProcedure, router } from "../
 import { storagePut } from "../storage";
 import { TRPCError } from "@trpc/server";
 import { getDb, notInConflict, isCanonicalCabinetMaster, hasPositivePublishedCabinetPrice, getPricingSettings, updatePricingSettings, recalculateStoredTierPrices, getPlatformPricingSettings, updatePlatformPricingSettings } from "../db";
+import { getPricingSettingsForViewer } from "../lib/affiliateContractorPricing";
 import {
   cabinets,
   cabinetAliases,
@@ -1198,7 +1199,7 @@ export const doorStylesRouter = router({
       // source list as the customer retail price. Trade tiers remain cost-based.
       const viewerTier = resolveStorefrontTier(ctx.user);
       const isAdmin = ctx.user?.role === "admin";
-      const ps = await getPricingSettings();
+      const ps = await getPricingSettingsForViewer(ctx.user);
 
       const styleRows = await db
         .select()
@@ -4312,7 +4313,7 @@ export const pricingRouter = router({
         requestedAffiliateId,
         access: affiliateAccess,
       });
-      const ps = await getPricingSettings();
+      const ps = await getPricingSettingsForViewer(ctx.user);
       const affiliatePricing = await loadAffiliateStorefrontPricing(input.affiliateSlug);
       // A detail page reached from an unavailable/disabled affiliate scope must
       // never fall back to CabinetDealz's generic homeowner/list price.
