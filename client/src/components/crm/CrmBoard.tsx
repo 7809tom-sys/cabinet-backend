@@ -806,6 +806,7 @@ function DealDrawer({ dealId, lang, summary, onClose, onCompose }: { dealId: num
   const linkedDesigns = (data?.linkedDesigns ?? []) as LinkedInvoiceDesign[];
   const invoiceBrand = (data as { invoiceBrand?: CrmQuickInvoiceBrand } | undefined)?.invoiceBrand;
   const invoicePrefill = (data as { invoicePrefill?: CrmInvoicePrefill } | undefined)?.invoicePrefill;
+  const invoiceRecipient = (data as { invoiceRecipient?: { email: string | null; source: string | null } } | undefined)?.invoiceRecipient;
   const laborEstimates = (data?.laborEstimates ?? []) as CrmLaborEstimate[];
   const emails = (data?.emails ?? []) as {
     id: number; toEmail: string; fromEmail: string; subject: string; body: string;
@@ -1009,7 +1010,7 @@ function DealDrawer({ dealId, lang, summary, onClose, onCompose }: { dealId: num
                 {deal.laborEstimateId != null && !selectedLaborEstimateIsEligible && <p className="mt-1.5 text-[11px] text-amber-700">{lang === "es" ? "El estimado seleccionado ya no está disponible; elija otro o elimine la selección." : "The selected labor estimate is no longer available; choose another or clear the selection."}</p>}
               </div>
 
-              <QuickInvoiceDialog deal={deal} dealId={deal.id} linkedDesigns={linkedDesigns} brand={invoiceBrand} prefill={invoicePrefill} lang={lang} />
+              <QuickInvoiceDialog deal={deal} dealId={deal.id} linkedDesigns={linkedDesigns} brand={invoiceBrand} prefill={invoicePrefill} invoiceRecipient={invoiceRecipient} lang={lang} />
 
               <Button variant="ghost" className="text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => remove.mutate({ id: deal.id })} disabled={remove.isPending}>
                 <Trash2 className="h-4 w-4 mr-1" />{lang === "es" ? "Eliminar trato" : "Delete deal"}
@@ -1069,6 +1070,7 @@ function QuickInvoiceDialog({
   linkedDesigns,
   brand,
   prefill,
+  invoiceRecipient,
   lang,
 }: {
   deal: DealRow;
@@ -1076,6 +1078,7 @@ function QuickInvoiceDialog({
   linkedDesigns: LinkedInvoiceDesign[];
   brand?: CrmQuickInvoiceBrand;
   prefill?: CrmInvoicePrefill;
+  invoiceRecipient?: { email: string | null; source: string | null } | null;
   lang: Lang;
 }) {
   const utils = trpc.useUtils();
@@ -1229,7 +1232,10 @@ function QuickInvoiceDialog({
   const invoiceTotal = crmQuickInvoiceTotal(previewLines ?? []);
   const formatMoney = (amount: number) => amount.toLocaleString(undefined, { style: "currency", currency: "USD" });
   const smtpReady = emailReadiness?.configured && emailReadiness.enabled;
-  const customerEmail = deal.contactEmail?.trim();
+  // The server resolves this same address when the button omits `to`:
+  // typed input wins there, otherwise the lead, linked order, stored Stripe
+  // email, customer account, then a live Stripe lookup.
+  const customerEmail = ((invoiceRecipient ? invoiceRecipient.email : deal.contactEmail) ?? "").trim();
 
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => { setOpen(nextOpen); if (!nextOpen) setPreviewLines(null); }}>
@@ -1259,7 +1265,8 @@ function QuickInvoiceDialog({
             {selectedDesign && <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950"><strong>{label("Linked design:", "Diseño vinculado:")}</strong> {selectedDesign.designName}</div>}
             <div className="rounded-md border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground"><strong className="text-foreground">{brand?.storeName ?? "Cabinet Dealz"}</strong>{brand?.logoUrl ? label(" logo and colors will appear on both the PDF and customer email.", " aparecerán con su logo y colores en el PDF y el correo al cliente.") : label(" branding will appear on both the PDF and customer email.", " aparecerá en el PDF y el correo al cliente.")}</div>
             <DialogFooter className="gap-2 sm:justify-between"><Button variant="outline" onClick={() => setPreviewLines(null)}>{label("Back to selections", "Volver a selecciones")}</Button><div className="flex flex-wrap justify-end gap-2"><Button variant="outline" onClick={emailInvoice} disabled={!customerEmail || !smtpReady || sendInvoiceEmail.isPending}><Mail className="mr-2 h-4 w-4" />{sendInvoiceEmail.isPending ? label("Sending…", "Enviando…") : label("Email PDF to Customer", "Enviar PDF al cliente")}</Button><Button onClick={createInvoice} disabled={addActivity.isPending} className="bg-[var(--color-navy,#1a2b4a)] text-white"><FileText className="mr-2 h-4 w-4" />{label("Generate Final PDF", "Generar PDF final")}</Button></div></DialogFooter>
-            {!customerEmail && <p className="text-xs text-amber-700">{label("Add the customer email to this lead to enable direct invoice delivery.", "Agregue el correo del cliente a este prospecto para habilitar el envío directo.")}</p>}
+            {customerEmail && !deal.contactEmail?.trim() && <p className="text-xs text-muted-foreground">{label(`The PDF will be emailed to ${customerEmail}.`, `El PDF se enviará por correo a ${customerEmail}.`)}</p>}
+            {!customerEmail && <p className="text-xs text-amber-700">{label("No email was found on this lead, its order, or the payment record.", "No se encontró un correo en este prospecto, su pedido o el registro de pago.")}</p>}
             {customerEmail && !smtpReady && <p className="text-xs text-amber-700">{label("Email sending isn't available until Resend is configured.", "El envío de correo no está disponible hasta que Resend esté configurado.")}</p>}
           </>
         ) : (

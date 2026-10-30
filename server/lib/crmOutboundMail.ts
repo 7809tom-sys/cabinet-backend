@@ -3,35 +3,20 @@ import { TRPCError } from "@trpc/server";
 import { affiliateEmailSettings, affiliates, emailSettings } from "../../drizzle/schema";
 import { appendEmailSignature, resolveCrmOutbound, type CrmOutboundPlan } from "@shared/crmMailbox";
 import { getDb } from "../db";
-import {
-  isEmailConfigured,
-  outboundFromAddress,
-  sendEmail,
-  type EmailSettingsRow,
-} from "../email";
+import { resendConfigured, sendEmail } from "../email";
 
 type Database = NonNullable<Awaited<ReturnType<typeof getDb>>>;
 
-function settingsRow(row: typeof emailSettings.$inferSelect | undefined): EmailSettingsRow | null {
-  if (!row) return null;
-  return {
-    smtpHost: row.smtpHost,
-    smtpPort: row.smtpPort,
-    smtpUser: row.smtpUser,
-    smtpPass: row.smtpPass,
-    smtpFrom: row.smtpFrom,
-    enabled: row.enabled,
-  };
-}
-
-/** Ready when Resend is configured, otherwise when SMTP env or saved settings can send. */
+/**
+ * CRM mail is ready only when RESEND_API_KEY and ORDER_EMAIL_FROM are both set.
+ * A saved SMTP row or SMTP_* variables do not make the send ready and are not
+ * the transport. The shared sender still has an SMTP fallback for non-CRM mail.
+ */
 export async function loadCrmOutboundPlan(db: Database, dealAffiliateId: number | null): Promise<CrmOutboundPlan> {
   const [platformRow] = await db.select().from(emailSettings).limit(1);
-  const platform = settingsRow(platformRow);
-  const ready = isEmailConfigured(process.env, platform);
-  const from = outboundFromAddress(process.env, platform);
+  const from = resendConfigured(process.env) ? (process.env.ORDER_EMAIL_FROM ?? "").trim() : "";
   const transport = {
-    resendReady: ready,
+    resendReady: from.length > 0,
     resendFrom: from || undefined,
   };
   if (dealAffiliateId == null) {
