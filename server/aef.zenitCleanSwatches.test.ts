@@ -26,7 +26,11 @@ describe("AEF Zenit Classic clean door swatches", () => {
     const db = await getDb();
     if (!db) return;
 
-    const [aef] = await db.select({ id: distributors.id }).from(distributors).where(eq(distributors.code, "AEF")).limit(1);
+    const [aef] = await db
+      .select({ id: distributors.id })
+      .from(distributors)
+      .where(eq(distributors.code, "AEF"))
+      .limit(1);
     expect(aef).toBeDefined();
 
     const rows = await db
@@ -40,20 +44,27 @@ describe("AEF Zenit Classic clean door swatches", () => {
         thumbnail: doorStyles.thumbnailImageUrl,
       })
       .from(doorStyles)
-      .where(and(eq(doorStyles.distributorId, aef!.id), inArray(doorStyles.styleCode, CODES)));
+      .where(
+        and(
+          eq(doorStyles.distributorId, aef!.id),
+          inArray(doorStyles.styleCode, CODES)
+        )
+      );
 
     expect(rows).toHaveLength(CODES.length);
-    expect(rows.map((row) => row.styleCode).sort()).toEqual([...CODES].sort());
+    expect(rows.map(row => row.styleCode).sort()).toEqual([...CODES].sort());
     for (const row of rows) {
-      const expected = CLEAN_SWATCHES[row.styleCode as keyof typeof CLEAN_SWATCHES];
+      const expected =
+        CLEAN_SWATCHES[row.styleCode as keyof typeof CLEAN_SWATCHES];
       expect(row).toMatchObject({
         finish: "Zenit Classic",
         active: true,
         verified: true,
         door: expected,
-        drawer: expected,
         thumbnail: expected,
       });
+      // docs/sql/0238_clear_copied_drawer_swatches.tidb.sql clears the door file copied into the drawer slot.
+      expect(row.drawer === expected || row.drawer == null).toBe(true);
     }
   });
 });
