@@ -1020,8 +1020,10 @@ export const crmRouter = router({
     }),
 
   // ── Resend readiness for the composer (no secrets returned) ──────────────────
-  // Ready when RESEND_API_KEY and ORDER_EMAIL_FROM are set, even if no SMTP
-  // row is saved. Affiliate deals include replyTo for the store address.
+  // Ready only when RESEND_API_KEY and ORDER_EMAIL_FROM are both set. A saved
+  // SMTP row does not make the composer ready. This check is transport-only:
+  // a missing invoice recipient is reported by sendInvoiceEmail. Affiliate
+  // deals include replyTo for the store address.
   emailReadiness: protectedProcedure
     .input(z.object({ dealId: z.number().int().optional() }).optional())
     .query(async ({ ctx, input }) => {
@@ -1123,10 +1125,6 @@ export const crmRouter = router({
       if (!to) {
         throw new TRPCError({ code: "PRECONDITION_FAILED", message: "missing_recipient" });
       }
-      const backfill = contactEmailToBackfill(deal.contactEmail, to);
-      if (backfill) {
-        await db.update(crmDeals).set({ contactEmail: backfill }).where(eq(crmDeals.id, deal.id));
-      }
 
       const plan = await loadCrmOutbound(db, deal.affiliateId);
       if (!plan.ok) throw new TRPCError({ code: "PRECONDITION_FAILED", message: plan.reason });
@@ -1187,6 +1185,13 @@ export const crmRouter = router({
         activityBody: `Branded invoice PDF ${invoiceNumber} sent to ${to}${linkedDesignName ? ` · Linked design: ${linkedDesignName}` : ""}.`,
         logBody: `Branded invoice PDF ${invoiceNumber} attached.`,
       });
+      // Persist the address only after the message is accepted. A blocked or
+      // rejected send must leave a blank lead email unchanged, and a usable
+      // lead email is never overwritten.
+      const backfill = contactEmailToBackfill(deal.contactEmail, to);
+      if (backfill) {
+        await db.update(crmDeals).set({ contactEmail: backfill }).where(eq(crmDeals.id, deal.id));
+      }
       return { ok: true, invoiceNumber };
     }),
 
