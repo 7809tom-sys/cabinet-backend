@@ -21,6 +21,7 @@ import {
 } from "../lib/contractorAccessPolicy";
 import { DIRECT_STORE_NAME } from "@shared/customerDirectory";
 import { affiliateIdFromStoreScope, listAccessibleAffiliateIds, resolveAffiliateSiteScope, resolveContractorSubmitAffiliateId, rowBelongsToSite } from "../lib/affiliateSiteScope";
+import { queryOrLogMissingColumn } from "../lib/signupAffiliateStamp";
 import { adminProcedure, protectedProcedure, router } from "../_core/trpc";
 
 const STATUSES = ["pending", "approved", "rejected"] as const;
@@ -301,7 +302,7 @@ export const contractorAccessRouter = router({
   }).optional()).query(async ({ input }) => {
     const db = await getDb();
     if (!db) return [];
-    const rows = await db.select({
+    const rows = await queryOrLogMissingColumn("contractorAccess.list", () => db.select({
       id: contractorAccessRequests.id,
       userId: contractorAccessRequests.userId,
       businessName: contractorAccessRequests.businessName,
@@ -323,7 +324,7 @@ export const contractorAccessRouter = router({
       .leftJoin(users, eq(users.id, contractorAccessRequests.userId))
       .leftJoin(requestSubmitter, eq(requestSubmitter.id, contractorAccessRequests.submittedByUserId))
       .leftJoin(requestStore, eq(requestStore.id, contractorAccessRequests.affiliateId))
-      .orderBy(desc(contractorAccessRequests.createdAt));
+      .orderBy(desc(contractorAccessRequests.createdAt)));
     return rows
       .filter((row) => (input?.status ? row.status === input.status : true))
       .filter((row) => (input?.submittedByUserId != null ? row.submittedByUserId === input.submittedByUserId : true))

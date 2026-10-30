@@ -162,4 +162,22 @@ describe("affiliate customers and order tracking stay on one store", () => {
       "CD-20261022-HOUSE",
     ]);
   });
+
+  it("accepts house and adminAll on customer edits for every admin", async () => {
+    const admins = [
+      affiliateCustomersRouter.createCaller(caller({ id: 1, role: "admin", email: "ada@shop.test" })),
+      affiliateCustomersRouter.createCaller(caller({ id: 4, role: "admin", email: "second-admin@shop.test" })),
+    ];
+    for (const admin of admins) {
+      await expect(admin.setStatus({ adminAll: true, customerKey: "missing-customer", status: "new" })).rejects.toMatchObject({ code: "NOT_FOUND" });
+      await expect(admin.addNote({ house: true, customerKey: "missing-customer", body: "Called the showroom." })).rejects.toMatchObject({ code: "NOT_FOUND" });
+      await expect(admin.setFollowUp({ adminAll: true, customerKey: "missing-customer", followUpAt: null })).rejects.toMatchObject({ code: "NOT_FOUND" });
+      await expect(admin.openDeal({ house: true, customerKey: "missing-customer" })).rejects.toMatchObject({ code: "NOT_FOUND" });
+    }
+    const affiliate = affiliateCustomersRouter.createCaller(caller({ id: 2, role: "partner", email: "bea@shop.test" }));
+    await expect(affiliate.setStatus({ adminAll: true, customerKey: "missing-customer", status: "new" })).rejects.toMatchObject({
+      code: "FORBIDDEN",
+      message: "Only an admin can view every store.",
+    });
+  });
 });

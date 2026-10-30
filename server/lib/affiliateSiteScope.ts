@@ -25,6 +25,10 @@ export type SiteScopeInput = {
 const CHOOSE_STORE = "Choose which affiliate store to view.";
 const ADMIN_OPT_IN = "Open the admin directory to view every store.";
 
+function siteScopeError(code: "BAD_REQUEST" | "FORBIDDEN" | "NOT_FOUND", message: string): TRPCError {
+  return new TRPCError({ code, message });
+}
+
 export function rowBelongsToSite(
   rowAffiliateId: number | null | undefined,
   scope: { mode: DirectoryMode; affiliateId?: number | null },
@@ -93,7 +97,7 @@ export async function affiliateIdFromStoreScope(
     .where(eq(affiliates.slug, slug))
     .limit(1);
   if (!row || row.status !== "active") {
-    throw new TRPCError({ code: "NOT_FOUND", message: "This affiliate store is not available." });
+    throw siteScopeError("NOT_FOUND", "This affiliate store is not available.");
   }
   return row.id;
 }
@@ -101,6 +105,7 @@ export async function affiliateIdFromStoreScope(
 /**
  * Affiliate desk / storefront scope. adminAll is the only path that returns
  * every store, and only for role admin. A missing id never means "all rows".
+ * Failures are 400, 403, or 404 with a clear message. They are never UNAUTHORIZED.
  */
 export async function resolveAffiliateSiteScope(
   db: Database,
@@ -109,13 +114,13 @@ export async function resolveAffiliateSiteScope(
 ): Promise<SiteScope> {
   if (input.adminAll) {
     if (user.role !== "admin") {
-      throw new TRPCError({ code: "FORBIDDEN", message: "Only an admin can view every store." });
+      throw siteScopeError("FORBIDDEN", "Only an admin can view every store.");
     }
     return { mode: "all" };
   }
   if (input.house) {
     if (user.role !== "admin") {
-      throw new TRPCError({ code: "FORBIDDEN", message: "House records are on the admin page." });
+      throw siteScopeError("FORBIDDEN", "House records are on the admin page.");
     }
     return { mode: "house" };
   }
@@ -126,7 +131,7 @@ export async function resolveAffiliateSiteScope(
     requestedId = await affiliateIdFromStoreScope(db, slug);
   } else if (requestedId != null && user.role === "admin") {
     const [row] = await db.select({ id: affiliates.id }).from(affiliates).where(eq(affiliates.id, requestedId)).limit(1);
-    if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Affiliate not found." });
+    if (!row) throw siteScopeError("NOT_FOUND", "Affiliate not found.");
   }
 
   const accessible = await listAccessibleAffiliateIds(db, user);
@@ -134,12 +139,12 @@ export async function resolveAffiliateSiteScope(
     if (user.role === "admin" || accessible.includes(requestedId)) {
       return { mode: "store", affiliateId: requestedId };
     }
-    throw new TRPCError({ code: "FORBIDDEN", message: "You can only view this store's own records." });
+    throw siteScopeError("FORBIDDEN", "You can only view this store's own records.");
   }
   if (accessible.length === 1) return { mode: "store", affiliateId: accessible[0] };
-  if (accessible.length > 1) throw new TRPCError({ code: "BAD_REQUEST", message: CHOOSE_STORE });
-  if (user.role === "admin") throw new TRPCError({ code: "BAD_REQUEST", message: ADMIN_OPT_IN });
-  throw new TRPCError({ code: "FORBIDDEN", message: "No affiliate account is linked to your login." });
+  if (accessible.length > 1) throw siteScopeError("BAD_REQUEST", CHOOSE_STORE);
+  if (user.role === "admin") throw siteScopeError("BAD_REQUEST", ADMIN_OPT_IN);
+  throw siteScopeError("FORBIDDEN", "No affiliate account is linked to your login.");
 }
 
 /** Direct (house) attribution when an admin files a contractor with no store. */
@@ -153,7 +158,7 @@ export async function resolveContractorSubmitAffiliateId(
   if (!named && user.role === "admin") {
     const accessible = await listAccessibleAffiliateIds(db, user);
     if (accessible.length === 1) return accessible[0];
-    if (accessible.length > 1) throw new TRPCError({ code: "BAD_REQUEST", message: CHOOSE_STORE });
+    if (accessible.length > 1) throw siteScopeError("BAD_REQUEST", CHOOSE_STORE);
     return null;
   }
   const scope = await resolveAffiliateSiteScope(db, user, input);

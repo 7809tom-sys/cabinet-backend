@@ -11,6 +11,7 @@ import {
 import { installMysqlPoolFreeShippingGuard, primeCabinetFreeShippingColumn } from "./lib/cabinetFreeShippingSchema";
 import { linkApprovedContractorAccess } from "./lib/contractorAccessGrant";
 import { isOwnerEmail, shouldPromoteOwnerToAdmin } from "./lib/ownerAdmin";
+import { runSignupAffiliateStamp } from "./lib/signupAffiliateStamp";
 
 /**
  * A retired duplicate keeps its historical database record, supplier price rows,
@@ -393,14 +394,14 @@ export async function createEmailUser(params: {
   return { id: created.id, openId: created.openId };
 }
 
-/** Sets users.signupAffiliateId only while it is still null. */
+/** Sets users.signupAffiliateId only while it is still null. A failed stamp never throws. */
 export async function assignSignupAffiliateOnce(userId: number, affiliateId: number | null): Promise<void> {
   if (affiliateId == null) return;
   const db = await getDb();
   if (!db) return;
-  await db.update(users)
+  await runSignupAffiliateStamp(() => db.update(users)
     .set({ signupAffiliateId: affiliateId })
-    .where(and(eq(users.id, userId), isNull(users.signupAffiliateId)));
+    .where(and(eq(users.id, userId), isNull(users.signupAffiliateId))));
 }
 
 /**

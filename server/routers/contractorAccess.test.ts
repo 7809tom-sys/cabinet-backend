@@ -587,4 +587,44 @@ describe("contractorAccess", () => {
       }),
     ]);
   });
+
+  it("lets every admin list contractor requests", async () => {
+    requestRows.push({
+      id: 3,
+      userId: null,
+      submittedByUserId: 9,
+      contractorName: "Pat",
+      contractorEmail: "pat@shop.test",
+      businessName: "Pat Kitchens",
+      phone: "555-0100",
+      licenseNumber: null,
+      status: "pending",
+      affiliateId: 70,
+      reviewedByUserId: null,
+      reviewedAt: null,
+      createdAt: new Date("2026-10-01T00:00:00Z"),
+    });
+    const first = await caller({ id: 2, role: "admin", email: "one-admin@shop.test" }).list();
+    const second = await caller({ id: 8, role: "admin", email: "second-admin@shop.test" }).list();
+    expect(first.map((row) => row.id)).toEqual([3]);
+    expect(second.map((row) => row.id)).toEqual(first.map((row) => row.id));
+    await expect(caller({ id: 9, role: "partner", email: "one-admin@shop.test" }).list()).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+
+  it("logs the exact database error when list hits a missing column", async () => {
+    const dbError = Object.assign(new Error("Failed query: select `affiliateId` from `contractor_access_requests`"), {
+      cause: { code: "ER_BAD_FIELD_ERROR", errno: 1054, sqlMessage: "Unknown column 'affiliateId' in 'field list'" },
+    });
+    getDbMock.mockResolvedValue({
+      select: () => {
+        throw dbError;
+      },
+    });
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    await expect(caller({ id: 8, role: "admin", email: "second-admin@shop.test" }).list()).rejects.toMatchObject({
+      message: "Failed query: select `affiliateId` from `contractor_access_requests`",
+    });
+    expect(spy).toHaveBeenCalledWith("contractorAccess.list", "Unknown column 'affiliateId' in 'field list'");
+    spy.mockRestore();
+  });
 });
