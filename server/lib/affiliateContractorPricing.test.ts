@@ -1,12 +1,20 @@
 import { describe, expect, it } from "vitest";
-import { latestAffiliateSubmission, withAffiliateContractorUnitPrice } from "./affiliateContractorPricing";
-import { pricingSettingsWithAffiliateContractorMarkup } from "../../shared/affiliateContractorMarkup";
+import { sellPriceForTier, type AffiliateContractorCostContext } from "../../shared/margins";
+import { attachAffiliateContractorCost, latestAffiliateSubmission, withAffiliateContractorUnitPrice } from "./affiliateContractorPricing";
 
-const settings = pricingSettingsWithAffiliateContractorMarkup({
+const siteSettings = {
   homeownerMarkupBps: 15800,
   contractorMarkupBps: 12900,
   wholesaleMarkupBps: 12500,
-}, 4000);
+};
+
+const storeCost: AffiliateContractorCostContext = {
+  markupBps: 2900,
+  tier: { basis: "cost_multiplier", basisPoints: 12000 },
+  platformAffiliateMarkupBps: 500,
+};
+
+const settings = attachAffiliateContractorCost(siteSettings, "contractor", storeCost);
 
 describe("affiliate contractor submission choice", () => {
   it("uses the latest reviewed affiliate-submitted approval", () => {
@@ -22,16 +30,18 @@ describe("affiliate contractor submission choice", () => {
 });
 
 describe("affiliate contractor checkout price", () => {
-  it("replaces the submitted cabinet price with cost times one plus the affiliate markup", () => {
+  it("uses the same affiliate-cost contractor price as the catalog", () => {
     const rows = [{
       cabinetId: 7,
       styleId: 3,
       distributorId: 1,
-      yourCost: "80.00",
+      category: "Base",
+      yourCost: "100.00",
       wholesalePrice: null,
       adjustedListPrice: null,
-      listPrice: null,
+      listPrice: "250.00",
     }];
+    const catalogPrice = sellPriceForTier(rows[0], settings, "contractor");
     const line = withAffiliateContractorUnitPrice({
       cabinetId: 7,
       styleId: 3,
@@ -40,8 +50,57 @@ describe("affiliate contractor checkout price", () => {
       unitPrice: 1,
       linePrice: 2,
     }, rows, settings);
-    expect(line.unitPrice).toBe(112);
-    expect(line.linePrice).toBe(224);
+    expect(catalogPrice).toBe(154.8);
+    expect(line.unitPrice).toBe(catalogPrice);
+    expect(line.linePrice).toBe(309.6);
+  });
+
+  it("prices a flooring order line from the 40/60 affiliate cost, matching the catalog", () => {
+    const rows = [{
+      cabinetId: 8,
+      styleId: 3,
+      distributorId: 1,
+      category: "Flooring",
+      yourCost: 100,
+      wholesalePrice: null,
+      adjustedListPrice: null,
+      listPrice: 200,
+    }];
+    const catalogPrice = sellPriceForTier(rows[0], settings, "contractor");
+    const line = withAffiliateContractorUnitPrice({
+      cabinetId: 8,
+      styleId: 3,
+      distributorId: 1,
+      qty: 1,
+      unitPrice: 1,
+      linePrice: 1,
+    }, rows, settings);
+    expect(catalogPrice).toBe(180.6);
+    expect(line.unitPrice).toBe(catalogPrice);
+  });
+
+  it("keeps the site contractor price when the contractor has no markup row", () => {
+    const rows = [{
+      cabinetId: 7,
+      styleId: 3,
+      distributorId: 1,
+      yourCost: "100.00",
+      wholesalePrice: null,
+      adjustedListPrice: null,
+      listPrice: null,
+    }];
+    const unchanged = attachAffiliateContractorCost(siteSettings, "contractor", null);
+    expect(unchanged).toBe(siteSettings);
+    const line = withAffiliateContractorUnitPrice({
+      cabinetId: 7,
+      styleId: 3,
+      distributorId: 1,
+      qty: 1,
+      unitPrice: 1,
+      linePrice: 1,
+    }, rows, unchanged);
+    expect(line.unitPrice).toBe(129);
+    expect(sellPriceForTier(rows[0], unchanged, "contractor")).toBe(129);
   });
 
   it("leaves hardware lines and lines without a cost row unchanged", () => {
@@ -62,5 +121,21 @@ describe("affiliate contractor checkout price", () => {
       linePrice: 15,
     }, [], settings);
     expect(missing.unitPrice).toBe(15);
+  });
+});
+
+describe("viewer role gate", () => {
+  it("leaves a non-contractor viewer's settings and prices unchanged", () => {
+    for (const role of ["homeowner", "admin", "affiliate", "wholesale"]) {
+      expect(attachAffiliateContractorCost(siteSettings, role, storeCost)).toBe(siteSettings);
+    }
+    const contractorSettings = attachAffiliateContractorCost(siteSettings, "contractor", storeCost);
+    const row = { yourCost: 100, listPrice: 250, category: "Base" };
+    expect(sellPriceForTier(row, siteSettings, "homeowner")).toBe(158);
+    expect(sellPriceForTier(row, contractorSettings, "homeowner")).toBe(158);
+    expect(sellPriceForTier(row, siteSettings, "wholesale")).toBe(125);
+    expect(sellPriceForTier(row, contractorSettings, "wholesale")).toBe(125);
+    expect(sellPriceForTier(row, siteSettings, "contractor")).toBe(129);
+    expect(contractorSettings.contractorMarkupBps).toBe(siteSettings.contractorMarkupBps);
   });
 });

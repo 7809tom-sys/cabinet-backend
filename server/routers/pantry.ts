@@ -54,6 +54,7 @@ function partPrices(p: SplitPantryPartPrices | null): {
   retailPriceBasis: "cost_plus_tier" | "source_list";
   vendorWholesale?: string | null;
   vendorMarkupPercent?: string | number | null;
+  category: string | null;
 } {
   return {
     yourCost: p?.yourCost ?? null,
@@ -65,14 +66,18 @@ function partPrices(p: SplitPantryPartPrices | null): {
     retailPriceBasis: p?.retailPriceBasis ?? "cost_plus_tier",
     vendorWholesale: p?.vendorWholesale ?? null,
     vendorMarkupPercent: p?.vendorMarkupPercent ?? null,
+    category: p?.category ?? null,
   };
 }
 
 // Build the viewer-facing Split Pantry from a raw bundle row (with real parts).
 // The combined price is the SUM of the two parts priced at the viewer's tier —
 // exactly what the customer would pay adding the top and bottom individually.
-// Each part's tier price is computed from our cost base × the per-tier markup
-// (matches the admin Margins tab), never from a pre-marked-up stored column.
+// Each part's tier price is computed from the viewer's price base × the per-tier
+// markup (matches the admin Margins tab), never from a pre-marked-up stored
+// column. A contractor tied to a store with a saved markup uses that store's
+// affiliate cost. Pantry parts carry their cabinet category so flooring and
+// appliances still take the 40/60 split.
 function toView(
   b: SplitPantryBundleRow,
   tier: PricingTier,

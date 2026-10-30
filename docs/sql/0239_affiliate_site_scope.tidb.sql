@@ -10,7 +10,8 @@
 -- users.signupAffiliateId is set once at account creation and is never overwritten by later sign-ins.
 -- affiliate_contractor_markups is keyed by store so one login that owns two stores
 -- can price contractors differently. affiliateUserId only records who saved the row.
--- A missing markup row still means the site-wide contractor multiplier.
+-- A missing markup row still means the site-wide contractor multiplier on Cabinet Dealz cost.
+-- A saved markup is applied over that store's affiliate cost.
 
 -- 1
 ALTER TABLE cabinet_dealz.contractor_access_requests

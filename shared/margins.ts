@@ -3,12 +3,31 @@
 //
 // All markups are basis points where 10000 = no change (×1.0), 11500 = +15%.
 
+import { classifyAffiliateProduct, resolveAffiliateTierCost } from "./affiliatePricingTier";
+
 export type PricingTier = "homeowner" | "contractor" | "wholesale";
+
+/**
+ * Saved affiliate contractor markup plus the submitting store's buy-cost rule.
+ * Present only for a contractor tied to a store that has a markup row.
+ * markupBps is the percent itself (2900 = 29% over the affiliate's cost).
+ */
+export interface AffiliateContractorCostContext {
+  markupBps: number;
+  tier: { basis: "cost_multiplier" | "list_discount"; basisPoints: number } | null;
+  platformAffiliateMarkupBps: number;
+}
 
 export interface TierMarkupBps {
   homeownerMarkupBps: number;
   contractorMarkupBps: number;
   wholesaleMarkupBps: number;
+  /**
+   * When set, the contractor tier is that store's affiliate cost times
+   * (1 + markupBps/10000). Homeowner and wholesale ignore it. Absent means
+   * the site contractor multiplier on Cabinet Dealz cost.
+   */
+  affiliateContractorCost?: AffiliateContractorCostContext | null;
 }
 
 export const NEUTRAL_BPS = 10000;
@@ -68,6 +87,10 @@ export function applyTierMarkup(
 //
 //   sell(tier) = costBase × (tierMarkupBps / 10000)
 //
+// A contractor tied to an affiliate store with a saved markup is the exception:
+// that price is the store's affiliate cost × (1 + markupBps/10000). Homeowner
+// and wholesale tiers never use that exception.
+//
 // Cost base precedence (first non-null wins). Our TRUE cost is `yourCost`,
 // which equals the distributor's listPrice × their costMultiplier (the single
 // cost lever on the admin Multiplier tab). Fallbacks only apply when a SKU is
@@ -100,6 +123,11 @@ export interface CostBaseRow {
   vendorMarkupPercent?: number | string | null;
   /** pelican_category_markups.markupBps, applied on top of the site-wide key. */
   categoryMarkupBps?: number | null;
+  /**
+   * Catalog category. Flooring and appliances use the affiliate 40/60 split
+   * when an affiliate contractor cost context is attached. Other tiers ignore it.
+   */
+  category?: string | null;
 }
 
 function toNum(v: number | string | null | undefined): number | null {
@@ -140,20 +168,60 @@ export function retailFromWholesale(
   return Math.round(base * (bps / NEUTRAL_BPS) * (1 + vendor) * categoryFactor * 100) / 100;
 }
 
+function dollarsToPositiveCents(value: number | string | null | undefined): number | null {
+  const amount = toNum(value);
+  if (amount == null || amount <= 0) return null;
+  return Math.round(amount * 100);
+}
+
+/**
+ * Contractor price for a store that saved a markup: the submitting store's
+ * affiliate cost, then × (1 + markupBps/10000), rounded to cents.
+ * The multiplier uses the same 0%..+1000% cap as other tier markups.
+ * Returns null when that affiliate cost cannot be resolved.
+ */
+export function contractorPriceOverAffiliateCost(
+  row: CostBaseRow,
+  context: AffiliateContractorCostContext,
+): number | null {
+  const listCents = dollarsToPositiveCents(row.listPrice);
+  const resolved = resolveAffiliateTierCost({
+    yourCostCents: dollarsToPositiveCents(row.yourCost),
+    listPriceCents: listCents,
+    referenceRetailCents: listCents,
+    productClass: classifyAffiliateProduct(row.category),
+    tier: context.tier,
+    platformAffiliateMarkupBps: context.platformAffiliateMarkupBps,
+  });
+  if (resolved.affiliateCostCents == null) return null;
+  const multiplierBps = clampBps(NEUTRAL_BPS + context.markupBps);
+  return Math.round((resolved.affiliateCostCents * multiplierBps) / NEUTRAL_BPS) / 100;
+}
+
 /**
  * Compute the customer-facing sell price for a tier from the cost base and the
  * per-tier markup. Returns a 2-dp number, or null when no cost base exists.
  * The global default markup is intentionally ignored.
  *
  * Homeowner retail uses vendor wholesale × pricing_settings.homeownerMarkupBps
- * when that wholesale has been entered. Contractor and wholesale tiers stay on
- * the existing cost ladder. Rows without vendor wholesale are unchanged.
+ * when that wholesale has been entered. Wholesale stays on the cost ladder.
+ * A contractor whose settings carry an affiliate cost context is priced from
+ * that store's affiliate cost. Every other contractor row stays on the cost ladder.
+ * Rows without vendor wholesale are unchanged.
  */
 export function sellPriceForTier(
   row: CostBaseRow,
   s: TierMarkupBps,
   tier: PricingTier,
 ): number | null {
+  // Affiliate-tied contractors with a saved markup are priced over that store's
+  // affiliate cost. This replaces the Cabinet Dealz cost ladder and the
+  // source-list shortcut for the contractor tier only. When the affiliate cost
+  // cannot be resolved, the site contractor path below still applies.
+  if (tier === "contractor" && s.affiliateContractorCost) {
+    const overAffiliateCost = contractorPriceOverAffiliateCost(row, s.affiliateContractorCost);
+    if (overAffiliateCost != null) return overAffiliateCost;
+  }
   // Some suppliers publish a verified customer-facing list and explicitly do
   // not use Cabinet Dealz tier markup (for example the staged AltaEuro line).
   // Keep that printed value exact. Cost-plus-tier suppliers such as USCD still

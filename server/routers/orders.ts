@@ -39,8 +39,7 @@ import { invokeLLM } from "../_core/llm";
 import { sellPriceForTier } from "@shared/margins";
 import { resolvePricingFor } from "@shared/pricingTier";
 import { getPricingSettings } from "../db";
-import { affiliateMarkupBpsForContractorUser, getPricingSettingsForViewer, withAffiliateContractorUnitPrice } from "../lib/affiliateContractorPricing";
-import { pricingSettingsWithAffiliateContractorMarkup } from "../../shared/affiliateContractorMarkup";
+import { affiliateContractorCostContextForContractorUser, getPricingSettingsForViewer, withAffiliateContractorUnitPrice } from "../lib/affiliateContractorPricing";
 import { affiliateStyleBranding } from "../../drizzle/schema";
 import { loadAffiliateStorefrontPricing } from "../lib/affiliateStorefrontPricing";
 import { affiliateStorefrontSale, dollarsToCents } from "../lib/affiliateTierPricing";
@@ -966,16 +965,20 @@ export const ordersRouter = router({
           .map((line) => line.styleId ?? input.styleId ?? null)
           .filter((id): id is number => typeof id === "number" && id > 0)));
         if (promoCabinetIds.length > 0 && promoStyleIds.length > 0) {
-          const markupBps = ctx.user?.role === "contractor" && resolvedTier === "Contractor"
-            ? await affiliateMarkupBpsForContractorUser(ctx.user.id)
+          const contractorCost = ctx.user?.role === "contractor" && resolvedTier === "Contractor"
+            ? await affiliateContractorCostContextForContractorUser(ctx.user.id)
             : null;
           const [promoRules, promoRows, siteSettings] = await Promise.all([
             loadActivePromotionRules(db),
             loadPublishedCabinetPriceRows(db, promoCabinetIds, promoStyleIds),
             getPricingSettings(),
           ]);
-          const promoSettings = pricingSettingsWithAffiliateContractorMarkup(siteSettings, markupBps);
-          if (markupBps != null) {
+          // A saved markup prices cabinet lines over the submitting store's
+          // affiliate cost. No markup row leaves the site contractor tier.
+          const promoSettings = contractorCost
+            ? { ...siteSettings, affiliateContractorCost: contractorCost }
+            : siteSettings;
+          if (contractorCost != null) {
             normalizedLines = normalizedLines.map((line) => withAffiliateContractorUnitPrice(line, promoRows, promoSettings));
           }
           normalizedLines = normalizedLines.map((line) => priceLineWithPromotion(

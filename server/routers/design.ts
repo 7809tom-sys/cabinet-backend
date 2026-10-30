@@ -1223,7 +1223,8 @@ export const designRouter = router({
           vendorMarkupPercent: distributors.markupPercent,
         })
         // NOTE: yourCost is required so sellPriceForTier can compute the
-        // correct tier price (cost × markup).
+        // tier price. A contractor with a saved store markup uses the affiliate's
+        // cost; everyone else uses Cabinet Dealz cost × the tier multiplier.
         .from(distributorSkus)
         .innerJoin(distributors, eq(distributors.id, distributorSkus.distributorId))
         .innerJoin(cabinets, eq(cabinets.id, distributorSkus.cabinetId))
@@ -1484,6 +1485,7 @@ export const designRouter = router({
           contractorPrice: distributorSkus.contractorPrice,
           homeownerPrice: distributorSkus.homeownerPrice,
           adjustedListPrice: distributorSkus.adjustedListPrice,
+          category: cabinets.category,
         })
         .from(cabinets)
         .innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))
@@ -1502,8 +1504,9 @@ export const designRouter = router({
         const b = Number(cur.contractorPrice ?? cur.wholesalePrice ?? Infinity);
         if (a < b) best.set(key, r);
       }
-      // Tier prices are computed from our cost base × the per-tier markup (matches
-      // the admin Margins tab), never from a pre-marked-up stored column.
+      // Tier prices are computed from the viewer's price base × the per-tier markup
+      // (matches the admin Margins tab), never from a pre-marked-up stored column.
+      // A contractor with a saved store markup uses that store's affiliate cost.
       const ps = await getPricingSettingsForViewer(ctx.user);
       return Array.from(best.values()).map((r) => ({
         styleId: Number(r.styleId),
@@ -1595,6 +1598,7 @@ export const designRouter = router({
           contractorPrice: distributorSkus.contractorPrice,
           homeownerPrice: distributorSkus.homeownerPrice,
           adjustedListPrice: distributorSkus.adjustedListPrice,
+          category: cabinets.category,
         })
         .from(cabinets)
         .innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))
@@ -1678,6 +1682,7 @@ export const designRouter = router({
 	          contractorPrice: distributorSkus.contractorPrice,
 	          homeownerPrice: distributorSkus.homeownerPrice,
 	          adjustedListPrice: distributorSkus.adjustedListPrice,
+	          category: cabinets.category,
 	        })
         .from(cabinets)
         .innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))
@@ -1699,6 +1704,7 @@ export const designRouter = router({
 	            contractorPrice: string | null;
 	            homeownerPrice: string | null;
 	            adjustedListPrice: string | null;
+	            category: string | null;
 	          }
         | null = null;
       for (const r of rows) {
@@ -1720,8 +1726,9 @@ export const designRouter = router({
       }
 	      if (best == null) return null;
 	      const psRollout = await getPricingSettingsForViewer(ctx.user);
+	      const { category: _category, ...pricedShelf } = best;
 	      return {
-	        ...best,
+	        ...pricedShelf,
 	        wholesalePrice: sellPriceForTier(best, psRollout, "wholesale")?.toFixed(2) ?? null,
 	        contractorPrice: sellPriceForTier(best, psRollout, "contractor")?.toFixed(2) ?? null,
 	        homeownerPrice: sellPriceForTier(best, psRollout, "homeowner")?.toFixed(2) ?? null,
@@ -2930,6 +2937,7 @@ Return an empty actions array ONLY if the user asked a pure question with no wal
           retailPriceBasis: distributors.retailPriceBasis,
           vendorWholesale: distributorSkus.vendorWholesale,
           vendorMarkupPercent: distributors.markupPercent,
+          category: cabinets.category,
         })
         .from(cabinets)
         .innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))

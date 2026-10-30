@@ -1305,12 +1305,15 @@ export const doorStylesRouter = router({
           const normCategory = isWallWineRackCabinet(r) ? "Wall" : isTrimItem(r) ? "accessory" : r.category;
           // Cost base precedence (yourCost first) MUST match stylesForCabinet
           // so the Family page and the Cabinet Detail page price identically.
+          // category stays the catalog category so flooring and appliances use
+          // the affiliate 40/60 split before the display category is normalized.
           const costRow = {
             yourCost: r.yourCost,
             wholesalePrice: r.wholesalePrice,
             adjustedListPrice: r.adjustedListPrice,
             listPrice: r.listPrice,
             retailPriceBasis: r.retailPriceBasis,
+            category: r.category,
           };
           const sellHomeowner = sellPriceForTier(costRow, ps, "homeowner");
           const sellContractor = sellPriceForTier(costRow, ps, "contractor");
@@ -4484,6 +4487,7 @@ export const pricingRouter = router({
             yourCost: r.yourCost,
             listPrice: r.listPrice,
             retailPriceBasis: r.retailPriceBasis,
+            category: r.category,
           };
           const sellHomeowner = sellPriceForTier(costRow, ps, "homeowner");
           const sellContractor = sellPriceForTier(costRow, ps, "contractor");

@@ -245,6 +245,7 @@ export const priceShopRouter = router({
         homeownerPrice: distributorSkus.homeownerPrice,
         yourCost: distributorSkus.yourCost,
         platformSku: distributorSkus.platformSku,
+        category: cabinets.category,
         retailPriceBasis: distributors.retailPriceBasis,
         vendorWholesale: distributorSkus.vendorWholesale,
         vendorMarkupPercent: distributors.markupPercent,
@@ -383,6 +384,7 @@ export const priceShopRouter = router({
           yourCost: row.yourCost,
           listPrice: row.listPrice,
           retailPriceBasis: row.retailPriceBasis,
+          category: row.category,
         };
 
         let displayPrice: number | null = null;
@@ -502,6 +504,7 @@ export const priceShopRouter = router({
         contractorPrice: distributorSkus.contractorPrice,
         homeownerPrice: distributorSkus.homeownerPrice,
         yourCost: distributorSkus.yourCost,
+        category: cabinets.category,
         retailPriceBasis: distributors.retailPriceBasis,
         vendorWholesale: distributorSkus.vendorWholesale,
         vendorMarkupPercent: distributors.markupPercent,
@@ -562,7 +565,7 @@ export const priceShopRouter = router({
           if (candidate) { if (!row) { row = candidate; } else { const a = Number(candidate.contractorPrice ?? candidate.wholesalePrice ?? Infinity); const b = Number(row.contractorPrice ?? row.wholesalePrice ?? Infinity); if (a < b) row = candidate; } }
         }
         if (!row) { breakdown.push({ masterCode: item.masterCodes[0], label: item.label, qty: item.qty, unitPrice: null, lineTotal: null, unitCost: null, lineCost: null, available: false }); continue; }
-        const costRow = { wholesalePrice: row.wholesalePrice, adjustedListPrice: row.adjustedListPrice, yourCost: row.yourCost, listPrice: row.listPrice, retailPriceBasis: row.retailPriceBasis };
+        const costRow = { wholesalePrice: row.wholesalePrice, adjustedListPrice: row.adjustedListPrice, yourCost: row.yourCost, listPrice: row.listPrice, retailPriceBasis: row.retailPriceBasis, category: row.category };
         const displayPrice = sellPriceForTier(costRow, ps, viewerTier === "homeowner" || !viewerTier ? "homeowner" : viewerTier === "contractor" ? "contractor" : "wholesale");
         const unitCost = row.yourCost ? Number(row.yourCost) : null;
         if (displayPrice != null) {

@@ -723,6 +723,7 @@ export type SplitPantryPartPrices = {
   retailPriceBasis: "cost_plus_tier" | "source_list";
   vendorWholesale?: string | null;
   vendorMarkupPercent?: string | null;
+  category?: string | null;
 };
 
 export type SplitPantryBundleRow = {
@@ -760,6 +761,7 @@ async function loadPartPrices(
       retailPriceBasis: distributors.retailPriceBasis,
       vendorWholesale: distributorSkus.vendorWholesale,
       vendorMarkupPercent: distributors.markupPercent,
+      category: cabinets.category,
     })
     .from(distributorSkus)
     .innerJoin(cabinets, eq(cabinets.id, distributorSkus.cabinetId))
