@@ -1,5 +1,6 @@
 import { and, desc, eq, inArray, isNotNull, isNull, like, or, sql } from "drizzle-orm";
 import {
+  affiliates,
   crmActivities,
   crmDeals,
   distributorSkus,
@@ -14,16 +15,23 @@ import { sendEmail } from "../email";
 import { insertCrmEmailLog } from "./crmCustomerMail";
 import { ensureAffiliatePipelineDeal } from "./crmPipelineAttach";
 import { fetchDistributorPoCatalog } from "./distributorPoCatalog";
+import { createDistributorPoPdf } from "./distributorPoPdf";
 import {
   assignLinesToDistributors,
   buildDistributorEmailContent,
+  CABINET_DEALZ_PO_BRAND,
   deliverDistributorEmails,
+  distributorPoAttachmentNames,
+  distributorPoPaymentTerms,
+  orderFulfillmentNotes,
+  orderPurchaseOrderCharges,
   parseCcEmails,
   poViewToEmailLine,
   summarizeDistributorEmails,
   usableEmail,
   type DistributorEmailRecord,
   type DistributorPortion,
+  type PoParty,
 } from "./distributorOrderEmail";
 import {
   applyCrmBackfill,
@@ -467,17 +475,51 @@ export async function logOrderStep(orderId: number, step: "email_sent" | "verifi
   }
 }
 
-export async function buildOrderDistributorMessage(
-  db: Database,
-  orderId: number,
-  distributorId: number,
-): Promise<{ subject: string; text: string; html: string; orderNumber: string } | null> {
-  const [order] = await db.select().from(orderRequests).where(eq(orderRequests.id, orderId)).limit(1);
-  if (!order) return null;
-  const portions = await loadPortions(db, order);
-  const portion = portions.find((row) => row.distributorId === distributorId);
-  if (!portion) return null;
-  const message = buildDistributorEmailContent({
+function moneyAmount(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim()) {
+    const amount = Number(value);
+    return Number.isFinite(amount) ? amount : null;
+  }
+  return null;
+}
+
+function lineUnitCost(line: OrderLineItem): number | null {
+  const snapshot = moneyAmount(line.unitDistributorCost);
+  if (snapshot != null) return snapshot;
+  if (typeof line.hardwareUnitCostCents === "number" && Number.isFinite(line.hardwareUnitCostCents)) {
+    return Math.round(line.hardwareUnitCostCents) / 100;
+  }
+  return null;
+}
+
+async function purchaseOrderBillTo(db: Database, order: typeof orderRequests.$inferSelect): Promise<PoParty> {
+  if (order.affiliateId) {
+    const [affiliate] = await db.select({
+      storeName: affiliates.storeName,
+      publicAddress: affiliates.publicAddress,
+      location: affiliates.location,
+      publicPhone: affiliates.publicPhone,
+      publicEmail: affiliates.publicEmail,
+    }).from(affiliates).where(eq(affiliates.id, order.affiliateId)).limit(1);
+    if (affiliate?.storeName?.trim()) {
+      return {
+        name: affiliate.storeName.trim(),
+        lines: [affiliate.publicAddress, affiliate.location, affiliate.publicPhone, affiliate.publicEmail]
+          .map((line) => line?.trim() ?? "")
+          .filter(Boolean),
+      };
+    }
+  }
+  return { name: CABINET_DEALZ_PO_BRAND.name, lines: [...CABINET_DEALZ_PO_BRAND.lines] };
+}
+
+function portionDocumentInput(
+  order: typeof orderRequests.$inferSelect,
+  portion: DistributorPortion,
+  billTo: PoParty,
+) {
+  return {
     orderNumber: order.requestNumber,
     orderDate: new Date(order.createdAt).toISOString().slice(0, 10),
     customerName: order.originatorName,
@@ -487,8 +529,26 @@ export async function buildOrderDistributorMessage(
     poNumber: order.distributorInvoiceReference,
     notes: order.notes,
     deliveryMethod: order.deliveryMethod,
-  });
-  return { subject: message.subject, text: message.text, html: message.html, orderNumber: order.requestNumber };
+    vendorLines: portion.vendorLines,
+    billTo,
+    charges: orderPurchaseOrderCharges(order),
+    paymentTerms: distributorPoPaymentTerms(),
+    fulfillmentNotes: orderFulfillmentNotes(order),
+  };
+}
+
+export async function buildOrderDistributorMessage(
+  db: Database,
+  orderId: number,
+  distributorId: number,
+): Promise<{ subject: string; text: string; html: string; csv: string; document: ReturnType<typeof buildDistributorEmailContent>["document"]; orderNumber: string } | null> {
+  const [order] = await db.select().from(orderRequests).where(eq(orderRequests.id, orderId)).limit(1);
+  if (!order) return null;
+  const portions = await loadPortions(db, order);
+  const portion = portions.find((row) => row.distributorId === distributorId);
+  if (!portion) return null;
+  const message = buildDistributorEmailContent(portionDocumentInput(order, portion, await purchaseOrderBillTo(db, order)));
+  return { subject: message.subject, text: message.text, html: message.html, csv: message.csv, document: message.document, orderNumber: order.requestNumber };
 }
 
 async function logAutomaticDistributorEmail(
@@ -579,6 +639,7 @@ async function loadPortions(db: Database, order: typeof orderRequests.$inferSele
     productKind: line.productKind,
     vendorProductId: line.vendorProductId,
     storedDoorStyle: line.doorStyle,
+    unitDistributorCost: lineUnitCost(line),
   })), skuDistributor, fallback);
   if (groups.size === 0) return [];
   const ids = Array.from(groups.keys());
@@ -600,6 +661,8 @@ async function loadPortions(db: Database, order: typeof orderRequests.$inferSele
     brandName: distributors.brandName,
     orderEmail: distributors.orderEmail,
     ccEmails: distributors.ccEmails,
+    warehouseName: distributors.warehouseName,
+    warehouseAddress: distributors.warehouseAddress,
   }).from(distributors).where(inArray(distributors.id, ids));
   const byId = new Map(dists.map((row) => [row.id, row]));
   return ids.map((id) => {
@@ -610,6 +673,7 @@ async function loadPortions(db: Database, order: typeof orderRequests.$inferSele
       distributorName: distributorFacingName({ id, brandName: dist?.brandName, code: dist?.code }),
       orderEmail: dist?.orderEmail ?? null,
       ccEmails: parseCcEmails(dist?.ccEmails),
+      vendorLines: [dist?.warehouseName, dist?.warehouseAddress].map((line) => line?.trim() ?? "").filter(Boolean),
       lines: bucket.map((line) => poViewToEmailLine(resolveDistributorPoLine({
         cabinetId: line.cabinetId,
         styleId: line.styleId,
@@ -621,6 +685,7 @@ async function loadPortions(db: Database, order: typeof orderRequests.$inferSele
         distributorSku: line.lineDistributorSku,
         productKind: line.productKind,
         vendorProductId: line.vendorProductId,
+        unitPrice: line.unitDistributorCost ?? null,
       }, id, catalog))),
     };
   });
@@ -697,17 +762,9 @@ export async function notifyOrderDistributors(orderId: number, opts?: { force?: 
       prior,
       force: Boolean(opts?.force),
       send: async (portion) => {
-        const message = buildDistributorEmailContent({
-          orderNumber: order.requestNumber,
-          orderDate: new Date(order.createdAt).toISOString().slice(0, 10),
-          customerName: order.originatorName,
-          shipTo: shipTo(order),
-          distributorName: portion.distributorName,
-          lines: portion.lines,
-          poNumber: order.distributorInvoiceReference,
-          notes: order.notes,
-          deliveryMethod: order.deliveryMethod,
-        });
+        const message = buildDistributorEmailContent(portionDocumentInput(order, portion, await purchaseOrderBillTo(db, order)));
+        const names = distributorPoAttachmentNames(order.requestNumber);
+        const pdf = await createDistributorPoPdf(message.document);
         const payload = {
           to: portion.orderEmail || "",
           cc: portion.ccEmails,
@@ -715,7 +772,10 @@ export async function notifyOrderDistributors(orderId: number, opts?: { force?: 
           text: message.text,
           html: message.html,
           replyTo: usableEmail(order.originatorEmail) ?? undefined,
-          attachments: [{ filename: `PO-${order.requestNumber}.csv`, content: message.csv, contentType: "text/csv" }],
+          attachments: [
+            { filename: names.pdf, content: pdf, contentType: "application/pdf" },
+            { filename: names.csv, content: message.csv, contentType: "text/csv" },
+          ],
         };
         const result = await sendEmail(payload);
         if (result.success) {

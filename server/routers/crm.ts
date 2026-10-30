@@ -48,6 +48,7 @@ import { crmCustomerImportIdentities, prepareCrmCustomerImport } from "@shared/c
 import { sendEmail } from "../email";
 import { loadCrmOutboundPlan } from "../lib/crmOutboundMail";
 import { sendCrmDealEmail } from "../lib/crmCustomerMail";
+import { distributorPoAttachmentNames } from "../lib/distributorOrderEmail";
 import { buildOrderDistributorMessage } from "../lib/orderSideEffects";
 import { createDistributorPoPdf } from "../lib/distributorPoPdf";
 import { crmHtmlToText, crmMailboxVisible, sanitizeCrmEmailHtml } from "@shared/crmMailbox";
@@ -1236,9 +1237,13 @@ export const crmRouter = router({
         if (!po) {
           throw new TRPCError({ code: "PRECONDITION_FAILED", message: "This distributor has no lines on the deal's order." });
         }
-        const pdf = await createDistributorPoPdf({ title: po.subject, text: po.text });
-        attachments = [{ filename: `${po.orderNumber}.pdf`, content: pdf, contentType: "application/pdf" }];
-        logBody = `${input.body}\n\nPurchase order PDF ${po.orderNumber}.pdf attached for ${distributor.name}.`;
+        const pdf = await createDistributorPoPdf(po.document);
+        const names = distributorPoAttachmentNames(po.orderNumber);
+        attachments = [
+          { filename: names.pdf, content: pdf, contentType: "application/pdf" },
+          { filename: names.csv, content: Buffer.from(po.csv), contentType: "text/csv" },
+        ];
+        logBody = `${input.body}\n\nPurchase order PDF ${names.pdf} and CSV ${names.csv} attached for ${distributor.name}.`;
       }
       const html = crmEmailBodyToHtml(input.body);
       await sendCrmDealEmail(db, {

@@ -95,6 +95,7 @@ export async function fetchDistributorPoCatalog(
   const styleIds = new Set<number>(uniqueIds(lines.map((line) => line.styleId)));
 
   const cabinetCodeRows: Array<{ cabinetId: number; code: string | null | undefined }> = [];
+  const cabinetDescriptions: Array<{ cabinetId: number; description: string | null }> = [];
   const rememberCabinet = (cabinetId: number | null | undefined, ...aliases: Array<string | null | undefined>) => {
     if (cabinetId == null || cabinetId <= 0) return;
     cabinetIds.add(cabinetId);
@@ -107,13 +108,14 @@ export async function fetchDistributorPoCatalog(
     const cabinetSelect = {
       id: cabinets.id,
       masterCode: cabinets.masterCode,
+      description: cabinets.description,
       sku: cabinets.sku,
       vendorSku: cabinets.vendorSku,
       altSku1: cabinets.altSku1,
       altSku2: cabinets.altSku2,
       altSku3: cabinets.altSku3,
     };
-    const loaded = new Map<number, { id: number; masterCode: string; sku: string | null; vendorSku: string | null; altSku1: string | null; altSku2: string | null; altSku3: string | null }>();
+    const loaded = new Map<number, { id: number; masterCode: string; description: string; sku: string | null; vendorSku: string | null; altSku1: string | null; altSku2: string | null; altSku3: string | null }>();
     const absorb = (rows: Array<typeof loaded extends Map<number, infer Row> ? Row : never>) => {
       for (const row of rows) loaded.set(row.id, row);
     };
@@ -130,8 +132,9 @@ export async function fetchDistributorPoCatalog(
         inArray(codeSql(cabinets.altSku3), chunk),
       ))));
     }
-    for (const row of loaded.values()) {
+    for (const row of Array.from(loaded.values())) {
       rememberCabinet(row.id, row.masterCode, row.sku, row.vendorSku, row.altSku1, row.altSku2, row.altSku3);
+      cabinetDescriptions.push({ cabinetId: row.id, description: row.description });
     }
 
     if (codes.length) {
@@ -266,6 +269,7 @@ export async function fetchDistributorPoCatalog(
     vendorProducts: vendorRows,
     styles,
     cabinetCodes: cabinetCodeRows,
+    cabinetDescriptions,
     equivalences,
   });
 }

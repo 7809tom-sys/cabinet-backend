@@ -15,7 +15,9 @@ describe("order CRM and distributor email hooks", () => {
     expect(orders).toContain("resendDistributorEmail");
     const sideEffects = source("./orderSideEffects.ts");
     expect(sideEffects).toContain("buildDistributorEmailContent");
+    expect(sideEffects).toContain("createDistributorPoPdf");
     expect(sideEffects).toContain("html: message.html");
+    expect(sideEffects).toContain("application/pdf");
     expect(sideEffects).not.toContain("styleName: order.styleName");
   });
 

@@ -114,6 +114,60 @@ describe("resolveDistributorPoLine", () => {
     expect(JSON.stringify(view)).not.toContain("Lumina Wall");
   });
 
+  it("fills a blank distributor item name from the cabinet catalog description", () => {
+    const indexed = indexDistributorCatalog({
+      skus: [{
+        distributorId: 4,
+        cabinetId: 9,
+        styleId: 3,
+        distributorSku: "CS-DB18",
+        supplierCabinetName: null,
+        supplierDescription: "  ",
+      }],
+      styles: [{ id: 3, distributorName: "Carmel Shaker", color: "Carmel" }],
+      cabinetDescriptions: [{ cabinetId: 9, description: "18\" Three Drawer Base Cabinet" }],
+    });
+    const view = resolveDistributorPoLine({
+      cabinetId: 9,
+      styleId: 3,
+      masterCode: "DB18",
+      description: "Lumina Drawer Base",
+      qty: 1,
+    }, 4, indexed);
+    expect(view.mapped).toBe(true);
+    expect(view.sku).toBe("CS-DB18");
+    expect(view.distributorItemName).toBe("18\" Three Drawer Base Cabinet");
+    expect(view.supplierDescription).toBe("");
+    expect(view.doorStyle).toBe("Carmel Shaker");
+    expect(JSON.stringify(view)).not.toContain("Lumina");
+  });
+
+  it("adds the door color when the distributor style name does not already include it", () => {
+    const indexed = indexDistributorCatalog({
+      skus: [{ distributorId: 4, cabinetId: 9, styleId: 3, distributorSku: "DB18", supplierCabinetName: "Drawer Base" }],
+      styles: [{ id: 3, distributorName: "Shaker", color: "Carmel" }],
+    });
+    const view = resolveDistributorPoLine({ cabinetId: 9, styleId: 3, masterCode: "DB18", qty: 1 }, 4, indexed);
+    expect(view.doorStyle).toBe("Shaker Carmel");
+  });
+
+  it("does not copy the shopper description when the supplier and catalog names are both blank", () => {
+    const indexed = indexDistributorCatalog({
+      skus: [{ distributorId: 4, cabinetId: 1, styleId: 3, distributorSku: "B12", supplierCabinetName: "", supplierDescription: "" }],
+      styles: [{ id: 3, distributorName: "Aspen White" }],
+    });
+    const view = resolveDistributorPoLine({
+      cabinetId: 1,
+      styleId: 3,
+      masterCode: "B12",
+      description: "Lumina base",
+      qty: 1,
+    }, 4, indexed);
+    expect(view.mapped).toBe(true);
+    expect(view.distributorItemName).toBe("");
+    expect(JSON.stringify(view)).not.toContain("Lumina");
+  });
+
   it("uses the supplier description when the distributor did not store a separate cabinet name", () => {
     const indexed = indexDistributorCatalog({
       skus: [{
