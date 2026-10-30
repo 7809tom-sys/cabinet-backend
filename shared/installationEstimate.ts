@@ -21,8 +21,8 @@ export function calculateInstallationEstimate(
   taxAmount = 0,
   markupPercent = 0,
 ) {
-  if (lines.some((line) => !Number.isInteger(line.quantity) || line.quantity <= 0)) {
-    throw new Error("Quantity must be a positive whole number.");
+  if (lines.some((line) => !Number.isFinite(line.quantity) || line.quantity <= 0)) {
+    throw new Error("Quantity must be greater than zero.");
   }
   const lineItems: InstallationEstimateLine[] = lines.map((line) => ({
     ...line,

@@ -11,7 +11,7 @@ const contractorViewInput = z.object({
 }).optional();
 
 const customerInput = z.object({
-  name: z.string().trim().min(2).max(256),
+  name: z.string().trim().min(1).max(256),
   email: z.string().trim().email().max(320).nullable().optional(),
   phone: z.string().trim().max(32).nullable().optional(),
   notes: z.string().trim().max(4000).nullable().optional(),

@@ -166,8 +166,8 @@ beforeEach(() => {
 });
 
 describe("installationEstimates plan import", () => {
-  it("validates whole quantities before DB access, protects plan imports, and allows a CRM member's ordinary estimate", async () => {
-    await expect(caller().create({ ...estimateInput, lineItems: [{ ...estimateInput.lineItems[0], quantity: 1.5 }] }))
+  it("rejects an empty estimate before DB access, protects plan imports, and allows a CRM member's ordinary estimate", async () => {
+    await expect(caller().create({ ...estimateInput, lineItems: [{ ...estimateInput.lineItems[0], quantity: 0 }] }))
       .rejects.toMatchObject({ code: "BAD_REQUEST" });
     expect(getDbMock).not.toHaveBeenCalled();
 
@@ -255,8 +255,13 @@ describe("installationEstimates plan import", () => {
     db = fakeDb(state);
     getDbMock.mockResolvedValue(db);
     const contractor = caller({ id: 44, email: "pat@shop.test", role: "contractor" });
-    const result = await contractor.create({ scope: "contractor", ...estimateInput });
+    const result = await contractor.create({
+      audience: "contractor",
+      ...estimateInput,
+      lineItems: [{ description: "Counter top", quantity: 12.4, unitCost: 10, costType: "labor" }],
+    });
     expect(result).toMatchObject({ crmDealId: 1, kitchenDesignId: 101 });
+    expect(state.affiliateInstallationEstimates[0].lineItems[0]).toMatchObject({ quantity: 12.4, lineTotal: 124 });
     expect(state.affiliateInstallationEstimates[0]).toMatchObject({
       affiliateId: null,
       contractorUserId: 44,
@@ -271,12 +276,12 @@ describe("installationEstimates plan import", () => {
     expect(state.crmDealDesigns[0]).toMatchObject({ dealId: 1, designId: 101 });
 
     await expect(caller({ id: 8, email: "ada@shop.test", role: "partner" }).create({
-      scope: "contractor",
+      audience: "contractor",
       ...estimateInput,
     })).rejects.toMatchObject({ code: "FORBIDDEN" });
-    await expect(contractor.create({ scope: "contractor", contractorUserId: 45, ...estimateInput }))
+    await expect(contractor.create({ audience: "contractor", contractorUserId: 45, ...estimateInput }))
       .rejects.toMatchObject({ code: "FORBIDDEN" });
-    await expect(caller({ id: 2, email: "rich@shop.test", role: "admin" }).list({ scope: "contractor" }))
+    await expect(caller({ id: 2, email: "rich@shop.test", role: "admin" }).list({ audience: "contractor" }))
       .rejects.toMatchObject({ code: "BAD_REQUEST", message: "Pass contractorUserId to view a contractor's records." });
 
     const adminState = seed({
@@ -293,7 +298,7 @@ describe("installationEstimates plan import", () => {
     db = fakeDb(adminState);
     getDbMock.mockResolvedValue(db);
     await caller({ id: 2, email: "rich@shop.test", role: "admin" }).create({
-      scope: "contractor",
+      audience: "contractor",
       contractorUserId: 44,
       ...estimateInput,
     });

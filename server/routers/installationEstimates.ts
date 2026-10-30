@@ -14,7 +14,7 @@ import { requireContractorRecordUserId } from "../lib/contractorRecordScope";
 
 const estimateLineSchema = z.object({
   description: z.string().trim().min(1).max(256),
-  quantity: z.number().int("Quantity must be a whole number").positive().max(10_000),
+  quantity: z.number().positive().max(10_000),
   unitCost: z.number().min(0).max(1_000_000),
   costType: z.enum(INSTALLATION_COST_TYPES).default("labor"),
 });
