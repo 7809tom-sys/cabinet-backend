@@ -709,6 +709,88 @@ export const doorRenderingVersionEvents = mysqlTable("door_rendering_version_eve
 export type DoorRenderingVersionEvent = typeof doorRenderingVersionEvents.$inferSelect;
 export type InsertDoorRenderingVersionEvent = typeof doorRenderingVersionEvents.$inferInsert;
 
+// ─── Automatic 3D door audit ───────────────────────────────
+// One job row per door style (current state) plus an append-only attempt
+// history and status-change events. Only status "approved" is live in the Designer.
+
+export const doorModelAudits = mysqlTable("door_model_audits", {
+  id: int("id").autoincrement().primaryKey(),
+  styleId: int("styleId").notNull(),
+  status: mysqlEnum("status", ["queued", "generating", "checking", "flagged", "awaiting_tom", "approved", "rejected"]).notNull().default("queued"),
+  sourceFingerprint: varchar("sourceFingerprint", { length: 512 }).notNull(),
+  doorSampleUrl: varchar("doorSampleUrl", { length: 512 }).notNull(),
+  drawerSampleUrl: varchar("drawerSampleUrl", { length: 512 }),
+  attemptCount: int("attemptCount").notNull().default(0),
+  maxAttempts: int("maxAttempts").notNull().default(3),
+  claimToken: varchar("claimToken", { length: 64 }),
+  currentAttemptId: int("currentAttemptId"),
+  approvedAttemptId: int("approvedAttemptId"),
+  /** Model definition the Designer loads. Set only when an admin approves. */
+  approvedModelSpec: text("approvedModelSpec"),
+  tomFeedback: varchar("tomFeedback", { length: 512 }),
+  flaggedReasons: text("flaggedReasons"),
+  errorMessage: varchar("errorMessage", { length: 512 }),
+  queuedAt: timestamp("queuedAt"),
+  generatingAt: timestamp("generatingAt"),
+  checkingAt: timestamp("checkingAt"),
+  flaggedAt: timestamp("flaggedAt"),
+  awaitingTomAt: timestamp("awaitingTomAt"),
+  decidedAt: timestamp("decidedAt"),
+  decidedBy: int("decidedBy"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => [
+  uniqueIndex("door_model_audits_style_uidx").on(table.styleId),
+  index("door_model_audits_status_idx").on(table.status, table.updatedAt),
+]);
+
+export type DoorModelAudit = typeof doorModelAudits.$inferSelect;
+
+export const doorModelAuditAttempts = mysqlTable("door_model_audit_attempts", {
+  id: int("id").autoincrement().primaryKey(),
+  auditId: int("auditId").notNull(),
+  styleId: int("styleId").notNull(),
+  attemptNo: int("attemptNo").notNull(),
+  trigger: mysqlEnum("trigger", ["auto", "auto_revision", "tom_rejection"]).notNull().default("auto"),
+  modelSpec: text("modelSpec"),
+  straightPreviewUrl: varchar("straightPreviewUrl", { length: 512 }),
+  threeQuarterPreviewUrl: varchar("threeQuarterPreviewUrl", { length: 512 }),
+  runPreviewUrl: varchar("runPreviewUrl", { length: 512 }),
+  colorScore: int("colorScore"),
+  grainScore: int("grainScore"),
+  profileScore: int("profileScore"),
+  proportionsScore: int("proportionsScore"),
+  drawerFrontScore: int("drawerFrontScore"),
+  checkNotes: text("checkNotes"),
+  passed: boolean("passed"),
+  reasons: text("reasons"),
+  feedbackUsed: varchar("feedbackUsed", { length: 1024 }),
+  checkerModel: varchar("checkerModel", { length: 128 }),
+  errorMessage: varchar("errorMessage", { length: 512 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (table) => [
+  index("door_model_audit_attempts_audit_idx").on(table.auditId, table.attemptNo),
+  index("door_model_audit_attempts_style_idx").on(table.styleId, table.createdAt),
+]);
+
+export type DoorModelAuditAttempt = typeof doorModelAuditAttempts.$inferSelect;
+
+export const doorModelAuditEvents = mysqlTable("door_model_audit_events", {
+  id: int("id").autoincrement().primaryKey(),
+  auditId: int("auditId").notNull(),
+  styleId: int("styleId").notNull(),
+  fromStatus: varchar("fromStatus", { length: 32 }),
+  toStatus: varchar("toStatus", { length: 32 }).notNull(),
+  attemptNo: int("attemptNo"),
+  actorUserId: int("actorUserId"),
+  note: varchar("note", { length: 1024 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (table) => [
+  index("door_model_audit_events_audit_idx").on(table.auditId, table.createdAt),
+]);
+
+export type DoorModelAuditEvent = typeof doorModelAuditEvents.$inferSelect;
+
 // ─── Cabinet Items (GENERIC_INFO) ─────────────────────────────────────────────
 
 export const cabinets = mysqlTable("cabinets", {

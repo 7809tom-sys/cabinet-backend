@@ -1,0 +1,5 @@
+{
+  "rule": "A door passes only if BOTH judges (claude, cursor) give >= 7/10 on EVERY criterion (color, grain, profileEdge, proportions, sheen) against the distributor's own sample image. Each round is logged. Stop only if the source photo is missing or too small.",
+  "passScore": 7,
+  "doors": []
+}

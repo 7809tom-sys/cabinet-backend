@@ -47,6 +47,7 @@ import {
   scoreDoorRenderPair,
 } from "../lib/doorRenderingAuditScore";
 import { storagePut } from "../storage";
+import { doorModelAuditRouter } from "./doorModelAudit";
 
 type Database = NonNullable<Awaited<ReturnType<typeof getDb>>>;
 
@@ -537,6 +538,9 @@ async function recordDecision(
 }
 
 export const doorRenderingAuditRouter = router({
+  /** Automatic 3D door audit: approval queue, needs-attention list, approve/reject. */
+  autoAudit: doorModelAuditRouter,
+
   /** Active door styles with sample photo, latest render, accepted render, scores, and live flag status. */
   listStyles: adminProcedure
     .input(z.object({

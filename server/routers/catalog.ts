@@ -43,6 +43,7 @@ import { generateImage } from "../_core/imageGeneration";
 import { rankDoorMatches, type DoorCandidate, type DoorVisionResult } from "@shared/doorPhotoMatch";
 import { nextSampleVerifiedFlag } from "@shared/doorStyleRoomSceneGeneration";
 import { scheduleDoorStyleRoomSceneGeneration } from "../doorStyleRoomSceneGeneration";
+import { scheduleDoorModelAudit } from "../doorModelAudit";
 import { changedLockableFields, HIDDEN_CONFLICT_STATUS, locksAfterResolve, omitImportLockedFields, PUBLIC_CATALOG_REVIEW_STATUS } from "@shared/cabinetConflictFlags";
 import { parsePriceAuditQuery } from "@shared/priceAuditLookup";
 import { filterStylesByAvailability } from "@shared/styleAvailability";
@@ -765,6 +766,7 @@ export const doorStylesRouter = router({
         || fields.drawerSampleVerified !== undefined
       ) {
         scheduleDoorStyleRoomSceneGeneration(id);
+        scheduleDoorModelAudit(id);
       }
       return { ok: true };
     }),
@@ -891,6 +893,7 @@ export const doorStylesRouter = router({
           .set({ doorSampleImageUrl: url, doorSampleVerified: true, roomSceneImageUrl: null })
           .where(eq(doorStyles.id, input.styleId));
         scheduleDoorStyleRoomSceneGeneration(input.styleId);
+        scheduleDoorModelAudit(input.styleId);
       }
 
       return {
@@ -989,6 +992,7 @@ export const doorStylesRouter = router({
           .set({ doorSampleImageUrl: corr.imageUrl, doorSampleVerified: true, roomSceneImageUrl: null })
           .where(eq(doorStyles.id, corr.styleId));
         scheduleDoorStyleRoomSceneGeneration(corr.styleId);
+        scheduleDoorModelAudit(corr.styleId);
       }
       return { ok: true, approved: input.approve };
     }),
@@ -1019,6 +1023,7 @@ export const doorStylesRouter = router({
           : { drawerSampleVerified: input.verified },
       ).where(eq(doorStyles.id, input.styleId));
       scheduleDoorStyleRoomSceneGeneration(input.styleId);
+      scheduleDoorModelAudit(input.styleId);
       return { ok: true };
     }),
 
