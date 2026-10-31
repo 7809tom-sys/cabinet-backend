@@ -1,5 +1,5 @@
--- TiDB SQL editor version of drizzle/0226_door_model_audit.sql.
--- Journal idx 225. Paste each numbered block on its own.
+-- TiDB SQL editor version of drizzle/0227_door_model_audit.sql.
+-- Journal idx 226. Paste each numbered block on its own.
 -- One statement per block. No statement-breakpoint markers.
 -- Safe to re-run: IF NOT EXISTS, tables qualified as cabinet_dealz.<table>.
 -- RUN BEFORE MERGING / DEPLOYING the automatic 3D door audit PR: the app reads

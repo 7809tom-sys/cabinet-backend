@@ -101,12 +101,12 @@ describe("door model audit wiring", () => {
   });
 
   it("ships the migration, the journal entry, and the by-hand TiDB file", () => {
-    const sql = read("docs/sql/0226_door_model_audit.tidb.sql");
+    const sql = read("docs/sql/0227_door_model_audit.tidb.sql");
     expect(sql).toContain("RUN BEFORE MERGING");
     expect(sql.match(/CREATE TABLE IF NOT EXISTS cabinet_dealz\./g)?.length).toBe(3);
     expect(sql).not.toMatch(/CREATE TABLE (?!IF NOT EXISTS)/);
-    expect(read("drizzle/0226_door_model_audit.sql")).toContain("`door_model_audits`");
-    expect(read("drizzle/meta/_journal.json")).toContain("0226_door_model_audit");
+    expect(read("drizzle/0227_door_model_audit.sql")).toContain("`door_model_audits`");
+    expect(read("drizzle/meta/_journal.json")).toContain("0227_door_model_audit");
   });
 
   it("the admin page has Awaiting Tom and Needs attention tabs with Approve and Reject", () => {

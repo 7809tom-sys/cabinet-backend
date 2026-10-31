@@ -1,7 +1,7 @@
--- Migration 0226. Journal idx 225, when 1794700000000.
+-- Migration 0227. Journal idx 226, when 1794800000000.
 -- Automatic 3D door audit: one job per door style, attempt history, and
 -- status events. TiDB SQL editor statements are in
--- docs/sql/0226_door_model_audit.tidb.sql.
+-- docs/sql/0227_door_model_audit.tidb.sql.
 CREATE TABLE `door_model_audits` (
   `id` INT NOT NULL AUTO_INCREMENT,
   `styleId` INT NOT NULL,
