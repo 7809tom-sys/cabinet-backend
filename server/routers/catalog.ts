@@ -57,7 +57,8 @@ import { priceLadder } from "@shared/pricing";
 import { resolveCanonicalCatalogSources } from "../lib/canonicalCatalogSources";
 import { isWallWineRackCabinet } from "../../shared/wallWineRack";
 import { designerCabinetReadinessBySku } from "../lib/designerCabinetReadiness";
-import { landedCostFromList, landedCostMultiplier } from "../lib/distributorCostMultiplier";
+import { recomputeDesignerEligibility } from "../lib/designerEligibilityRecompute";
+import { hasConfirmedLandedCostRule, landedCostFromList, landedCostMultiplier } from "../lib/distributorCostMultiplier";
 import { loadCodeEquivalenceGroups } from "../lib/codeEquivalenceLoader";
 import { framelessCatalogPresentation } from "../lib/framelessCatalogPresentation";
 
@@ -4102,7 +4103,8 @@ export const cabinetsRouter = router({
         .update(distributorSkus)
         .set({ isPublished: input.isPublished })
         .where(inArray(distributorSkus.id, input.skuIds));
-      return { updated: input.skuIds.length };
+      const designerEligibility = input.isPublished ? await recomputeDesignerEligibility() : null;
+      return { updated: input.skuIds.length, designerEligibility };
     }),
 
   // ─── Remove a cabinet from a distributor line without deleting either record ───────
@@ -4913,7 +4915,8 @@ export const pricingRouter = router({
       const nextList = "listPrice" in set ? Number(set.listPrice) : Number(existing.listPrice);
       const base = Number(existing.baseMultiplier ?? 0);
       const freight = Number(existing.freightMultiplier ?? 0);
-      const hasLandedCostRule = Number.isFinite(base) && base > 0 && Number.isFinite(freight) && freight >= 0;
+      // A placeholder multiplier (base 1, freight 0) is not a rule and must not block cost edits.
+      const hasLandedCostRule = hasConfirmedLandedCostRule(base, freight);
       if (hasLandedCostRule && "yourCost" in input) {
         throw new TRPCError({
           code: "BAD_REQUEST",
@@ -4948,7 +4951,8 @@ export const pricingRouter = router({
       await db.update(distributorSkus).set(set).where(eq(distributorSkus.id, input.skuId));
       if (auditRows.length > 0) await db.insert(costChangeLog).values(auditRows);
       const recalculation = await recalculateStoredTierPrices();
-      return { success: true, changed: auditRows.length, recalculation } as const;
+      const designerEligibility = await recomputeDesignerEligibility({ cabinetIds: [existing.cabinetId] });
+      return { success: true, changed: auditRows.length, recalculation, designerEligibility } as const;
     }),
 
   // Mark a cabinet's prices as audited (or clear the audit). Set true once the
