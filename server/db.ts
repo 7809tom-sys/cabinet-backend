@@ -67,14 +67,20 @@ export function hasPositivePublishedCabinetPrice() {
   )`;
 }
 
-// Shared public-catalog predicate: exclude inactive records, items held in admin
-// "conflict", and retired duplicate masters from catalog, storefront, Designer,
-// order, OCR, and price-shop queries. Each alias continues to resolve to its
-// canonical active item.
+// Shared public-catalog predicate: exclude inactive records and retired
+// duplicate masters from catalog, storefront, Designer, order, OCR, and
+// price-shop queries. Each alias continues to resolve to its canonical active
+// item.
+//
+// Cabinet Conflict no longer hides an item. A PUBLISHED item (active, canonical,
+// with a positive published price) stays usable everywhere, including the
+// Designer, where admins see a dismissible notice (see
+// client/src/lib/cabinetConflictNotice.ts). An item with no published price is
+// still excluded by hasPositivePublishedCabinetPrice(). The name is kept so the
+// many callers do not change.
 export function notInConflict() {
   return and(
     eq(cabinets.isActive, true),
-    ne(cabinets.conflictStatus, "conflict"),
     isCanonicalCabinetMaster(),
     hasPositivePublishedCabinetPrice(),
   );

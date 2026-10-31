@@ -3,7 +3,9 @@ import { and, eq, inArray, or, sql } from "drizzle-orm";
 import * as XLSX from "xlsx";
 import { TRPCError } from "@trpc/server";
 import { adminProcedure, router } from "../_core/trpc";
-import { getDb } from "../db";
+import { buildGoLiveTerms, distributorColumns, GO_LIVE_TERMS_VERSION } from "../lib/distributorPreview";
+import { getDb, recalculateStoredTierPrices } from "../db";
+import { recomputeDesignerEligibility } from "../lib/designerEligibilityRecompute";
 import { distributors, cabinets, cabinetAliases, cabinetDistributorEligibility, distributorSkus, doorStyles, categoryAliases, shippingSettings } from "../../drizzle/schema";
 import {
   parseDistributorCsv,
@@ -149,6 +151,63 @@ async function buildStyleMap(
     if (s.distributorName) map.set(s.distributorName.toUpperCase(), entry);
   }
   return map;
+}
+
+function affectedRows(result: unknown): number {
+  const header = Array.isArray(result) ? result[0] : result;
+  return Number((header as { affectedRows?: number } | undefined)?.affectedRows ?? 0);
+}
+
+type Reader = { select: (...args: any[]) => any };
+
+/**
+ * Which of a supplier's offline door styles Go live may activate. Only styles that are pending / never live:
+ * an offline style with at least one pending (unpublished) SKU of this supplier. An offline style with no
+ * pending SKU was deliberately retired (or is not part of this go-live) and is left alone and reported.
+ */
+export async function loadStyleActivation(q: Reader, distributorId: number) {
+  const pendingRows: Array<{ styleId: number | null }> = await q
+    .select({ styleId: distributorSkus.styleId })
+    .from(distributorSkus)
+    .where(and(
+      eq(distributorSkus.distributorId, distributorId),
+      eq(distributorSkus.isPublished, false),
+      eq(distributorSkus.status, "pending"),
+    ));
+  const pendingStyleIds = new Set(pendingRows.map((r) => r.styleId).filter((id): id is number => typeof id === "number"));
+  const offlineStyles: Array<{ id: number; ourName: string }> = await q
+    .select({ id: doorStyles.id, ourName: doorStyles.ourName })
+    .from(doorStyles)
+    .where(and(eq(doorStyles.distributorId, distributorId), eq(doorStyles.isActive, false)));
+  return {
+    activate: offlineStyles.filter((style) => pendingStyleIds.has(style.id)),
+    skipped: offlineStyles.filter((style) => !pendingStyleIds.has(style.id)),
+  };
+}
+
+async function loadGoLiveTerms(db: NonNullable<Awaited<ReturnType<typeof getDb>>>, distributorId: number) {
+  const [row] = await db.select(distributorColumns).from(distributors).where(eq(distributors.id, distributorId)).limit(1);
+  if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Supplier not found." });
+  const [skuCount] = await db
+    .select({ n: sql<number>`COUNT(*)` })
+    .from(distributorSkus)
+    .where(and(eq(distributorSkus.distributorId, distributorId), eq(distributorSkus.isPublished, false), eq(distributorSkus.status, "pending")));
+  const styles = await loadStyleActivation(db, distributorId);
+  const terms = buildGoLiveTerms({
+    code: row.code,
+    name: row.brandName?.trim() || row.name,
+    costMultiplier: row.costMultiplier,
+    baseMultiplier: row.baseMultiplier,
+    freightMultiplier: row.freightMultiplier,
+    retailPriceBasis: row.retailPriceBasis,
+    shippingRuleMode: row.shippingRuleMode,
+    warehouseZips: row.warehouseZips,
+    leadTimeDays: row.leadTimeDays,
+    pendingSkuCount: Number(skuCount?.n ?? 0),
+    doorStyleCount: styles.activate.length,
+    skippedStyleNames: styles.skipped.map((style) => style.ourName),
+  });
+  return { ...terms, isActive: row.isActive, skippedStyles: styles.skipped };
 }
 
 export const distributorImportRouter = router({
@@ -413,7 +472,7 @@ export const distributorImportRouter = router({
   adminList: adminProcedure.query(async () => {
     const db = await getDb();
     if (!db) return [];
-    return db
+    const rows = await db
       .select({
         id: distributors.id,
         code: distributors.code,
@@ -429,6 +488,7 @@ export const distributorImportRouter = router({
         warehouseZips: distributors.warehouseZips,
         warehouseName: distributors.warehouseName,
         warehouseAddress: distributors.warehouseAddress,
+        websiteUrl: distributors.websiteUrl,
         shippingRuleMode: distributors.shippingRuleMode,
         shippingFlatFreightFeeCents: distributors.shippingFlatFreightFeeCents,
         shippingFreeFreightThresholdCents: distributors.shippingFreeFreightThresholdCents,
@@ -446,6 +506,14 @@ export const distributorImportRouter = router({
       })
       .from(distributors)
       .orderBy(distributors.name);
+    // "Needs Go live" = offline with pending SKUs still to publish. Computed from SKUs, not from the
+    // acceptance columns, so this list keeps working before migration 0226 is applied.
+    const pending = await db
+      .selectDistinct({ distributorId: distributorSkus.distributorId })
+      .from(distributorSkus)
+      .where(and(eq(distributorSkus.isPublished, false), eq(distributorSkus.status, "pending")));
+    const pendingIds = new Set(pending.map((p) => p.distributorId));
+    return rows.map((row) => ({ ...row, needsGoLive: !row.isActive && pendingIds.has(row.id) }));
   }),
 
   /**
@@ -656,8 +724,10 @@ export const distributorImportRouter = router({
     }),
 
   /**
-   * Toggle a cabinet line on or off. When isActive = false the line's SKUs are
-   * hidden from the storefront and the design tool; flip back to true to restore.
+   * Take a cabinet line offline, or bring a line that has already been through Go live back online.
+   * When isActive = false the line's SKUs are hidden from the storefront and the design tool for
+   * everyone except admins (admin preview). A supplier that has never been through Go live cannot be
+   * switched on here; it must go live through `goLive`, which records the terms acceptance.
    */
   setActive: adminProcedure
     .input(
@@ -669,11 +739,109 @@ export const distributorImportRouter = router({
     .mutation(async ({ input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "No database" });
+      if (input.isActive) {
+        const [row] = await db
+          .select({ isActive: distributors.isActive })
+          .from(distributors)
+          .where(eq(distributors.id, input.distributorId))
+          .limit(1);
+        if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Supplier not found." });
+        if (!row.isActive) {
+          // A supplier with pending SKUs has not been through Go live. Reads SKUs only, never the new columns.
+          const [pending] = await db
+            .select({ n: sql<number>`COUNT(*)` })
+            .from(distributorSkus)
+            .where(and(eq(distributorSkus.distributorId, input.distributorId), eq(distributorSkus.isPublished, false), eq(distributorSkus.status, "pending")));
+          if (Number(pending?.n ?? 0) > 0) {
+            throw new TRPCError({
+              code: "PRECONDITION_FAILED",
+              message: "This supplier has not gone live yet. Use Go live so the supplier terms are accepted and its SKUs are published together.",
+            });
+          }
+        }
+      }
       await db
         .update(distributors)
         .set({ isActive: input.isActive })
         .where(eq(distributors.id, input.distributorId));
       return { id: input.distributorId, isActive: input.isActive };
+    }),
+
+  /** The terms an admin must accept to take a supplier live, built from its saved configuration. */
+  goLiveSummary: adminProcedure
+    .input(z.object({ distributorId: z.number().int().positive() }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "No database" });
+      return loadGoLiveTerms(db, input.distributorId);
+    }),
+
+  /**
+   * One-click Go live for ANY distributor: requires the terms checkbox, then in one transaction sets
+   * isActive = true, publishes the supplier's pending SKUs, activates its door styles, and records who
+   * accepted the terms, when, and exactly what was shown.
+   */
+  goLive: adminProcedure
+    .input(
+      z.object({
+        distributorId: z.number().int().positive(),
+        acceptedTerms: z.literal(true, { message: "Accept the supplier terms to go live." }),
+        termsVersion: z.string().min(1).max(32),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "No database" });
+      if (input.termsVersion !== GO_LIVE_TERMS_VERSION) {
+        throw new TRPCError({ code: "CONFLICT", message: "The terms changed. Reopen Go live and review them again." });
+      }
+      const terms = await loadGoLiveTerms(db, input.distributorId);
+      if (terms.isActive) throw new TRPCError({ code: "CONFLICT", message: "This supplier is already live." });
+      const outcome = await db.transaction(async (tx) => {
+        // Claim first: a conditional UPDATE ... WHERE isActive = 0 holds the row lock, so two admins cannot
+        // both go live. Zero affected rows means someone else got there first.
+        const claim = await tx
+          .update(distributors)
+          .set({
+            isActive: true,
+            goLiveAcceptedByUserId: ctx.user.id,
+            goLiveAcceptedAt: new Date(),
+            goLiveTermsVersion: terms.version,
+            goLiveTermsSnapshot: {
+              lines: terms.lines,
+              warnings: terms.warnings,
+              facts: terms.facts,
+              skippedStyles: terms.skippedStyles.map((style) => style.ourName),
+            },
+          })
+          .where(and(eq(distributors.id, input.distributorId), eq(distributors.isActive, false)));
+        if (affectedRows(claim) === 0) {
+          throw new TRPCError({ code: "CONFLICT", message: "This supplier is already live." });
+        }
+        // Decide styles BEFORE publishing the SKUs (publishing clears the "pending" marker).
+        const styles = await loadStyleActivation(tx, input.distributorId);
+        if (styles.activate.length > 0) {
+          await tx.update(doorStyles).set({ isActive: true }).where(inArray(doorStyles.id, styles.activate.map((style) => style.id)));
+        }
+        await tx
+          .update(distributorSkus)
+          .set({ isPublished: true, status: "approved" })
+          .where(and(
+            eq(distributorSkus.distributorId, input.distributorId),
+            eq(distributorSkus.isPublished, false),
+            eq(distributorSkus.status, "pending"),
+          ));
+        return styles;
+      });
+      const designerEligibility = await recomputeDesignerEligibility();
+      return {
+        id: input.distributorId,
+        isActive: true,
+        designerEligibility,
+        publishedSkus: terms.facts.pendingSkuCount,
+        activatedStyles: outcome.activate.length,
+        skippedStyles: outcome.skipped.map((style) => style.ourName),
+      };
     }),
 
   /** Door styles for a given distributor (used to map pricing rows to a style). */
@@ -1017,7 +1185,11 @@ export const distributorImportRouter = router({
         }
       }
 
-      return { created, updated, priced, skipped };
+      // Finish by recalculating the stored wholesale / contractor / homeowner
+      // prices so freshly imported costs never leave stale or empty tier prices.
+      const recalculation = await recalculateStoredTierPrices();
+      const designerEligibility = await recomputeDesignerEligibility();
+      return { created, updated, priced, skipped, recalculation, designerEligibility };
     }),
 
   // ─── Quick-create helpers ──────────────────────────────────────────────────
@@ -1632,8 +1804,13 @@ export const distributorImportRouter = router({
       const errorCount = previewRows.filter((r) => r.severity === "error").length;
       const warningCount = previewRows.filter((r) => r.severity === "warning").length;
 
+      // A real run (not a dry run) recalculates the stored tier prices at the end.
+      const recalculation = input.dryRun ? null : await recalculateStoredTierPrices();
+      const designerEligibility = input.dryRun ? null : await recomputeDesignerEligibility();
       return {
         dryRun: input.dryRun ?? false,
+        recalculation,
+        designerEligibility,
         created,
         updated,
         priced,

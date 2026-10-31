@@ -746,6 +746,8 @@ export interface DesignCabinet {
 	  /** Catalog choice represents a glass-front cabinet configuration. */
 	  glassDoor?: boolean | null;
 	  glassDoorAddonCode?: string | null;
+	  /** Cabinet Conflict status (none | review | conflict); admins get a notice when placed. */
+	  conflictStatus?: string | null;
 	  /** Selected distributor includes the glass insert in this glass SKU's price. */
 	  glassIncluded?: boolean | null;
 }

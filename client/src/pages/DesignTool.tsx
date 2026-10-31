@@ -46,6 +46,9 @@ import { useIsMobile } from "@/hooks/useMobile";
 import { useDesignerImmersive, useTabletWorkspace } from "@/hooks/useTabletWorkspace";
 import { usePersistFn } from "@/hooks/usePersistFn";
 import { trpc } from "@/lib/trpc";
+import { AdminPreviewBadge } from "@/components/design/AdminPreviewBadge";
+import CabinetConflictNotice from "@/components/design/CabinetConflictNotice";
+import { addConflictNotice, shouldShowCabinetConflictNotice } from "@/lib/cabinetConflictNotice";
 import {
   affiliateSlugForStoreScope,
   cartPathForStoreScope,
@@ -771,6 +774,10 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     /** Cabinet whose resolved color/finish should be copied onto this filler. */
     finishSourceUid: string;
   } | null>(null);
+  // Admin-only Cabinet Conflict notices, one per master code, dismissible and non-blocking.
+  const [conflictNotices, setConflictNotices] = useState<string[]>([]);
+  const conflictNoticeUserRef = useRef(user);
+  conflictNoticeUserRef.current = user;
   const [blindCornerPullPrompt, setBlindCornerPullPrompt] = useState<{
     cabinet: DesignCabinet;
     x?: number;
@@ -6048,6 +6055,10 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         });
         setMobilePanel(null);
         return;
+      }
+      // Published items in Cabinet Conflict stay usable; admins get a notice.
+      if (shouldShowCabinetConflictNotice(conflictNoticeUserRef.current as { role?: string | null } | null, c)) {
+        setConflictNotices((current) => addConflictNotice(current, c.masterCode));
       }
       // Debounce guard: block re-entry within 500 ms to prevent double-placement
       // caused by mobile touch events firing both touchend and click.
@@ -13235,6 +13246,13 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 
   return (
     <div className="flex flex-col h-full min-h-0">
+      {isAdmin && conflictNotices.length > 0 && (
+        <div className="pointer-events-none fixed bottom-4 right-4 z-50 flex flex-col gap-2">
+          {conflictNotices.map((code) => (
+            <CabinetConflictNotice key={code} masterCode={code} onDismiss={() => setConflictNotices((current) => current.filter((c) => c !== code))} />
+          ))}
+        </div>
+      )}
       {towerDialog && <MasterTracTowerPlanner
         key={towerDialog.editGroupId ?? "new"}
         initialConfig={towerDialog.config}
@@ -15058,6 +15076,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                             <span className="flex items-center gap-2.5" aria-label={`${affiliateStyleName(s)} door thumbnail`}>
                               <DoorStyleSwatch style={s} className="h-12 w-9 shrink-0 rounded border border-border object-cover" />
                               <span className="truncate">{affiliateStyleName(s)}</span>
+                              {(s as { isPreview?: boolean }).isPreview && <AdminPreviewBadge />}
                             </span>
                           </SelectItem>
                         ))}
@@ -15537,6 +15556,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                             <span className="flex items-center gap-2.5" aria-label={`${affiliateStyleName(s)} door thumbnail`}>
                               <DoorStyleSwatch style={s} className="h-12 w-9 shrink-0 rounded border border-border object-cover" />
                               <span className="truncate">{affiliateStyleName(s)}</span>
+                              {(s as { isPreview?: boolean }).isPreview && <AdminPreviewBadge />}
                             </span>
                           </SelectItem>
                         ))}
@@ -15914,6 +15934,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	                      {(distributorLabels ?? []).map((distributor) => (
 	                        <SelectItem key={distributor.id} value={String(distributor.id)}>
 	                          {distributor.name}
+	                          {distributor.isPreview && <AdminPreviewBadge className="ml-1.5" />}
 	                        </SelectItem>
 	                      ))}
 	                    </SelectContent>
@@ -15935,7 +15956,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	                    <SelectTrigger aria-labelledby="bath-vanity-distributor-label" className="h-9 w-full min-w-0 bg-white text-xs"><SelectValue placeholder="Choose distributor" /></SelectTrigger>
 		                    <SelectContent>
 		                      <SelectItem value="all">All distributors</SelectItem>
-		                      {(distributorLabels ?? []).map((distributor) => <SelectItem key={distributor.id} value={String(distributor.id)}>{distributor.name}</SelectItem>)}
+		                      {(distributorLabels ?? []).map((distributor) => <SelectItem key={distributor.id} value={String(distributor.id)}>{distributor.name}{distributor.isPreview && <AdminPreviewBadge className="ml-1.5" />}</SelectItem>)}
 		                    </SelectContent>
 		                  </Select>
 		                </div>
@@ -15947,6 +15968,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 		                      {displayUniqueDoorStyles.map((style) => (
 		                        <SelectItem key={style.id} value={String(style.id)}>
 		                          {catalogDistributorScopeId == null ? `${distributorNameById.get(style.distributorId ?? -1) ?? "Distributor"} · ` : ""}{affiliateStyleName(style)}
+		                          {(style as { isPreview?: boolean }).isPreview && <AdminPreviewBadge className="ml-1.5" />}
 		                        </SelectItem>
 		                      ))}
 		                    </SelectContent>
@@ -17805,6 +17827,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                   >
                     <span className="h-5 w-5 rounded bg-primary/10 text-primary flex items-center justify-center text-[9px] font-bold">{d.initials}</span>
                     <span className="truncate">{d.name}</span>
+                    {d.isPreview && <AdminPreviewBadge />}
 	                    {catalogDistributorScopeId === d.id && <Check className="h-3.5 w-3.5 ml-auto text-primary" />}
                   </button>
                 ))}
@@ -20614,6 +20637,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                       <span className="flex items-center gap-2.5" aria-label={`${affiliateStyleName(style)} door thumbnail`}>
                         <DoorStyleSwatch style={style} className="h-12 w-9 shrink-0 rounded border border-border object-cover" />
                         <span className="min-w-0 truncate">{affiliateStyleName(style)}</span>
+                        {(style as { isPreview?: boolean }).isPreview && <AdminPreviewBadge />}
                       </span>
                     </SelectItem>
                   ))}

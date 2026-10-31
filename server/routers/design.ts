@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { skuVisibleToViewer } from "../lib/distributorPreview";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { eq, and, inArray, desc, like, sql, or, isNull, ne, gt } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
@@ -325,12 +326,7 @@ export const designRouter = router({
       // publication flag and never broadens any public catalog procedure.
       const skuConditions = [
         eq(distributorSkus.isAvailable, true),
-        adminAefPreview
-          ? or(
-              eq(distributorSkus.isPublished, true),
-              and(eq(distributorSkus.isPublished, false), eq(distributors.code, "AEF")),
-            )
-          : eq(distributorSkus.isPublished, true),
+        skuVisibleToViewer(adminAefPreview),
         sql`(COALESCE(${distributorSkus.listPrice}, 0) > 0 OR COALESCE(${distributorSkus.yourCost}, 0) > 0)`,
       ];
       if (input?.distributorId) {
@@ -361,7 +357,7 @@ export const designRouter = router({
         .from(distributorSkus)
         .innerJoin(cabinets, eq(distributorSkus.cabinetId, cabinets.id))
         .innerJoin(distributors, eq(distributors.id, distributorSkus.distributorId))
-        .where(and(...skuConditions, ne(cabinets.conflictStatus, "conflict")));
+        .where(and(...skuConditions));
       const catalogGate = input?.affiliateSlug ? await loadAffiliateCatalogGate(db, input.affiliateSlug) : null;
       if (input?.styleId && catalogGate?.disabledStyleIds.has(input.styleId)) return [];
       const sourceRows = filterCabinetSourceRows(loadedSourceRows, catalogGate);
@@ -408,6 +404,7 @@ export const designRouter = router({
             cornerType: cabinets.cornerType,
             facePattern: cabinets.facePattern,
             glassDoorAddonCode: cabinets.glassDoorAddonCode,
+            conflictStatus: cabinets.conflictStatus,
             freeShipping: cabinets.freeShipping,
           })
           .from(cabinets)
@@ -419,7 +416,6 @@ export const designRouter = router({
             adminAefPreview && stagedAefMasterCodes.length > 0
               ? or(eq(cabinets.designerEligible, true), inArray(cabinets.masterCode, stagedAefMasterCodes))
               : eq(cabinets.designerEligible, true),
-            ne(cabinets.conflictStatus, "conflict"),
           )),
       ]);
 
@@ -982,12 +978,7 @@ export const designRouter = router({
         inArray(distributorSkus.cabinetId, input.cabinetIds),
         eq(distributorSkus.styleId, input.styleId),
         eq(distributorSkus.isAvailable, true),
-        adminAefPreview
-          ? or(
-              eq(distributorSkus.isPublished, true),
-              and(eq(distributorSkus.isPublished, false), eq(distributors.code, "AEF")),
-            )
-          : eq(distributorSkus.isPublished, true),
+        skuVisibleToViewer(adminAefPreview),
       ];
       // distributorId is optional now — door-style-first pricing resolves the
       // supply line internally. When omitted we take the cheapest contractor
@@ -1094,7 +1085,6 @@ export const designRouter = router({
           .innerJoin(cabinets, eq(cabinets.id, cabinetAliases.cabinetId))
           .where(and(
             inArray(aliasCanon, normalizedRequestedCodes),
-            ne(cabinets.conflictStatus, "conflict"),
           ))
         : [];
       const canonicalCodeByAlias = new Map<string, string>();
@@ -1147,7 +1137,6 @@ export const designRouter = router({
                 normalizedCandidateCodes,
               ),
             )!,
-            ne(cabinets.conflictStatus, "conflict"),
             sql`${cabinets.masterCode} NOT LIKE 'ARCHIVE-%'`,
           ))
         : [];
@@ -1198,12 +1187,7 @@ export const designRouter = router({
         inArray(distributorSkus.cabinetId, candidateCabinetIds),
         inArray(distributorSkus.styleId, styleIds),
         eq(distributorSkus.isAvailable, true),
-        adminAefPreview
-          ? or(
-              eq(distributorSkus.isPublished, true),
-              and(eq(distributorSkus.isPublished, false), eq(distributors.code, "AEF")),
-            )
-          : eq(distributorSkus.isPublished, true),
+        skuVisibleToViewer(adminAefPreview),
       ];
       if (input.distributorId) {
         conditions.push(eq(distributorSkus.distributorId, input.distributorId));
@@ -3369,7 +3353,6 @@ Return an empty actions array ONLY if the user asked a pure question with no wal
               and(
                 inArray(cabinets.masterCode, requestedMasterCodes),
                 eq(cabinets.isActive, true),
-                ne(cabinets.conflictStatus, "conflict"),
                 sql`(COALESCE(${distributorSkus.listPrice}, 0) > 0 OR COALESCE(${distributorSkus.yourCost}, 0) > 0)`,
               ),
 	            ...(retiredLegacyPriceCodes.length > 0

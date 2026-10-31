@@ -27,3 +27,15 @@ export function landedCostFromList(
   const coreCost = roundCurrency(listPrice * baseFraction);
   return roundCurrency(coreCost * (1 + tariffRate));
 }
+
+/**
+ * True when a supplier line really derives cost from list x base x (1 + freight).
+ * An identity rule (base 1, freight 0) is the onboarding PLACEHOLDER (for example
+ * dl_go_live_tidb.sql scenario A): it must NOT lock cost edits, otherwise a
+ * line with no confirmed multiplier can never have its cost corrected.
+ */
+export function hasConfirmedLandedCostRule(baseFraction: number, tariffRate: number): boolean {
+  if (!Number.isFinite(baseFraction) || baseFraction <= 0) return false;
+  if (!Number.isFinite(tariffRate) || tariffRate < 0) return false;
+  return !(baseFraction === 1 && tariffRate === 0);
+}

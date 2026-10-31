@@ -8,6 +8,7 @@ import { storagePut } from "../storage";
 import { TRPCError } from "@trpc/server";
 import { getDb, notInConflict, isCanonicalCabinetMaster, hasPositivePublishedCabinetPrice, getPricingSettings, updatePricingSettings, recalculateStoredTierPrices, getPlatformPricingSettings, updatePlatformPricingSettings } from "../db";
 import { getPricingSettingsForViewer } from "../lib/affiliateContractorPricing";
+import { canSeePreviewSuppliers, distributorColumns, isPreviewSupplier, skuVisibleToViewer } from "../lib/distributorPreview";
 import {
   cabinets,
   cabinetAliases,
@@ -57,7 +58,8 @@ import { priceLadder } from "@shared/pricing";
 import { resolveCanonicalCatalogSources } from "../lib/canonicalCatalogSources";
 import { isWallWineRackCabinet } from "../../shared/wallWineRack";
 import { designerCabinetReadinessBySku } from "../lib/designerCabinetReadiness";
-import { landedCostFromList, landedCostMultiplier } from "../lib/distributorCostMultiplier";
+import { recomputeDesignerEligibility } from "../lib/designerEligibilityRecompute";
+import { hasConfirmedLandedCostRule, landedCostFromList, landedCostMultiplier } from "../lib/distributorCostMultiplier";
 import { loadCodeEquivalenceGroups } from "../lib/codeEquivalenceLoader";
 import { framelessCatalogPresentation } from "../lib/framelessCatalogPresentation";
 
@@ -132,10 +134,10 @@ export const distributorsRouter = router({
   list: publicProcedure.query(async ({ ctx }) => {
     const db = await getDb();
     if (!db) return [];
-    const rows = await db
-      .select()
-      .from(distributors)
-      .where(eq(distributors.isActive, true));
+    // Admins also see offline suppliers (admin preview); everyone else sees live suppliers only.
+    const rows = await (canSeePreviewSuppliers(ctx.user)
+      ? db.select(distributorColumns).from(distributors)
+      : db.select(distributorColumns).from(distributors).where(eq(distributors.isActive, true)));
     const publicLineRows = await db
       .selectDistinct({ distributorId: distributorSkus.distributorId })
       .from(distributorSkus)
@@ -165,6 +167,8 @@ export const distributorsRouter = router({
         seriesName: d.seriesName,
         leadTimeDays: d.leadTimeDays,
         isActive: d.isActive,
+        // Only ever true for admins: offline suppliers are not returned to anyone else.
+        isPreview: isPreviewSupplier(d),
       };
     });
   }),
@@ -189,16 +193,11 @@ async function availableStyleIds(
     .innerJoin(distributors, eq(distributors.id, distributorSkus.distributorId))
     .where(
       and(
-        includeAdminAefPreview
-          ? or(
-              eq(distributorSkus.isPublished, true),
-              and(eq(distributorSkus.isPublished, false), eq(distributors.code, "AEF")),
-            )
-          : eq(distributorSkus.isPublished, true),
+        skuVisibleToViewer(includeAdminAefPreview),
         eq(distributorSkus.isAvailable, true),
         eq(cabinets.isActive, true),
         includeAdminAefPreview
-          ? or(eq(cabinets.showInDesigner, true), eq(distributors.code, "AEF"))
+          ? or(eq(cabinets.showInDesigner, true), eq(distributors.code, "AEF"), eq(distributors.isActive, false))
           : eq(cabinets.showInDesigner, true),
         notInConflict()
       )
@@ -260,24 +259,32 @@ export const doorStylesRouter = router({
         sourceSpecification: doorStyles.sourceSpecification,
         cornerSwatchImageUrl: doorStyles.cornerSwatchImageUrl,
       };
-      const available = await availableStyleIds(db, ctx.user?.role === "admin");
-      const rows = input?.distributorId
-        ? await db
-            .select(projection)
-            .from(doorStyles)
-            .where(
-              and(
-                eq(doorStyles.distributorId, input.distributorId),
-                eq(doorStyles.isActive, true)
-              )
-            )
-        : await db.select(projection).from(doorStyles).where(eq(doorStyles.isActive, true));
+      const viewerIsAdmin = canSeePreviewSuppliers(ctx.user);
+      const available = await availableStyleIds(db, viewerIsAdmin);
+      // Admins also get the door styles of offline suppliers (admin preview); the join
+      // supplies the supplier's live/offline state so each style can carry its own badge.
+      const styleVisible = viewerIsAdmin
+        ? or(eq(doorStyles.isActive, true), eq(distributors.isActive, false))
+        : and(eq(doorStyles.isActive, true), eq(distributors.isActive, true));
+      const rows = await db
+        .select({ ...projection, distributorIsActive: distributors.isActive })
+        .from(doorStyles)
+        .leftJoin(distributors, eq(distributors.id, doorStyles.distributorId))
+        .where(
+          and(
+            input?.distributorId ? eq(doorStyles.distributorId, input.distributorId) : undefined,
+            styleVisible,
+          )
+        );
       // Hide active-but-empty styles from every public surface (storefront +
       // Design Tool picker). Admin back-office queries do not use this router.
       // SCL (Syncron Slim Cava Rosales 3) is source-confirmed in the U.S.
       // Cabinet Depot AltaEuro V8.2 book and is intentionally included once
       // its published, verified AEF rows are available.
-      return filterStylesByAvailability(rows, available);
+      return filterStylesByAvailability(rows, available).map(({ distributorIsActive, ...style }) => ({
+        ...style,
+        isPreview: isPreviewSupplier({ isActive: distributorIsActive }),
+      }));
     }),
 
   // Manufacturer specification references are intentionally separate from the
@@ -328,35 +335,44 @@ export const doorStylesRouter = router({
 
   byId: publicProcedure
     .input(z.object({ id: z.number() }))
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) return null;
+      // A style of an offline supplier is visible to admins only (admin preview).
       const rows = await db
-        .select()
+        .select({ style: doorStyles })
         .from(doorStyles)
-        .where(eq(doorStyles.id, input.id))
+        .leftJoin(distributors, eq(distributors.id, doorStyles.distributorId))
+        .where(and(
+          eq(doorStyles.id, input.id),
+          canSeePreviewSuppliers(ctx.user) ? undefined : eq(distributors.isActive, true),
+        ))
         .limit(1);
-      return rows[0] ? scrubDoorStyle(rows[0]) : null;
+      return rows[0] ? scrubDoorStyle(rows[0].style) : null;
     }),
 
   byCode: publicProcedure
     .input(z.object({ styleCode: z.string() }))
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) return null;
       // Style codes are not guaranteed unique across supply lines; return the
       // first active match (we collapse duplicates to one family in the UI).
+      // Styles of an offline supplier are only matched for admins (admin preview).
       const rows = await db
-        .select()
+        .select({ style: doorStyles })
         .from(doorStyles)
+        .leftJoin(distributors, eq(distributors.id, doorStyles.distributorId))
         .where(
           and(
             eq(doorStyles.styleCode, input.styleCode),
-            eq(doorStyles.isActive, true)
+            canSeePreviewSuppliers(ctx.user)
+              ? or(eq(doorStyles.isActive, true), eq(distributors.isActive, false))
+              : and(eq(doorStyles.isActive, true), eq(distributors.isActive, true)),
           )
         )
         .limit(1);
-      return rows[0] ? scrubDoorStyle(rows[0]) : null;
+      return rows[0] ? scrubDoorStyle(rows[0].style) : null;
     }),
 
   // Color variations within the SAME door profile (e.g. all Slim Shaker colors).
@@ -4092,7 +4108,8 @@ export const cabinetsRouter = router({
         .update(distributorSkus)
         .set({ isPublished: input.isPublished })
         .where(inArray(distributorSkus.id, input.skuIds));
-      return { updated: input.skuIds.length };
+      const designerEligibility = input.isPublished ? await recomputeDesignerEligibility() : null;
+      return { updated: input.skuIds.length, designerEligibility };
     }),
 
   // ─── Remove a cabinet from a distributor line without deleting either record ───────
@@ -4903,7 +4920,8 @@ export const pricingRouter = router({
       const nextList = "listPrice" in set ? Number(set.listPrice) : Number(existing.listPrice);
       const base = Number(existing.baseMultiplier ?? 0);
       const freight = Number(existing.freightMultiplier ?? 0);
-      const hasLandedCostRule = Number.isFinite(base) && base > 0 && Number.isFinite(freight) && freight >= 0;
+      // A placeholder multiplier (base 1, freight 0) is not a rule and must not block cost edits.
+      const hasLandedCostRule = hasConfirmedLandedCostRule(base, freight);
       if (hasLandedCostRule && "yourCost" in input) {
         throw new TRPCError({
           code: "BAD_REQUEST",
@@ -4938,7 +4956,8 @@ export const pricingRouter = router({
       await db.update(distributorSkus).set(set).where(eq(distributorSkus.id, input.skuId));
       if (auditRows.length > 0) await db.insert(costChangeLog).values(auditRows);
       const recalculation = await recalculateStoredTierPrices();
-      return { success: true, changed: auditRows.length, recalculation } as const;
+      const designerEligibility = await recomputeDesignerEligibility({ cabinetIds: [existing.cabinetId] });
+      return { success: true, changed: auditRows.length, recalculation, designerEligibility } as const;
     }),
 
   // Mark a cabinet's prices as audited (or clear the audit). Set true once the

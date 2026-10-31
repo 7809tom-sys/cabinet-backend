@@ -91,7 +91,7 @@ CREATE INDEX IF NOT EXISTS door_model_audit_attempts_style_idx ON cabinet_dealz.
 -- 8
 CREATE INDEX IF NOT EXISTS door_model_audit_events_audit_idx ON cabinet_dealz.door_model_audit_events (auditId, createdAt);
 
--- 9 read-only check. Expect tables_created = 3, index_columns = 5.
+-- 9 read-only check. Expect tables_created = 3, index_columns = 9 (5 indexes: 1 + 2 + 2 + 2 + 2 columns; the information_schema.STATISTICS view has one row per index column).
 SELECT
   (SELECT COUNT(*) FROM information_schema.TABLES
     WHERE TABLE_SCHEMA = 'cabinet_dealz'

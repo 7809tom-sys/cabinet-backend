@@ -353,6 +353,8 @@ export const distributors = mysqlTable("distributors", {
   // distributor supplies only its fulfillment location and freight policy.
   warehouseName: varchar("warehouseName", { length: 128 }),
   warehouseAddress: varchar("warehouseAddress", { length: 512 }),
+  // Supplier website (read-only in Admin > Distributors). Optional; set by hand in SQL.
+  websiteUrl: varchar("websiteUrl", { length: 512 }),
   shippingRuleMode: mysqlEnum("shippingRuleMode", ["live", "fixed", "threshold"]).default("live").notNull(),
   shippingFlatFreightFeeCents: int("shippingFlatFreightFeeCents"),
   shippingFreeFreightThresholdCents: int("shippingFreeFreightThresholdCents"),
@@ -390,7 +392,15 @@ export const distributors = mysqlTable("distributors", {
   pickupZip: varchar("pickupZip", { length: 16 }), // origin for the pickup distance test; falls back to first warehouseZip
   pickupAddress: varchar("pickupAddress", { length: 512 }), // human-readable pickup location shown to the customer
   pickupRadiusMiles: int("pickupRadiusMiles").default(100).notNull(),
+  // false = Offline / admin preview: only admins see the line (and its pending SKUs
+  // and door styles) in the Designer, and nothing from it can be ordered or quoted.
   isActive: boolean("isActive").default(true).notNull(),
+  // "Go live" audit: who accepted the supplier terms, when, which terms version, and
+  // a snapshot of the terms shown. Null until the line has gone live through Go live.
+  goLiveAcceptedByUserId: int("goLiveAcceptedByUserId"),
+  goLiveAcceptedAt: timestamp("goLiveAcceptedAt"),
+  goLiveTermsVersion: varchar("goLiveTermsVersion", { length: 32 }),
+  goLiveTermsSnapshot: json("goLiveTermsSnapshot").$type<Record<string, unknown>>(),
   // Vendor portal: up to 8 SKU IDs the vendor picks to feature in the design tool
   designToolPicks: json("designToolPicks").$type<number[]>(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),

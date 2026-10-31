@@ -15,20 +15,15 @@ const dbSource = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
 describe("notInConflict() predicate", () => {
   it("builds a SQL condition object (drizzle SQL wrapper)", () => {
     const pred = notInConflict();
-    // It is the same kind of SQL object drizzle's ne() produces.
     expect(pred).toBeDefined();
     expect(typeof pred).toBe("object");
-    const expected = ne(cabinets.conflictStatus, "conflict");
-    expect(pred.constructor).toBe(expected.constructor);
   });
 
-	it("compares against the literal 'conflict' (live 'none' and public 'review' rows pass)", () => {
-	  // The shared predicate must preserve the exact conflict gate alongside the
-	  // canonical-master rule, so ordinary live ('none') products still pass.
-	  // Public review flags use a different status and stay in the catalog.
-	  expect(dbSource).toContain('ne(cabinets.conflictStatus, "conflict")');
+	it("no longer hides Cabinet Conflict items (they stay usable; admins get a Designer notice)", () => {
+	  const fn = dbSource.slice(dbSource.indexOf("export function notInConflict()"), dbSource.indexOf("let _db"));
+	  expect(fn).not.toContain("conflictStatus");
+	  expect(fn).toContain("hasPositivePublishedCabinetPrice()");
 	  expect(PUBLIC_CATALOG_REVIEW_STATUS).not.toBe("conflict");
-	  expect(dbSource).not.toContain(`ne(cabinets.conflictStatus, "${PUBLIC_CATALOG_REVIEW_STATUS}")`);
 	});
 
 	it("also excludes retired duplicate master codes through the canonical alias table", () => {

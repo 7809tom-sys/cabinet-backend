@@ -40,3 +40,6 @@ Formula (schema.ts): costMultiplier = baseMultiplier × (1 + freightMultiplier);
 - Scenario B, PDF = list: baseMultiplier = (1 − discount), discount unknown; cost = list × (1 − discount). Example only: a 0.40 factor would make Core cost ~58% below KC cost.
 ### retailPriceBasis
 Recommend `cost_plus_tier` (keep our controlled tier ladder). Use `source_list` only if Rich confirms the PDF is a verified published retail/list price; under scenario A it would sell at cost.
+
+### Freight origins (2026-10-31)
+Six candidate LTL origins, all in `distributors.warehouseZips` (see README): 32256 Jacksonville (HQ), 78754 Austin, 37086 La Vergne/Nashville, 70126 New Orleans, 32822 Orlando, 33634 Tampa. Nearest-to-destination is the default; the quote shows the origin ZIP used. Earlier text that said "origin ZIPs TBD" is superseded. Not yet checked: whether DL SKUs have packaged weight and cube data for the live quote.

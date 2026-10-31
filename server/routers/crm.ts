@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { assertNoPreviewSuppliers } from "../lib/distributorPreview";
 import { and, eq, desc, isNull, inArray, or } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { protectedProcedure, adminProcedure, router } from "../_core/trpc";
@@ -1523,6 +1524,13 @@ export const crmRouter = router({
         .limit(1);
       const design = dRows[0];
       if (!design) throw new TRPCError({ code: "NOT_FOUND", message: "Design not found." });
+
+      // Admin preview: a design that uses an offline supplier's door style cannot be sent for a quote, by anyone.
+      const placed = Array.isArray(design.placedCabinets) ? (design.placedCabinets as Array<{ styleId?: unknown; distributorId?: unknown }>) : [];
+      await assertNoPreviewSuppliers(db, {
+        distributorIds: [design.selectedDistributorId, ...placed.map((c) => (typeof c?.distributorId === "number" ? c.distributorId : null))],
+        styleIds: [design.selectedStyleId, ...placed.map((c) => (typeof c?.styleId === "number" ? c.styleId : null))],
+      });
 
       // If this design is already linked to its owning CRM deal, reuse it.
       const links = await db

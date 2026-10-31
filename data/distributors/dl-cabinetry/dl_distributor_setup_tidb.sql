@@ -7,8 +7,8 @@
 -- Line ships OFF: distributors.isActive = 0 (Offline in Admin > Distributors); every SKU isPublished = 0, status = 'pending'.
 
 -- Block 1: distributor row (white-labeled, offline)
-INSERT INTO cabinet_dealz.distributors (code, name, initials, brandName, brandInitials, whiteLabel, displayMode, costMultiplier, baseMultiplier, freightMultiplier, retailPriceBasis, warehouseName, isActive)
-SELECT 'DL', 'Line DL', 'DL', 'DL Cabinetry', 'DL', TRUE, 'neutral', 1.0000 /* PLACEHOLDER - BLOCKED until Rich confirms */, 1.0000 /* PLACEHOLDER - BLOCKED */, 0.0000 /* PLACEHOLDER - BLOCKED */, 'cost_plus_tier', 'DL Cabinetry (Austin/Jacksonville/Nashville/New Orleans/Orlando/Tampa) - origin ZIPs TBD', 0
+INSERT INTO cabinet_dealz.distributors (code, name, initials, brandName, brandInitials, whiteLabel, displayMode, costMultiplier, baseMultiplier, freightMultiplier, retailPriceBasis, warehouseName, warehouseZips, isActive)
+SELECT 'DL', 'Line DL', 'DL', 'DL Cabinetry', 'DL', TRUE, 'neutral', 1.0000 /* PLACEHOLDER - BLOCKED until Rich confirms */, 1.0000 /* PLACEHOLDER - BLOCKED */, 0.0000 /* PLACEHOLDER - BLOCKED */, 'cost_plus_tier', 'DL Cabinetry (Jacksonville HQ/Austin/La Vergne TN/New Orleans/Orlando/Tampa)', JSON_ARRAY('32256','78754','37086','70126','32822','33634'), 0
 FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.distributors WHERE code = 'DL');
 
 -- Block 2: door style White Shaker [DL-WS] - line: Core
