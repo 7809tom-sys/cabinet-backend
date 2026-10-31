@@ -429,6 +429,10 @@ L += ["", "-- ==================================================================
       "-- Run blocks in order, back to back. Before running, confirm none of the master codes below existed before this PR (a pre-existing retired master with the same code would be re-activated).",
       "-- showIn2020 is set TRUE like existing published masters (the column default is TRUE).",
       "-- ====================================================================================================================="]
+allskus = [x for sc, nm, col in STY for x in all_sku_by_style[sc]]
+L += ["-- Block 96A (read-only, optional, run first): which of this PR's DL SKUs are ALREADY live, for example after dl_go_live_tidb.sql Block 2 published every pending DL SKU. Blocks 97-100 skip them (they only touch status = 'pending' AND isPublished = 0) and never write a price column.",
+      "SELECT COUNT(*) AS this_pr_skus_already_live, COALESCE(SUM(CASE WHEN listPrice IS NOT NULL THEN 1 ELSE 0 END), 0) AS with_price FROM cabinet_dealz.distributor_skus",
+      "WHERE distributorId = 450001 AND isPublished <> 0 AND platformSku IN (" + ", ".join(q(x) for x in allskus) + ");", ""]
 for sc, nm, col in STY:
     b += 1
     skus = all_sku_by_style[sc]
@@ -438,7 +442,7 @@ for sc, nm, col in STY:
 b += 1
 L += [f"-- Block {b}: PUBLISH this PR's {len(ALLNEW)} new masters: isActive, showInDesigner, showInCatalog, showIn2020 = TRUE",
       "UPDATE cabinet_dealz.cabinets SET isActive = TRUE, showInDesigner = TRUE, showInCatalog = TRUE, showIn2020 = TRUE",
-      f"WHERE masterCode IN ({codes});", ""]
+      f"WHERE masterCode IN ({codes}) AND (isActive = 0 OR showInDesigner = 0 OR showInCatalog = 0 OR showIn2020 = 0);", ""]
 b += 1
 L += [f"-- Block {b}: read-only check AFTER publishing. Expect new_masters_published = {len(ALLNEW)}, dl_pending_skus = 0 for this PR's SKUs, flagged_review = {len(ALLNEW)} (published and flagged).",
  "SELECT",
