@@ -1,3 +1,7 @@
+import DoorProfileEditor from "@/components/door/DoorProfileEditor";
+import DoorProfilePicker from "@/components/door/DoorProfilePicker";
+import { doorProfileValuesFromStyle, doorProfileValuesToPayload, type DoorProfileValues } from "@/lib/doorProfileForm";
+import { DOOR_EDGE_PROFILES, normalizeInsideEdgeProfile } from "@shared/doorProfiles";
 import { useState, useMemo, useCallback, useRef, useEffect, FormEvent, createContext, useContext } from "react";
 import {
   LayoutDashboard, Package, Palette, Star, ClipboardList, Upload,
@@ -2155,7 +2159,7 @@ function VendorDoorMeasurementDialog({
 	          <div className="grid gap-3 sm:grid-cols-3">
 	            <div className="space-y-1"><Label className="text-xs">Panel</Label><Select value={panel} onValueChange={setPanel}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{["Flat", "Raised", "Beadboard"].map((value) => <SelectItem key={value} value={value}>{value}</SelectItem>)}</SelectContent></Select></div>
 	            <div className="space-y-1"><Label className="text-xs">Outside edge profile</Label><Input value={outsideEdgeProfile} onChange={(event) => setOutsideEdgeProfile(event.target.value)} /></div>
-	            <div className="space-y-1"><Label className="text-xs">Inside frame profile</Label><Input value={insideFrameProfile} onChange={(event) => setInsideFrameProfile(event.target.value)} /></div>
+	            <div className="space-y-1 sm:col-span-3"><DoorProfilePicker label="Inside frame profile" options={DOOR_EDGE_PROFILES} value={normalizeInsideEdgeProfile(insideFrameProfile) ?? ""} onChange={(id) => setInsideFrameProfile(id ? (DOOR_EDGE_PROFILES.find((option) => option.id === id)?.label ?? id) : "")} testId="measuring-sheet-edge-picker" /></div>
 	          </div>
 	        </section>
 	        <section data-testid="door-specification-preview" className="space-y-3 rounded-lg border border-emerald-200 bg-emerald-50/50 p-3">
@@ -2266,6 +2270,13 @@ type VendorFeaturedStyle = {
 	  railWidth: string | null;
 	  stileWidth: string | null;
 	  centerRailWidth: string | null;
+	  panelConstruction?: string | null;
+	  bevelWidth?: string | null;
+	  bevelDepth?: string | null;
+	  insideEdgeProfile?: string | null;
+	  drawerFrontType?: string | null;
+	  grainDirection?: string | null;
+	  finishSheen?: string | null;
 	  profileNotes: string | null;
 	  profileDescription: string | null;
 	  sourceSpecification: string | null;
@@ -2358,12 +2369,9 @@ function VendorFeaturedStyleEditor({
   const [warehouseZips, setWarehouseZips] = useState<string[]>(style.warehouseZips ?? []);
   const [newZip, setNewZip] = useState("");
   const [flatFreight, setFlatFreight] = useState(style.flatFreightFeeCents == null ? "" : (style.flatFreightFeeCents / 100).toFixed(2));
-  const [railWidth, setRailWidth] = useState(style.railWidth ?? "");
-  const [stileWidth, setStileWidth] = useState(style.stileWidth ?? "");
-  const [centerRailWidth, setCenterRailWidth] = useState(style.centerRailWidth ?? "");
-  const [profileNotes, setProfileNotes] = useState(style.profileNotes ?? "");
+  // Same shared door profile editor as the admin Featured Door Styles page.
+  const [profile, setProfile] = useState<DoorProfileValues>(() => doorProfileValuesFromStyle(style));
   const [profileDescription, setProfileDescription] = useState(style.profileDescription ?? "");
-  const [sourceSpecification, setSourceSpecification] = useState(style.sourceSpecification ?? "");
   const [doorSampleImageUrl, setDoorSampleImageUrl] = useState(style.doorSampleImageUrl ?? "");
   const [drawerSampleImageUrl, setDrawerSampleImageUrl] = useState(style.drawerSampleImageUrl ?? "");
   const [roomSceneImageUrl, setRoomSceneImageUrl] = useState(style.roomSceneImageUrl ?? "");
@@ -2378,8 +2386,7 @@ function VendorFeaturedStyleEditor({
     setDoorStyle(style.doorStyle ?? ""); setColor(style.color ?? ""); setFinish(style.finish ?? ""); setWoodSpecies(style.woodSpecies ?? "");
     setWarehouseZips(style.warehouseZips ?? []); setNewZip("");
     setFlatFreight(style.flatFreightFeeCents == null ? "" : (style.flatFreightFeeCents / 100).toFixed(2));
-    setRailWidth(style.railWidth ?? ""); setStileWidth(style.stileWidth ?? ""); setCenterRailWidth(style.centerRailWidth ?? "");
-    setProfileNotes(style.profileNotes ?? ""); setProfileDescription(style.profileDescription ?? ""); setSourceSpecification(style.sourceSpecification ?? "");
+    setProfile(doorProfileValuesFromStyle(style)); setProfileDescription(style.profileDescription ?? "");
     setDoorSampleImageUrl(style.doorSampleImageUrl ?? ""); setDrawerSampleImageUrl(style.drawerSampleImageUrl ?? "");
     setRoomSceneImageUrl(style.roomSceneImageUrl ?? ""); setThumbnailImageUrl(style.thumbnailImageUrl ?? ""); setCornerSwatchImageUrl(style.cornerSwatchImageUrl ?? "");
   }, [style, open]);
@@ -2410,11 +2417,12 @@ function VendorFeaturedStyleEditor({
 	  const save = () => {
 	    const freight = flatFreight.trim() ? Number(flatFreight) : null;
     if (freight != null && (!Number.isFinite(freight) || freight < 0)) { toast.error("Fallback freight must be a valid non-negative dollar amount"); return; }
+    if (profile.railWidth.trim() && profile.stileWidth.trim() && !profile.sourceSpecification.trim()) { toast.error("A source citation is required with rail and stile measurements"); return; }
     update.mutate(withLine({
 	      styleId: style.id, featuredLabel: featuredLabel.trim() || null, aliasName: aliasName.trim() || null,
 	      doorStyle: doorStyle.trim() || null, color: color.trim() || null, finish: finish.trim() || null, woodSpecies: woodSpecies.trim() || null,
 	      warehouseZips: warehouseZips.length ? warehouseZips : null, flatFreightFeeCents: freight == null ? null : Math.round(freight * 100),
-	      profileNotes: profileNotes.trim() || null, profileDescription: profileDescription.trim() || null,
+	      ...doorProfileValuesToPayload(profile), profileDescription: profileDescription.trim() || null,
       doorSampleImageUrl: doorSampleImageUrl.trim() || null, drawerSampleImageUrl: drawerSampleImageUrl.trim() || null, roomSceneImageUrl: roomSceneImageUrl.trim() || null,
       thumbnailImageUrl: thumbnailImageUrl.trim() || null, cornerSwatchImageUrl: cornerSwatchImageUrl.trim() || null,
     }));
@@ -2436,7 +2444,7 @@ function VendorFeaturedStyleEditor({
         <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-3 space-y-3"><div><Label>Customer-facing names</Label><p className="text-xs text-muted-foreground">These names promote this vendor’s own cabinet line in the catalog, featured row, and Designer.</p></div><div className="grid gap-3 sm:grid-cols-2"><div className="space-y-1"><Label className="text-xs">Alias name</Label><Input value={aliasName} onChange={(event) => setAliasName(event.target.value)} placeholder={style.ourName} /></div><div className="space-y-1"><Label className="text-xs">Featured label</Label><Input value={featuredLabel} onChange={(event) => setFeaturedLabel(event.target.value)} placeholder={aliasName || style.ourName} /></div></div><p className="text-xs text-muted-foreground">Leave a field blank to use the vendor’s standard Door Style name.</p></div>
         <div className="grid gap-3 sm:grid-cols-2"><div className="space-y-1"><Label className="text-xs">Door style type</Label><Input value={doorStyle} onChange={(event) => setDoorStyle(event.target.value)} placeholder="e.g. Shaker" /></div><div className="space-y-1"><Label className="text-xs">Color</Label><Input value={color} onChange={(event) => setColor(event.target.value)} placeholder="e.g. White" /></div><div className="space-y-1"><Label className="text-xs">Finish</Label><Input value={finish} onChange={(event) => setFinish(event.target.value)} placeholder="e.g. Painted" /></div><div className="space-y-1"><Label className="text-xs">Wood species</Label><Input value={woodSpecies} onChange={(event) => setWoodSpecies(event.target.value)} placeholder="e.g. Maple" /></div></div>
         <div className="rounded-lg border border-sky-200 bg-sky-50/50 p-3 space-y-3"><div><Label className="flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5 text-sky-700" />Shipping Origin ZIPs</Label><p className="text-xs text-muted-foreground">Same per-style origin controls as Featured Styles. Saved ZIPs become the style’s private freight origins.</p></div><div className="flex gap-2"><Input value={newZip} onChange={(event) => setNewZip(event.target.value.replace(/\D/g, "").slice(0, 5))} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); addZip(); } }} inputMode="numeric" placeholder="5-digit warehouse ZIP" maxLength={5} /><Button type="button" variant="outline" onClick={addZip}><Plus className="mr-1 h-4 w-4" />Add</Button></div><div className="flex flex-wrap gap-2">{warehouseZips.map((zip) => <Badge key={zip} variant="secondary" className="gap-1 py-1 pl-2.5 pr-1">{zip}<button type="button" onClick={() => setWarehouseZips((current) => current.filter((item) => item !== zip))} aria-label={`Remove warehouse ZIP ${zip}`}><X className="h-3.5 w-3.5" /></button></Badge>)}</div><div className="space-y-1"><Label className="text-xs">Plan B fallback freight fee (optional)</Label><div className="flex items-center gap-2"><span>$</span><Input value={flatFreight} onChange={(event) => setFlatFreight(event.target.value)} inputMode="decimal" placeholder="Used only if live freight is unavailable" /></div></div></div>
-	        <div className="rounded-lg border border-emerald-200 bg-emerald-50/40 p-3 space-y-3"><div><Label className="flex items-center gap-1.5"><Ruler className="h-3.5 w-3.5" />Verified frame profile</Label><p className="text-xs text-muted-foreground">Designer geometry is controlled by a submitted physical sample door and a CabinetDealz team measurement. Use <strong>Door Styles → Submit sample measurements</strong> to record the vendor source and select every style with the same profile.</p></div><div className="grid grid-cols-3 gap-3 text-sm"><div><p className="text-xs text-muted-foreground">Rail</p><p className="font-medium">{style.railWidth ?? "Pending"}</p></div><div><p className="text-xs text-muted-foreground">Stile</p><p className="font-medium">{style.stileWidth ?? "Pending"}</p></div><div><p className="text-xs text-muted-foreground">Center rail</p><p className="font-medium">{style.centerRailWidth ?? "—"}</p></div></div><p className="text-xs text-muted-foreground">{style.sourceSpecification ?? "No CabinetDealz-verified sample measurement yet — Designer uses a neutral face."}</p><div className="space-y-1"><Label className="text-xs">Profile notes</Label><Input value={profileNotes} onChange={(event) => setProfileNotes(event.target.value)} placeholder="e.g. Beaded inner edge" /></div><div className="space-y-1"><Label className="text-xs">Profile description</Label><textarea value={profileDescription} onChange={(event) => setProfileDescription(event.target.value)} rows={4} placeholder="Customer-facing educational description of this style" className="w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-sm" /></div></div>
+	        <div className="rounded-lg border border-emerald-200 bg-emerald-50/40 p-3 space-y-3"><div><Label className="flex items-center gap-1.5"><Ruler className="h-3.5 w-3.5" />Door profile</Label><p className="text-xs text-muted-foreground">The same door profile editor admins use. You can edit only door styles tied to your own cabinet line.</p></div><DoorProfileEditor values={profile} onChange={setProfile} idPrefix="vp" /><div className="space-y-1"><Label className="text-xs">Profile description</Label><textarea value={profileDescription} onChange={(event) => setProfileDescription(event.target.value)} rows={4} placeholder="Customer-facing educational description of this style" className="w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-sm" /></div></div>
         <div className="space-y-3"><div><Label>Image materials</Label><p className="text-xs text-muted-foreground">Upload or paste the exact verified image for this vendor’s Door Style. Saving updates only this vendor’s line.</p></div><div className="grid gap-3 sm:grid-cols-2">{imageField("Room scene photo", "Primary Featured Styles and cabinet-line scene.", roomSceneImageUrl, setRoomSceneImageUrl, "roomScene")}{imageField("Door sample photo", "Door panel material for the Designer and catalog.", doorSampleImageUrl, setDoorSampleImageUrl, "doorSample")}{imageField("Drawer sample photo", "Drawer-front material; blank falls back to the door sample.", drawerSampleImageUrl, setDrawerSampleImageUrl, "drawerSample")}{imageField("Corner swatch", "Angled profile/grain close-up for Featured Styles.", cornerSwatchImageUrl, setCornerSwatchImageUrl, "cornerSwatch")}{imageField("Thumbnail override", "Optional small-card thumbnail override.", thumbnailImageUrl, setThumbnailImageUrl, "thumbnail")}</div></div>
         <VendorRoomSceneLibrary
           styleId={style.id}

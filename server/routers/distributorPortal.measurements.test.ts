@@ -30,7 +30,12 @@ describe("vendor sample-door measurement router contracts", () => {
     expect(source).toContain("doorSampleVerified: true");
   });
 
-  it("prevents vendors from directly editing source-bound Designer frame measurements", () => {
-    expect(source).toContain("Submit sample-door measurements for CabinetDealz verification instead of editing Designer frame data directly.");
+  it("vendors edit door profile fields through the shared builder, limited to their own line", () => {
+    // Replaces the old "submit measurements instead" block (Tom, Oct 31): vendors and admins
+    // share one door profile editor; the server restricts vendors to their own distributor id.
+    expect(source).toContain("...doorProfileFieldsShape");
+    expect(source).toContain("Object.assign(patch, buildDoorProfilePatch(fields))");
+    expect(source).toContain("assertCanEditDoorStyle(");
+    expect(source).not.toContain("instead of editing Designer frame data directly");
   });
 });

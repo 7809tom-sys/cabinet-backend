@@ -48,11 +48,13 @@ describe("FeaturedStylesAdmin room-scene libraries", () => {
 		});
 
 		it("requires an exact official citation before a complete frame can render", () => {
-		  expect(adminSource).toContain("Official frame source citation");
+		  // The citation field now lives in the shared door profile editor (admin + vendor).
+		  const sharedEditor = readFileSync(resolve(process.cwd(), "client/src/components/door/DoorProfileEditor.tsx"), "utf8");
+		  expect(sharedEditor).toContain("Official frame source citation");
+		  expect(sharedEditor).toContain("exact supplier style code");
 		  expect(adminSource).toContain("Source citation needed");
 		  expect(adminSource).toContain("A source citation is required before a frame can render in Designer");
-		  expect(adminSource).toContain("exact supplier style code");
-		  expect(adminSource).toContain("sourceSpecification: sourceSpecification.trim() || null");
+		  expect(adminSource).toContain("doorProfileValuesToPayload(profile)");
 		});
 
 	it("keeps the Door Style editor within the viewport while its contents scroll internally", () => {

@@ -1,3 +1,4 @@
+import { DOOR_EDGE_PROFILES, doorProfileSpecRows, normalizeInsideEdgeProfile } from "@shared/doorProfiles";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "wouter";
 import { Palette, ArrowRight, ChevronLeft, ChevronRight, ImageIcon, Search, X } from "lucide-react";
@@ -70,6 +71,13 @@ interface DoorStyle {
   stileWidth?: string | number | null;
   centerRailWidth?: string | number | null;
   profileNotes?: string | null;
+  panelConstruction?: string | null;
+  bevelWidth?: string | number | null;
+  bevelDepth?: string | number | null;
+  insideEdgeProfile?: string | null;
+  drawerFrontType?: string | null;
+  grainDirection?: string | null;
+  finishSheen?: string | null;
   profileDescription?: string | null;
   specificationStatus?: "purchasable" | "availability_pending" | "coming_soon" | null;
   sourceSpecification?: string | null;
@@ -247,26 +255,31 @@ function StyleCard({ style, seriesName }: { style: DoorStyle; seriesName?: strin
           </div>
         </div>
 
-        {/* Frame profile measurements */}
-        {(style.railWidth || style.stileWidth || style.centerRailWidth || style.profileNotes) && (
-          <div className="rounded-md border border-emerald-200 bg-emerald-50/60 px-3 py-2.5 space-y-1.5">
-            <p className="text-xs font-semibold text-emerald-800">Frame Profile</p>
-            <div className="flex flex-wrap gap-x-5 gap-y-1">
-              {style.railWidth && (
-                <p className="text-xs"><span className="text-muted-foreground">Rail:</span> {style.railWidth}&quot;</p>
-              )}
-              {style.stileWidth && (
-                <p className="text-xs"><span className="text-muted-foreground">Stile:</span> {style.stileWidth}&quot;</p>
-              )}
-              {style.centerRailWidth && (
-                <p className="text-xs"><span className="text-muted-foreground">Center Rail:</span> {style.centerRailWidth}&quot;</p>
-              )}
-              {style.profileNotes && (
-                <p className="text-xs"><span className="text-muted-foreground">Profile:</span> {style.profileNotes}</p>
-              )}
+        {/* Door profile spec: picture + specs from the style record. Blank values are omitted, never invented. */}
+        {(() => {
+          const specRows = doorProfileSpecRows(style);
+          const edgeId = normalizeInsideEdgeProfile(style.insideEdgeProfile);
+          const edge = DOOR_EDGE_PROFILES.find((option) => option.id === edgeId);
+          if (specRows.length === 0) return null;
+          return (
+            <div className="rounded-md border border-emerald-200 bg-emerald-50/60 px-3 py-2.5 space-y-1.5" data-testid="door-profile-spec">
+              <p className="text-xs font-semibold text-emerald-800">Door Profile Spec</p>
+              <div className="flex items-start gap-3">
+                {edge && (
+                  <div className="flex w-16 shrink-0 flex-col items-center gap-0.5 text-center text-[10px] text-emerald-900">
+                    <svg viewBox="0 0 24 16" className="h-10 w-full" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" strokeLinecap="round" aria-hidden="true"><path d={edge.svgPath} /></svg>
+                    <span>{edge.label}</span>
+                  </div>
+                )}
+                <div className="flex flex-wrap gap-x-5 gap-y-1">
+                  {specRows.map((row) => (
+                    <p key={row.label} className="text-xs"><span className="text-muted-foreground">{row.label}:</span> {row.value}</p>
+                  ))}
+                </div>
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* Profile Description */}
         {(style as DoorStyle & { profileDescription?: string | null }).profileDescription && (
