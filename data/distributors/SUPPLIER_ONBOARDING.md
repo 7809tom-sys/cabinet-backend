@@ -21,3 +21,10 @@ Rules:
 - Use `conflictStatus = 'conflict'` on hidden new masters. For a medium-confidence mapping onto an existing live master use `'review'` (stays public) and only `WHERE conflictStatus = 'none'` so an existing flag is never overwritten.
 - The reason follows `formatConflictReason` in `shared/cabinetConflictFlags.ts`: Issue, Current value, Source (the document and page actually checked, or "NOT FOUND in <spec book>"), Needed, and Resolved fields. An admin resolves it in the tab.
 - First applied to DL (`data/distributors/dl-cabinetry/dl_unmatched_conflicts.csv`).
+
+## Standing rules A-D (Tom, Oct 31, 2026, all suppliers)
+- **A. No skipping.** Every unmatched or "report only" item is looked up in the supplier's spec book and gets a decision (map, alias, or hidden new master) with the page or source recorded ("NOT FOUND in <spec book>" when it is not there). Nothing is left report-only or skipped.
+- **B. No price changes.** Every SKU keeps its own price-list price as-is. Do not add, combine or adjust prices (for example a glass door SKU is not repriced as cabinet + door).
+- **C. Unsure = Cabinet Conflict.** Anything not certain still gets its SKU, and is flagged with the existing mechanism (see the section above) with the reason and the sources checked.
+- **D. Naming.** The master holds the uniform nomenclature, the shared customer-facing name. Each distributor's own description, dimensions, spec page and spec images stay on that distributor's SKU/supplier record (`distributor_skus.supplierCabinetName`, `geometryWidth/Height/Depth`, `geometrySourcePage`, `geometryStatus`; `distributor_cabinet_overrides` for per-supplier images), never on the master, so a customer switching suppliers sees one item with each supplier's specs. If a needed field does not exist, do not add a migration in the same PR; list what is needed for Tom.
+- **E. Never cross-link unique items.** An item a supplier carries that regular catalog items do not (for example DL 2DB33, a two-drawer base) gets its own master and is never linked, aliased, substituted or cross-referenced to a similar regular cabinet.

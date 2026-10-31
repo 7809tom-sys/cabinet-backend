@@ -7,7 +7,7 @@ Master catalog reference: data/distributor-connections/cabinet-descriptions-corr
 was NOT queried), so every 'matched' master must be confirmed against the live catalog before the SQL is run.
 Run: python3 build_unmatched.py
 """
-import csv
+import csv, re
 
 PRICE = {r["dlSku"]: r for r in csv.DictReader(open("dl_prices.csv"))}
 SPEC = {r["dlSku"]: r for r in csv.DictReader(open("dl_spec_book_items.csv"))}
@@ -19,9 +19,6 @@ SHEET = "master description sheet 2026-10-26 (repo xlsx)"
 # ---- decisions -----------------------------------------------------------------------------------------------
 # MAP: dlSku -> (masterCode, matchType, confidence, reason)
 MAP = {}
-# glass door SKU -> plain cabinet SKU whose price is added (SKU price = cabinet + glass door, never door-only)
-GLASS_PLAIN = {f"WG{w}{h}": f"W{w}{h}" for w in (12, 15, 18) for h in (30, 36, 42)}
-GLASS_PLAIN.update({"WDCG243012": "WDC243012", "WDCG243612": "WDC243612", "WDCG244212": "WDC244212"})
 GLASS_MASTER = {}  # filled below: glass SKU -> master code
 for w, door in [(18, "single"), (21, "single"), (24, "2-door"), (27, "2-door"), (30, "2-door"), (33, "2-door"), (36, "double-door")]:
     s = SPEC[f"FDB{w}"]
@@ -35,20 +32,23 @@ for c in ("W1218", "W1518", "W1818"):
 MAP["VAN48D-6"] = ("VDDB48", "dimension-equivalent", "high",
     f"{SB} p.{SPEC['VAN48D-6']['specBookPage']}: 48 x 34-1/2 x 21, 2 doors, 6 drawers + 1 false front. VDDB48 (USCD) is 48W x 34-1/2H x 21D, 3 drawers each side (6), 2 centre doors, long false drawer front above. Same type, size, door and drawer counts")
 MAP["WMC3018"] = ("PWB-MOS-30-18", "dimension-equivalent", "medium",
-    f"{SB}: wall microwave cabinet 30 x 18 x 12, 0 doors, 1 shelf (open). Master is '30 x 18 x 11 7/8 Wall Microwave Open Box' (SK). Same type and construction; depth differs by 1/8 in")
+    "Tom 11:17: keep review flag. Verified: DL spec book p.8 WMC3018 = 30x18x12 wall microwave cabinet, 0 doors, 1 shelf (open) -> type/size confirmed; master is a 30x18x11-7/8 wall microwave open box (SK), meaning of PWB not documented anywhere; closer-depth candidates WMS3018 / WOC3018 (USCD, 12D). FLAGGED in Cabinet Conflict (review)."
+    f" {SB}: wall microwave cabinet 30 x 18 x 12, 0 doors, 1 shelf (open). Master is '30 x 18 x 11 7/8 Wall Microwave Open Box' (SK). Same type and construction; depth differs by 1/8 in")
 MAP["DWP3"] = ("DWR3", "nomenclature-equivalent", "high",
     f"{SB}: dishwasher panel 3 x 34-1/2 x 24 (Tom confirmed). DWR3 (alias BEP3) is the 3W x 34-1/2H x 24D dishwasher return panel. Identical size and item")
 MAP["GH30"] = ("SGH30", "nomenclature-equivalent", "high",
     f"{SB}: glass holder 30 x 1-1/2 x 12 (Tom confirmed). SGH30 is Stem Glass Holder 30W x 1-1/2H x 12D. Identical size and item")
-MAP["TOUCHUP KIT"] = ("TUK", "nomenclature-equivalent", "medium", f"{SB}: touch-up kit (paint pen and putty). Master TUK is 'Touch Up Kit'. Same item; no dimensions in the master to compare")
-MAP["PAINT"] = ("SPRAYPAINT", "nomenclature-equivalent", "medium", f"{SB}: spray paint 2-1/2 x 8 x 2-1/2. Master SPRAYPAINT is 'Spray Paint Touch-Up'. Same item; the master has no dimensions or color, so DL's color match is not confirmed")
-MAP["SCRIBEMOLDING"] = ("SM8", "nomenclature-equivalent", "medium", f"{SB}: scribe molding 96 x 3/4 x 1/4. Master SM8 is 'Scribe Moulding - 96\"'. Same item and length; the master has no profile dimensions")
-MAP["RRP27(1.5)"] = ("REPV2796", "dimension-equivalent", "medium", f"{SB}: refrigerator panel 1-1/2 x 96 x 27. Master REPV2796 is 'Refrigerator End Panel - 27\"D x 96\"H' (SK). Same item, height and depth; the master has no thickness")
+MAP["TOUCHUP KIT"] = ("TUK", "nomenclature-equivalent", "high", f" Tom confirmed Oct 31 11:17: touch-up kit, every supplier carries it. {SB}: touch-up kit (paint pen and putty). Master TUK is 'Touch Up Kit'. Same item; no dimensions in the master to compare")
+MAP["PAINT"] = ("SPRAYPAINT", "nomenclature-equivalent", "high", f" Tom confirmed Oct 31 11:17: spray paint, carried throughout. {SB}: spray paint 2-1/2 x 8 x 2-1/2. Master SPRAYPAINT is 'Spray Paint Touch-Up'. Same item; the master has no dimensions or color, so DL's color match is not confirmed")
+MAP["SCRIBEMOLDING"] = ("SM8", "nomenclature-equivalent", "high", f" Tom confirmed Oct 31 11:17: standard scribe molding, everybody has it. {SB}: scribe molding 96 x 3/4 x 1/4. Master SM8 is 'Scribe Moulding - 96\"'. Same item and length; the master has no profile dimensions")
+MAP["RRP27(1.5)"] = ("REPV2796", "dimension-equivalent", "high", f"Verified in the DL spec book p.13 (Refrigerator Panel): RRP27 (1.5) is 1-1/2in thick x 96 high x 27 deep, so (1.5) = the 1-1/2in panel thickness and the size matches REPV2796 27D x 96H. The master records no thickness, so thickness is not compared. Tom: keep mapping, raised to high. {SB}: refrigerator panel 1-1/2 x 96 x 27. Master REPV2796 is 'Refrigerator End Panel - 27\"D x 96\"H' (SK). Same item, height and depth; the master has no thickness")
 MAP["FILLER 6X96"] = ("F696", "dimension-equivalent", "high", f"{SB}: filler 6 x 96 x 3/4. Master F696 is '6\" x 96\" Tall Filler' (CS/SK/USCD). Same item and size")
 
 MAP["SP09"] = ("SPB9", "alias", "high", "Tom confirmed SP09 = SPB9, the same item: a 9in Spice Base / Pull-Out (spice pull-out; every supplier carries it). Master description unchanged. Alias SP09 -> SPB9, no new master; duplicate resolved this way. Spec book SP09 = 9 x 34-1/2 x 24, 1 drawer, 3 shelves")
 MAP["BWBKT18"] = ("BWB18", "alias", "high", "Tom confirmed BWBKT18 = BWB18, the same cabinet (18in Base Waste Basket, SK). Alias BWBKT18 -> BWB18. Spec book: 18 x 34-1/2 x 24, 0 doors, 2 drawers, trash cans sold separately")
-ALIASES_FOR_MAPPED = {"SP09": "SPB9", "BWBKT18": "BWB18"}
+MAP["RH36"] = ("RHF36", "alias", "high",
+    f"Tom FINAL Oct 31: RH36 is the SAME item as RHF36, a range hood cabinet (isNotCabinet=FALSE); alias RH36 -> RHF36, no separate master; DL SKUs under RHF36 at DL's own prices. DL's own specs ({SB} p.{SPEC['RH36']['specBookPage']}: 36W x 36H x 24D, 0 doors, 0 shelves) stay on the DL SKU geometry; Faircrest/Ashford RHF36 specs stay on theirs. FLAGGED in Cabinet Conflict (review) on RHF36: the two suppliers' numbers disagree (see the Range Hoods section of the findings)")
+ALIASES_FOR_MAPPED = {"SP09": "SPB9", "BWBKT18": "BWB18", "RH36": "RHF36"}
 
 # NEW masters (keys are MASTER codes; NEW_DL maps master -> DL SKU that creates it; NEW_X holds explicit values)
 NEW_DL = {}
@@ -58,17 +58,17 @@ for h, shelves in (("30", 2), ("36", 2), ("42", 3)):
     GLASS_MASTER[f"WG12{h}"] = gm
     NEW_DL[gm] = f"WG12{h}"
     NEW_X[gm] = dict(
-        desc=f'Wall cabinet Single Glass door - 12"W x {h}"H x 12"D, 1 door, {shelves} shelves (DL W12{h} cabinet + WG12{h} glass door)',
+        desc=f'Wall cabinet Single Glass door - 12"W x {h}"H x 12"D, 1 door, {shelves} shelves',
         W=12, H=int(h), D=12, doors=1, drawers=None, isNot=False, specNotes=None, descSrc="DL spec book v.11/14/23 (W12%s p.%s; WG12%s p.%s)" % (h, SPEC[f"W12{h}"]["specBookPage"], h, SPEC[f"WG12{h}"]["specBookPage"]),
-        src=f"{SB} W12{h} p.{SPEC[f'W12{h}']['specBookPage']} (1 door, {shelves} shelves) + WG12{h} p.{SPEC[f'WG12{h}']['specBookPage']} (glass door 11-11/16 x {SPEC[f'WG12{h}']['heightIn']} x 3/4); {PL}",
+        src=f"{SB} W12{h} p.{SPEC[f'W12{h}']['specBookPage']} (1 door, {shelves} shelves); glass door WG12{h} p.{SPEC[f'WG12{h}']['specBookPage']} (glass door 11-11/16 x {SPEC[f'WG12{h}']['heightIn']} x 3/4); {PL}",
         alias=f"WG12{h}")
 # (cabinets). dlSku -> (category, subCategory, placement, cornerType or None, why-no-master)
 NEW = {
- "2DB33": ("Base", "Drawer Base", "base", None, "Tom FINAL Oct 31 11:11 CT: 2DB33 is a UNIQUE item, NOT B33 (the earlier B33 alias is reversed and removed). DL spec book: 33in two-drawer base, 0 doors, 2 drawers. Priced at DL's own 2DB33 price-list prices"),
- "W1230GD": ("Wall", "Wall Cabinet With Glass Door", "wall", None, "Tom approved Oct 31: no 12-wide W12{30,36,42}GD master exists (12-wide glass cabinets exist only at 12 high). Priced as plain W1230 + glass door WG1230. If a master already exists under this code the NOT EXISTS guard skips the insert and the SKUs attach to it"),
- "W1236GD": ("Wall", "Wall Cabinet With Glass Door", "wall", None, "Tom approved Oct 31 (see W1230GD). Priced as W1236 + WG1236"),
- "W1242GD": ("Wall", "Wall Cabinet With Glass Door", "wall", None, "Tom approved Oct 31 (see W1230GD). Priced as W1242 + WG1242"),
- "FLAT PANEL 28X96": ("Panels", "Flat Panel", "accessory", None, "Tom Oct 31: 28 x 96 flat panel CUT DOWN ON THE JOB SITE. No existing panel master matches (nearest 3/4 in panels FPL2496 / FPL3796 are 96 x 24-3/8 / 37-3/8; the spec book lists FLAT PANEL 27X96, 3/4 thick). Modeled like the existing panels / filler accessories"),
+ "2DB33": ("Base", "Drawer Base", "base", None, "Tom FINAL Oct 31: 2DB33 is a UNIQUE item with its own master; it is never linked, aliased, substituted or cross-referenced to any regular base cabinet. DL spec book: 33in two-drawer base, 0 doors, 2 drawers. Priced at DL's own 2DB33 price-list prices"),
+ "W1230GD": ("Wall", "Wall Cabinet With Glass Door", "wall", None, "Tom approved Oct 31: no 12-wide W12{30,36,42}GD master exists (12-wide glass cabinets exist only at 12 high). SKU keeps DL's own listed WG1230 price as-is. If a master already exists under this code the NOT EXISTS guard skips the insert and the SKUs attach to it"),
+ "W1236GD": ("Wall", "Wall Cabinet With Glass Door", "wall", None, "Tom approved Oct 31 (see W1230GD). SKU keeps DL's own listed WG1236 price as-is"),
+ "W1242GD": ("Wall", "Wall Cabinet With Glass Door", "wall", None, "Tom approved Oct 31 (see W1230GD). SKU keeps DL's own listed WG1242 price as-is"),
+ "FLAT PANEL 28X96": ("Panels", "Flat Panel", "accessory", None, "Tom Oct 31: 28 x 96 flat panel CUT DOWN ON THE JOB SITE. No existing panel master matches (nearest 3/4 in panels FPL2496 / FPL3796 are 96 x 24-3/8 / 37-3/8; the spec book lists FLAT PANEL 27X96, 3/4 thick, p.13). Modeled like the existing panels / filler accessories"),
  "FDB09": ("Base", "Full Height", "base", None, "FDB family maps to B##FH but the master catalog has nothing below B12FH, and FDB09 is not in the spec book (smallest FDB listed is FDB18); size is from the price list only"),
  "W2118": ("Wall", "Wall Cabinet", "wall", None, "no W2118 master (only the glass W2118GD)"),
  "W2412": ("Wall", "Wall Bridge Cabinet", "wall", None, "no W2412 master (only the glass W2412GD)"),
@@ -84,7 +84,6 @@ NEW = {
  "WEOS0930": ("Wall", "Open Shelf", "wall", None, "open end shelf masters are 6in wide (OE630/636/642); DL is 9in"),
  "WEOS0936": ("Wall", "Open Shelf", "wall", None, "open end shelf masters are 6in wide (OE630/636/642); DL is 9in"),
  "WEOS0942": ("Wall", "Open Shelf", "wall", None, "open end shelf masters are 6in wide (OE630/636/642); DL is 9in"),
- "RH36": ("Wall", "Range Hood Front", "wall", None, "CABINET (isNotCabinet=FALSE), same as RHF30/RHF36. Compared to RHF36 per Tom (36 W x 23.5 H x 8 D): DL RH36 is 36 x 36 x 24 (spec book Range Hood Cover), so height (36 vs 23.5) and depth (24 vs 8) do NOT match; kept as a hidden new master, not aliased"),
 }
 
 # ACCESSORY / report items: dlSku -> (class, proposed handling)
@@ -94,10 +93,10 @@ def acc(skus, cls, handling):
 for w in (15, 18):
     for h in (30, 36, 42):
         MAP[f"WG{w}{h}"] = (f"W{w}{h}GD", "nomenclature-equivalent", "high",
-            f"Tom confirmed Oct 31, 2026: WG{w}{h} is the glass DOOR only, not a cabinet; maps to the existing W{w}{h}GD. {SB} p.{SPEC[f'WG{w}{h}']['specBookPage']}: loose glass door {SPEC[f'WG{w}{h}']['widthIn']} wide x {SPEC[f'WG{w}{h}']['heightIn']} high x 3/4. SKU price = plain W{w}{h} + WG{w}{h} per tier (dl_unmatched_glass_pricing.csv), never the door-only price")
+            f"Tom confirmed Oct 31, 2026: WG{w}{h} is the glass DOOR only, not a cabinet; maps to the existing W{w}{h}GD. {SB} p.{SPEC[f'WG{w}{h}']['specBookPage']}: loose glass door {SPEC[f'WG{w}{h}']['widthIn']} wide x {SPEC[f'WG{w}{h}']['heightIn']} high x 3/4. The SKU keeps DL's own listed price for WG{w}{h} as-is (no price changes)")
 for s, m in (("WDCG243012", "DCW2430GD"), ("WDCG243612", "DCW2436GD"), ("WDCG244212", "DCW2442GD")):
     MAP[s] = (m, "nomenclature-equivalent", "high",
-        f"Tom confirmed Oct 31, 2026: {s} -> {m}. {s} is the diagonal-corner glass door ({SB} p.{SPEC[s]['specBookPage']}); {m} is the existing diagonal corner glass door cabinet (24W x {s[6:8]}H x 12D). SKU price = plain {GLASS_PLAIN[s]} + {s} per tier (dl_unmatched_glass_pricing.csv)")
+        f"Tom confirmed Oct 31, 2026: {s} -> {m}. {s} is the diagonal-corner glass door ({SB} p.{SPEC[s]['specBookPage']}); {m} is the existing diagonal corner glass door cabinet (24W x {s[6:8]}H x 12D). The SKU keeps DL's own listed price for {s} as-is (no price changes)")
 acc(["WDD30", "WDD36", "WDD42"], "decorative door panel",
     "Spec book 'Wall Decorative Door': 11-7/8 wide x 29-1/2/35-1/2/41-1/2 x 3/4 panels, not cabinets. Nearest masters WDEP30/36/42 are 11-1/2 x 29/35/41 (USCD) or 12-3/4 x 29/35/41 (SK): sizes differ, so not mapped. Propose new accessory masters WDD30/36/42")
 acc(["BDD24"], "decorative door panel", "Spec book 'Base Decorative Door': 23-3/4 x 29-1/4 x 3/4 flat door panel. Nearest BDEP is 23-1/2 x 29 x 3/4: size differs, not mapped. Propose a new accessory master BDD24")
@@ -121,8 +120,15 @@ acc(["SAMPLE DOOR PACK (2025)"], "sample", "13 x 17 x 7 pack. SAMPLE DOOR / SD m
 acc([f"WN FS{n}" for n in (3012, 3612, 4812)] + [f"WO FS{n}" for n in (3012, 3612, 4812)], "floating shelf (not in spec book)", "Not in the spec book; WN/WO presumably wood finishes. Floating shelf masters FS30/FS36/FS42/FS48 exist but size and finish are unconfirmed. Ask Rich")
 
 acc(["SP2436"], "panel / likely decorative door (no spec-book entry)", "Spec-book lookup (pdftotext of v.11/14/23, searched 'SP2436', 'SP 2436', '2436'): NOT FOUND; only W2436 and WDC243612 contain the digits, so there is no description, thickness, finish or page. Price list row only: core $33 / slim $33 / luxe $66, no dimensions ('non-door item'). Tom: a panel / probably a decorative door, not a cabinet")
+for _k, (_c, _h) in list(ACC.items()):
+    _h = re.sub(r"\.? ?Propose (a )?new accessory masters?[^.]*\.?", ". Decision: hidden new master + pending SKU, flagged in Cabinet Conflict.", _h)
+    _h = _h.replace("Ask Rich before creating anything", "Flagged in Cabinet Conflict").replace("Ask Rich", "Confirm with DL").replace("ask Rich", "confirm with DL")
+    _h = re.sub(r"\.? ?Propose accessory masters once Rich confirms[^.]*(\([^)]*\))?\.?", ". Decision: hidden new master + pending SKU, flagged in Cabinet Conflict (confirm what the item is, and whether sold per pair).", _h)
+    _h = re.sub(r"\.? ?List only until Rich confirms size\.?", ". Decision: hidden new master + pending SKU, flagged in Cabinet Conflict (confirm size).", _h)
+    _h = re.sub(r"\.? ?Ask Tom/Rich\.?", ". Flagged in Cabinet Conflict.", _h)
+    ACC[_k] = (_c, _h)
 SKIP = {
- "QUARTER DOOR": "not in the spec book, no description. Ask Rich what it is",
+ "QUARTER DOOR": "spec-book lookup (pdftotext of v.11/14/23, searched QUARTER DOOR / quarter / 1/4 door): NOT FOUND. Decision per rule A/C: hidden new master + pending SKU, flagged in Cabinet Conflict. Not waiting on Rich",
  }
 CAND = {}
 
@@ -172,25 +178,25 @@ for s, (cls, handling) in ACC.items():
         W, H, D = 24.0, 36.0, None
         cat, sub = "Panels", "Decorative Door"
         d = 'SP2436 (likely decorative door) - 24"W x 36"H (size inferred from the code)'
-        needed = "Confirm it is a decorative door, its real size and thickness (ask Rich), then alias to the matching decorative door master if one exists."
+        needed = "Confirm it is a decorative door, its real size and thickness (confirm with DL), then alias to the matching decorative door master if one exists."
     src = (f"{SB} p.{sp['specBookPage']}" if sp else f"{SB}: NOT FOUND (no entry for {s})") + f"; {PL} row {s} (core {pr['core'] or '-'}, slim {pr['slim'] or '-'}, luxe {pr['luxe'] or '-'})"
     PH[s] = dict(cat=cat, sub=sub, W=W, H=H, D=D, desc=d, cls=cls, why=handling, reason=reason(issue, d, src, needed, FIELDS), src=src)
 PH["QUARTER DOOR"] = dict(cat="Accessory", sub="Unknown", W=None, H=None, D=None, desc="QUARTER DOOR (unidentified)", cls="unidentified",
-    why="Pending Rich: not in the spec book, no description", src=f"{SB}: NOT FOUND (no entry for QUARTER DOOR); {PL} row QUARTER DOOR ({PRICE['QUARTER DOOR']['core'] or '-'})",
-    reason=reason("Unidentified DL item; not found in DL spec book; pending Rich.", "QUARTER DOOR (unidentified)", f"{SB}: NOT FOUND; {PL} row QUARTER DOOR", "Rich identifies the item; admin then maps or classifies it.", FIELDS))
+    why="Spec-book lookup found nothing; decided per rules A and C: hidden master + pending SKU + conflict", src=f"{SB}: NOT FOUND (no entry for QUARTER DOOR); {PL} row QUARTER DOOR ({PRICE['QUARTER DOOR']['core'] or '-'})",
+    reason=reason("Unidentified DL item; not found in DL spec book (searched QUARTER DOOR / quarter / 1/4 door).", "QUARTER DOOR (unidentified)", f"{SB}: NOT FOUND; {PL} row QUARTER DOOR", "Admin identifies the item (confirm with DL), then maps or classifies it.", FIELDS))
 assert set(PH) == set(ACC) | {"QUARTER DOOR"}
 assert set(PH) >= set(SKIP) and set(SKIP) == {"QUARTER DOOR"}
 
 # New masters whose values are not fully sure -> conflict on the hidden master itself
 CONF_NEW = {
- "FDB09": ("Size from the price list only; FDB09 is not in the DL spec book; door count and shelves unknown.", "Confirm width/depth/door count with DL (Rich)."),
+ "FDB09": ("Size from the price list only; FDB09 is not in the DL spec book; door count and shelves unknown.", "Confirm width/depth/door count with DL."),
  "CL156012": ("Category 'Tall / Counter Linen Cabinet' is my classification of a 15 x 60 x 12 unit.", "Confirm category and subCategory."),
  "DSK2421": ("subCategory 'Knee Drawer' is my classification; no existing master has this size.", "Confirm subCategory."),
  "DSK3021": ("subCategory 'Knee Drawer' is my classification; DKD30 is 30 x 5-1/4 x 21 (different height).", "Confirm subCategory and whether it duplicates DKD30."),
  "WEOS0930": ("subCategory 'Open Shelf' is my classification; open end shelf masters are 6in wide, DL is 9in.", "Confirm subCategory."),
  "WEOS0936": ("subCategory 'Open Shelf' is my classification; open end shelf masters are 6in wide, DL is 9in.", "Confirm subCategory."),
  "WEOS0942": ("subCategory 'Open Shelf' is my classification; open end shelf masters are 6in wide, DL is 9in.", "Confirm subCategory."),
- "FLAT PANEL 28X96": ("28in width is from the price list; the spec book lists only FLAT PANEL 27X96 (3/4 thick); thickness is borrowed from that row, finish unknown. Field cut on site.", "Confirm thickness, finish, and 28 vs 27 width with DL (Rich)."),
+ "FLAT PANEL 28X96": ("3/4in thickness is TAKEN FROM THE 27X96 ROW (spec book p.13), not from a 28X96 entry (none exists); finish is NULL (not stated in any source); 28in width is from the price list. Field cut on site.", "Confirm the 3/4in thickness and the finish with DL, and 28 vs 27 width."),
 }
 
 targets = [r for r in ORIG if r["matchType"] == "none" or r["confidence"] == "low"]
@@ -247,7 +253,7 @@ def g(v):
 def desc(code):
     s = SPEC.get(code)
     if s:
-        kind = s["specSection"].rstrip("s")
+        kind = NEW[code][1] if code in NEW else s["specSection"].rstrip("s")
         parts = [f'{kind} - {s["widthIn"].rstrip("0").rstrip(".")}"W x {s["heightIn"].rstrip("0").rstrip(".")}"H x {s["depthIn"].rstrip("0").rstrip(".")}"D']
         if s["doors"] != "": parts.append(f'{s["doors"]} door(s)')
         if s["drawers"] != "": parts.append(f'{s["drawers"]} drawer(s)')
@@ -263,19 +269,24 @@ sku_master.update({s: s for s in PH})
 ACC_MAPPED = {"DWP3", "GH30", "TOUCHUP KIT", "PAINT", "SCRIBEMOLDING", "RRP27(1.5)", "FILLER 6X96"}
 NO_CT = ACC_MAPPED | set(PH) | {"FLAT PANEL 28X96"}
 def sku_price(s, col):
-    """(listPrice, distributorSku, comment). Glass items are priced cabinet + door, never door only."""
-    if s in GLASS_PLAIN:
-        base = GLASS_PLAIN[s]
-        cp, dp = int(PRICE[base][col]), int(PRICE[s][col])
-        return cp + dp, f"{base} + {s}", f"{base} {cp} + {s} {dp}"
+    """(listPrice, distributorSku, comment). No price changes: every SKU keeps its own DL price-list price as-is."""
     return int(PRICE[s][col]), s, f"{s} {PRICE[s][col]}"
+
+# DL's own description / dimensions / spec source go on the DL SKU (geometry columns + supplierCabinetName), never on the master.
+def dl_geom(s):
+    sp = SPEC.get(s); pr = PRICE[s]
+    if sp:
+        return num(sp["widthIn"]), num(sp["heightIn"]), num(sp["depthIn"]), f"{SB} p.{sp['specBookPage']}", f"{s} - {sp['specSection']} (DL spec book)"
+    W, H, D = num(pr["width"]), num(pr["height"]), num(pr["depth"])
+    return W, H, D, (f"{PL} row {s}" if any(v is not None for v in (W, H, D)) else None), f"{s} - {pr['description']} (DL price list)"
 
 L = ["-- DL Cabinetry: NEW masters and pending SKUs for the previously unmatched DL items. PREPARED, NOT RUN. Do not run without Tom's review.",
  f"-- Sources: {SB} (page per item in dl_spec_book_items.csv), {PL}, master description sheet 2026-10-26 (live DB was not queried). Decisions: Tom, Oct 31, 2026.",
  "-- Generated by build_unmatched.py. One statement per numbered block. Every statement is guarded (NOT EXISTS on masterCode / alias / platformSku) so re-running is safe.",
  "-- New master cabinets are HIDDEN: isActive = FALSE, showInDesigner = FALSE, showInCatalog = FALSE, showIn2020 = FALSE. Nothing here makes any master visible.",
  "-- DL is live and its existing SKUs are published. Every distributor_skus row below is isPublished = FALSE, status = 'pending' and stays that way until Tom publishes it.",
- "-- Glass items (W####GD, DCW####GD, new W12##GD): listPrice = plain cabinet price + glass door price per tier, NEVER the door-only price. Both source rows are in each row's comment and in dl_unmatched_glass_pricing.csv.",
+ "-- NO PRICE CHANGES: every SKU keeps DL's own price-list price as-is (WG / WDCG glass-door SKUs included).",
+ "-- NAMING: the master holds the uniform nomenclature; DL's own description, dimensions and spec page sit on the DL SKU (supplierCabinetName, geometryWidth/Height/Depth, geometrySourcePage, geometryStatus = held).",
  "-- CABINET CONFLICT (Tom's standing rule, Oct 31): anything unsure is flagged with the EXISTING mechanism (cabinets.conflictStatus / conflictReason / conflictedAt, the same fields catalog.setConflict writes).",
  "--   Hidden new masters that are unsure and every report-only item (own hidden master + pending SKU) are inserted with conflictStatus = 'conflict'.",
  "--   Existing shared masters that received a MEDIUM-confidence DL mapping get conflictStatus = 'review' (stays public), only WHERE conflictStatus = 'none' so an existing flag is never overwritten.",
@@ -334,30 +345,39 @@ L += [f"-- Block {b}: Tom-confirmed aliases on EXISTING masters (SP09 -> SPB9 sp
       "\n  UNION ALL\n".join(f"  SELECT {q(k)} AS alias, {q(v)} AS masterCode" for k, v in ALIASES_FOR_MAPPED.items()) + "\n) a",
       "JOIN cabinet_dealz.cabinets c ON c.masterCode = a.masterCode",
       "WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinet_aliases x WHERE x.alias = a.alias);", ""]
-# medium-confidence mappings onto existing shared masters -> 'review' (stays public), never overwrite an existing flag
-review_rows = [(s, v) for s, v in MAP.items() if v[2] == "medium"]
-for s, (m, mt, cf, why) in review_rows:
+# existing shared masters that still need a human look -> 'review' (stays public), never overwrite an existing flag
+HOOD_SRC = (f"DL: {SB} p.{SPEC['RH36']['specBookPage']} 'Range Hood Cover' RH36 = 36W x 36H x 24D, 0 doors, 0 shelves; {PL} row RH36 core $543 / slim $543 / luxe $1085. "
+            "Faircrest/Ashford RHF36 (CS): 36W x 23.5H x 12D in docs/proofs/rhf-catalog-form-proof.md (RHF30 30 x 23.5 x 9) and notes/dn_resolved.json ('36 x 23.5 Range Hood Fronts'); Tom quotes 23.5H x 8D. The master sheet row has no dimensions.")
+REVIEW = [
+ ("WMC3018", "PWB-MOS-30-18",
+  reason("DL SKU WMC3018 (Wall Microwave Cabinet) mapped at MEDIUM confidence. Tom is unsure what 'PWB' means; no source in the repo explains it.",
+         "PWB-MOS-30-18: '30-inch x 18-inch x 11 7/8-inch Wall Microwave Open Box' (SK), Wall / Microwave Wall Cabinet",
+         f"DL {SB} p.8: WMC3018 = 30W x 18H x 12D, 0 doors, 1 shelf (open) -> type and 30x18 size CONFIRMED as a wall microwave shelf cabinet; depth differs by 1/8in. Master sheet 2026-10-26 gives no meaning for 'PWB'. Closer in depth (exactly 12D) in the same sheet: WMS3018 '30 x 18 x 12 Wall Microwave Cabinet Kit with 26-1/2 x 3/4 x 17 shelf insert' (USCD) and WOC3018 'Wall Microwave Cabinet Kit 30W x 18H x 12D' (USCD).",
+         "Admin picks PWB-MOS-30-18, WMS3018 or WOC3018 for DL WMC3018 and clears this flag.")),
+ ("RH36", "RHF36",
+  reason("DL RH36 is the SAME item as RHF36 per Tom (alias RH36 -> RHF36), but the suppliers' numbers disagree, so the uniform name 'Range Hood <W> by <H>' cannot be built yet. DL: 36 by 36 (D 24). Faircrest/Ashford: 36 by 23.5 (D 12 in the catalog doc, 8 per Tom). Neither fits Tom's example '30 by 36'.",
+         "RHF36 'Range Hood Front' (Wall / Range Hood Front, CS, isNotCabinet=FALSE)", HOOD_SRC,
+         "Tom decides the uniform name and which numbers are right. DL's own specs stay on the DL SKU (geometry 36 x 36 x 24, spec page 7); Faircrest's stay on theirs; the DL spec image still has to be extracted and stored (distributor_cabinet_overrides.imageUrl).")),
+]
+review_rows = [(s, m, rs) for s, m, rs in REVIEW]
+for s, m, rsn in review_rows:
     b += 1
-    rsn = reason(f"DL SKU {s} was mapped to this existing master at MEDIUM confidence ({mt}). Please confirm the mapping.", f"master {m}", f"{src_of(s, 'mapped')}; {why}", "Confirm DL's item is the same as this master (type, size, construction), or tell us the right master.")
-    L += [f"-- Block {b}: CABINET CONFLICT (review, stays public) on existing master {m} for medium-confidence DL SKU {s}. Does not overwrite an existing flag.",
+    L += [f"-- Block {b}: CABINET CONFLICT (review, stays public) on existing master {m} for DL SKU {s}. Does not overwrite an existing flag.",
           f"UPDATE cabinet_dealz.cabinets SET conflictStatus = 'review', conflictReason = {q(rsn)}, conflictedAt = NOW()",
           f"WHERE masterCode = {q(m)} AND conflictStatus = 'none';", ""]
 sku_counts = {}
-glass_rows = []
 for sc, nm, col in STY:
     b += 1
     rows = []
     for s, m in sku_master.items():
         if not PRICE[s][col].strip(): continue
         price, dsku, cmt = sku_price(s, col)
-        rows.append(f"  SELECT {q(s)} AS dlSku, {q(dsku)} AS distSku, {q(m)} AS masterCode, {price} AS listPrice, {1 if s in NO_CT else 0} AS noCt /* {cmt} */")
-        if s in GLASS_PLAIN:
-            base = GLASS_PLAIN[s]
-            glass_rows.append([s, m, base, sc, col, PRICE[base][col], PRICE[s][col], price, f"{PL} rows {base} and {s}"])
+        gw, gh, gd, gpage, gname = dl_geom(s)
+        rows.append(f"  SELECT {q(s)} AS dlSku, {q(dsku)} AS distSku, {q(m)} AS masterCode, {price} AS listPrice, {1 if s in NO_CT else 0} AS noCt, {g(gw)} AS gW, {g(gh)} AS gH, {g(gd)} AS gD, {q(gpage) if gpage else 'NULL'} AS gPage, {q(gname)} AS dlName /* {cmt} */")
     sku_counts[sc] = len(rows)
-    L += [f"-- Block {b}: distributor_skus for door style {sc} using the {col.upper()} price column ({len(rows)} SKUs; pending, unpublished). Glass rows = cabinet + door price. noCt = accessory (constructionType NULL).",
-      "INSERT INTO cabinet_dealz.distributor_skus (cabinetId, distributorId, styleId, platformSku, distributorSku, constructionType, listPrice, isPublished, status, supplierCabinetName)",
-      f"SELECT c.id, ds.distributorId, ds.id, CONCAT(m.dlSku, '-{nm}-DL'), m.distSku, CASE WHEN m.noCt = 1 THEN NULL ELSE 'framed' END, m.listPrice, FALSE, 'pending', m.distSku",
+    L += [f"-- Block {b}: distributor_skus for door style {sc} using the {col.upper()} price column ({len(rows)} SKUs; pending, unpublished). DL's own price as-is. noCt = accessory (constructionType NULL). gW/gH/gD/gPage/dlName = DL's own dimensions, source and description on the SKU (held, not verified).",
+      "INSERT INTO cabinet_dealz.distributor_skus (cabinetId, distributorId, styleId, platformSku, distributorSku, constructionType, geometryWidth, geometryHeight, geometryDepth, geometrySourcePage, geometryStatus, listPrice, isPublished, status, supplierCabinetName)",
+      f"SELECT c.id, ds.distributorId, ds.id, CONCAT(m.dlSku, '-{nm}-DL'), m.distSku, CASE WHEN m.noCt = 1 THEN NULL ELSE 'framed' END, m.gW, m.gH, m.gD, m.gPage, CASE WHEN m.gPage IS NULL THEN NULL ELSE 'held' END, m.listPrice, FALSE, 'pending', m.dlName",
       "FROM (\n" + "\n  UNION ALL\n".join(rows) + "\n) m",
       "JOIN cabinet_dealz.cabinets c ON c.masterCode = m.masterCode",
       f"JOIN cabinet_dealz.door_styles ds ON ds.styleCode = '{sc}' AND ds.distributorId = (SELECT id FROM cabinet_dealz.distributors WHERE code = 'DL')",
@@ -373,20 +393,16 @@ L += [f"-- Block {b}: read-only check. Expect (first run) new_masters = {len(ALL
  f"  (SELECT COUNT(*) FROM cabinet_dealz.cabinets WHERE masterCode IN ({codes}) AND conflictStatus = 'conflict') AS flagged_conflict,",
  "  (SELECT COUNT(*) FROM cabinet_dealz.distributor_skus WHERE platformSku LIKE '%-DL' AND isPublished = 0 AND status = 'pending') AS dl_pending_skus,",
  "  (SELECT COUNT(*) FROM cabinet_dealz.distributor_skus WHERE platformSku LIKE '%-DL' AND isPublished = 1) AS dl_published_skus;", "",
- "-- Read-only: confirm how existing masters are flagged. RH36 is created isNotCabinet = FALSE like the RHF hood fronts (cabinets). FLAT PANEL 28X96 and the report-only items are isNotCabinet = TRUE like the filler/panel accessories: if FPL3796 / SPW / IS3696 show isNotCabinet = 0 here, change them before running.",
- "SELECT masterCode, category, subCategory, isNotCabinet, isActive, showInDesigner, conflictStatus FROM cabinet_dealz.cabinets WHERE masterCode IN ('RHF30', 'RHF36', 'RH36', 'FPL3796', 'SPW', 'IS3696', 'FPV4296', 'WSV30', 'SPB9', 'BWB18', 'B33', '2DB33');", ""]
+ "-- Read-only: confirm how existing masters are flagged. RH36 is an alias of RHF36 (a cabinet, isNotCabinet = FALSE), no separate master. FLAT PANEL 28X96 and the report-only items are isNotCabinet = TRUE like the filler/panel accessories: if FPL3796 / SPW / IS3696 show isNotCabinet = 0 here, change them before running.",
+ "SELECT masterCode, category, subCategory, isNotCabinet, isActive, showInDesigner, conflictStatus FROM cabinet_dealz.cabinets WHERE masterCode IN ('RHF30', 'RHF36', 'HOOD-30', 'HOOD-36', 'RH-15-42', 'RHC-06-30', 'FPL3796', 'SPW', 'IS3696', 'FPV4296', 'WSV30', 'SPB9', 'BWB18');", ""]
 open("dl_unmatched_masters_tidb.sql", "w").write("\n".join(L))
-with open("dl_unmatched_glass_pricing.csv", "w", newline="") as f:
-    w = csv.writer(f, lineterminator="\n")
-    w.writerow(["dlDoorSku", "masterCode", "plainCabinetSku", "doorStyle", "priceTier", "plainCabinetPrice", "glassDoorPrice", "skuListPrice", "sourceRows"])
-    w.writerows(glass_rows)
 with open("dl_unmatched_conflicts.csv", "w", newline="") as f:
     w = csv.writer(f, lineterminator="\n")
     w.writerow(["masterCode", "conflictStatus", "kind", "dlSku", "reason"])
     for r in ALLNEW:
         if r["conflict"]: w.writerow([r["code"], "conflict", r["kind"], NEW_DL.get(r["code"], r["code"]), r["conflict"].replace("\n", " | ")])
-    for s, (m, mt, cf, why) in review_rows:
-        w.writerow([m, "review (stays public)", "existing master, medium-confidence mapping", s, f"DL SKU {s} mapped at MEDIUM confidence ({mt}): {why}"])
+    for s, m, rsn in review_rows:
+        w.writerow([m, "review (stays public)", "existing master", s, rsn.replace("\n", " | ")])
 
 # ---- per-value specs for the new masters ----------------------------------------------------------------------
 with open("dl_unmatched_specs.csv", "w", newline="") as f:

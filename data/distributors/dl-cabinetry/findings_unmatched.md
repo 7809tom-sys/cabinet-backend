@@ -1,44 +1,56 @@
 # DL unmatched SKUs: findings (90 items)
 
-Rule applied (standing, all suppliers): nomenclature first -> find the master -> if none, create a NEW hidden master whose code and alias is the supplier code. **Tom's standing rule (Oct 31): anything unsure goes to the Cabinet Conflict tab** (existing mechanism, no new flag; see below). Unsure items still get a SKU. Masters were searched in `cabinet-descriptions-corrected-2026-10-26.xlsx` (the live DB was not queryable), so **every "mapped" master must be confirmed in the live catalog before the SQL is run**. The 110 already-matched rows are unchanged (verified by the test).
+Standing rules (all suppliers; also in `data/distributors/SUPPLIER_ONBOARDING.md`): **A** no skipping (every unmatched item is looked up in the spec book and gets a decision with page/source recorded), **B** no price changes (every SKU keeps its own price-list price), **C** unsure = Cabinet Conflict (SKU still created), **D** naming (the master holds the uniform nomenclature; the distributor's own description, dimensions and spec page stay on that distributor's SKU/supplier record). Nothing is merged, no SQL was run, nothing is published. Masters were searched in `cabinet-descriptions-corrected-2026-10-26.xlsx` (the live DB was not queryable), so **every mapped master must be confirmed in the live catalog before the SQL is run**. The 110 already-matched rows are unchanged (verified by the test).
 
 | Result | Count |
 |---|---|
 | Mapped to an existing master (exact / dimension / nomenclature) | 28 |
-| Aliased onto an existing master (SP09 -> SPB9, BWBKT18 -> BWB18) | 2 |
-| NEW hidden masters (incl. 2DB33, W1230GD/W1236GD/W1242GD, FLAT PANEL 28X96) | 21 |
-| Report-only items, now each its own hidden master + pending SKU + **conflict entry** (38 accessory/trim/etc. incl. SP2436, plus QUARTER DOOR) | 39 |
-| Skipped | 0 (nothing is skipped) |
+| Aliased onto an existing master (SP09 -> SPB9, BWBKT18 -> BWB18, RH36 -> RHF36) | 3 |
+| NEW hidden masters (incl. 2DB33, W1230GD/W1236GD/W1242GD, FLAT PANEL 28X96) | 20 |
+| Previously "report-only", now each a hidden master + pending SKU + Cabinet Conflict entry (38 incl. SP2436, plus QUARTER DOOR) | 39 |
+| Skipped | **0** |
 | **Total** | **90** |
 
-Every one of the 90 DL items gets a pending, unpublished SKU on each of DL-WS (Core), DL-SSA and DL-SSE (Slim), and DL-LUXE-TBD (Luxe): 90 rows per style. Full per-item list with reasons and sources: `dl_unmatched_report.csv` (also the `note` column of `dl_crosswalk.csv`).
+**Cabinet Conflict entries: 49** = 39 report-only hidden masters + 8 unsure new masters (FDB09, CL156012, DSK2421, DSK3021, WEOS0930/36/42, FLAT PANEL 28X96) all `conflict`, plus 2 existing masters set to `review` (stays public): PWB-MOS-30-18 and RHF36. List: `dl_unmatched_conflicts.csv`. Every one of the 90 DL items gets a pending, unpublished SKU on each of DL-WS (Core), DL-SSA and DL-SSE (Slim) and DL-LUXE-TBD (Luxe): 90 rows per style, each at DL's own price-list price.
 
-## Cabinet Conflict entries (Tom's standing rule)
-Mechanism used: `cabinets.conflictStatus` / `conflictReason` / `conflictedAt`, the same fields `catalog.setConflict` writes and the admin Cabinet Conflict (Conflicts) tab lists. `notInConflict()` already hides `conflict` rows from every public query; `review` rows stay public. Reasons use the existing `Issue / Current value / Source / Needed / Resolved fields` layout of `shared/cabinetConflictFlags.formatConflictReason`. List: `dl_unmatched_conflicts.csv`.
-- **47 hidden masters flagged `conflict`**: the 39 report-only masters (reason = why unsure, source checked: spec book page or "NOT FOUND", price-list row, what an admin needs to confirm) and 8 new masters whose values are not fully sure (FDB09, CL156012, DSK2421, DSK3021, WEOS0930/36/42, FLAT PANEL 28X96).
-- **5 existing shared masters flagged `review` (stay public)** for medium-confidence mappings: PWB-MOS-30-18 (WMC3018), TUK, SPRAYPAINT, SM8, REPV2796. The UPDATE only runs `WHERE conflictStatus = 'none'`, so it never overwrites an existing flag. This is the one place the SQL touches an existing row; delete those 5 blocks if you do not want existing masters touched.
-- **SP2436** (probably a decorative door; Tom is fairly but not fully sure): own hidden master `SP2436` (Panels / Decorative Door, 24 x 36 read from the code, thickness unknown) + pending SKUs (Core $33, Slim $33, Luxe $66) + conflict entry **"Likely decorative door 24x36; not found in DL spec book; confirm."** Spec-book lookup (searched `SP2436`, `SP 2436`, `2436`): not found.
-- **QUARTER DOOR**: own hidden master + pending SKU + conflict entry, pending Rich.
+## Range Hoods (review all together)
+Decision: **RH36 is the same item as RHF36** (Tom). No separate RH36 master. Alias `RH36 -> RHF36`, DL SKUs under RHF36 at DL's own prices (Core $543 / Slim $543 / Luxe $1085). RHF36 is a cabinet (`isNotCabinet=FALSE`; the read-only SELECT in the SQL confirms the live flags before you run anything). RHF36 is flagged `review` in Cabinet Conflict (stays public).
+
+| Code | Supplier | Dims W x H x D | Price | isNotCabinet | Source | Decision |
+|---|---|---|---|---|---|---|
+| RH36 | DL | 36 x 36 x 24, 0 doors, 0 shelves | Core $543, Slim $543, Luxe $1085 | n/a (alias) | DL spec book p.7 "Range Hood Cover"; price list P5 | Alias of RHF36; DL SKUs under RHF36; DL specs on the DL SKU |
+| RHF36 | Faircrest/Ashford (CS) | 36 x 23.5 x 12 (catalog doc); Tom quotes 23.5 H x 8 D | not in repo (live DB) | FALSE (cataloged as a cabinet; live flag unverified) | docs/proofs/rhf-catalog-form-proof.md; notes/dn_resolved.json "36 x 23.5 Range Hood Fronts"; master sheet (no dims) | Master for the shared item; `review` flag; receives alias + DL SKUs |
+| RHF30 | Faircrest/Ashford (CS) | 30 x 23.5 x 9 | not in repo | FALSE (same) | same docs | No change; listed for the naming decision |
+| HOOD-30, HOOD-36 | Designer palette (client/src/lib/design.ts) | stainless appliance hoods, 18 deep | n/a | not cabinet masters | design.ts | Not related to RH36; no action |
+| RH-15-42, RHC-06-30 | Skyline audit (scripts/skyline-audit.md) | 15 x 42 x 12 / 6 x 42 x 12 "Wall" | n/a | unknown | codes start RH, descriptions are plain wall cabinets, "NO MATCH" | Not verified as hoods; listed only |
+
+**Spec placement (rule D).** DL's own numbers (36 x 36 x 24), source page (7) and description go on the DL SKU through existing columns: `distributor_skus.geometryWidth/Height/Depth`, `geometrySourcePage`, `geometryStatus = 'held'`, `supplierCabinetName`. Faircrest's 36 x 23.5 x 12 stay on theirs. **No migration is added.** What is still needed for Tom: (1) the DL spec **image** for RH36 has to be cut from the PDF and stored; the existing home is `distributor_cabinet_overrides.imageUrl` (per distributor + cabinet; I had no storage credentials, so nothing was uploaded). (2) Faircrest's own geometry on its RHF36 SKU rows could not be checked (live DB).
+
+**Uniform name.** Tom wants "Range Hood <W> by <H>" (he said "30 by 36"). Verified numbers: DL 36 by 36; Faircrest/Ashford RHF36 36 by 23.5 and RHF30 30 by 23.5. They disagree on height (36 vs 23.5) and none is "30 by 36". Spec books / price sheets of the other suppliers (Clark & Son, US Cabinet Depot) are not in the repo; only the master sheet and the catalog docs above were available. So I did **not** rename anything: no rename UPDATE block exists, and the disagreement is flagged in Cabinet Conflict on RHF36 with each supplier's numbers. Tom to decide.
 
 ## Tom's decisions (all applied)
 1. **FDB18-36 -> B18FH-B36FH**: unchanged. FDB09 is a hidden new master (price list only; flagged).
-2. **Glass doors**: WG1530/1536/1542/1830/1836/1842 map to the existing W1530GD...W1842GD (a WG item is the glass DOOR only, not a cabinet).
-3. **Glass pricing**: `listPrice = plain cabinet + glass door`, per tier, never the door alone. Example: W1530GD Core = W1530 $88 + WG1530 $35 = **$123** (Luxe $176 + $70 = $246). Both source rows are in each SQL row comment and in `dl_unmatched_glass_pricing.csv` (48 rows).
-4. **Diagonal glass, confirmed by Tom**: WDCG243012 -> DCW2430GD, WDCG243612 -> DCW2436GD, WDCG244212 -> DCW2442GD, priced WDC243012/243612/244212 + the WDCG door.
-5. **12-wide glass, approved**: new hidden masters W1230GD, W1236GD, W1242GD (alias WG1230/1236/1242), priced W12xx + WG12xx. If a master already exists under that code, the NOT EXISTS guard skips the insert and the SKUs attach to it.
-6. **SP09 = SPB9**: SPB9 IS a 9in Spice Base / Pull-Out (Tom, 11:12 CT; the earlier trash-can wording was a misstatement and is removed from every note). Master description unchanged. SP09 stays an alias of SPB9 as a spice pull-out; no new master.
-7. **BWBKT18 = BWB18**: alias on the existing BWB18, high.
-8. **RH36 is a cabinet** (`isNotCabinet=FALSE`, like RHF30/RHF36). Compared with RHF36 (36 W x 23.5 H x 8 D per Tom): RH36 is 36 x 36 x 24 (spec book p.7), so height and depth do not match; hidden new master, not an alias.
-9. **2DB33 FINAL (Tom, 11:11 CT): UNIQUE item, NOT B33.** The B33 alias and its DL SKUs under B33 are removed (never generated). 2DB33 is its own hidden new master: 33" two-drawer base, 33 x 34-1/2 x 24, 0 doors, 2 drawers (DL spec book p.2), at DL's own prices (Core $263, Slim $290, Luxe $526).
-10. **SP2436**: see Cabinet Conflict above.
-11. **FLAT PANEL 28X96** (field cut): hidden new panel master, 28 x 96 x 3/4, category Panels / Flat Panel, `isNotCabinet=TRUE`, specNotes "Field cut — panel is cut to fit on site by installer." Thickness borrowed from the spec book's FLAT PANEL 27X96 row (the 28 size is not in the spec book); finish unknown. Flagged in Cabinet Conflict.
-12. **QUARTER DOOR**: pending Rich (hidden master + pending SKU + conflict entry, nothing skipped).
+2. **Glass doors**: WG1530/1536/1542/1830/1836/1842 map to the existing W1530GD...W1842GD, **at DL's listed price as-is** (e.g. WG1530 Core $35). The earlier "cabinet + door" pricing and `dl_unmatched_glass_pricing.csv` are removed.
+3. **WDCG243012/243612/244212 -> DCW2430GD/2436GD/2442GD**: confirmed by Tom; DL price as-is.
+4. **WG1230/1236/1242 -> new hidden masters W1230GD/W1236GD/W1242GD** (alias WG12xx; if a master already exists the NOT EXISTS guard attaches the SKUs to it).
+5. **SP09 -> alias of SPB9** (9in Spice Base / Pull-Out; description unchanged; no "trash can" wording anywhere).
+6. **BWBKT18 -> alias of BWB18**, high.
+7. **2DB33 is UNIQUE**: its own hidden new master, 33 x 34-1/2 x 24, 0 doors, 2 drawers (DL spec book p.2), DL prices (Core $263). It is never linked, aliased, substituted or cross-referenced to any regular base cabinet; a test asserts this.
+8. **SP2436**: probably a decorative door. Own hidden master (Panels / Decorative Door, 24 x 36 read from the code) + pending SKUs + conflict "Likely decorative door 24x36; not found in DL spec book; confirm." Spec-book lookup: not found.
+9. **FLAT PANEL 28X96**: hidden panel master 28 x 96 x 3/4, `isNotCabinet=TRUE`, note "Field cut — panel is cut to fit on site by installer." Conflict flags: the 3/4in thickness is taken from the FLAT PANEL 27X96 row (spec book p.13), and the finish is null.
+10. **QUARTER DOOR**: not waiting on Rich. Spec-book lookup (QUARTER DOOR / quarter / 1/4 door): not found. Hidden master + pending SKU + conflict entry.
+11. **All other report-only items**: decided per rules A and C: each is a hidden master (DL code = master code and alias) with a pending SKU and a conflict entry stating the spec-book page or "NOT FOUND" and the price-list row. Nothing is left report-only.
 
-## Other review items
-W1218/W1518/W1818 match by identical code but the master description has no depth/shelves; CL156012 category "Tall" and knee-drawer / end-shelf subcategories are my classification (flagged). Report-only masters use `constructionType` NULL and `isNotCabinet=TRUE` (accessory pattern); the SQL ends with a read-only SELECT of existing panel / hood masters to confirm their live flags. Mapped-master existence and live flags could not be checked (live DB not queryable).
+## The five medium-confidence masters (Tom, 11:17 CT)
+- **TUK (TOUCHUP KIT), SPRAYPAINT (PAINT), SM8 (SCRIBEMOLDING)**: confirmed by Tom, raised to **high**; review blocks dropped.
+- **REPV2796 (RRP27(1.5))**: verified in the DL spec book p.13 (Refrigerator Panel): "(1.5)" is the 1-1/2in panel thickness; the panel is 96 high x 27 deep, which matches REPV2796 (27D x 96H). The master records no thickness, so thickness is not compared. Raised to **high**; review block dropped.
+- **PWB-MOS-30-18 (WMC3018)**: kept `review`. DL spec book p.8: WMC3018 = 30W x 18H x 12D, 0 doors, 1 shelf (open) -> confirmed a wall microwave shelf cabinet 30 x 18. The master is "30 x 18 x 11 7/8 Wall Microwave Open Box" (SK), depth 1/8in off. **What "PWB" stands for is not documented in any source I have.** Two closer matches exist in the same master sheet, exactly 12 deep: WMS3018 (USCD, wall microwave cabinet kit with a 26-1/2 x 3/4 x 17 shelf insert) and WOC3018 (USCD, wall microwave cabinet kit 30W x 18H x 12D). The flag lists all three for an admin to pick.
 
-## Not known / left NULL (never guessed)
-Door and drawer face sizes, construction method, materials, hardware, finish, packaging dims and weight, and photos are not in the spec book or price list for the new masters. Weight/cube and photo rules are recorded by reference in `dl_unmatched_specs.csv` (not implemented; held for Tom).
+## Other notes
+- **Master dimensions (rule D).** DL's own description, dimensions and spec page are on the DL SKU. New hidden masters still carry the same nominal width/height/depth, because DL is their only supplier today and a master with no size cannot be reviewed or later activated; when a second supplier maps to one, Tom settles the master size and each supplier keeps its own on the SKU. Say so if you want master dims left null instead.
+- Report-only masters use `constructionType` NULL and `isNotCabinet=TRUE` (accessory pattern); the SQL ends with a read-only SELECT of existing panel / hood masters to confirm their live flags.
+- W1218/W1518/W1818 match by identical code but the master description has no depth/shelves; CL156012 category "Tall" and knee-drawer / end-shelf subcategories are my classification (flagged).
+- Not known / left NULL (never guessed): door and drawer face sizes, construction, materials, hardware, finish, packaging dims and weight, photos. Weight/cube and photo rules are recorded by reference in `dl_unmatched_specs.csv` (not implemented; held for Tom).
 
 ## Safety
-New masters: `isActive=0, showInDesigner=0, showInCatalog=0, showIn2020=0`. All SKU rows: `isPublished=FALSE, status='pending'`. SQL is INSERT-only except the 5 guarded `review` UPDATEs; NOT RUN. `pnpm check`/vitest were not run (npm registry blocked); the test was run with the local shim only.
+New masters: `isActive=0, showInDesigner=0, showInCatalog=0, showIn2020=0`. All SKU rows: `isPublished=FALSE, status='pending'`. SQL is INSERT-only except 2 guarded `review` UPDATEs (`WHERE conflictStatus = 'none'`); NOT RUN. `pnpm check`/vitest were not run (npm registry blocked); the test was run with the local shim only.
