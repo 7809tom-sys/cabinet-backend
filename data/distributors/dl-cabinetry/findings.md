@@ -18,3 +18,25 @@ Compared with KC **cost** (40% of the 2022 list), DL Core is a median **+4.9% hi
 Examples: B24 is DL $166, KC22 list $407 (cost $162.80), site contractor $246.35 (Madison) / $240.65 (Preston). SB36 is DL $183, KC22 $441, site $267.31/$260.52. W3030 is DL $139, KC22 $343, site $211.12/$202.72/$174.21. DB24 (= 3DB24) is DL $221, KC22 $551, site $333.35. WP249027 (= U249024) is DL $420, KC22 $942, site $599.39.
 The one exception is the sample door: DL $20 vs Madison $3.17 contractor.
 DL Slim is about +10% and Luxe about 2x, so Luxe is generally above site contractor prices. See price_compare.csv.
+
+## Go-live prep (2026-10-30)
+
+### Door styles found on dlcabinetry.com (13) and their line
+Source list: https://www.dlcabinetry.com/collections and https://www.dlcabinetry.com/pages-sitemap.xml. Each gallery is at https://www.dlcabinetry.com/<slug>-gallery.
+No public page (galleries, collections, homepage, blog posts) labels any door as Core, Slim or Luxe.
+
+| styleCode | DL name | line | basis |
+|---|---|---|---|
+| DL-WS | White Shaker | Core | Tom: Core is the white shaker baseline (not stated on site) |
+| DL-SSA | Slim Shaker Alabaster | Slim? | INFERRED from the name only, unconfirmed |
+| DL-SSE | Slim Shaker Ebony | Slim? | INFERRED from the name only, unconfirmed |
+| DL-LUXE-TBD | placeholder | Luxe | no door identified for Luxe |
+| DL-VS, DL-PW, DL-GW, DL-EWO, DL-DW, DL-DG, DL-DC, DL-CG, DL-CM, DL-MC | Versa Shaker, Pearl White, Glacier White, European White Oak, Driftwood, Dove Grey, Dark Caramel, Cyber Grey, Champagne Mist, Midnight Cove | LINE UNKNOWN | door_styles rows only, no SKUs |
+
+### Multipliers: BLOCKED
+Rich's 2026-10-09 email has no body; the PDF does not say list vs dealer cost; the discount is unknown.
+Formula (schema.ts): costMultiplier = baseMultiplier × (1 + freightMultiplier); our cost = PDF price × costMultiplier.
+- Scenario A, PDF = dealer cost: baseMultiplier 1.0, cost = PDF price (plus freight if any). Core then sits ~+4.9% above KC cost and ~26–33% below current site contractor prices.
+- Scenario B, PDF = list: baseMultiplier = (1 − discount), discount unknown; cost = list × (1 − discount). Example only: a 0.40 factor would make Core cost ~58% below KC cost.
+### retailPriceBasis
+Recommend `cost_plus_tier` (keep our controlled tier ladder). Use `source_list` only if Rich confirms the PDF is a verified published retail/list price; under scenario A it would sell at cost.
