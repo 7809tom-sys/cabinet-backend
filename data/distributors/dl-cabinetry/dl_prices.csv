@@ -1,0 +1,201 @@
+dlSku,description,width,height,depth,core,slim,luxe,slimOverCore,luxeOverCore,notes
+"9"" DRAWER SLIDES",Accessory,,,,16,16,16,1.0,1.0,flat price all tiers (accessory)
+FDB30,FDB base (type unconfirmed),30,34.5,24,187,206,373,1.102,1.995,
+W1542,Wall cabinet,15,42,12,115,126,229,1.096,1.991,
+WDC243612,Diagonal corner wall,24,36,12,225,248,450,1.102,2.0,
+"12"" DRAWER SLIDES",Accessory,,,,16,16,16,1.0,1.0,flat price all tiers (accessory)
+FDB33,FDB base (type unconfirmed),33,34.5,24,198,218,396,1.101,2.0,
+W1818,Wall cabinet,18,18,12,81,90,162,1.111,2.0,
+WDC244212,Diagonal corner wall,24,42,12,249,275,498,1.104,2.0,
+"15"" DRAWER SLIDES",Accessory,,,,19,19,19,1.0,1.0,flat price all tiers (accessory)
+FDB36,FDB base (type unconfirmed),36,34.5,24,208,229,415,1.101,1.995,
+W1830,Wall cabinet,18,30,12,101,110,201,1.089,1.99,
+WDCG243012,Diagonal corner wall glass door,24,30,12,45,50,90,1.111,2.0,
+"18"" DRAWER SLIDES",Accessory,,,,21,21,21,1.0,1.0,flat price all tiers (accessory)
+FILLER 3X96,Panel/filler/trim,3,96,,37,37,74,1.0,2.0,"slim=core (non-door item), luxe~2x"
+W1836,Wall cabinet,18,36,12,112,123,223,1.098,1.991,
+WDCG243612,Diagonal corner wall glass door,24,36,12,48,52,95,1.083,1.979,
+"21"" DRAWER SLIDES",Accessory,,,,21,21,21,1.0,1.0,flat price all tiers (accessory)
+FILLER 6X96,Panel/filler/trim,6,96,,74,74,147,1.0,1.986,"slim=core (non-door item), luxe~2x"
+W1842,Wall cabinet,18,42,12,120,132,240,1.1,2.0,
+WDCG244212,Diagonal corner wall glass door,24,42,12,53,58,105,1.094,1.981,
+2DB30,2-drawer base,30,34.5,24,248,273,495,1.101,1.996,
+FLAT PANEL 28X96,Panel/filler/trim,28,96,,64,64,127,1.0,1.984,"slim=core (non-door item), luxe~2x"
+W2118,Wall cabinet,21,18,12,86,95,171,1.105,1.988,
+WDD30,Accessory / trim / misc,,,,48,52,95,1.083,1.979,
+2DB33,2-drawer base,33,34.5,24,263,290,526,1.103,2.0,
+FSB36,Farm sink base,36,34.5,24,183,201,365,1.098,1.995,
+W2130,Wall cabinet,21,30,12,107,118,214,1.103,2.0,
+WDD36,Accessory / trim / misc,,,,53,58,105,1.094,1.981,
+2DB36,2-drawer base,36,34.5,24,275,303,550,1.102,2.0,
+GH30,Accessory / trim / misc,,,,34,38,68,1.118,2.0,
+W2136,Wall cabinet,21,36,12,119,131,238,1.101,2.0,
+WDD42,Accessory / trim / misc,,,,58,64,115,1.103,1.983,
+ACM2.5,Accessory / trim / misc,,,,47,47,93,1.0,1.979,"slim=core (non-door item), luxe~2x"
+ICM8,Accessory / trim / misc,,,,16,16,31,1.0,1.938,"slim=core (non-door item), luxe~2x"
+W2142,Wall cabinet,21,42,12,127,139,253,1.094,1.992,
+WEOS0930,Accessory / trim / misc,,,,69,69,138,1.0,2.0,"slim=core (non-door item), luxe~2x"
+ANGLEMOLDING,Accessory / trim / misc,,,,16,16,31,1.0,1.938,"slim=core (non-door item), luxe~2x"
+LZS33,Lazy susan corner,33,,,252,277,503,1.099,1.996,
+W2412,Wall cabinet,24,12,12,80,88,159,1.1,1.988,
+WEOS0936,Accessory / trim / misc,,,,75,75,149,1.0,1.987,"slim=core (non-door item), luxe~2x"
+B12,Base cabinet,12,34.5,24,112,123,223,1.098,1.991,
+LZS3612,Lazy susan corner,36,,,271,298,541,1.1,1.996,
+W2415,Wall cabinet,24,15,12,89,98,178,1.101,2.0,
+WEOS0942,Accessory / trim / misc,,,,87,87,173,1.0,1.989,"slim=core (non-door item), luxe~2x"
+B15,Base cabinet,15,34.5,24,127,141,254,1.11,2.0,
+OVD338427,Oven tall cabinet,33,84,27,469,517,938,1.102,2.0,
+W2418,Wall cabinet,24,18,12,100,110,199,1.1,1.99,
+WF3 30,Accessory / trim / misc,,,,13,13,25,1.0,1.923,"slim=core (non-door item), luxe~2x"
+B18,Base cabinet,18,34.5,24,134,147,268,1.097,2.0,
+OVD339027,Oven tall cabinet,33,90,27,488,537,976,1.1,2.0,
+W2424,Wall cabinet,24,24,12,111,123,222,1.108,2.0,
+WF3 36,Accessory / trim / misc,,,,15,15,29,1.0,1.933,"slim=core (non-door item), luxe~2x"
+B21,Base cabinet,21,34.5,24,146,161,292,1.103,2.0,
+OVD339627,Oven tall cabinet,33,96,27,509,560,1017,1.1,1.998,
+W2430,Wall cabinet,24,30,12,124,136,247,1.097,1.992,
+WF3 42,Accessory / trim / misc,,,,17,17,33,1.0,1.941,"slim=core (non-door item), luxe~2x"
+B24,Base cabinet,24,34.5,24,166,183,332,1.102,2.0,
+PAINT,Accessory / trim / misc,,,,30,30,30,1.0,1.0,flat price all tiers (accessory)
+W2436,Wall cabinet,24,36,12,141,155,282,1.099,2.0,
+WF6 42,Accessory / trim / misc,,,,32,32,64,1.0,2.0,"slim=core (non-door item), luxe~2x"
+B27,Base cabinet,27,34.5,24,180,198,360,1.1,2.0,
+QUARTER DOOR,Accessory / trim / misc,,,,10,10,10,1.0,1.0,flat price all tiers (accessory)
+W2442,Wall cabinet,24,42,12,155,171,309,1.103,1.994,
+WG1230,Wall glass door (door only? unconfirmed),12,30,,31,34,62,1.097,2.0,
+B30,Base cabinet,30,34.5,24,187,206,373,1.102,1.995,
+RH36,Accessory / trim / misc,,,,543,543,1085,1.0,1.998,"slim=core (non-door item), luxe~2x"
+W2718,Wall cabinet,27,18,12,103,113,206,1.097,2.0,
+WG1236,Wall glass door (door only? unconfirmed),12,36,,34,38,68,1.118,2.0,
+B33,Base cabinet,33,34.5,24,198,218,396,1.101,2.0,
+RRP27(1.5),Accessory / trim / misc,,,,79,79,157,1.0,1.987,"slim=core (non-door item), luxe~2x"
+W2730,Wall cabinet,27,30,12,128,142,256,1.109,2.0,
+WG1242,Wall glass door (door only? unconfirmed),12,42,,38,42,76,1.105,2.0,
+B36,Base cabinet,36,34.5,24,208,229,415,1.101,1.995,
+SAMPLE DOOR,Accessory / trim / misc,,,,20,22,20,1.1,1.0,SUSPECTED TYPO: Slim $22 > Luxe $20 (Luxe should be >= Slim); flat-priced accessories elsewhere are equal across tiers
+W2736,Wall cabinet,27,36,12,147,162,293,1.102,1.993,
+WG1530,Wall glass door (door only? unconfirmed),15,30,,35,39,70,1.114,2.0,
+B39,Base cabinet,39,34.5,24,225,248,450,1.102,2.0,
+SB30,Sink base,30,34.5,24,164,181,328,1.104,2.0,
+W2742,Wall cabinet,27,42,12,163,179,325,1.098,1.994,
+WG1536,Wall glass door (door only? unconfirmed),15,36,,42,47,84,1.119,2.0,
+B42,Base cabinet,42,34.5,24,245,269,489,1.098,1.996,
+SB36,Sink base,36,34.5,24,183,201,365,1.098,1.995,
+W3012,Wall cabinet,30,12,12,98,108,195,1.102,1.99,
+WG1542,Wall glass door (door only? unconfirmed),15,42,,46,51,92,1.109,2.0,
+BASEMOLDING,Accessory / trim / misc,,,,52,52,103,1.0,1.981,"slim=core (non-door item), luxe~2x"
+SCRIBEMOLDING,Accessory / trim / misc,,,,16,16,31,1.0,1.938,"slim=core (non-door item), luxe~2x"
+W3015,Wall cabinet,30,15,12,106,117,211,1.104,1.991,
+WG1830,Wall glass door (door only? unconfirmed),18,30,,41,46,82,1.122,2.0,
+BBC33-9,Accessory / trim / misc,,,,183,201,365,1.098,1.995,
+SHOEMOLDING,Accessory / trim / misc,,,,16,16,31,1.0,1.938,"slim=core (non-door item), luxe~2x"
+W3018,Wall cabinet,30,18,12,116,128,232,1.103,2.0,
+WG1836,Wall glass door (door only? unconfirmed),18,36,,47,52,93,1.106,1.979,
+BDD24,Accessory / trim / misc,,,,66,72,131,1.091,1.985,
+SIDE PANEL 36X96,Panel/filler/trim,36,96,,107,107,214,1.0,2.0,"slim=core (non-door item), luxe~2x"
+W3024,Wall cabinet,30,24,12,127,139,253,1.094,1.992,
+WG1842,Wall glass door (door only? unconfirmed),18,42,,51,56,101,1.098,1.98,
+BES09,Accessory / trim / misc,,,,91,91,181,1.0,1.989,"slim=core (non-door item), luxe~2x"
+SKIN PANEL 36X96,Panel/filler/trim,36,96,,64,64,127,1.0,1.984,"slim=core (non-door item), luxe~2x"
+W3030,Wall cabinet,30,30,12,139,153,277,1.101,1.993,
+WMC3018,Wall rack/microwave cabinet,30,18,,93,93,186,1.0,2.0,"slim=core (non-door item), luxe~2x"
+BF3,Accessory / trim / misc,,,,15,15,29,1.0,1.933,"slim=core (non-door item), luxe~2x"
+SP09,Accessory / trim / misc,,,,118,129,235,1.093,1.992,
+W3036,Wall cabinet,30,36,12,155,171,309,1.103,1.994,
+WP188427,Pantry (tall),18,84,27,348,383,696,1.101,2.0,
+BF6,Accessory / trim / misc,,,,28,28,56,1.0,2.0,"slim=core (non-door item), luxe~2x"
+SP2436,Accessory / trim / misc,,,,33,33,66,1.0,2.0,"slim=core (non-door item), luxe~2x"
+W3042,Wall cabinet,30,42,12,169,186,338,1.101,2.0,
+WP189027,Pantry (tall),18,90,27,385,424,770,1.101,2.0,
+BMC30,Accessory / trim / misc,,,,248,273,495,1.101,1.996,
+TK8,Accessory / trim / misc,,,,17,17,33,1.0,1.941,"slim=core (non-door item), luxe~2x"
+W3312,Wall cabinet,33,12,12,102,112,204,1.098,2.0,
+WP189627,Pantry (tall),18,96,27,402,442,804,1.1,2.0,
+BWBKT18,Accessory / trim / misc,,,,196,215,391,1.097,1.995,
+TLR8,Accessory / trim / misc,,,,37,37,74,1.0,2.0,"slim=core (non-door item), luxe~2x"
+W3315,Wall cabinet,33,15,12,112,124,224,1.107,2.0,
+WP248427,Pantry (tall),24,84,27,408,449,815,1.1,1.998,
+CCM8,Accessory / trim / misc,,,,64,64,127,1.0,1.984,"slim=core (non-door item), luxe~2x"
+TOUCHUP KIT,Accessory / trim / misc,,,,15,15,15,1.0,1.0,flat price all tiers (accessory)
+W3318,Wall cabinet,33,18,12,122,135,243,1.107,1.992,
+WP249027,Pantry (tall),24,90,27,420,462,840,1.1,2.0,
+CL156012,Accessory / trim / misc,,,,166,183,332,1.102,2.0,
+VAN24,Vanity,24,,,139,153,277,1.101,1.993,
+W3324,Wall cabinet,33,24,12,135,148,269,1.096,1.993,
+WP249627,Pantry (tall),24,96,27,439,483,877,1.1,1.998,
+CORBEL 8X12,Panel/filler/trim,8,12,,26,26,51,1.0,1.962,"slim=core (non-door item), luxe~2x"
+VAN30,Vanity,30,,,166,183,332,1.102,2.0,
+W3330,Wall cabinet,33,30,12,147,162,293,1.102,1.993,
+WP308427,Pantry (tall),30,84,27,525,578,1050,1.101,2.0,
+DB12,Drawer base (3 drawers per CD parse rule),12,34.5,24,170,187,340,1.1,2.0,
+VAN36DL,Vanity,36,,,205,225,984,1.098,4.8,SUSPECTED TYPO: Luxe $984 is 4.80x Core; family norm ~2.0x (expected ~$410); also VAN48D-6 Luxe is only $690
+W3336,Wall cabinet,33,36,12,160,176,319,1.1,1.994,
+WP309027,Pantry (tall),30,90,27,542,596,1083,1.1,1.998,
+DB15,Drawer base (3 drawers per CD parse rule),15,34.5,24,179,197,358,1.101,2.0,
+VAN36DR,Vanity,36,,,205,225,984,1.098,4.8,SUSPECTED TYPO: Luxe $984 is 4.80x Core; family norm ~2.0x (expected ~$410); also VAN48D-6 Luxe is only $690
+W3342,Wall cabinet,33,42,12,176,193,351,1.097,1.994,
+WP309627,Pantry (tall),30,96,27,558,614,1115,1.1,1.998,
+DB18,Drawer base (3 drawers per CD parse rule),18,34.5,24,190,209,379,1.1,1.995,
+VAN48D-6,Vanity,48,,,345,380,690,1.101,2.0,
+W3612,Wall cabinet,36,12,12,112,124,224,1.107,2.0,
+WRC3018,Wall rack/microwave cabinet,30,18,,93,93,186,1.0,2.0,"slim=core (non-door item), luxe~2x"
+DB21,Drawer base (3 drawers per CD parse rule),21,34.5,24,201,221,401,1.1,1.995,
+VDB12,Vanity drawer base,12,,,157,172,313,1.096,1.994,
+W361227,Wall cabinet (deep),36,12,27,124,136,247,1.097,1.992,
+"PULLOUT TRAY 18""",Accessory,,,,33,33,33,1.0,1.0,flat price all tiers (accessory)
+DB24,Drawer base (3 drawers per CD parse rule),24,34.5,24,221,243,441,1.1,1.995,
+VDB15,Vanity drawer base,15,,,166,183,332,1.102,2.0,
+W3615,Wall cabinet,36,15,12,122,135,244,1.107,2.0,
+"PULLOUT TRAY 24""",Accessory,,,,40,40,40,1.0,1.0,flat price all tiers (accessory)
+DB27,Drawer base (3 drawers per CD parse rule),27,34.5,24,240,264,479,1.1,1.996,
+VDB18,Vanity drawer base,18,,,176,193,351,1.097,1.994,
+W361527,Wall cabinet (deep),36,15,27,140,154,279,1.1,1.993,
+"PULLOUT TRAY 30""",Accessory,,,,52,52,52,1.0,1.0,flat price all tiers (accessory)
+DB30,Drawer base (3 drawers per CD parse rule),30,34.5,24,248,273,495,1.101,1.996,
+VDB24,Vanity drawer base,24,,,204,225,408,1.103,2.0,
+W3618,Wall cabinet,36,18,12,140,154,279,1.1,1.993,
+"PULLOUT TRAY 36""",Accessory,,,,62,62,62,1.0,1.0,flat price all tiers (accessory)
+DB33,Drawer base (3 drawers per CD parse rule),33,34.5,24,263,290,526,1.103,2.0,
+VSB36,Vanity sink base,36,,,174,191,347,1.098,1.994,
+W361827,Wall cabinet (deep),36,18,27,156,171,311,1.096,1.994,
+PULLOUT TRAY BWBKT15,Accessory,,,,63,63,63,1.0,1.0,flat price all tiers (accessory)
+DB36,Drawer base (3 drawers per CD parse rule),36,34.5,24,275,303,550,1.102,2.0,
+W0930,Wall cabinet,09,30,12,63,69,125,1.095,1.984,
+W3624,Wall cabinet,36,24,12,153,169,306,1.105,2.0,
+PULLOUT TRAY BWBKT18,Accessory,,,,63,63,63,1.0,1.0,flat price all tiers (accessory)
+DLS 4X4X36,Panel/filler/trim,4,4,,94,94,188,1.0,2.0,"slim=core (non-door item), luxe~2x"
+W0936,Wall cabinet,09,36,12,73,80,145,1.096,1.986,
+W362427,Wall cabinet (deep),36,24,27,168,185,336,1.101,2.0,
+PULLOUT TRAY BWBKT21,Accessory,,,,63,63,63,1.0,1.0,flat price all tiers (accessory)
+DSK2421,Accessory / trim / misc,,,,157,172,313,1.096,1.994,
+W0942,Wall cabinet,09,42,12,88,98,176,1.114,2.0,
+W3630,Wall cabinet,36,30,12,169,186,338,1.101,2.0,
+SAMPLE DOOR PACK (2025),Accessory / trim / misc,,,,100,100,100,1.0,1.0,flat price all tiers (accessory)
+DSK3021,Accessory / trim / misc,,,,157,172,313,1.096,1.994,
+W1218,Wall cabinet,12,18,12,64,71,128,1.109,2.0,
+W3636,Wall cabinet,36,36,12,183,201,365,1.098,1.995,
+TRASH CAN,Accessory,,,,16,16,16,1.0,1.0,flat price all tiers (accessory)
+DWP3,Accessory / trim / misc,,,,40,40,80,1.0,2.0,"slim=core (non-door item), luxe~2x"
+W1230,Wall cabinet,12,30,12,80,88,160,1.1,2.0,
+W3642,Wall cabinet,36,42,12,206,227,412,1.102,2.0,
+WN FS3012,Accessory / trim / misc,,,,62,62,62,1.0,1.0,flat price all tiers (accessory)
+FDB09,FDB base (type unconfirmed),09,34.5,24,107,118,214,1.103,2.0,
+W1236,Wall cabinet,12,36,12,93,102,185,1.097,1.989,
+WBC2730,Wall blind corner,27,30,12,119,131,237,1.101,1.992,
+WN FS3612,Accessory / trim / misc,,,,75,75,75,1.0,1.0,flat price all tiers (accessory)
+FDB18,FDB base (type unconfirmed),18,34.5,24,134,147,268,1.097,2.0,
+W1242,Wall cabinet,12,42,12,107,118,214,1.103,2.0,
+WBC2736,Wall blind corner,27,36,12,136,150,272,1.103,2.0,
+WN FS4812,Accessory / trim / misc,,,,88,88,88,1.0,1.0,flat price all tiers (accessory)
+FDB21,FDB base (type unconfirmed),21,34.5,24,146,161,292,1.103,2.0,
+W1518,Wall cabinet,15,18,12,71,79,142,1.113,2.0,
+WBC2742,Wall blind corner,27,42,12,151,166,301,1.099,1.993,
+WO FS3012,Accessory / trim / misc,,,,62,62,62,1.0,1.0,flat price all tiers (accessory)
+FDB24,FDB base (type unconfirmed),24,34.5,24,166,183,332,1.102,2.0,
+W1530,Wall cabinet,15,30,12,88,98,176,1.114,2.0,
+WDC241812,Diagonal corner wall,24,18,12,156,172,312,1.103,2.0,
+WO FS3612,Accessory / trim / misc,,,,75,75,75,1.0,1.0,flat price all tiers (accessory)
+FDB27,FDB base (type unconfirmed),27,34.5,24,180,198,360,1.1,2.0,
+W1536,Wall cabinet,15,36,12,100,110,199,1.1,1.99,
+WDC243012,Diagonal corner wall,24,30,12,211,232,422,1.1,2.0,
+WO FS4812,Accessory / trim / misc,,,,88,88,88,1.0,1.0,flat price all tiers (accessory)
