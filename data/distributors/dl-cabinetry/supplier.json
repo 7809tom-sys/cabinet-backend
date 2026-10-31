@@ -22,17 +22,59 @@
     "source": "Tom, 2026-10-31"
   },
   "freightOrigins": {
-    "warehouseZips": ["32256", "78754", "37086", "70126", "32822", "33634"],
+    "warehouseZips": [
+      "32256",
+      "78754",
+      "37086",
+      "70126",
+      "32822",
+      "33634"
+    ],
     "order": "First ZIP (32256, Jacksonville HQ) is the fallback; the nearest origin to the delivery ZIP is used by default unless Rich/DL confirms a specific ship-from warehouse for the order.",
     "warehouses": [
-      { "zip": "32256", "place": "Jacksonville, FL", "address": "8145 Baymeadows Way W", "note": "Main HQ warehouse" },
-      { "zip": "78754", "place": "Austin, TX", "address": "9019 Tuscany Way" },
-      { "zip": "37086", "place": "La Vergne, TN (Nashville)", "address": "1421 Gould Blvd Suite D" },
-      { "zip": "70126", "place": "New Orleans, LA", "address": null },
-      { "zip": "32822", "place": "Orlando, FL", "address": null },
-      { "zip": "33634", "place": "Tampa, FL", "address": null }
+      {
+        "zip": "32256",
+        "place": "Jacksonville, FL",
+        "address": "8145 Baymeadows Way W",
+        "note": "Main HQ warehouse"
+      },
+      {
+        "zip": "78754",
+        "place": "Austin, TX",
+        "address": "9019 Tuscany Way"
+      },
+      {
+        "zip": "37086",
+        "place": "La Vergne, TN (Nashville)",
+        "address": "1421 Gould Blvd Suite D"
+      },
+      {
+        "zip": "70126",
+        "place": "New Orleans, LA",
+        "address": "6101 Chef Menteur Hwy, New Orleans, LA 70126",
+        "phone": "(504) 245-2426",
+        "sourceUrl": "https://www.dlcabinetry.com/contact-us/neworleans",
+        "retrieved": "2026-10-31"
+      },
+      {
+        "zip": "32822",
+        "place": "Orlando, FL",
+        "address": "6450 Narcoossee Rd, Orlando, FL 32822",
+        "phone": "(407) 420-7592",
+        "sourceUrl": "https://www.dlcabinetry.com/contact-us/orlando",
+        "retrieved": "2026-10-31",
+        "note": "An unlinked draft page, contact-us/copy-of-orlando-fl, lists 7025 W Colonial Dr, Orlando, FL 32818; not used."
+      },
+      {
+        "zip": "33634",
+        "place": "Tampa, FL",
+        "address": "5433 W Sligh Ave, Suite 110, Tampa, FL 33634",
+        "phone": "(813) 243-5552",
+        "sourceUrl": "https://www.dlcabinetry.com/contact-us/tampa",
+        "retrieved": "2026-10-31"
+      }
     ],
-    "source": "Tom, 2026-10-31"
+    "source": "Tom, 2026-10-31; New Orleans, Orlando and Tampa addresses and phones from dlcabinetry.com/contact-us/<city>, retrieved 2026-10-31"
   },
   "contactAndOrdering": {
     "contact": "Rich (DL). Sent the Oct 9 price list; that email had no body text.",
