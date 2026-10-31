@@ -321,6 +321,65 @@ describe("AEF USCD Frameless release integrity", () => {
     ]));
   });
 
+  const DEEP_ABOVE_24_PATTERN = /^W(30|33|36)(12|15|18|21|23|24)24$/;
+  const SHALLOW_WALL_PATTERN = /^W(30|33|36)(12|15|18|24)$/;
+
+  it("matches AltaEuro 22-5/8 inch 24-deep refrigerator walls and not the 4-digit W3623 wall", () => {
+    const source = fs.readFileSync(path.resolve(process.cwd(), "server/routers/design.ts"), "utf8");
+    const start = source.indexOf("surroundForFridge:");
+    const end = source.indexOf("builtinFridgeRun:", start);
+    const body = source.slice(start, end);
+    expect(body).toContain("REGEXP '^W(30|33|36)(12|15|18|21|23|24)24$'");
+    expect(body).toContain("REGEXP '^W(30|33|36)(12|15|18|24)$'");
+    expect(body).not.toContain("REGEXP '^W(30|33|36)(12|15|18|21|23|24)$'");
+
+    for (const code of ["W302324", "W332324", "W362324", "W301224", "W361824", "W362424"]) {
+      expect(code).toMatch(DEEP_ABOVE_24_PATTERN);
+      expect(code).not.toMatch(SHALLOW_WALL_PATTERN);
+    }
+    for (const code of ["W3623", "W3023", "W3323", "W242324"]) {
+      expect(code).not.toMatch(DEEP_ABOVE_24_PATTERN);
+    }
+    expect("W3623").not.toMatch(SHALLOW_WALL_PATTERN);
+    expect("W3624").toMatch(SHALLOW_WALL_PATTERN);
+    expect("W3012").toMatch(SHALLOW_WALL_PATTERN);
+  });
+
+  it("offers W362324 above an LSA refrigerator and keeps the 13.5-inch W3623 wall out of deepAbove", async () => {
+    const db = await getDb();
+    if (!db) return;
+    const [aef] = await db.select().from(distributors).where(eq(distributors.code, "AEF")).limit(1);
+    const [style] = await db
+      .select({ id: doorStyles.id })
+      .from(doorStyles)
+      .where(and(eq(doorStyles.distributorId, aef!.id), eq(doorStyles.styleCode, "LSA")))
+      .limit(1);
+    expect(aef).toMatchObject({ id: 270001 });
+    expect(style).toMatchObject({ id: 540005 });
+
+    const published = await db
+      .select({ code: cabinets.masterCode })
+      .from(distributorSkus)
+      .innerJoin(cabinets, eq(cabinets.id, distributorSkus.cabinetId))
+      .where(and(
+        eq(distributorSkus.distributorId, aef!.id),
+        eq(distributorSkus.styleId, style!.id),
+        eq(distributorSkus.isAvailable, true),
+        eq(distributorSkus.isPublished, true),
+        inArray(cabinets.masterCode, ["W362324", "W3623"]),
+      ));
+    expect(published.map((row) => row.code).sort()).toEqual(["W3623", "W362324"]);
+
+    const caller = appRouter.createCaller({} as any);
+    const surround = await caller.design.surroundForFridge({ styleId: style!.id, fridgeWidth: 36 });
+    const deepCodes = surround.deepAbove.map((row) => row.masterCode);
+
+    expect(deepCodes).toEqual(expect.arrayContaining(["W302324", "W332324", "W362324"]));
+    expect(deepCodes).not.toContain("W3623");
+    expect(deepCodes).not.toContain("W3023");
+    expect(deepCodes).not.toContain("W3323");
+  });
+
   it("publishes every BEP and WEP exposed panel as exact 3/4-inch AEF stock without changing the framed WEP master", async () => {
     const db = await getDb();
     if (!db) return;
