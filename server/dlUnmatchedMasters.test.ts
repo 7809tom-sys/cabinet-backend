@@ -77,6 +77,23 @@ describe("DL unmatched masters SQL safety", () => {
   });
 });
 
+describe("publish blocks are safe after the DL go-live script", () => {
+  it("SKU blocks only touch pending, unpublished SKUs of this PR and never write a price column", () => {
+    const skuUpdates = publishCode.match(/^UPDATE cabinet_dealz\.distributor_skus[^\n]*\n[^\n]*/gm) ?? [];
+    expect(skuUpdates.length).toBe(4);
+    for (const u of skuUpdates) {
+      expect(u).toContain("SET status = 'approved', isPublished = TRUE");
+      expect(u).toContain("status = 'pending' AND isPublished = 0");
+      expect(u).not.toMatch(/listPrice|yourCost|wholesalePrice|contractorPrice|homeownerPrice|adjustedListPrice/i);
+    }
+  });
+  it("master block skips masters that are already fully published; a read-only 96A reports already-live SKUs", () => {
+    expect(publishCode).toContain("AND (isActive = 0 OR showInDesigner = 0 OR showInCatalog = 0 OR showIn2020 = 0);");
+    expect(publishPart).toContain("-- Block 96A (read-only");
+    expect(publishCode).toMatch(/SELECT COUNT\(\*\) AS this_pr_skus_already_live/);
+  });
+});
+
 describe("DL unmatched crosswalk", () => {
   it("keeps 200 rows, resolves all 90 targets, touches nothing else, skips nothing", () => {
     const cur = xw.split("\n"), orig = read("dl_crosswalk.orig.csv").split("\n");
