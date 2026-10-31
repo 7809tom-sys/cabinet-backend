@@ -26,7 +26,7 @@ export function GoLiveDialog({
   const summary = trpc.distributorAdmin.goLiveSummary.useQuery({ distributorId }, { enabled: open });
   const goLive = trpc.distributorAdmin.goLive.useMutation({
     onSuccess: (res) => {
-      toast.success(`${label} is live: ${res.publishedSkus} SKU(s) published, ${res.activatedStyles} door style(s) activated.`);
+      toast.success(`${label} is live: ${res.publishedSkus} SKU(s) published, ${res.activatedStyles} door style(s) activated${res.skippedStyles.length ? `, ${res.skippedStyles.length} left offline` : ""}.`);
       utils.distributorAdmin.adminList.invalidate();
       utils.distributors.list.invalidate();
       utils.doorStyles.list.invalidate();

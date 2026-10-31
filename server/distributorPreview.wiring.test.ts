@@ -51,7 +51,7 @@ describe("admin preview wiring (every distributor)", () => {
 
   it("shows the badge on suppliers and door styles only when isPreview, and the Go live dialog only for an offline supplier", () => {
     expect((designTool.match(/isPreview && <AdminPreviewBadge/g) ?? []).length).toBe(7);
-    expect(lineEditor).toContain("!d.isActive && !d.goLiveAcceptedAt");
+    expect(lineEditor).toContain("!d.isActive && d.needsGoLive");
     expect(goLiveDialog).toContain("disabled={!terms || !accepted || goLive.isPending}");
     expect(goLiveDialog).toContain("acceptedTerms: true");
   });
@@ -63,5 +63,38 @@ describe("admin preview wiring (every distributor)", () => {
       expect(read("../drizzle/schema.ts")).toContain(`"${column}"`);
     }
     expect(read("../drizzle/meta/_journal.json")).toContain("0226_distributor_go_live_acceptance");
+  });
+
+  it("ships the by-hand TiDB file for the acceptance columns", () => {
+    const sql = read("../docs/sql/0226_distributor_go_live_acceptance.tidb.sql");
+    expect(sql.match(/ADD COLUMN IF NOT EXISTS/g)).toHaveLength(4);
+    expect(sql).toContain("cabinet_dealz.distributors");
+    expect(sql).not.toMatch(/ADD COLUMN (?!IF NOT EXISTS)/);
+  });
+
+  it("no public or admin path does a bare select() on distributors (works before 0226)", () => {
+    for (const file of ["routers/catalog.ts", "routers/location.ts", "routers/distributors.ts"]) {
+      const source = read(file);
+      expect(source).not.toMatch(/select\(\)\s*\.from\(distributors\)/);
+    }
+    const distributorsRouter = read("./routers/distributors.ts");
+    const adminList = distributorsRouter.slice(distributorsRouter.indexOf("adminList: adminProcedure"), distributorsRouter.indexOf("glassPolicyCatalog"));
+    expect(adminList).not.toContain("goLiveAccepted");
+    const setActive = distributorsRouter.slice(distributorsRouter.indexOf("setActive: adminProcedure"), distributorsRouter.indexOf("goLiveSummary"));
+    expect(setActive).not.toContain("goLiveAccepted");
+  });
+
+  it("quote and order entry points block offline suppliers", () => {
+    expect(read("./routers/crm.ts")).toContain("assertNoPreviewSuppliers(db");
+    expect(read("./routers/vendorSamples.ts")).toContain("assertNoPreviewSuppliers(db");
+    expect(read("./routers/orders.ts")).toContain("assertNoPreviewSuppliers(db");
+  });
+
+  it("public door style byId / byCode hide offline suppliers from non-admins", () => {
+    const catalog = read("./routers/catalog.ts");
+    const byId = catalog.slice(catalog.indexOf("byId: publicProcedure"), catalog.indexOf("byCode: publicProcedure"));
+    expect(byId).toContain("canSeePreviewSuppliers(ctx.user) ? undefined : eq(distributors.isActive, true)");
+    const byCode = catalog.slice(catalog.indexOf("byCode: publicProcedure"), catalog.indexOf("siblings: publicProcedure"));
+    expect(byCode).toContain("and(eq(doorStyles.isActive, true), eq(distributors.isActive, true))");
   });
 });

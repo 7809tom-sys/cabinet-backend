@@ -8,7 +8,7 @@ import { storagePut } from "../storage";
 import { TRPCError } from "@trpc/server";
 import { getDb, notInConflict, isCanonicalCabinetMaster, hasPositivePublishedCabinetPrice, getPricingSettings, updatePricingSettings, recalculateStoredTierPrices, getPlatformPricingSettings, updatePlatformPricingSettings } from "../db";
 import { getPricingSettingsForViewer } from "../lib/affiliateContractorPricing";
-import { canSeePreviewSuppliers, isPreviewSupplier, skuVisibleToViewer } from "../lib/distributorPreview";
+import { canSeePreviewSuppliers, distributorColumns, isPreviewSupplier, skuVisibleToViewer } from "../lib/distributorPreview";
 import {
   cabinets,
   cabinetAliases,
@@ -134,8 +134,8 @@ export const distributorsRouter = router({
     if (!db) return [];
     // Admins also see offline suppliers (admin preview); everyone else sees live suppliers only.
     const rows = await (canSeePreviewSuppliers(ctx.user)
-      ? db.select().from(distributors)
-      : db.select().from(distributors).where(eq(distributors.isActive, true)));
+      ? db.select(distributorColumns).from(distributors)
+      : db.select(distributorColumns).from(distributors).where(eq(distributors.isActive, true)));
     const publicLineRows = await db
       .selectDistinct({ distributorId: distributorSkus.distributorId })
       .from(distributorSkus)
@@ -333,35 +333,44 @@ export const doorStylesRouter = router({
 
   byId: publicProcedure
     .input(z.object({ id: z.number() }))
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) return null;
+      // A style of an offline supplier is visible to admins only (admin preview).
       const rows = await db
-        .select()
+        .select({ style: doorStyles })
         .from(doorStyles)
-        .where(eq(doorStyles.id, input.id))
+        .leftJoin(distributors, eq(distributors.id, doorStyles.distributorId))
+        .where(and(
+          eq(doorStyles.id, input.id),
+          canSeePreviewSuppliers(ctx.user) ? undefined : eq(distributors.isActive, true),
+        ))
         .limit(1);
-      return rows[0] ? scrubDoorStyle(rows[0]) : null;
+      return rows[0] ? scrubDoorStyle(rows[0].style) : null;
     }),
 
   byCode: publicProcedure
     .input(z.object({ styleCode: z.string() }))
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) return null;
       // Style codes are not guaranteed unique across supply lines; return the
       // first active match (we collapse duplicates to one family in the UI).
+      // Styles of an offline supplier are only matched for admins (admin preview).
       const rows = await db
-        .select()
+        .select({ style: doorStyles })
         .from(doorStyles)
+        .leftJoin(distributors, eq(distributors.id, doorStyles.distributorId))
         .where(
           and(
             eq(doorStyles.styleCode, input.styleCode),
-            eq(doorStyles.isActive, true)
+            canSeePreviewSuppliers(ctx.user)
+              ? or(eq(doorStyles.isActive, true), eq(distributors.isActive, false))
+              : and(eq(doorStyles.isActive, true), eq(distributors.isActive, true)),
           )
         )
         .limit(1);
-      return rows[0] ? scrubDoorStyle(rows[0]) : null;
+      return rows[0] ? scrubDoorStyle(rows[0].style) : null;
     }),
 
   // Color variations within the SAME door profile (e.g. all Slim Shaker colors).

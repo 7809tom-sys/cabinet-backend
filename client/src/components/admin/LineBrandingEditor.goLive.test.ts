@@ -2,15 +2,15 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
-const supplier = (id: number, code: string, isActive: boolean, goLiveAcceptedAt: Date | null = null) => ({
+const supplier = (id: number, code: string, isActive: boolean, needsGoLive = true) => ({
   id, code, name: `Line ${code}`, initials: code[0], brandName: null, brandInitials: null, whiteLabel: true, displayMode: "neutral",
-  seriesName: null, isActive, goLiveAcceptedAt,
+  seriesName: null, isActive, needsGoLive,
 });
 const rows = [
   supplier(1, "LIVE", true),
   supplier(41, "XYZ", false),                       // never went live: admin preview
   supplier(42, "ABC", false),                       // another preview supplier
-  supplier(43, "OLD", false, new Date("2026-01-01")), // went live before, switched off: plain switch
+  supplier(43, "OLD", false, false), // went live before (no pending SKUs), switched off: plain switch
 ];
 const mutation = { mutate: vi.fn(), isPending: false };
 

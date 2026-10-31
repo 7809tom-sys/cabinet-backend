@@ -1,5 +1,6 @@
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
+import { assertNoPreviewSuppliers } from "../lib/distributorPreview";
 import { TRPCError } from "@trpc/server";
 import { adminProcedure, protectedProcedure, router, supplierProfileProcedure } from "../_core/trpc";
 import { getDb } from "../db";
@@ -322,6 +323,11 @@ export const vendorSamplesRouter = router({
       }
     }
     if (lines.length === 0) throw new TRPCError({ code: "BAD_REQUEST", message: "Choose a sample or a kit." });
+    // Admin preview: samples from an offline supplier cannot be ordered, by anyone.
+    await assertNoPreviewSuppliers(db, {
+      distributorIds: lines.map((line) => line.distributorId),
+      styleIds: lines.map((line) => line.styleId),
+    });
     const total = lines.reduce((sum, line) => sum + (line.linePrice ?? 0), 0);
     const result = await db.insert(orderRequests).values({
       userId: ctx.user.id,

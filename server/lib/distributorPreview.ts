@@ -1,4 +1,4 @@
-import { and, eq, inArray, or, type SQL } from "drizzle-orm";
+import { and, eq, getTableColumns, inArray, or, type SQL } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { distributors, distributorSkus, doorStyles } from "../../drizzle/schema";
 import { PREVIEW_ORDER_BLOCKED_MESSAGE } from "@shared/distributorPreview";
@@ -8,6 +8,15 @@ export {
   canSeePreviewSuppliers, isPreviewSupplier, buildGoLiveTerms,
   type GoLiveTerms, type GoLiveTermsInput,
 } from "@shared/distributorPreview";
+
+/**
+ * Every distributors column EXCEPT the Go live acceptance columns added in migration 0226. Public and admin
+ * paths select this instead of a bare `select()`, so they keep working before 0226 is applied. Only the Go live
+ * code reads or writes the new columns.
+ */
+const { goLiveAcceptedByUserId: _a, goLiveAcceptedAt: _b, goLiveTermsVersion: _c, goLiveTermsSnapshot: _d, ...baseColumns } =
+  getTableColumns(distributors);
+export const distributorColumns = baseColumns;
 
 /**
  * SKU visibility for a Designer query that already joins `distributors`.

@@ -134,7 +134,7 @@ export default function LineBrandingEditor() {
                       <p className="text-xs text-muted-foreground">{d.code}</p>
                     </div>
                   </div>
-                  {!d.isActive && !d.goLiveAcceptedAt ? (
+                  {!d.isActive && d.needsGoLive ? (
                     <div className="flex items-center gap-2">
                       <AdminPreviewBadge />
                       <Button size="sm" data-testid={`go-live-${d.code}`} onClick={() => setGoLiveId(d.id)}>Go live</Button>

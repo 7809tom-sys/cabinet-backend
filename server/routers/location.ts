@@ -3,6 +3,7 @@ import { getStateTaxRate, US_STATE_TAX_RATES } from "../../shared/usSalesTax";
 import { publicProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
 import { distributors } from "../../drizzle/schema";
+import { distributorColumns } from "../lib/distributorPreview";
 import { eq } from "drizzle-orm";
 import { makeRequest, type GeocodingResult, type LatLng } from "../_core/map";
 import {
@@ -129,7 +130,7 @@ export const locationRouter = router({
       if (!db) return { zip, resolved: !!customer, options: [] as PickupOptionOut[] };
 
       const rows = await db
-        .select()
+        .select(distributorColumns)
         .from(distributors)
         .where(eq(distributors.isActive, true));
 

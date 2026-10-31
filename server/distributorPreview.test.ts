@@ -26,23 +26,48 @@ const caller = (user: TrpcContext["user"]) =>
   appRouter.createCaller({ user, req: { protocol: "https", headers: {} } as TrpcContext["req"], res: { clearCookie: () => {} } as unknown as TrpcContext["res"] });
 
 /** A db stub whose selects resolve to canned rows by table, and which records transactional updates. */
-function fakeDb(rows: { distributor: Record<string, unknown>; pendingSkus: number; styles: number }) {
+type OfflineStyle = { id: number; ourName: string };
+function fakeDb(rows: {
+  distributor: Record<string, unknown>;
+  pendingSkus: number;
+  /** door_styles.id values that have at least one pending SKU (never-live). */
+  pendingStyleIds?: number[];
+  /** Offline (isActive = 0) door styles of the supplier. */
+  offlineStyles?: OfflineStyle[];
+  /** affectedRows for the conditional isActive = 0 claim. */
+  claimRows?: number;
+}) {
   const updates: Array<{ table: unknown; values: Record<string, unknown> }> = [];
-  const resultFor = (table: unknown) => (table === distributors ? [rows.distributor] : table === distributorSkus ? [{ n: rows.pendingSkus }] : [{ n: rows.styles }]);
-  const db = {
-    select: () => ({
-      from: (table: unknown) => ({
-        where: () => Object.assign(Promise.resolve(resultFor(table)), { limit: async () => resultFor(table) }),
-      }),
+  const resultFor = (table: unknown, shape: Record<string, unknown> | undefined) => {
+    if (table === distributors) return [rows.distributor];
+    if (table === distributorSkus) {
+      return shape && "styleId" in shape ? (rows.pendingStyleIds ?? []).map((styleId) => ({ styleId })) : [{ n: rows.pendingSkus }];
+    }
+    return rows.offlineStyles ?? [];
+  };
+  const select = (shape?: Record<string, unknown>) => ({
+    from: (table: unknown) => ({
+      where: () => Object.assign(Promise.resolve(resultFor(table, shape)), { limit: async () => resultFor(table, shape) }),
     }),
-    transaction: async (run: (tx: unknown) => Promise<void>) =>
-      run({ update: (table: unknown) => ({ set: (values: Record<string, unknown>) => ({ where: async () => { updates.push({ table, values }); } }) }) }),
+  });
+  const update = (table: unknown) => ({
+    set: (values: Record<string, unknown>) => ({
+      where: async () => {
+        updates.push({ table, values });
+        return [{ affectedRows: table === distributors ? rows.claimRows ?? 1 : 1 }];
+      },
+    }),
+  });
+  const db = {
+    select,
+    selectDistinct: () => ({ from: () => ({ where: async () => (rows.pendingSkus > 0 ? [{ distributorId: 41 }] : []) }) }),
+    transaction: async <T,>(run: (tx: unknown) => Promise<T>) => run({ update, select }),
   };
   return { db, updates };
 }
 
 const offlineSupplier = (overrides: Record<string, unknown> = {}) => ({
-  id: 41, code: "XYZ", name: "Line X", brandName: null, isActive: false, goLiveAcceptedAt: null,
+  id: 41, code: "XYZ", name: "Line X", brandName: null, isActive: false,
   costMultiplier: "0.2461", baseMultiplier: "0.2300", freightMultiplier: "0.0700", retailPriceBasis: "cost_plus_tier",
   shippingRuleMode: "live", warehouseZips: ["60601"], leadTimeDays: 7, ...overrides,
 });
@@ -100,24 +125,55 @@ describe("distributorAdmin.goLive", () => {
   });
 
   it("goes live for any distributor in one step and records who accepted and when", async () => {
-    const { db, updates } = fakeDb({ distributor: offlineSupplier(), pendingSkus: 5, styles: 2 });
+    const { db, updates } = fakeDb({
+      distributor: offlineSupplier(), pendingSkus: 5, pendingStyleIds: [1, 2], offlineStyles: [{ id: 1, ourName: "A" }, { id: 2, ourName: "B" }],
+    });
     dbState.current = db;
     const admin = caller(userOf("admin", 99));
     const terms = await admin.distributorAdmin.goLiveSummary({ distributorId: 41 });
     const result = await admin.distributorAdmin.goLive({ distributorId: 41, acceptedTerms: true, termsVersion: terms.version });
-    expect(result).toMatchObject({ id: 41, isActive: true, publishedSkus: 5, activatedStyles: 2 });
-    expect(updates.map((u) => u.table)).toEqual([distributorSkus, doorStyles, distributors]);
-    expect(updates[0]!.values).toEqual({ isPublished: true, status: "approved" });
+    expect(result).toMatchObject({ id: 41, isActive: true, publishedSkus: 5, activatedStyles: 2, skippedStyles: [] });
+    // Claim the supplier row first, then activate styles, then publish SKUs.
+    expect(updates.map((u) => u.table)).toEqual([distributors, doorStyles, distributorSkus]);
+    expect(updates[0]!.values).toMatchObject({ isActive: true, goLiveAcceptedByUserId: 99, goLiveTermsVersion: terms.version });
+    expect(updates[0]!.values.goLiveAcceptedAt).toBeInstanceOf(Date);
+    expect(updates[0]!.values.goLiveTermsSnapshot).toMatchObject({ facts: { pendingSkuCount: 5, doorStyleCount: 2 } });
     expect(updates[1]!.values).toEqual({ isActive: true });
-    expect(updates[2]!.values).toMatchObject({ isActive: true, goLiveAcceptedByUserId: 99, goLiveTermsVersion: terms.version });
-    expect(updates[2]!.values.goLiveAcceptedAt).toBeInstanceOf(Date);
-    expect(updates[2]!.values.goLiveTermsSnapshot).toMatchObject({ facts: { pendingSkuCount: 5, doorStyleCount: 2 } });
+    expect(updates[2]!.values).toEqual({ isPublished: true, status: "approved" });
+  });
+
+  it("does NOT reactivate a deliberately retired style: only styles with pending SKUs go live, skipped ones are listed", async () => {
+    const { db, updates } = fakeDb({
+      distributor: offlineSupplier(), pendingSkus: 3, pendingStyleIds: [1],
+      offlineStyles: [{ id: 1, ourName: "New Style" }, { id: 9, ourName: "Retired Style" }],
+    });
+    dbState.current = db;
+    const admin = caller(userOf("admin", 99));
+    const terms = await admin.distributorAdmin.goLiveSummary({ distributorId: 41 });
+    expect(terms.skippedStyles).toEqual([{ id: 9, ourName: "Retired Style" }]);
+    expect(terms.warnings.join(" ")).toContain("Retired Style");
+    expect(terms.facts).toMatchObject({ doorStyleCount: 1, skippedStyleCount: 1 });
+    const result = await admin.distributorAdmin.goLive({ distributorId: 41, acceptedTerms: true, termsVersion: terms.version });
+    expect(result).toMatchObject({ activatedStyles: 1, skippedStyles: ["Retired Style"] });
+    const styleUpdates = updates.filter((u) => u.table === doorStyles);
+    expect(styleUpdates).toHaveLength(1);
+    expect(updates[0]!.values.goLiveTermsSnapshot).toMatchObject({ skippedStyles: ["Retired Style"] });
+  });
+
+  it("two admins cannot both go live: the conditional claim affecting 0 rows rolls everything back", async () => {
+    const lost = fakeDb({ distributor: offlineSupplier(), pendingSkus: 2, pendingStyleIds: [1], offlineStyles: [{ id: 1, ourName: "A" }], claimRows: 0 });
+    dbState.current = lost.db;
+    const admin = caller(userOf("admin"));
+    const version = (await admin.distributorAdmin.goLiveSummary({ distributorId: 41 })).version;
+    await expect(admin.distributorAdmin.goLive({ distributorId: 41, acceptedTerms: true, termsVersion: version })).rejects.toMatchObject({ code: "CONFLICT" });
+    // Only the failed claim ran. No style was activated and no SKU was published.
+    expect(lost.updates.map((u) => u.table)).toEqual([distributors]);
   });
 
   it("refuses stale terms and a supplier that is already live", async () => {
-    dbState.current = fakeDb({ distributor: offlineSupplier(), pendingSkus: 1, styles: 1 }).db;
+    dbState.current = fakeDb({ distributor: offlineSupplier(), pendingSkus: 1 }).db;
     await expect(caller(userOf("admin")).distributorAdmin.goLive({ distributorId: 41, acceptedTerms: true, termsVersion: "old" })).rejects.toMatchObject({ code: "CONFLICT" });
-    const live = fakeDb({ distributor: offlineSupplier({ isActive: true }), pendingSkus: 1, styles: 1 });
+    const live = fakeDb({ distributor: offlineSupplier({ isActive: true }), pendingSkus: 1 });
     dbState.current = live.db;
     const version = (await caller(userOf("admin")).distributorAdmin.goLiveSummary({ distributorId: 41 })).version;
     await expect(caller(userOf("admin")).distributorAdmin.goLive({ distributorId: 41, acceptedTerms: true, termsVersion: version })).rejects.toMatchObject({ code: "CONFLICT" });
@@ -133,15 +189,28 @@ describe("distributorAdmin.setActive", () => {
   });
 });
 
+describe("distributorAdmin.setActive (no pending SKUs)", () => {
+  it("lets an admin switch a previously-live supplier back on without reading the new columns", async () => {
+    const { db, updates } = fakeDb({ distributor: offlineSupplier(), pendingSkus: 0 });
+    dbState.current = { ...db, update: (table: unknown) => ({ set: (values: Record<string, unknown>) => ({ where: async () => { updates.push({ table, values }); } }) }) };
+    await expect(caller(userOf("admin")).distributorAdmin.setActive({ distributorId: 41, isActive: true })).resolves.toMatchObject({ isActive: true });
+    expect(updates[0]!.values).toEqual({ isActive: true });
+  });
+});
+
 describe("distributors.list (what the Designer shows)", () => {
   const supplier = (id: number, code: string, isActive: boolean) => ({
     id, code, name: `Line ${code}`, initials: code[0], brandName: null, brandInitials: null, whiteLabel: true, displayMode: "neutral",
     seriesName: null, markupPercent: "0", leadTimeDays: 7, isActive,
   });
   const all = [supplier(1, "LIVE", true), supplier(41, "XYZ", false), supplier(42, "ABC", false)];
+  const selectedColumns: Array<Record<string, unknown> | undefined> = [];
   const listDb = () => ({
-    select: () => ({
-      from: () => Object.assign(Promise.resolve(all), { where: async () => all.filter((row) => row.isActive) }),
+    select: (columns?: Record<string, unknown>) => ({
+      from: () => {
+        selectedColumns.push(columns);
+        return Object.assign(Promise.resolve(all), { where: async () => all.filter((row) => row.isActive) });
+      },
     }),
     selectDistinct: () => ({ from: () => ({ innerJoin: () => ({ where: async () => all.map((row) => ({ distributorId: row.id })) }) }) }),
   });
@@ -150,6 +219,19 @@ describe("distributors.list (what the Designer shows)", () => {
     dbState.current = listDb();
     const rows = await caller(userOf("admin")).distributors.list();
     expect(rows.map((row) => [row.code, row.isPreview])).toEqual([["LIVE", false], ["XYZ", true], ["ABC", true]]);
+  });
+
+  it("selects explicit columns that exclude the Go live columns, so it works before 0226 is applied", async () => {
+    dbState.current = listDb();
+    await caller(userOf("admin")).distributors.list();
+    await caller(null).distributors.list();
+    expect(selectedColumns.length).toBeGreaterThanOrEqual(2);
+    for (const columns of selectedColumns) {
+      expect(columns).toBeDefined();
+      expect(Object.keys(columns!)).not.toContain("goLiveAcceptedAt");
+      expect(Object.keys(columns!)).not.toContain("goLiveTermsSnapshot");
+      expect(Object.keys(columns!)).toContain("isActive");
+    }
   });
 
   it("never shows an offline supplier to non-admins or the public", async () => {

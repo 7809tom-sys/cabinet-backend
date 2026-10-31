@@ -33,6 +33,8 @@ export type GoLiveTermsInput = {
   leadTimeDays: number | null;
   pendingSkuCount: number;
   doorStyleCount: number;
+  /** Offline door styles Go live will NOT activate (retired / not part of this go-live). */
+  skippedStyleNames?: string[];
 };
 
 export type GoLiveTerms = {
@@ -60,6 +62,10 @@ export function buildGoLiveTerms(input: GoLiveTermsInput): GoLiveTerms {
     warnings.push("Cost multiplier does not equal base multiplier × (1 + freight multiplier).");
   }
   if (zips.length === 0) warnings.push("No freight origin ZIPs are set; live freight quotes cannot pick a ship-from warehouse.");
+  const skipped = input.skippedStyleNames ?? [];
+  if (skipped.length > 0) {
+    warnings.push(`${skipped.length} offline door style(s) will stay offline because they have no pending SKUs (deliberately retired or not part of this go-live): ${skipped.join(", ")}.`);
+  }
   if (input.pendingSkuCount === 0) warnings.push("This supplier has no pending SKUs to publish.");
   const lines = [
     `Supplier: ${input.name} (${input.code}).`,
@@ -78,7 +84,7 @@ export function buildGoLiveTerms(input: GoLiveTermsInput): GoLiveTerms {
     facts: {
       costMultiplier: cost, baseMultiplier: base, freightMultiplier: freight, retailPriceBasis: input.retailPriceBasis,
       shippingRuleMode: input.shippingRuleMode, warehouseZips: zips, leadTimeDays: input.leadTimeDays,
-      pendingSkuCount: input.pendingSkuCount, doorStyleCount: input.doorStyleCount,
+      pendingSkuCount: input.pendingSkuCount, doorStyleCount: input.doorStyleCount, skippedStyleCount: skipped.length,
     },
   };
 }

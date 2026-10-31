@@ -3,7 +3,7 @@ import { and, eq, inArray, or, sql } from "drizzle-orm";
 import * as XLSX from "xlsx";
 import { TRPCError } from "@trpc/server";
 import { adminProcedure, router } from "../_core/trpc";
-import { buildGoLiveTerms, GO_LIVE_TERMS_VERSION } from "../lib/distributorPreview";
+import { buildGoLiveTerms, distributorColumns, GO_LIVE_TERMS_VERSION } from "../lib/distributorPreview";
 import { getDb } from "../db";
 import { distributors, cabinets, cabinetAliases, cabinetDistributorEligibility, distributorSkus, doorStyles, categoryAliases, shippingSettings } from "../../drizzle/schema";
 import {
@@ -152,30 +152,61 @@ async function buildStyleMap(
   return map;
 }
 
+function affectedRows(result: unknown): number {
+  const header = Array.isArray(result) ? result[0] : result;
+  return Number((header as { affectedRows?: number } | undefined)?.affectedRows ?? 0);
+}
+
+type Reader = { select: (...args: any[]) => any };
+
+/**
+ * Which of a supplier's offline door styles Go live may activate. Only styles that are pending / never live:
+ * an offline style with at least one pending (unpublished) SKU of this supplier. An offline style with no
+ * pending SKU was deliberately retired (or is not part of this go-live) and is left alone and reported.
+ */
+export async function loadStyleActivation(q: Reader, distributorId: number) {
+  const pendingRows: Array<{ styleId: number | null }> = await q
+    .select({ styleId: distributorSkus.styleId })
+    .from(distributorSkus)
+    .where(and(
+      eq(distributorSkus.distributorId, distributorId),
+      eq(distributorSkus.isPublished, false),
+      eq(distributorSkus.status, "pending"),
+    ));
+  const pendingStyleIds = new Set(pendingRows.map((r) => r.styleId).filter((id): id is number => typeof id === "number"));
+  const offlineStyles: Array<{ id: number; ourName: string }> = await q
+    .select({ id: doorStyles.id, ourName: doorStyles.ourName })
+    .from(doorStyles)
+    .where(and(eq(doorStyles.distributorId, distributorId), eq(doorStyles.isActive, false)));
+  return {
+    activate: offlineStyles.filter((style) => pendingStyleIds.has(style.id)),
+    skipped: offlineStyles.filter((style) => !pendingStyleIds.has(style.id)),
+  };
+}
+
 async function loadGoLiveTerms(db: NonNullable<Awaited<ReturnType<typeof getDb>>>, distributorId: number) {
-  const [row] = await db.select().from(distributors).where(eq(distributors.id, distributorId)).limit(1);
+  const [row] = await db.select(distributorColumns).from(distributors).where(eq(distributors.id, distributorId)).limit(1);
   if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Supplier not found." });
   const [skuCount] = await db
     .select({ n: sql<number>`COUNT(*)` })
     .from(distributorSkus)
     .where(and(eq(distributorSkus.distributorId, distributorId), eq(distributorSkus.isPublished, false), eq(distributorSkus.status, "pending")));
-  const [styleCount] = await db.select({ n: sql<number>`COUNT(*)` }).from(doorStyles).where(eq(doorStyles.distributorId, distributorId));
-  return {
-    ...buildGoLiveTerms({
-      code: row.code,
-      name: row.brandName?.trim() || row.name,
-      costMultiplier: row.costMultiplier,
-      baseMultiplier: row.baseMultiplier,
-      freightMultiplier: row.freightMultiplier,
-      retailPriceBasis: row.retailPriceBasis,
-      shippingRuleMode: row.shippingRuleMode,
-      warehouseZips: row.warehouseZips,
-      leadTimeDays: row.leadTimeDays,
-      pendingSkuCount: Number(skuCount?.n ?? 0),
-      doorStyleCount: Number(styleCount?.n ?? 0),
-    }),
-    isActive: row.isActive,
-  };
+  const styles = await loadStyleActivation(db, distributorId);
+  const terms = buildGoLiveTerms({
+    code: row.code,
+    name: row.brandName?.trim() || row.name,
+    costMultiplier: row.costMultiplier,
+    baseMultiplier: row.baseMultiplier,
+    freightMultiplier: row.freightMultiplier,
+    retailPriceBasis: row.retailPriceBasis,
+    shippingRuleMode: row.shippingRuleMode,
+    warehouseZips: row.warehouseZips,
+    leadTimeDays: row.leadTimeDays,
+    pendingSkuCount: Number(skuCount?.n ?? 0),
+    doorStyleCount: styles.activate.length,
+    skippedStyleNames: styles.skipped.map((style) => style.ourName),
+  });
+  return { ...terms, isActive: row.isActive, skippedStyles: styles.skipped };
 }
 
 export const distributorImportRouter = router({
@@ -440,7 +471,7 @@ export const distributorImportRouter = router({
   adminList: adminProcedure.query(async () => {
     const db = await getDb();
     if (!db) return [];
-    return db
+    const rows = await db
       .select({
         id: distributors.id,
         code: distributors.code,
@@ -470,12 +501,17 @@ export const distributorImportRouter = router({
         pickupZip: distributors.pickupZip,
         pickupAddress: distributors.pickupAddress,
         pickupRadiusMiles: distributors.pickupRadiusMiles,
-        goLiveAcceptedAt: distributors.goLiveAcceptedAt,
-        goLiveAcceptedByUserId: distributors.goLiveAcceptedByUserId,
-        goLiveTermsVersion: distributors.goLiveTermsVersion,
       })
       .from(distributors)
       .orderBy(distributors.name);
+    // "Needs Go live" = offline with pending SKUs still to publish. Computed from SKUs, not from the
+    // acceptance columns, so this list keeps working before migration 0226 is applied.
+    const pending = await db
+      .selectDistinct({ distributorId: distributorSkus.distributorId })
+      .from(distributorSkus)
+      .where(and(eq(distributorSkus.isPublished, false), eq(distributorSkus.status, "pending")));
+    const pendingIds = new Set(pending.map((p) => p.distributorId));
+    return rows.map((row) => ({ ...row, needsGoLive: !row.isActive && pendingIds.has(row.id) }));
   }),
 
   /**
@@ -703,16 +739,23 @@ export const distributorImportRouter = router({
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "No database" });
       if (input.isActive) {
         const [row] = await db
-          .select({ isActive: distributors.isActive, goLiveAcceptedAt: distributors.goLiveAcceptedAt })
+          .select({ isActive: distributors.isActive })
           .from(distributors)
           .where(eq(distributors.id, input.distributorId))
           .limit(1);
         if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Supplier not found." });
-        if (!row.isActive && !row.goLiveAcceptedAt) {
-          throw new TRPCError({
-            code: "PRECONDITION_FAILED",
-            message: "This supplier has not gone live yet. Use Go live so the supplier terms are accepted and its SKUs are published together.",
-          });
+        if (!row.isActive) {
+          // A supplier with pending SKUs has not been through Go live. Reads SKUs only, never the new columns.
+          const [pending] = await db
+            .select({ n: sql<number>`COUNT(*)` })
+            .from(distributorSkus)
+            .where(and(eq(distributorSkus.distributorId, input.distributorId), eq(distributorSkus.isPublished, false), eq(distributorSkus.status, "pending")));
+          if (Number(pending?.n ?? 0) > 0) {
+            throw new TRPCError({
+              code: "PRECONDITION_FAILED",
+              message: "This supplier has not gone live yet. Use Go live so the supplier terms are accepted and its SKUs are published together.",
+            });
+          }
         }
       }
       await db
@@ -752,7 +795,32 @@ export const distributorImportRouter = router({
       }
       const terms = await loadGoLiveTerms(db, input.distributorId);
       if (terms.isActive) throw new TRPCError({ code: "CONFLICT", message: "This supplier is already live." });
-      await db.transaction(async (tx) => {
+      const outcome = await db.transaction(async (tx) => {
+        // Claim first: a conditional UPDATE ... WHERE isActive = 0 holds the row lock, so two admins cannot
+        // both go live. Zero affected rows means someone else got there first.
+        const claim = await tx
+          .update(distributors)
+          .set({
+            isActive: true,
+            goLiveAcceptedByUserId: ctx.user.id,
+            goLiveAcceptedAt: new Date(),
+            goLiveTermsVersion: terms.version,
+            goLiveTermsSnapshot: {
+              lines: terms.lines,
+              warnings: terms.warnings,
+              facts: terms.facts,
+              skippedStyles: terms.skippedStyles.map((style) => style.ourName),
+            },
+          })
+          .where(and(eq(distributors.id, input.distributorId), eq(distributors.isActive, false)));
+        if (affectedRows(claim) === 0) {
+          throw new TRPCError({ code: "CONFLICT", message: "This supplier is already live." });
+        }
+        // Decide styles BEFORE publishing the SKUs (publishing clears the "pending" marker).
+        const styles = await loadStyleActivation(tx, input.distributorId);
+        if (styles.activate.length > 0) {
+          await tx.update(doorStyles).set({ isActive: true }).where(inArray(doorStyles.id, styles.activate.map((style) => style.id)));
+        }
         await tx
           .update(distributorSkus)
           .set({ isPublished: true, status: "approved" })
@@ -761,19 +829,15 @@ export const distributorImportRouter = router({
             eq(distributorSkus.isPublished, false),
             eq(distributorSkus.status, "pending"),
           ));
-        await tx.update(doorStyles).set({ isActive: true }).where(eq(doorStyles.distributorId, input.distributorId));
-        await tx
-          .update(distributors)
-          .set({
-            isActive: true,
-            goLiveAcceptedByUserId: ctx.user.id,
-            goLiveAcceptedAt: new Date(),
-            goLiveTermsVersion: terms.version,
-            goLiveTermsSnapshot: { lines: terms.lines, warnings: terms.warnings, facts: terms.facts },
-          })
-          .where(eq(distributors.id, input.distributorId));
+        return styles;
       });
-      return { id: input.distributorId, isActive: true, publishedSkus: terms.facts.pendingSkuCount, activatedStyles: terms.facts.doorStyleCount };
+      return {
+        id: input.distributorId,
+        isActive: true,
+        publishedSkus: terms.facts.pendingSkuCount,
+        activatedStyles: outcome.activate.length,
+        skippedStyles: outcome.skipped.map((style) => style.ourName),
+      };
     }),
 
   /** Door styles for a given distributor (used to map pricing rows to a style). */
