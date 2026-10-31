@@ -57,7 +57,7 @@ import { priceLadder } from "@shared/pricing";
 import { resolveCanonicalCatalogSources } from "../lib/canonicalCatalogSources";
 import { isWallWineRackCabinet } from "../../shared/wallWineRack";
 import { designerCabinetReadinessBySku } from "../lib/designerCabinetReadiness";
-import { landedCostFromList, landedCostMultiplier } from "../lib/distributorCostMultiplier";
+import { hasConfirmedLandedCostRule, landedCostFromList, landedCostMultiplier } from "../lib/distributorCostMultiplier";
 import { loadCodeEquivalenceGroups } from "../lib/codeEquivalenceLoader";
 import { framelessCatalogPresentation } from "../lib/framelessCatalogPresentation";
 
@@ -4913,7 +4913,8 @@ export const pricingRouter = router({
       const nextList = "listPrice" in set ? Number(set.listPrice) : Number(existing.listPrice);
       const base = Number(existing.baseMultiplier ?? 0);
       const freight = Number(existing.freightMultiplier ?? 0);
-      const hasLandedCostRule = Number.isFinite(base) && base > 0 && Number.isFinite(freight) && freight >= 0;
+      // A placeholder multiplier (base 1, freight 0) is not a rule and must not block cost edits.
+      const hasLandedCostRule = hasConfirmedLandedCostRule(base, freight);
       if (hasLandedCostRule && "yourCost" in input) {
         throw new TRPCError({
           code: "BAD_REQUEST",

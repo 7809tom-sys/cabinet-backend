@@ -4,7 +4,7 @@ import * as XLSX from "xlsx";
 import { TRPCError } from "@trpc/server";
 import { adminProcedure, router } from "../_core/trpc";
 import { buildGoLiveTerms, distributorColumns, GO_LIVE_TERMS_VERSION } from "../lib/distributorPreview";
-import { getDb } from "../db";
+import { getDb, recalculateStoredTierPrices } from "../db";
 import { distributors, cabinets, cabinetAliases, cabinetDistributorEligibility, distributorSkus, doorStyles, categoryAliases, shippingSettings } from "../../drizzle/schema";
 import {
   parseDistributorCsv,
@@ -1182,7 +1182,10 @@ export const distributorImportRouter = router({
         }
       }
 
-      return { created, updated, priced, skipped };
+      // Finish by recalculating the stored wholesale / contractor / homeowner
+      // prices so freshly imported costs never leave stale or empty tier prices.
+      const recalculation = await recalculateStoredTierPrices();
+      return { created, updated, priced, skipped, recalculation };
     }),
 
   // ─── Quick-create helpers ──────────────────────────────────────────────────
@@ -1797,8 +1800,11 @@ export const distributorImportRouter = router({
       const errorCount = previewRows.filter((r) => r.severity === "error").length;
       const warningCount = previewRows.filter((r) => r.severity === "warning").length;
 
+      // A real run (not a dry run) recalculates the stored tier prices at the end.
+      const recalculation = input.dryRun ? null : await recalculateStoredTierPrices();
       return {
         dryRun: input.dryRun ?? false,
+        recalculation,
         created,
         updated,
         priced,
