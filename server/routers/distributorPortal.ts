@@ -33,6 +33,7 @@ import { decryptDistributorSecret } from "../lib/distributorIntegrationCrypto";
 import { generateImage } from "../_core/imageGeneration";
 import { nextSampleVerifiedFlag } from "@shared/doorStyleRoomSceneGeneration";
 import { scheduleDoorStyleRoomSceneGeneration, scheduleDoorStyleRoomSceneGenerationForStyles } from "../doorStyleRoomSceneGeneration";
+import { scheduleDoorModelAudit, scheduleDoorModelAuditForStyles } from "../doorModelAudit";
 import { upsTestConnection } from "../_core/ups";
 import { fedexTestConnection } from "../_core/fedex";
 import { normalizeCode } from "../../shared/cabinetCodeMatch";
@@ -1104,6 +1105,7 @@ export const distributorPortalRouter = router({
 		    if (Object.keys(patch).length > 0) await db.update(doorStyles).set(patch).where(eq(doorStyles.id, input.styleId));
 		    if (fields.doorSampleImageUrl !== undefined || fields.drawerSampleImageUrl !== undefined) {
 		      scheduleDoorStyleRoomSceneGeneration(input.styleId);
+		      scheduleDoorModelAudit(input.styleId);
 		    }
 		    return { ok: true };
 		  }),
@@ -1359,6 +1361,7 @@ export const distributorPortalRouter = router({
 		        doorSampleVerified: true,
 		      }).where(inArray(doorStyles.id, submission.appliesToStyleIds));
 		      scheduleDoorStyleRoomSceneGenerationForStyles(submission.appliesToStyleIds);
+		      scheduleDoorModelAuditForStyles(submission.appliesToStyleIds);
 		    }
 		    return { ok: true, approved: input.approve };
 		  }),
@@ -2911,6 +2914,7 @@ export const distributorPortalRouter = router({
 
 	      if (input.imageType === "doorSample" || input.imageType === "drawerSample") {
 	        scheduleDoorStyleRoomSceneGeneration(input.styleId);
+	        scheduleDoorModelAudit(input.styleId);
 	      }
 	      return { styleId: input.styleId, imageType: input.imageType, imageUrl: url };
     }),

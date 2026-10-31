@@ -75,6 +75,10 @@ const TAB_HELP: Record<string, { en: string; zh: string; link?: { label: string;
     zh: "為公開首頁精選最多六張與門板樣式相符的房間場景。排序決定已登入訪客的輪播優先順序。此授權檢視會顯示每張場景的內部來源記錄，但來源名稱不會公開顯示。設定別名，以及在上傳前使用以下工具編輯或裁切門板／抽屜圖片：",
     link: { label: "Photopea — Free Online Image Editor", url: "https://www.photopea.com" },
   },
+  "door-model-audit": {
+    en: "Automatic 3D door audit. Each door style\u2019s 3D model is built from the supplier sample photos and checked by AI. Models that pass wait here under Awaiting Tom; approving one makes it live in the Designer. Models that still fail after the allowed attempts appear under Needs attention.",
+    zh: "自動 3D 門板審核。每個門板樣式的 3D 模型會依供應商樣品照片建立並由 AI 檢查。通過的模型會在「Awaiting Tom」等待；核准後才會在設計器中上線。經多次嘗試仍未通過的會列在「Needs attention」。",
+  },
   "door-corrections": {
     en: "Fix door style data issues — correct mismatched style codes, update distributor assignments, and resolve conflicts.",
     zh: "修正門板樣式資料問題——糾正不匹配的樣式代碼、更新經銷商指派並解決衝突。",
