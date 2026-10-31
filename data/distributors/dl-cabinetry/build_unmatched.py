@@ -46,11 +46,9 @@ MAP["SCRIBEMOLDING"] = ("SM8", "nomenclature-equivalent", "medium", f"{SB}: scri
 MAP["RRP27(1.5)"] = ("REPV2796", "dimension-equivalent", "medium", f"{SB}: refrigerator panel 1-1/2 x 96 x 27. Master REPV2796 is 'Refrigerator End Panel - 27\"D x 96\"H' (SK). Same item, height and depth; the master has no thickness")
 MAP["FILLER 6X96"] = ("F696", "dimension-equivalent", "high", f"{SB}: filler 6 x 96 x 3/4. Master F696 is '6\" x 96\" Tall Filler' (CS/SK/USCD). Same item and size")
 
-MAP["SP09"] = ("SPB9", "alias", "high", "Tom confirmed SP09 = SPB9, the same item (trash can pull-out base; every supplier carries it). Alias SP09 -> SPB9, no new master. Duplicate resolved this way. NOTE: the master sheet words SPB9 as 9in Spice Base / Pull-Out; spec book SP09 = 9 x 34-1/2 x 24, 1 drawer, 3 shelves")
+MAP["SP09"] = ("SPB9", "alias", "high", "Tom confirmed SP09 = SPB9, the same item: a 9in Spice Base / Pull-Out (spice pull-out; every supplier carries it). Master description unchanged. Alias SP09 -> SPB9, no new master; duplicate resolved this way. Spec book SP09 = 9 x 34-1/2 x 24, 1 drawer, 3 shelves")
 MAP["BWBKT18"] = ("BWB18", "alias", "high", "Tom confirmed BWBKT18 = BWB18, the same cabinet (18in Base Waste Basket, SK). Alias BWBKT18 -> BWB18. Spec book: 18 x 34-1/2 x 24, 0 doors, 2 drawers, trash cans sold separately")
-MAP["2DB33"] = ("B33", "alias", "high",
-    f"Tom confirmed Oct 31, common B33 (every distributor carries it; two doors, two side-by-side drawers). Alias 2DB33 -> B33 with DL SKU rows under B33. REVIEW: {SB} p.{SPEC['2DB33']['specBookPage']} lists 2DB33 as a Drawer Base (0 doors, 2 drawers) while DL's own B33 is 2 doors, 2 drawers, 1 shelf, and DL prices them differently (2DB33 $263 vs B33 $198 core). DL's B33 SKU already exists on this master, so this adds a SECOND DL SKU on B33")
-ALIASES_FOR_MAPPED = {"SP09": "SPB9", "BWBKT18": "BWB18", "2DB33": "B33"}
+ALIASES_FOR_MAPPED = {"SP09": "SPB9", "BWBKT18": "BWB18"}
 
 # NEW masters (keys are MASTER codes; NEW_DL maps master -> DL SKU that creates it; NEW_X holds explicit values)
 NEW_DL = {}
@@ -66,6 +64,7 @@ for h, shelves in (("30", 2), ("36", 2), ("42", 3)):
         alias=f"WG12{h}")
 # (cabinets). dlSku -> (category, subCategory, placement, cornerType or None, why-no-master)
 NEW = {
+ "2DB33": ("Base", "Drawer Base", "base", None, "Tom FINAL Oct 31 11:11 CT: 2DB33 is a UNIQUE item, NOT B33 (the earlier B33 alias is reversed and removed). DL spec book: 33in two-drawer base, 0 doors, 2 drawers. Priced at DL's own 2DB33 price-list prices"),
  "W1230GD": ("Wall", "Wall Cabinet With Glass Door", "wall", None, "Tom approved Oct 31: no 12-wide W12{30,36,42}GD master exists (12-wide glass cabinets exist only at 12 high). Priced as plain W1230 + glass door WG1230. If a master already exists under this code the NOT EXISTS guard skips the insert and the SKUs attach to it"),
  "W1236GD": ("Wall", "Wall Cabinet With Glass Door", "wall", None, "Tom approved Oct 31 (see W1230GD). Priced as W1236 + WG1236"),
  "W1242GD": ("Wall", "Wall Cabinet With Glass Door", "wall", None, "Tom approved Oct 31 (see W1230GD). Priced as W1242 + WG1242"),
@@ -121,7 +120,7 @@ acc(["TRASH CAN"], "trash can", "Spec book: 14-1/8 x 15-1/2 x 9-15/16. No loose 
 acc(["SAMPLE DOOR PACK (2025)"], "sample", "13 x 17 x 7 pack. SAMPLE DOOR / SD masters are single 11 x 15 sample doors. Propose a new accessory master or leave unlisted")
 acc([f"WN FS{n}" for n in (3012, 3612, 4812)] + [f"WO FS{n}" for n in (3012, 3612, 4812)], "floating shelf (not in spec book)", "Not in the spec book; WN/WO presumably wood finishes. Floating shelf masters FS30/FS36/FS42/FS48 exist but size and finish are unconfirmed. Ask Rich")
 
-acc(["SP2436"], "panel (no spec-book entry)", "Tom Oct 31: SP2436 is a PANEL, not a door, not a cabinet, not a new master. Spec-book lookup (pdftotext of v.11/14/23, searched 'SP2436', 'SP 2436', '2436'): NOT FOUND; only W2436 and WDC243612 contain the digits. So no description, dimensions, thickness, finish or page exist to match. Price list row only: core $33 / slim $33 / luxe $66, no dimensions ('non-door item'). No panel master can be matched without specs and none is created. Needs DL's description from Rich, then alias to the matching panel master")
+acc(["SP2436"], "panel / likely decorative door (no spec-book entry)", "Spec-book lookup (pdftotext of v.11/14/23, searched 'SP2436', 'SP 2436', '2436'): NOT FOUND; only W2436 and WDC243612 contain the digits, so there is no description, thickness, finish or page. Price list row only: core $33 / slim $33 / luxe $66, no dimensions ('non-door item'). Tom: a panel / probably a decorative door, not a cabinet")
 SKIP = {
  "QUARTER DOOR": "not in the spec book, no description. Ask Rich what it is",
  }
@@ -136,23 +135,79 @@ NEW_X["FLAT PANEL 28X96"] = dict(
     alias=None)
 NEW_MASTER_OF = {NEW_DL.get(m, m): m for m in NEW}   # DL sku -> master code
 NEW_MASTER_OF["FLAT PANEL 28X96"] = "FLAT PANEL 28X96"
-DLSET_NEW = set(NEW_MASTER_OF)
+
+# ---- Tom's standing rule (Oct 31): anything unsure goes to the CABINET CONFLICT tab -------------------------------
+# Existing mechanism, no new flag: cabinets.conflictStatus ('conflict' hides, 'review' stays public) + conflictReason
+# (Issue / Current value / Source / Needed / Resolved fields, as shared/cabinetConflictFlags.formatConflictReason)
+# + conflictedAt, exactly what catalog.setConflict writes. Unsure items still get a SKU (pending, unpublished).
+# Report-only items (accessory-report) and QUARTER DOOR each get their OWN hidden master (DL code = master code and
+# alias) so the SKU has a master to hang on; that master is flagged 'conflict'.
+PH = {}   # placeholder masters: dlSku -> dict
+CLASS_CAT = [("molding", ("Moulding", "Moulding")), ("panel", ("Panels", "Panel")), ("filler", ("Filler", "Filler")),
+             ("pullout", ("Accessory", "Rollout Tray")), ("drawer slides", ("Accessory", "Drawer Slides")),
+             ("trash", ("Accessory", "Trash Can")), ("sample", ("Accessory", "Sample")), ("decorative door", ("Panels", "Decorative Door")),
+             ("floating", ("Accessory", "Floating Shelf")), ("corbel", ("Accessory", "Decorative")), ("decorative", ("Accessory", "Decorative")), ("leg", ("Accessory", "Decorative"))]
+def cat_for(cls):
+    for k, v in CLASS_CAT:
+        if k in cls.lower(): return v
+    return ("Accessory", "General")
+def num(v):
+    return None if v in ("", None) else float(v)
+
+def reason(issue, current, source, needed, fields=None):
+    lines = [f"Issue: {issue}", f"Current value: {current}", f"Source: {source}", f"Needed: {needed}"]
+    if fields: lines.append(f"Resolved fields: {', '.join(fields)}")
+    return "\n".join(lines)
+FIELDS = ["description", "category", "subCategory", "width", "height", "depth"]
+
+for s, (cls, handling) in ACC.items():
+    sp = SPEC.get(s); pr = PRICE[s]
+    cat, sub = cat_for(cls)
+    W, H, D = (num(sp["widthIn"]), num(sp["heightIn"]), num(sp["depthIn"])) if sp else (num(pr["width"]), num(pr["height"]), num(pr["depth"]))
+    d = f'{s} ({cls})' + "".join(f" - {n}" for n in [" x ".join(f'{x:g}"{l}' for x, l in zip((W, H, D), ("W", "H", "D")) if x is not None)] if n)
+    issue = handling
+    needed = "Admin confirms what this item is, the right master / category, and the real dimensions, then clears the conflict."
+    if s == "SP2436":
+        issue = "Likely decorative door 24x36; not found in DL spec book; confirm. (Tom is fairly but not fully sure; 24x36 is read from the code.) " + handling
+        W, H, D = 24.0, 36.0, None
+        cat, sub = "Panels", "Decorative Door"
+        d = 'SP2436 (likely decorative door) - 24"W x 36"H (size inferred from the code)'
+        needed = "Confirm it is a decorative door, its real size and thickness (ask Rich), then alias to the matching decorative door master if one exists."
+    src = (f"{SB} p.{sp['specBookPage']}" if sp else f"{SB}: NOT FOUND (no entry for {s})") + f"; {PL} row {s} (core {pr['core'] or '-'}, slim {pr['slim'] or '-'}, luxe {pr['luxe'] or '-'})"
+    PH[s] = dict(cat=cat, sub=sub, W=W, H=H, D=D, desc=d, cls=cls, why=handling, reason=reason(issue, d, src, needed, FIELDS), src=src)
+PH["QUARTER DOOR"] = dict(cat="Accessory", sub="Unknown", W=None, H=None, D=None, desc="QUARTER DOOR (unidentified)", cls="unidentified",
+    why="Pending Rich: not in the spec book, no description", src=f"{SB}: NOT FOUND (no entry for QUARTER DOOR); {PL} row QUARTER DOOR ({PRICE['QUARTER DOOR']['core'] or '-'})",
+    reason=reason("Unidentified DL item; not found in DL spec book; pending Rich.", "QUARTER DOOR (unidentified)", f"{SB}: NOT FOUND; {PL} row QUARTER DOOR", "Rich identifies the item; admin then maps or classifies it.", FIELDS))
+assert set(PH) == set(ACC) | {"QUARTER DOOR"}
+assert set(PH) >= set(SKIP) and set(SKIP) == {"QUARTER DOOR"}
+
+# New masters whose values are not fully sure -> conflict on the hidden master itself
+CONF_NEW = {
+ "FDB09": ("Size from the price list only; FDB09 is not in the DL spec book; door count and shelves unknown.", "Confirm width/depth/door count with DL (Rich)."),
+ "CL156012": ("Category 'Tall / Counter Linen Cabinet' is my classification of a 15 x 60 x 12 unit.", "Confirm category and subCategory."),
+ "DSK2421": ("subCategory 'Knee Drawer' is my classification; no existing master has this size.", "Confirm subCategory."),
+ "DSK3021": ("subCategory 'Knee Drawer' is my classification; DKD30 is 30 x 5-1/4 x 21 (different height).", "Confirm subCategory and whether it duplicates DKD30."),
+ "WEOS0930": ("subCategory 'Open Shelf' is my classification; open end shelf masters are 6in wide, DL is 9in.", "Confirm subCategory."),
+ "WEOS0936": ("subCategory 'Open Shelf' is my classification; open end shelf masters are 6in wide, DL is 9in.", "Confirm subCategory."),
+ "WEOS0942": ("subCategory 'Open Shelf' is my classification; open end shelf masters are 6in wide, DL is 9in.", "Confirm subCategory."),
+ "FLAT PANEL 28X96": ("28in width is from the price list; the spec book lists only FLAT PANEL 27X96 (3/4 thick); thickness is borrowed from that row, finish unknown. Field cut on site.", "Confirm thickness, finish, and 28 vs 27 width with DL (Rich)."),
+}
 
 targets = [r for r in ORIG if r["matchType"] == "none" or r["confidence"] == "low"]
 assert len(targets) == 90, len(targets)
-known = set(MAP) | DLSET_NEW | set(ACC) | set(SKIP)
+DLSET_NEW = set(NEW_MASTER_OF)
+known = set(MAP) | DLSET_NEW | set(PH)
 missing = [r["dlSku"] for r in targets if r["dlSku"] not in known]
 extra = [s for s in known if s not in {r["dlSku"] for r in targets}]
 assert not missing and not extra, (missing, extra)
-assert len(MAP) + len(DLSET_NEW) + len(ACC) + len(SKIP) == 90
+assert len(MAP) + len(DLSET_NEW) + len(PH) == 90
 
 def src_of(s, status):
-    sp = SPEC.get(s) or SPEC.get(GLASS_PLAIN.get(s, ""), None)
     parts = []
     if s in SPEC: parts.append(f"{SB} p.{SPEC[s]['specBookPage']}")
     else: parts.append(f"{SB}: no entry for {s}")
     parts.append(f"{PL} row {s}")
-    if status == "matched": parts.append(SHEET)
+    if status in ("mapped", "aliased"): parts.append(SHEET)
     return "; ".join(parts)
 
 # ---- updated crosswalk ---------------------------------------------------------------------------------------
@@ -164,21 +219,21 @@ for r in ORIG:
     row = dict(r)
     if s in MAP:
         m, mt, cf, why = MAP[s]
-        row.update(masterCode=m, matchType=mt, confidence=cf, note=why)
+        flagged = cf == "medium"
+        row.update(masterCode=m, matchType=mt, confidence=cf, note=why + (" | FLAGGED in Cabinet Conflict (review) on the master" if flagged else ""))
         status = "aliased" if mt == "alias" else "mapped"
     elif s in DLSET_NEW:
         m = NEW_MASTER_OF[s]
-        why = NEW[m][4]
-        row.update(masterCode=m, matchType="new-master", confidence="", note=f"NEW hidden master {m}: {why}. Source: " + (NEW_X[m]["src"] if m in NEW_X else (f"{SB} p.{SPEC[s]['specBookPage']}" if s in SPEC else f"{PL} only")))
+        why = NEW[m][4] if m in NEW else ""
+        flagged = m in CONF_NEW
+        row.update(masterCode=m, matchType="new-master", confidence="", note=f"NEW hidden master {m}: {why}. Source: " + (NEW_X[m]["src"] if m in NEW_X else (f"{SB} p.{SPEC[s]['specBookPage']}" if s in SPEC else f"{PL} only")) + (" | FLAGGED in Cabinet Conflict: " + CONF_NEW[m][0] if flagged else ""))
         status = "new master"
-    elif s in ACC:
-        row.update(masterCode="", matchType="accessory-report", confidence="", note=f"{ACC[s][0]}: {ACC[s][1]}")
-        status = "report-only"
     else:
-        row.update(masterCode="", matchType="skipped", confidence="", note=SKIP[s])
-        status = "skipped"
+        ph = PH[s]
+        row.update(masterCode=s, matchType="conflict-flagged", confidence="", note=f"Own hidden master {s} + pending SKU, FLAGGED in Cabinet Conflict (status 'conflict'). {ph['why']}")
+        status = "flagged"
     out.append(row)
-    report.append((s, status, row["masterCode"], row["matchType"], row["confidence"], row["note"], src_of(s, "matched" if status in ("mapped", "aliased") else status)))
+    report.append((s, status, row["masterCode"], row["matchType"], row["confidence"], row["note"], src_of(s, status)))
 with open("dl_crosswalk.csv", "w", newline="") as f:
     w = csv.DictWriter(f, fieldnames=list(ORIG[0].keys()), lineterminator="\n")
     w.writeheader(); w.writerows(out)
@@ -188,7 +243,7 @@ with open("dl_unmatched_report.csv", "w", newline="") as f:
 # ---- SQL ------------------------------------------------------------------------------------------------------
 q = lambda s: "'" + str(s).replace("'", "''") + "'"
 def g(v):
-    return f"{float(v):g}"
+    return "NULL" if v is None else f"{float(v):g}"
 def desc(code):
     s = SPEC.get(code)
     if s:
@@ -203,8 +258,12 @@ def desc(code):
 STY = [("DL-WS", "WS", "core"), ("DL-SSA", "SSA", "slim"), ("DL-SSE", "SSE", "slim"), ("DL-LUXE-TBD", "LUXE-TBD", "luxe")]
 sku_master = {s: v[0] for s, v in MAP.items()}
 sku_master.update(NEW_MASTER_OF)
+sku_master.update({s: s for s in PH})
+# Items that are accessories (not cabinets): constructionType NULL
+ACC_MAPPED = {"DWP3", "GH30", "TOUCHUP KIT", "PAINT", "SCRIBEMOLDING", "RRP27(1.5)", "FILLER 6X96"}
+NO_CT = ACC_MAPPED | set(PH) | {"FLAT PANEL 28X96"}
 def sku_price(s, col):
-    """Returns (listPrice, distributorSku, comment). Glass items are priced cabinet + door, never door only."""
+    """(listPrice, distributorSku, comment). Glass items are priced cabinet + door, never door only."""
     if s in GLASS_PLAIN:
         base = GLASS_PLAIN[s]
         cp, dp = int(PRICE[base][col]), int(PRICE[s][col])
@@ -217,14 +276,15 @@ L = ["-- DL Cabinetry: NEW masters and pending SKUs for the previously unmatched
  "-- New master cabinets are HIDDEN: isActive = FALSE, showInDesigner = FALSE, showInCatalog = FALSE, showIn2020 = FALSE. Nothing here makes any master visible.",
  "-- DL is live and its existing SKUs are published. Every distributor_skus row below is isPublished = FALSE, status = 'pending' and stays that way until Tom publishes it.",
  "-- Glass items (W####GD, DCW####GD, new W12##GD): listPrice = plain cabinet price + glass door price per tier, NEVER the door-only price. Both source rows are in each row's comment and in dl_unmatched_glass_pricing.csv.",
- "-- BEFORE running: confirm in the live database that none of the NEW master codes already exists under another code, and that each MAPPED master exists.",
- "-- Not covered here (see findings_unmatched.md): accessories / trim, SP2436 (no spec-book entry), QUARTER DOOR (pending Rich).", ""]
+ "-- CABINET CONFLICT (Tom's standing rule, Oct 31): anything unsure is flagged with the EXISTING mechanism (cabinets.conflictStatus / conflictReason / conflictedAt, the same fields catalog.setConflict writes).",
+ "--   Hidden new masters that are unsure and every report-only item (own hidden master + pending SKU) are inserted with conflictStatus = 'conflict'.",
+ "--   Existing shared masters that received a MEDIUM-confidence DL mapping get conflictStatus = 'review' (stays public), only WHERE conflictStatus = 'none' so an existing flag is never overwritten.",
+ "-- BEFORE running: confirm in the live database that none of the NEW master codes already exists under another code, and that each MAPPED master exists.", ""]
+CONF_FIELDS_NOTE = FIELDS
 b = 0
+ALLNEW = []   # (code, record) for master inserts, new masters first then placeholders
 for code, (cat, sub, place, corner, why) in NEW.items():
-    b += 1
-    x = NEW_X.get(code)
-    dl = NEW_DL.get(code, code)
-    s = SPEC.get(code)
+    x = NEW_X.get(code); s = SPEC.get(code)
     if x:
         W, H, D, doors, dr = x["W"], x["H"], x["D"], x["doors"], x["drawers"]
         d, dsrc, src, notes, isnot = x["desc"], x["descSrc"], x["src"], x["specNotes"], x["isNot"]
@@ -236,32 +296,52 @@ for code, (cat, sub, place, corner, why) in NEW.items():
         d, dsrc = desc(code), ("DL Cabinetry spec book v.11/14/23" if s else "DL Price List P5 v1_13_26")
         src = f'{SB} p.{s["specBookPage"]}' if s else f"{PL} row {code} only"
         notes, isnot = None, False
-    n = lambda v: "NULL" if v is None else str(v)
-    L += [f"-- Block {b}: NEW hidden master {code} ({why}). Source: {src}. Any value not in the source is NULL.",
-          "INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet, specNotes)",
-          f"SELECT {q(code)}, {q(d)}, {q(dsrc)}, {q(cat)}, {q(sub)}, {g(W)}, {g(H)}, {g(D)}, {q(place)}, {n(doors)}, {n(dr)}, {'TRUE' if corner else 'FALSE'}, {q(corner) if corner else 'NULL'}, FALSE, FALSE, FALSE, FALSE, {'TRUE' if isnot else 'FALSE'}, {q(notes) if notes else 'NULL'}",
+    conflict = None
+    if code in CONF_NEW:
+        issue, needed = CONF_NEW[code]
+        conflict = reason(issue, d, src, needed, FIELDS)
+    ALLNEW.append(dict(code=code, cat=cat, sub=sub, place=place, corner=corner, why=why, W=W, H=H, D=D, doors=doors, drawers=dr, desc=d, dsrc=dsrc, src=src, notes=notes, isnot=isnot, conflict=conflict, kind="NEW hidden master"))
+for s, ph in PH.items():
+    ALLNEW.append(dict(code=s, cat=ph["cat"], sub=ph["sub"], place="accessory", corner=None, why=ph["why"], W=ph["W"], H=ph["H"], D=ph["D"], doors=None, drawers=None,
+                       desc=ph["desc"], dsrc="DL Cabinetry spec book v.11/14/23" if s in SPEC else "DL Price List P5 v1_13_26", src=ph["src"], notes=None, isnot=True, conflict=ph["reason"], kind="FLAGGED hidden master (report-only item)"))
+n_ = lambda v: "NULL" if v is None else str(v)
+for r in ALLNEW:
+    b += 1
+    code = r["code"]
+    confcols = ", conflictStatus, conflictReason, conflictedAt"
+    confvals = f", 'conflict', {q(r['conflict'])}, NOW()" if r["conflict"] else ", 'none', NULL, NULL"
+    L += [f"-- Block {b}: {r['kind']} {code} ({r['why']}). Source: {r['src']}. Any value not in the source is NULL." + (" CONFLICT entry added." if r["conflict"] else ""),
+          "INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet, specNotes" + confcols + ")",
+          f"SELECT {q(code)}, {q(r['desc'])}, {q(r['dsrc'])}, {q(r['cat'])}, {q(r['sub'])}, {g(r['W'])}, {g(r['H'])}, {g(r['D'])}, {q(r['place'])}, {n_(r['doors'])}, {n_(r['drawers'])}, {'TRUE' if r['corner'] else 'FALSE'}, {q(r['corner']) if r['corner'] else 'NULL'}, FALSE, FALSE, FALSE, FALSE, {'TRUE' if r['isnot'] else 'FALSE'}, {q(r['notes']) if r['notes'] else 'NULL'}{confvals}",
           f"FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinets WHERE masterCode = {q(code)})",
           f"  AND NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinet_aliases WHERE alias = {q(code)});", ""]
-# alias pairs for new masters: the master code itself, plus the DL code when it differs (W1230GD <- WG1230)
 pairs = []
-for code in NEW:
-    pairs.append((code, code))
-    dl = NEW_DL.get(code)
-    if dl and dl != code: pairs.append((dl, code))
+for r in ALLNEW:
+    pairs.append((r["code"], r["code"]))
+    dl = NEW_DL.get(r["code"])
+    if dl and dl != r["code"]: pairs.append((dl, r["code"]))
 b += 1
-L += [f"-- Block {b}: aliases for every new master (the DL code is the alias; for W12##GD the alias WG12## points at the new glass cabinet)",
+L += [f"-- Block {b}: aliases for every new / flagged master (the DL code is the alias; for W12##GD the alias WG12## points at the new glass cabinet)",
       "INSERT INTO cabinet_dealz.cabinet_aliases (cabinetId, alias)",
       "SELECT c.id, a.alias FROM (",
       "\n  UNION ALL\n".join(f"  SELECT {q(a)} AS alias, {q(m)} AS masterCode" for a, m in pairs) + "\n) a",
       "JOIN cabinet_dealz.cabinets c ON c.masterCode = a.masterCode",
       "WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinet_aliases x WHERE x.alias = a.alias);", ""]
 b += 1
-L += [f"-- Block {b}: Tom-confirmed aliases on EXISTING masters (SP09 -> SPB9, BWBKT18 -> BWB18, 2DB33 -> B33). Skipped if the alias already exists or the master is missing.",
+L += [f"-- Block {b}: Tom-confirmed aliases on EXISTING masters (SP09 -> SPB9 spice pull-out, BWBKT18 -> BWB18). Skipped if the alias already exists or the master is missing.",
       "INSERT INTO cabinet_dealz.cabinet_aliases (cabinetId, alias)",
       "SELECT c.id, a.alias FROM (",
       "\n  UNION ALL\n".join(f"  SELECT {q(k)} AS alias, {q(v)} AS masterCode" for k, v in ALIASES_FOR_MAPPED.items()) + "\n) a",
       "JOIN cabinet_dealz.cabinets c ON c.masterCode = a.masterCode",
       "WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinet_aliases x WHERE x.alias = a.alias);", ""]
+# medium-confidence mappings onto existing shared masters -> 'review' (stays public), never overwrite an existing flag
+review_rows = [(s, v) for s, v in MAP.items() if v[2] == "medium"]
+for s, (m, mt, cf, why) in review_rows:
+    b += 1
+    rsn = reason(f"DL SKU {s} was mapped to this existing master at MEDIUM confidence ({mt}). Please confirm the mapping.", f"master {m}", f"{src_of(s, 'mapped')}; {why}", "Confirm DL's item is the same as this master (type, size, construction), or tell us the right master.")
+    L += [f"-- Block {b}: CABINET CONFLICT (review, stays public) on existing master {m} for medium-confidence DL SKU {s}. Does not overwrite an existing flag.",
+          f"UPDATE cabinet_dealz.cabinets SET conflictStatus = 'review', conflictReason = {q(rsn)}, conflictedAt = NOW()",
+          f"WHERE masterCode = {q(m)} AND conflictStatus = 'none';", ""]
 sku_counts = {}
 glass_rows = []
 for sc, nm, col in STY:
@@ -270,57 +350,69 @@ for sc, nm, col in STY:
     for s, m in sku_master.items():
         if not PRICE[s][col].strip(): continue
         price, dsku, cmt = sku_price(s, col)
-        rows.append(f"  SELECT {q(s)} AS dlSku, {q(dsku)} AS distSku, {q(m)} AS masterCode, {price} AS listPrice /* {cmt} */")
+        rows.append(f"  SELECT {q(s)} AS dlSku, {q(dsku)} AS distSku, {q(m)} AS masterCode, {price} AS listPrice, {1 if s in NO_CT else 0} AS noCt /* {cmt} */")
         if s in GLASS_PLAIN:
             base = GLASS_PLAIN[s]
             glass_rows.append([s, m, base, sc, col, PRICE[base][col], PRICE[s][col], price, f"{PL} rows {base} and {s}"])
     sku_counts[sc] = len(rows)
-    L += [f"-- Block {b}: distributor_skus for door style {sc} using the {col.upper()} price column ({len(rows)} SKUs; pending, unpublished). Glass rows = cabinet + door price.",
+    L += [f"-- Block {b}: distributor_skus for door style {sc} using the {col.upper()} price column ({len(rows)} SKUs; pending, unpublished). Glass rows = cabinet + door price. noCt = accessory (constructionType NULL).",
       "INSERT INTO cabinet_dealz.distributor_skus (cabinetId, distributorId, styleId, platformSku, distributorSku, constructionType, listPrice, isPublished, status, supplierCabinetName)",
-      f"SELECT c.id, ds.distributorId, ds.id, CONCAT(m.dlSku, '-{nm}-DL'), m.distSku, 'framed', m.listPrice, FALSE, 'pending', m.distSku",
+      f"SELECT c.id, ds.distributorId, ds.id, CONCAT(m.dlSku, '-{nm}-DL'), m.distSku, CASE WHEN m.noCt = 1 THEN NULL ELSE 'framed' END, m.listPrice, FALSE, 'pending', m.distSku",
       "FROM (\n" + "\n  UNION ALL\n".join(rows) + "\n) m",
       "JOIN cabinet_dealz.cabinets c ON c.masterCode = m.masterCode",
       f"JOIN cabinet_dealz.door_styles ds ON ds.styleCode = '{sc}' AND ds.distributorId = (SELECT id FROM cabinet_dealz.distributors WHERE code = 'DL')",
       f"WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.distributor_skus x WHERE x.platformSku = CONCAT(m.dlSku, '-{nm}-DL'))",
-      "  AND (m.dlSku = '2DB33' /* intentional 2nd DL SKU on B33 (Tom) */ OR NOT EXISTS (SELECT 1 FROM cabinet_dealz.distributor_skus y WHERE y.distributorId = ds.distributorId AND y.styleId = ds.id AND y.cabinetId = c.id));", ""]
-newlist = ', '.join(q(c) for c in NEW)
+      "  AND NOT EXISTS (SELECT 1 FROM cabinet_dealz.distributor_skus y WHERE y.distributorId = ds.distributorId AND y.styleId = ds.id AND y.cabinetId = c.id);", ""]
+codes = ', '.join(q(r["code"]) for r in ALLNEW)
+nflag = sum(1 for r in ALLNEW if r["conflict"])
 b += 1
-L += [f"-- Block {b}: read-only check. Expect new_masters = {len(NEW)} (0 if re-run), new_masters_hidden = {len(NEW)}, new_published = 0.",
+L += [f"-- Block {b}: read-only check. Expect (first run) new_masters = {len(ALLNEW)}, new_masters_hidden = {len(ALLNEW)}, flagged_conflict = {nflag}, dl_published_new = 0.",
  "SELECT",
- f"  (SELECT COUNT(*) FROM cabinet_dealz.cabinets WHERE masterCode IN ({newlist})) AS new_masters,",
- f"  (SELECT COUNT(*) FROM cabinet_dealz.cabinets WHERE masterCode IN ({newlist}) AND isActive = 0 AND showInDesigner = 0 AND showInCatalog = 0 AND showIn2020 = 0) AS new_masters_hidden,",
+ f"  (SELECT COUNT(*) FROM cabinet_dealz.cabinets WHERE masterCode IN ({codes})) AS new_masters,",
+ f"  (SELECT COUNT(*) FROM cabinet_dealz.cabinets WHERE masterCode IN ({codes}) AND isActive = 0 AND showInDesigner = 0 AND showInCatalog = 0 AND showIn2020 = 0) AS new_masters_hidden,",
+ f"  (SELECT COUNT(*) FROM cabinet_dealz.cabinets WHERE masterCode IN ({codes}) AND conflictStatus = 'conflict') AS flagged_conflict,",
  "  (SELECT COUNT(*) FROM cabinet_dealz.distributor_skus WHERE platformSku LIKE '%-DL' AND isPublished = 0 AND status = 'pending') AS dl_pending_skus,",
  "  (SELECT COUNT(*) FROM cabinet_dealz.distributor_skus WHERE platformSku LIKE '%-DL' AND isPublished = 1) AS dl_published_skus;", "",
- "-- Read-only: confirm how existing masters are flagged. RH36 is created isNotCabinet = FALSE like the RHF hood fronts (cabinets). FLAT PANEL 28X96 is created isNotCabinet = TRUE like the filler/panel accessories: if FPL3796 / SPW / IS3696 show isNotCabinet = 0 here, change it before running.",
- "SELECT masterCode, category, subCategory, isNotCabinet, isActive, showInDesigner FROM cabinet_dealz.cabinets WHERE masterCode IN ('RHF30', 'RHF36', 'RH36', 'FPL3796', 'SPW', 'IS3696', 'FPV4296', 'WSV30', 'SPB9', 'BWB18', 'B33');", ""]
+ "-- Read-only: confirm how existing masters are flagged. RH36 is created isNotCabinet = FALSE like the RHF hood fronts (cabinets). FLAT PANEL 28X96 and the report-only items are isNotCabinet = TRUE like the filler/panel accessories: if FPL3796 / SPW / IS3696 show isNotCabinet = 0 here, change them before running.",
+ "SELECT masterCode, category, subCategory, isNotCabinet, isActive, showInDesigner, conflictStatus FROM cabinet_dealz.cabinets WHERE masterCode IN ('RHF30', 'RHF36', 'RH36', 'FPL3796', 'SPW', 'IS3696', 'FPV4296', 'WSV30', 'SPB9', 'BWB18', 'B33', '2DB33');", ""]
 open("dl_unmatched_masters_tidb.sql", "w").write("\n".join(L))
 with open("dl_unmatched_glass_pricing.csv", "w", newline="") as f:
     w = csv.writer(f, lineterminator="\n")
     w.writerow(["dlDoorSku", "masterCode", "plainCabinetSku", "doorStyle", "priceTier", "plainCabinetPrice", "glassDoorPrice", "skuListPrice", "sourceRows"])
     w.writerows(glass_rows)
+with open("dl_unmatched_conflicts.csv", "w", newline="") as f:
+    w = csv.writer(f, lineterminator="\n")
+    w.writerow(["masterCode", "conflictStatus", "kind", "dlSku", "reason"])
+    for r in ALLNEW:
+        if r["conflict"]: w.writerow([r["code"], "conflict", r["kind"], NEW_DL.get(r["code"], r["code"]), r["conflict"].replace("\n", " | ")])
+    for s, (m, mt, cf, why) in review_rows:
+        w.writerow([m, "review (stays public)", "existing master, medium-confidence mapping", s, f"DL SKU {s} mapped at MEDIUM confidence ({mt}): {why}"])
 
 # ---- per-value specs for the new masters ----------------------------------------------------------------------
 with open("dl_unmatched_specs.csv", "w", newline="") as f:
     w = csv.writer(f, lineterminator="\n")
     w.writerow(["masterCode", "field", "value", "source", "note"])
-    for code, (cat, sub, place, corner, why) in NEW.items():
-        x = NEW_X.get(code); s = SPEC.get(code); p = PRICE.get(code)
-        if x:
-            src = x["src"]
-            vals = [("width_in", x["W"]), ("height_in", x["H"]), ("depth_in", x["D"]), ("doors", x["doors"]), ("drawers", x["drawers"]), ("shelves", "")]
+    for r in ALLNEW:
+        code = r["code"]; x = NEW_X.get(code); s = SPEC.get(code); p = PRICE.get(code)
+        src = r["src"]
+        if x or code in PH:
+            vals = [("width_in", r["W"]), ("height_in", r["H"]), ("depth_in", r["D"]), ("doors", r["doors"]), ("drawers", r["drawers"]), ("shelves", "")]
         else:
-            src = f'{SB} p.{s["specBookPage"]}' if s else f"{PL} row {code}"
             vals = [("width_in", s["widthIn"] if s else p["width"]), ("height_in", s["heightIn"] if s else p["height"]), ("depth_in", s["depthIn"] if s else p["depth"]),
                     ("doors", s["doors"] if s else ""), ("drawers", s["drawers"] if s else ""), ("shelves", s["shelves"] if s else "")]
         if code.startswith("W12") and code.endswith("GD"):
             vals[5] = ("shelves", SPEC[code[:5]]["shelves"])
+        if code in SPEC and code not in PH and not x:
+            vals[5] = ("shelves", SPEC[code]["shelves"])
         for k, v in vals:
-            w.writerow([code, k, v if v not in ("", None) else "NULL", src if v not in ("", None) else "not found", "" if v not in ("", None) else "not in any source: left NULL"])
+            ok = v not in ("", None)
+            w.writerow([code, k, f"{v:g}" if isinstance(v, float) else (v if ok else "NULL"), src if ok else "not found", "" if ok else "not in any source: left NULL"])
         for k in ("door_sizes", "drawer_sizes", "construction", "materials", "hardware", "finish", "package_length", "package_width", "package_height", "package_weight_lb"):
             w.writerow([code, k, "NULL", "not found", "not in the spec book or price list" + ("; weight/cube rule: DL-written first, then master, then similar SKU/research (not implemented, held for Tom)" if k.startswith("package") else "")])
         w.writerow([code, "photo", "NULL", "none", "photo source order: master/reference image first (none exists for a new master), then DL's spec book image; not extracted or uploaded"])
-        w.writerow([code, "category/subCategory/placement", f"{cat} / {sub} / {place}", "classification (mine)", why])
-        if x and x["specNotes"]: w.writerow([code, "specNotes", x["specNotes"], "Tom Oct 31, 2026", ""])
+        w.writerow([code, "category/subCategory/placement", f"{r['cat']} / {r['sub']} / {r['place']}", "classification (mine)", r["why"]])
+        if r["notes"]: w.writerow([code, "specNotes", r["notes"], "Tom Oct 31, 2026", ""])
+        if r["conflict"]: w.writerow([code, "cabinet_conflict", "conflict", "Tom standing rule Oct 31", r["conflict"].replace("\n", " | ")])
 from collections import Counter
 cnt = Counter(r[1] for r in report)
-print(dict(cnt), "blocks", b, "sku rows per style", sku_counts)
+print(dict(cnt), "hidden masters", len(ALLNEW), "conflict-flagged masters", nflag, "review flags", len(review_rows), "blocks", b, "sku rows per style", sku_counts)

@@ -4,132 +4,564 @@
 -- New master cabinets are HIDDEN: isActive = FALSE, showInDesigner = FALSE, showInCatalog = FALSE, showIn2020 = FALSE. Nothing here makes any master visible.
 -- DL is live and its existing SKUs are published. Every distributor_skus row below is isPublished = FALSE, status = 'pending' and stays that way until Tom publishes it.
 -- Glass items (W####GD, DCW####GD, new W12##GD): listPrice = plain cabinet price + glass door price per tier, NEVER the door-only price. Both source rows are in each row's comment and in dl_unmatched_glass_pricing.csv.
+-- CABINET CONFLICT (Tom's standing rule, Oct 31): anything unsure is flagged with the EXISTING mechanism (cabinets.conflictStatus / conflictReason / conflictedAt, the same fields catalog.setConflict writes).
+--   Hidden new masters that are unsure and every report-only item (own hidden master + pending SKU) are inserted with conflictStatus = 'conflict'.
+--   Existing shared masters that received a MEDIUM-confidence DL mapping get conflictStatus = 'review' (stays public), only WHERE conflictStatus = 'none' so an existing flag is never overwritten.
 -- BEFORE running: confirm in the live database that none of the NEW master codes already exists under another code, and that each MAPPED master exists.
--- Not covered here (see findings_unmatched.md): accessories / trim, SP2436 (no spec-book entry), QUARTER DOOR (pending Rich).
 
--- Block 1: NEW hidden master W1230GD (Tom approved Oct 31: no 12-wide W12{30,36,42}GD master exists (12-wide glass cabinets exist only at 12 high). Priced as plain W1230 + glass door WG1230. If a master already exists under this code the NOT EXISTS guard skips the insert and the SKUs attach to it). Source: DL Specification Book v.11/14/23 W1230 p.4 (1 door, 2 shelves) + WG1230 p.16 (glass door 11-11/16 x 29.5 x 3/4); DL Price List P5 (v1_13_26). Any value not in the source is NULL.
-INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet, specNotes)
-SELECT 'W1230GD', 'Wall cabinet Single Glass door - 12"W x 30"H x 12"D, 1 door, 2 shelves (DL W1230 cabinet + WG1230 glass door)', 'DL spec book v.11/14/23 (W1230 p.4; WG1230 p.16)', 'Wall', 'Wall Cabinet With Glass Door', 12, 30, 12, 'wall', 1, NULL, FALSE, NULL, FALSE, FALSE, FALSE, FALSE, FALSE, NULL
+-- Block 1: NEW hidden master 2DB33 (Tom FINAL Oct 31 11:11 CT: 2DB33 is a UNIQUE item, NOT B33 (the earlier B33 alias is reversed and removed). DL spec book: 33in two-drawer base, 0 doors, 2 drawers. Priced at DL's own 2DB33 price-list prices). Source: DL Specification Book v.11/14/23 p.2. Any value not in the source is NULL.
+INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet, specNotes, conflictStatus, conflictReason, conflictedAt)
+SELECT '2DB33', 'Drawer Base Cabinet - 33"W x 34.5"H x 24"D, 0 door(s), 2 drawer(s), 0 shelf(ves)', 'DL Cabinetry spec book v.11/14/23', 'Base', 'Drawer Base', 33, 34.5, 24, 'base', 0, 2, FALSE, NULL, FALSE, FALSE, FALSE, FALSE, FALSE, NULL, 'none', NULL, NULL
+FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinets WHERE masterCode = '2DB33')
+  AND NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinet_aliases WHERE alias = '2DB33');
+
+-- Block 2: NEW hidden master W1230GD (Tom approved Oct 31: no 12-wide W12{30,36,42}GD master exists (12-wide glass cabinets exist only at 12 high). Priced as plain W1230 + glass door WG1230. If a master already exists under this code the NOT EXISTS guard skips the insert and the SKUs attach to it). Source: DL Specification Book v.11/14/23 W1230 p.4 (1 door, 2 shelves) + WG1230 p.16 (glass door 11-11/16 x 29.5 x 3/4); DL Price List P5 (v1_13_26). Any value not in the source is NULL.
+INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet, specNotes, conflictStatus, conflictReason, conflictedAt)
+SELECT 'W1230GD', 'Wall cabinet Single Glass door - 12"W x 30"H x 12"D, 1 door, 2 shelves (DL W1230 cabinet + WG1230 glass door)', 'DL spec book v.11/14/23 (W1230 p.4; WG1230 p.16)', 'Wall', 'Wall Cabinet With Glass Door', 12, 30, 12, 'wall', 1, NULL, FALSE, NULL, FALSE, FALSE, FALSE, FALSE, FALSE, NULL, 'none', NULL, NULL
 FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinets WHERE masterCode = 'W1230GD')
   AND NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinet_aliases WHERE alias = 'W1230GD');
 
--- Block 2: NEW hidden master W1236GD (Tom approved Oct 31 (see W1230GD). Priced as W1236 + WG1236). Source: DL Specification Book v.11/14/23 W1236 p.4 (1 door, 2 shelves) + WG1236 p.16 (glass door 11-11/16 x 35.5 x 3/4); DL Price List P5 (v1_13_26). Any value not in the source is NULL.
-INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet, specNotes)
-SELECT 'W1236GD', 'Wall cabinet Single Glass door - 12"W x 36"H x 12"D, 1 door, 2 shelves (DL W1236 cabinet + WG1236 glass door)', 'DL spec book v.11/14/23 (W1236 p.4; WG1236 p.16)', 'Wall', 'Wall Cabinet With Glass Door', 12, 36, 12, 'wall', 1, NULL, FALSE, NULL, FALSE, FALSE, FALSE, FALSE, FALSE, NULL
+-- Block 3: NEW hidden master W1236GD (Tom approved Oct 31 (see W1230GD). Priced as W1236 + WG1236). Source: DL Specification Book v.11/14/23 W1236 p.4 (1 door, 2 shelves) + WG1236 p.16 (glass door 11-11/16 x 35.5 x 3/4); DL Price List P5 (v1_13_26). Any value not in the source is NULL.
+INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet, specNotes, conflictStatus, conflictReason, conflictedAt)
+SELECT 'W1236GD', 'Wall cabinet Single Glass door - 12"W x 36"H x 12"D, 1 door, 2 shelves (DL W1236 cabinet + WG1236 glass door)', 'DL spec book v.11/14/23 (W1236 p.4; WG1236 p.16)', 'Wall', 'Wall Cabinet With Glass Door', 12, 36, 12, 'wall', 1, NULL, FALSE, NULL, FALSE, FALSE, FALSE, FALSE, FALSE, NULL, 'none', NULL, NULL
 FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinets WHERE masterCode = 'W1236GD')
   AND NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinet_aliases WHERE alias = 'W1236GD');
 
--- Block 3: NEW hidden master W1242GD (Tom approved Oct 31 (see W1230GD). Priced as W1242 + WG1242). Source: DL Specification Book v.11/14/23 W1242 p.4 (1 door, 3 shelves) + WG1242 p.16 (glass door 11-11/16 x 41.5 x 3/4); DL Price List P5 (v1_13_26). Any value not in the source is NULL.
-INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet, specNotes)
-SELECT 'W1242GD', 'Wall cabinet Single Glass door - 12"W x 42"H x 12"D, 1 door, 3 shelves (DL W1242 cabinet + WG1242 glass door)', 'DL spec book v.11/14/23 (W1242 p.4; WG1242 p.16)', 'Wall', 'Wall Cabinet With Glass Door', 12, 42, 12, 'wall', 1, NULL, FALSE, NULL, FALSE, FALSE, FALSE, FALSE, FALSE, NULL
+-- Block 4: NEW hidden master W1242GD (Tom approved Oct 31 (see W1230GD). Priced as W1242 + WG1242). Source: DL Specification Book v.11/14/23 W1242 p.4 (1 door, 3 shelves) + WG1242 p.16 (glass door 11-11/16 x 41.5 x 3/4); DL Price List P5 (v1_13_26). Any value not in the source is NULL.
+INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet, specNotes, conflictStatus, conflictReason, conflictedAt)
+SELECT 'W1242GD', 'Wall cabinet Single Glass door - 12"W x 42"H x 12"D, 1 door, 3 shelves (DL W1242 cabinet + WG1242 glass door)', 'DL spec book v.11/14/23 (W1242 p.4; WG1242 p.16)', 'Wall', 'Wall Cabinet With Glass Door', 12, 42, 12, 'wall', 1, NULL, FALSE, NULL, FALSE, FALSE, FALSE, FALSE, FALSE, NULL, 'none', NULL, NULL
 FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinets WHERE masterCode = 'W1242GD')
   AND NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinet_aliases WHERE alias = 'W1242GD');
 
--- Block 4: NEW hidden master FLAT PANEL 28X96 (Tom Oct 31: 28 x 96 flat panel CUT DOWN ON THE JOB SITE. No existing panel master matches (nearest 3/4 in panels FPL2496 / FPL3796 are 96 x 24-3/8 / 37-3/8; the spec book lists FLAT PANEL 27X96, 3/4 thick). Modeled like the existing panels / filler accessories). Source: DL Price List P5 (v1_13_26) row FLAT PANEL 28X96 (28 x 96, core $64 / slim $64 / luxe $127); thickness 3/4 from DL Specification Book v.11/14/23 p.13 FLAT PANEL 27X96 (the 28 wide size itself is not in the spec book; finish is not stated there). Tom Oct 31: 28 x 96, cut down on the job site. Any value not in the source is NULL.
-INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet, specNotes)
-SELECT 'FLAT PANEL 28X96', 'Flat Panel - 28"W x 96"H x 3/4" thick. Field cut: panel is cut to fit on site by installer.', 'DL Price List P5 v1_13_26 (28 x 96) + spec book FLAT PANEL 27X96 thickness', 'Panels', 'Flat Panel', 28, 96, 0.75, 'accessory', 0, 0, FALSE, NULL, FALSE, FALSE, FALSE, FALSE, TRUE, 'Field cut — panel is cut to fit on site by installer.'
+-- Block 5: NEW hidden master FLAT PANEL 28X96 (Tom Oct 31: 28 x 96 flat panel CUT DOWN ON THE JOB SITE. No existing panel master matches (nearest 3/4 in panels FPL2496 / FPL3796 are 96 x 24-3/8 / 37-3/8; the spec book lists FLAT PANEL 27X96, 3/4 thick). Modeled like the existing panels / filler accessories). Source: DL Price List P5 (v1_13_26) row FLAT PANEL 28X96 (28 x 96, core $64 / slim $64 / luxe $127); thickness 3/4 from DL Specification Book v.11/14/23 p.13 FLAT PANEL 27X96 (the 28 wide size itself is not in the spec book; finish is not stated there). Tom Oct 31: 28 x 96, cut down on the job site. Any value not in the source is NULL. CONFLICT entry added.
+INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet, specNotes, conflictStatus, conflictReason, conflictedAt)
+SELECT 'FLAT PANEL 28X96', 'Flat Panel - 28"W x 96"H x 3/4" thick. Field cut: panel is cut to fit on site by installer.', 'DL Price List P5 v1_13_26 (28 x 96) + spec book FLAT PANEL 27X96 thickness', 'Panels', 'Flat Panel', 28, 96, 0.75, 'accessory', 0, 0, FALSE, NULL, FALSE, FALSE, FALSE, FALSE, TRUE, 'Field cut — panel is cut to fit on site by installer.', 'conflict', 'Issue: 28in width is from the price list; the spec book lists only FLAT PANEL 27X96 (3/4 thick); thickness is borrowed from that row, finish unknown. Field cut on site.
+Current value: Flat Panel - 28"W x 96"H x 3/4" thick. Field cut: panel is cut to fit on site by installer.
+Source: DL Price List P5 (v1_13_26) row FLAT PANEL 28X96 (28 x 96, core $64 / slim $64 / luxe $127); thickness 3/4 from DL Specification Book v.11/14/23 p.13 FLAT PANEL 27X96 (the 28 wide size itself is not in the spec book; finish is not stated there). Tom Oct 31: 28 x 96, cut down on the job site
+Needed: Confirm thickness, finish, and 28 vs 27 width with DL (Rich).
+Resolved fields: description, category, subCategory, width, height, depth', NOW()
 FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinets WHERE masterCode = 'FLAT PANEL 28X96')
   AND NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinet_aliases WHERE alias = 'FLAT PANEL 28X96');
 
--- Block 5: NEW hidden master FDB09 (FDB family maps to B##FH but the master catalog has nothing below B12FH, and FDB09 is not in the spec book (smallest FDB listed is FDB18); size is from the price list only). Source: DL Price List P5 (v1_13_26) row FDB09 only. Any value not in the source is NULL.
-INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet, specNotes)
-SELECT 'FDB09', '9" Full Height Door Base Cabinet (size from DL Price List P5 (v1_13_26); door count and shelves not found in any source)', 'DL Price List P5 v1_13_26', 'Base', 'Full Height', 9, 34.5, 24, 'base', NULL, NULL, FALSE, NULL, FALSE, FALSE, FALSE, FALSE, FALSE, NULL
+-- Block 6: NEW hidden master FDB09 (FDB family maps to B##FH but the master catalog has nothing below B12FH, and FDB09 is not in the spec book (smallest FDB listed is FDB18); size is from the price list only). Source: DL Price List P5 (v1_13_26) row FDB09 only. Any value not in the source is NULL. CONFLICT entry added.
+INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet, specNotes, conflictStatus, conflictReason, conflictedAt)
+SELECT 'FDB09', '9" Full Height Door Base Cabinet (size from DL Price List P5 (v1_13_26); door count and shelves not found in any source)', 'DL Price List P5 v1_13_26', 'Base', 'Full Height', 9, 34.5, 24, 'base', NULL, NULL, FALSE, NULL, FALSE, FALSE, FALSE, FALSE, FALSE, NULL, 'conflict', 'Issue: Size from the price list only; FDB09 is not in the DL spec book; door count and shelves unknown.
+Current value: 9" Full Height Door Base Cabinet (size from DL Price List P5 (v1_13_26); door count and shelves not found in any source)
+Source: DL Price List P5 (v1_13_26) row FDB09 only
+Needed: Confirm width/depth/door count with DL (Rich).
+Resolved fields: description, category, subCategory, width, height, depth', NOW()
 FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinets WHERE masterCode = 'FDB09')
   AND NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinet_aliases WHERE alias = 'FDB09');
 
--- Block 6: NEW hidden master W2118 (no W2118 master (only the glass W2118GD)). Source: DL Specification Book v.11/14/23 p.6. Any value not in the source is NULL.
-INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet, specNotes)
-SELECT 'W2118', 'Short Wall Cabinet - 21"W x 18"H x 12"D, 1 door(s), 0 shelf(ves)', 'DL Cabinetry spec book v.11/14/23', 'Wall', 'Wall Cabinet', 21, 18, 12, 'wall', 1, NULL, FALSE, NULL, FALSE, FALSE, FALSE, FALSE, FALSE, NULL
+-- Block 7: NEW hidden master W2118 (no W2118 master (only the glass W2118GD)). Source: DL Specification Book v.11/14/23 p.6. Any value not in the source is NULL.
+INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet, specNotes, conflictStatus, conflictReason, conflictedAt)
+SELECT 'W2118', 'Short Wall Cabinet - 21"W x 18"H x 12"D, 1 door(s), 0 shelf(ves)', 'DL Cabinetry spec book v.11/14/23', 'Wall', 'Wall Cabinet', 21, 18, 12, 'wall', 1, NULL, FALSE, NULL, FALSE, FALSE, FALSE, FALSE, FALSE, NULL, 'none', NULL, NULL
 FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinets WHERE masterCode = 'W2118')
   AND NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinet_aliases WHERE alias = 'W2118');
 
--- Block 7: NEW hidden master W2412 (no W2412 master (only the glass W2412GD)). Source: DL Specification Book v.11/14/23 p.6. Any value not in the source is NULL.
-INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet, specNotes)
-SELECT 'W2412', 'Short Wall Cabinet - 24"W x 12"H x 12"D, 2 door(s), 0 shelf(ves)', 'DL Cabinetry spec book v.11/14/23', 'Wall', 'Wall Bridge Cabinet', 24, 12, 12, 'wall', 2, NULL, FALSE, NULL, FALSE, FALSE, FALSE, FALSE, FALSE, NULL
+-- Block 8: NEW hidden master W2412 (no W2412 master (only the glass W2412GD)). Source: DL Specification Book v.11/14/23 p.6. Any value not in the source is NULL.
+INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet, specNotes, conflictStatus, conflictReason, conflictedAt)
+SELECT 'W2412', 'Short Wall Cabinet - 24"W x 12"H x 12"D, 2 door(s), 0 shelf(ves)', 'DL Cabinetry spec book v.11/14/23', 'Wall', 'Wall Bridge Cabinet', 24, 12, 12, 'wall', 2, NULL, FALSE, NULL, FALSE, FALSE, FALSE, FALSE, FALSE, NULL, 'none', NULL, NULL
 FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinets WHERE masterCode = 'W2412')
   AND NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinet_aliases WHERE alias = 'W2412');
 
--- Block 8: NEW hidden master W2415 (no W2415 master (only the glass W2415GD)). Source: DL Specification Book v.11/14/23 p.6. Any value not in the source is NULL.
-INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet, specNotes)
-SELECT 'W2415', 'Short Wall Cabinet - 24"W x 15"H x 12"D, 2 door(s), 0 shelf(ves)', 'DL Cabinetry spec book v.11/14/23', 'Wall', 'Wall Bridge Cabinet', 24, 15, 12, 'wall', 2, NULL, FALSE, NULL, FALSE, FALSE, FALSE, FALSE, FALSE, NULL
+-- Block 9: NEW hidden master W2415 (no W2415 master (only the glass W2415GD)). Source: DL Specification Book v.11/14/23 p.6. Any value not in the source is NULL.
+INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet, specNotes, conflictStatus, conflictReason, conflictedAt)
+SELECT 'W2415', 'Short Wall Cabinet - 24"W x 15"H x 12"D, 2 door(s), 0 shelf(ves)', 'DL Cabinetry spec book v.11/14/23', 'Wall', 'Wall Bridge Cabinet', 24, 15, 12, 'wall', 2, NULL, FALSE, NULL, FALSE, FALSE, FALSE, FALSE, FALSE, NULL, 'none', NULL, NULL
 FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinets WHERE masterCode = 'W2415')
   AND NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinet_aliases WHERE alias = 'W2415');
 
--- Block 9: NEW hidden master W2424 (no 24x24 wall master (bridge masters start at 30W)). Source: DL Specification Book v.11/14/23 p.6. Any value not in the source is NULL.
-INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet, specNotes)
-SELECT 'W2424', 'Short Wall Cabinet - 24"W x 24"H x 12"D, 2 door(s), 1 shelf(ves)', 'DL Cabinetry spec book v.11/14/23', 'Wall', 'Wall Bridge Cabinet', 24, 24, 12, 'wall', 2, NULL, FALSE, NULL, FALSE, FALSE, FALSE, FALSE, FALSE, NULL
+-- Block 10: NEW hidden master W2424 (no 24x24 wall master (bridge masters start at 30W)). Source: DL Specification Book v.11/14/23 p.6. Any value not in the source is NULL.
+INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet, specNotes, conflictStatus, conflictReason, conflictedAt)
+SELECT 'W2424', 'Short Wall Cabinet - 24"W x 24"H x 12"D, 2 door(s), 1 shelf(ves)', 'DL Cabinetry spec book v.11/14/23', 'Wall', 'Wall Bridge Cabinet', 24, 24, 12, 'wall', 2, NULL, FALSE, NULL, FALSE, FALSE, FALSE, FALSE, FALSE, NULL, 'none', NULL, NULL
 FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinets WHERE masterCode = 'W2424')
   AND NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinet_aliases WHERE alias = 'W2424');
 
--- Block 10: NEW hidden master W2718 (no W2718 master (only the glass W2718GD)). Source: DL Specification Book v.11/14/23 p.6. Any value not in the source is NULL.
-INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet, specNotes)
-SELECT 'W2718', 'Short Wall Cabinet - 27"W x 18"H x 12"D, 2 door(s), 0 shelf(ves)', 'DL Cabinetry spec book v.11/14/23', 'Wall', 'Wall Bridge Cabinet', 27, 18, 12, 'wall', 2, NULL, FALSE, NULL, FALSE, FALSE, FALSE, FALSE, FALSE, NULL
+-- Block 11: NEW hidden master W2718 (no W2718 master (only the glass W2718GD)). Source: DL Specification Book v.11/14/23 p.6. Any value not in the source is NULL.
+INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet, specNotes, conflictStatus, conflictReason, conflictedAt)
+SELECT 'W2718', 'Short Wall Cabinet - 27"W x 18"H x 12"D, 2 door(s), 0 shelf(ves)', 'DL Cabinetry spec book v.11/14/23', 'Wall', 'Wall Bridge Cabinet', 27, 18, 12, 'wall', 2, NULL, FALSE, NULL, FALSE, FALSE, FALSE, FALSE, FALSE, NULL, 'none', NULL, NULL
 FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinets WHERE masterCode = 'W2718')
   AND NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinet_aliases WHERE alias = 'W2718');
 
--- Block 11: NEW hidden master WDC241812 (diagonal corner wall masters exist only at 30/36/42 high). Source: DL Specification Book v.11/14/23 p.6. Any value not in the source is NULL.
-INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet, specNotes)
-SELECT 'WDC241812', 'Short Corner Wall Cabinet - 24"W x 18"H x 12"D, 1 door(s), 0 shelf(ves)', 'DL Cabinetry spec book v.11/14/23', 'Wall', 'Diagonal Corner Cabinet', 24, 18, 12, 'wall', 1, NULL, TRUE, 'diagonal', FALSE, FALSE, FALSE, FALSE, FALSE, NULL
+-- Block 12: NEW hidden master WDC241812 (diagonal corner wall masters exist only at 30/36/42 high). Source: DL Specification Book v.11/14/23 p.6. Any value not in the source is NULL.
+INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet, specNotes, conflictStatus, conflictReason, conflictedAt)
+SELECT 'WDC241812', 'Short Corner Wall Cabinet - 24"W x 18"H x 12"D, 1 door(s), 0 shelf(ves)', 'DL Cabinetry spec book v.11/14/23', 'Wall', 'Diagonal Corner Cabinet', 24, 18, 12, 'wall', 1, NULL, TRUE, 'diagonal', FALSE, FALSE, FALSE, FALSE, FALSE, NULL, 'none', NULL, NULL
 FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinets WHERE masterCode = 'WDC241812')
   AND NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinet_aliases WHERE alias = 'WDC241812');
 
--- Block 12: NEW hidden master BBC33-9 (blind corner base masters start at BBC36; none at 33). Source: DL Specification Book v.11/14/23 p.3. Any value not in the source is NULL.
-INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet, specNotes)
-SELECT 'BBC33-9', 'Corner Base Cabinet - 33"W x 34.5"H x 24"D, 1 door(s), 1 drawer(s), 1 shelf(ves)', 'DL Cabinetry spec book v.11/14/23', 'Base', 'Blind Corner Base', 33, 34.5, 24, 'base', 1, 1, TRUE, 'blind-corner', FALSE, FALSE, FALSE, FALSE, FALSE, NULL
+-- Block 13: NEW hidden master BBC33-9 (blind corner base masters start at BBC36; none at 33). Source: DL Specification Book v.11/14/23 p.3. Any value not in the source is NULL.
+INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet, specNotes, conflictStatus, conflictReason, conflictedAt)
+SELECT 'BBC33-9', 'Corner Base Cabinet - 33"W x 34.5"H x 24"D, 1 door(s), 1 drawer(s), 1 shelf(ves)', 'DL Cabinetry spec book v.11/14/23', 'Base', 'Blind Corner Base', 33, 34.5, 24, 'base', 1, 1, TRUE, 'blind-corner', FALSE, FALSE, FALSE, FALSE, FALSE, NULL, 'none', NULL, NULL
 FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinets WHERE masterCode = 'BBC33-9')
   AND NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinet_aliases WHERE alias = 'BBC33-9');
 
--- Block 13: NEW hidden master BES09 (only BES12 (12in, 5 shelves, curved) exists; DL BES09 is 9in with 2 shelves). Source: DL Specification Book v.11/14/23 p.3. Any value not in the source is NULL.
-INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet, specNotes)
-SELECT 'BES09', 'Specialty Base Cabinet - 9"W x 34.5"H x 24"D, 0 door(s), 0 drawer(s), 2 shelf(ves)', 'DL Cabinetry spec book v.11/14/23', 'Base', 'Base End Cabinet', 9, 34.5, 24, 'base', 0, 0, FALSE, NULL, FALSE, FALSE, FALSE, FALSE, FALSE, NULL
+-- Block 14: NEW hidden master BES09 (only BES12 (12in, 5 shelves, curved) exists; DL BES09 is 9in with 2 shelves). Source: DL Specification Book v.11/14/23 p.3. Any value not in the source is NULL.
+INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet, specNotes, conflictStatus, conflictReason, conflictedAt)
+SELECT 'BES09', 'Specialty Base Cabinet - 9"W x 34.5"H x 24"D, 0 door(s), 0 drawer(s), 2 shelf(ves)', 'DL Cabinetry spec book v.11/14/23', 'Base', 'Base End Cabinet', 9, 34.5, 24, 'base', 0, 0, FALSE, NULL, FALSE, FALSE, FALSE, FALSE, FALSE, NULL, 'none', NULL, NULL
 FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinets WHERE masterCode = 'BES09')
   AND NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinet_aliases WHERE alias = 'BES09');
 
--- Block 14: NEW hidden master CL156012 (no linen cabinet master. Category 'Tall' is my classification (60in high)). Source: DL Specification Book v.11/14/23 p.10. Any value not in the source is NULL.
-INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet, specNotes)
-SELECT 'CL156012', 'Counter Linen Cabinet - 15"W x 60"H x 12"D, 1 door(s), 2 drawer(s), 3 shelf(ves)', 'DL Cabinetry spec book v.11/14/23', 'Tall', 'Counter Linen Cabinet', 15, 60, 12, 'tall', 1, 2, FALSE, NULL, FALSE, FALSE, FALSE, FALSE, FALSE, NULL
+-- Block 15: NEW hidden master CL156012 (no linen cabinet master. Category 'Tall' is my classification (60in high)). Source: DL Specification Book v.11/14/23 p.10. Any value not in the source is NULL. CONFLICT entry added.
+INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet, specNotes, conflictStatus, conflictReason, conflictedAt)
+SELECT 'CL156012', 'Counter Linen Cabinet - 15"W x 60"H x 12"D, 1 door(s), 2 drawer(s), 3 shelf(ves)', 'DL Cabinetry spec book v.11/14/23', 'Tall', 'Counter Linen Cabinet', 15, 60, 12, 'tall', 1, 2, FALSE, NULL, FALSE, FALSE, FALSE, FALSE, FALSE, NULL, 'conflict', 'Issue: Category ''Tall / Counter Linen Cabinet'' is my classification of a 15 x 60 x 12 unit.
+Current value: Counter Linen Cabinet - 15"W x 60"H x 12"D, 1 door(s), 2 drawer(s), 3 shelf(ves)
+Source: DL Specification Book v.11/14/23 p.10
+Needed: Confirm category and subCategory.
+Resolved fields: description, category, subCategory, width, height, depth', NOW()
 FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinets WHERE masterCode = 'CL156012')
   AND NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinet_aliases WHERE alias = 'CL156012');
 
--- Block 15: NEW hidden master DSK2421 (knee drawer masters differ in size (DKD30 30x5-1/4, VKD36 36x7); none at 24 x 7-1/2 x 21). Source: DL Specification Book v.11/14/23 p.17. Any value not in the source is NULL.
-INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet, specNotes)
-SELECT 'DSK2421', 'Knee Drawer - 24"W x 7.5"H x 21"D', 'DL Cabinetry spec book v.11/14/23', 'Base', 'Knee Drawer', 24, 7.5, 21, 'base', NULL, NULL, FALSE, NULL, FALSE, FALSE, FALSE, FALSE, FALSE, NULL
+-- Block 16: NEW hidden master DSK2421 (knee drawer masters differ in size (DKD30 30x5-1/4, VKD36 36x7); none at 24 x 7-1/2 x 21). Source: DL Specification Book v.11/14/23 p.17. Any value not in the source is NULL. CONFLICT entry added.
+INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet, specNotes, conflictStatus, conflictReason, conflictedAt)
+SELECT 'DSK2421', 'Knee Drawer - 24"W x 7.5"H x 21"D', 'DL Cabinetry spec book v.11/14/23', 'Base', 'Knee Drawer', 24, 7.5, 21, 'base', NULL, NULL, FALSE, NULL, FALSE, FALSE, FALSE, FALSE, FALSE, NULL, 'conflict', 'Issue: subCategory ''Knee Drawer'' is my classification; no existing master has this size.
+Current value: Knee Drawer - 24"W x 7.5"H x 21"D
+Source: DL Specification Book v.11/14/23 p.17
+Needed: Confirm subCategory.
+Resolved fields: description, category, subCategory, width, height, depth', NOW()
 FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinets WHERE masterCode = 'DSK2421')
   AND NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinet_aliases WHERE alias = 'DSK2421');
 
--- Block 16: NEW hidden master DSK3021 (DKD30 is 30 x 5-1/4 x 21 (height differs); none at 30 x 7-1/2 x 21). Source: DL Specification Book v.11/14/23 p.17. Any value not in the source is NULL.
-INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet, specNotes)
-SELECT 'DSK3021', 'Knee Drawer - 30"W x 7.5"H x 21"D', 'DL Cabinetry spec book v.11/14/23', 'Base', 'Knee Drawer', 30, 7.5, 21, 'base', NULL, NULL, FALSE, NULL, FALSE, FALSE, FALSE, FALSE, FALSE, NULL
+-- Block 17: NEW hidden master DSK3021 (DKD30 is 30 x 5-1/4 x 21 (height differs); none at 30 x 7-1/2 x 21). Source: DL Specification Book v.11/14/23 p.17. Any value not in the source is NULL. CONFLICT entry added.
+INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet, specNotes, conflictStatus, conflictReason, conflictedAt)
+SELECT 'DSK3021', 'Knee Drawer - 30"W x 7.5"H x 21"D', 'DL Cabinetry spec book v.11/14/23', 'Base', 'Knee Drawer', 30, 7.5, 21, 'base', NULL, NULL, FALSE, NULL, FALSE, FALSE, FALSE, FALSE, FALSE, NULL, 'conflict', 'Issue: subCategory ''Knee Drawer'' is my classification; DKD30 is 30 x 5-1/4 x 21 (different height).
+Current value: Knee Drawer - 30"W x 7.5"H x 21"D
+Source: DL Specification Book v.11/14/23 p.17
+Needed: Confirm subCategory and whether it duplicates DKD30.
+Resolved fields: description, category, subCategory, width, height, depth', NOW()
 FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinets WHERE masterCode = 'DSK3021')
   AND NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinet_aliases WHERE alias = 'DSK3021');
 
--- Block 17: NEW hidden master WEOS0930 (open end shelf masters are 6in wide (OE630/636/642); DL is 9in). Source: DL Specification Book v.11/14/23 p.7. Any value not in the source is NULL.
-INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet, specNotes)
-SELECT 'WEOS0930', 'Wall Shelve - 9"W x 30"H x 12"D, 0 door(s), 2 shelf(ves)', 'DL Cabinetry spec book v.11/14/23', 'Wall', 'Open Shelf', 9, 30, 12, 'wall', 0, NULL, FALSE, NULL, FALSE, FALSE, FALSE, FALSE, FALSE, NULL
+-- Block 18: NEW hidden master WEOS0930 (open end shelf masters are 6in wide (OE630/636/642); DL is 9in). Source: DL Specification Book v.11/14/23 p.7. Any value not in the source is NULL. CONFLICT entry added.
+INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet, specNotes, conflictStatus, conflictReason, conflictedAt)
+SELECT 'WEOS0930', 'Wall Shelve - 9"W x 30"H x 12"D, 0 door(s), 2 shelf(ves)', 'DL Cabinetry spec book v.11/14/23', 'Wall', 'Open Shelf', 9, 30, 12, 'wall', 0, NULL, FALSE, NULL, FALSE, FALSE, FALSE, FALSE, FALSE, NULL, 'conflict', 'Issue: subCategory ''Open Shelf'' is my classification; open end shelf masters are 6in wide, DL is 9in.
+Current value: Wall Shelve - 9"W x 30"H x 12"D, 0 door(s), 2 shelf(ves)
+Source: DL Specification Book v.11/14/23 p.7
+Needed: Confirm subCategory.
+Resolved fields: description, category, subCategory, width, height, depth', NOW()
 FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinets WHERE masterCode = 'WEOS0930')
   AND NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinet_aliases WHERE alias = 'WEOS0930');
 
--- Block 18: NEW hidden master WEOS0936 (open end shelf masters are 6in wide (OE630/636/642); DL is 9in). Source: DL Specification Book v.11/14/23 p.7. Any value not in the source is NULL.
-INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet, specNotes)
-SELECT 'WEOS0936', 'Wall Shelve - 9"W x 36"H x 12"D, 0 door(s), 2 shelf(ves)', 'DL Cabinetry spec book v.11/14/23', 'Wall', 'Open Shelf', 9, 36, 12, 'wall', 0, NULL, FALSE, NULL, FALSE, FALSE, FALSE, FALSE, FALSE, NULL
+-- Block 19: NEW hidden master WEOS0936 (open end shelf masters are 6in wide (OE630/636/642); DL is 9in). Source: DL Specification Book v.11/14/23 p.7. Any value not in the source is NULL. CONFLICT entry added.
+INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet, specNotes, conflictStatus, conflictReason, conflictedAt)
+SELECT 'WEOS0936', 'Wall Shelve - 9"W x 36"H x 12"D, 0 door(s), 2 shelf(ves)', 'DL Cabinetry spec book v.11/14/23', 'Wall', 'Open Shelf', 9, 36, 12, 'wall', 0, NULL, FALSE, NULL, FALSE, FALSE, FALSE, FALSE, FALSE, NULL, 'conflict', 'Issue: subCategory ''Open Shelf'' is my classification; open end shelf masters are 6in wide, DL is 9in.
+Current value: Wall Shelve - 9"W x 36"H x 12"D, 0 door(s), 2 shelf(ves)
+Source: DL Specification Book v.11/14/23 p.7
+Needed: Confirm subCategory.
+Resolved fields: description, category, subCategory, width, height, depth', NOW()
 FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinets WHERE masterCode = 'WEOS0936')
   AND NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinet_aliases WHERE alias = 'WEOS0936');
 
--- Block 19: NEW hidden master WEOS0942 (open end shelf masters are 6in wide (OE630/636/642); DL is 9in). Source: DL Specification Book v.11/14/23 p.7. Any value not in the source is NULL.
-INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet, specNotes)
-SELECT 'WEOS0942', 'Wall Shelve - 9"W x 42"H x 12"D, 0 door(s), 3 shelf(ves)', 'DL Cabinetry spec book v.11/14/23', 'Wall', 'Open Shelf', 9, 42, 12, 'wall', 0, NULL, FALSE, NULL, FALSE, FALSE, FALSE, FALSE, FALSE, NULL
+-- Block 20: NEW hidden master WEOS0942 (open end shelf masters are 6in wide (OE630/636/642); DL is 9in). Source: DL Specification Book v.11/14/23 p.7. Any value not in the source is NULL. CONFLICT entry added.
+INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet, specNotes, conflictStatus, conflictReason, conflictedAt)
+SELECT 'WEOS0942', 'Wall Shelve - 9"W x 42"H x 12"D, 0 door(s), 3 shelf(ves)', 'DL Cabinetry spec book v.11/14/23', 'Wall', 'Open Shelf', 9, 42, 12, 'wall', 0, NULL, FALSE, NULL, FALSE, FALSE, FALSE, FALSE, FALSE, NULL, 'conflict', 'Issue: subCategory ''Open Shelf'' is my classification; open end shelf masters are 6in wide, DL is 9in.
+Current value: Wall Shelve - 9"W x 42"H x 12"D, 0 door(s), 3 shelf(ves)
+Source: DL Specification Book v.11/14/23 p.7
+Needed: Confirm subCategory.
+Resolved fields: description, category, subCategory, width, height, depth', NOW()
 FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinets WHERE masterCode = 'WEOS0942')
   AND NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinet_aliases WHERE alias = 'WEOS0942');
 
--- Block 20: NEW hidden master RH36 (CABINET (isNotCabinet=FALSE), same as RHF30/RHF36. Compared to RHF36 per Tom (36 W x 23.5 H x 8 D): DL RH36 is 36 x 36 x 24 (spec book Range Hood Cover), so height (36 vs 23.5) and depth (24 vs 8) do NOT match; kept as a hidden new master, not aliased). Source: DL Specification Book v.11/14/23 p.7. Any value not in the source is NULL.
-INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet, specNotes)
-SELECT 'RH36', 'Range Hood Cover - 36"W x 36"H x 24"D, 0 door(s), 0 shelf(ves)', 'DL Cabinetry spec book v.11/14/23', 'Wall', 'Range Hood Front', 36, 36, 24, 'wall', 0, NULL, FALSE, NULL, FALSE, FALSE, FALSE, FALSE, FALSE, NULL
+-- Block 21: NEW hidden master RH36 (CABINET (isNotCabinet=FALSE), same as RHF30/RHF36. Compared to RHF36 per Tom (36 W x 23.5 H x 8 D): DL RH36 is 36 x 36 x 24 (spec book Range Hood Cover), so height (36 vs 23.5) and depth (24 vs 8) do NOT match; kept as a hidden new master, not aliased). Source: DL Specification Book v.11/14/23 p.7. Any value not in the source is NULL.
+INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet, specNotes, conflictStatus, conflictReason, conflictedAt)
+SELECT 'RH36', 'Range Hood Cover - 36"W x 36"H x 24"D, 0 door(s), 0 shelf(ves)', 'DL Cabinetry spec book v.11/14/23', 'Wall', 'Range Hood Front', 36, 36, 24, 'wall', 0, NULL, FALSE, NULL, FALSE, FALSE, FALSE, FALSE, FALSE, NULL, 'none', NULL, NULL
 FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinets WHERE masterCode = 'RH36')
   AND NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinet_aliases WHERE alias = 'RH36');
 
--- Block 21: aliases for every new master (the DL code is the alias; for W12##GD the alias WG12## points at the new glass cabinet)
+-- Block 22: FLAGGED hidden master (report-only item) WDD30 (Spec book 'Wall Decorative Door': 11-7/8 wide x 29-1/2/35-1/2/41-1/2 x 3/4 panels, not cabinets. Nearest masters WDEP30/36/42 are 11-1/2 x 29/35/41 (USCD) or 12-3/4 x 29/35/41 (SK): sizes differ, so not mapped. Propose new accessory masters WDD30/36/42). Source: DL Specification Book v.11/14/23 p.16; DL Price List P5 (v1_13_26) row WDD30 (core 48, slim 52, luxe 95). Any value not in the source is NULL. CONFLICT entry added.
+INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet, specNotes, conflictStatus, conflictReason, conflictedAt)
+SELECT 'WDD30', 'WDD30 (decorative door panel) - 11.875"W x 29.5"H x 0.75"D', 'DL Cabinetry spec book v.11/14/23', 'Panels', 'Panel', 11.875, 29.5, 0.75, 'accessory', NULL, NULL, FALSE, NULL, FALSE, FALSE, FALSE, FALSE, TRUE, NULL, 'conflict', 'Issue: Spec book ''Wall Decorative Door'': 11-7/8 wide x 29-1/2/35-1/2/41-1/2 x 3/4 panels, not cabinets. Nearest masters WDEP30/36/42 are 11-1/2 x 29/35/41 (USCD) or 12-3/4 x 29/35/41 (SK): sizes differ, so not mapped. Propose new accessory masters WDD30/36/42
+Current value: WDD30 (decorative door panel) - 11.875"W x 29.5"H x 0.75"D
+Source: DL Specification Book v.11/14/23 p.16; DL Price List P5 (v1_13_26) row WDD30 (core 48, slim 52, luxe 95)
+Needed: Admin confirms what this item is, the right master / category, and the real dimensions, then clears the conflict.
+Resolved fields: description, category, subCategory, width, height, depth', NOW()
+FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinets WHERE masterCode = 'WDD30')
+  AND NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinet_aliases WHERE alias = 'WDD30');
+
+-- Block 23: FLAGGED hidden master (report-only item) WDD36 (Spec book 'Wall Decorative Door': 11-7/8 wide x 29-1/2/35-1/2/41-1/2 x 3/4 panels, not cabinets. Nearest masters WDEP30/36/42 are 11-1/2 x 29/35/41 (USCD) or 12-3/4 x 29/35/41 (SK): sizes differ, so not mapped. Propose new accessory masters WDD30/36/42). Source: DL Specification Book v.11/14/23 p.16; DL Price List P5 (v1_13_26) row WDD36 (core 53, slim 58, luxe 105). Any value not in the source is NULL. CONFLICT entry added.
+INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet, specNotes, conflictStatus, conflictReason, conflictedAt)
+SELECT 'WDD36', 'WDD36 (decorative door panel) - 11.875"W x 35.5"H x 0.75"D', 'DL Cabinetry spec book v.11/14/23', 'Panels', 'Panel', 11.875, 35.5, 0.75, 'accessory', NULL, NULL, FALSE, NULL, FALSE, FALSE, FALSE, FALSE, TRUE, NULL, 'conflict', 'Issue: Spec book ''Wall Decorative Door'': 11-7/8 wide x 29-1/2/35-1/2/41-1/2 x 3/4 panels, not cabinets. Nearest masters WDEP30/36/42 are 11-1/2 x 29/35/41 (USCD) or 12-3/4 x 29/35/41 (SK): sizes differ, so not mapped. Propose new accessory masters WDD30/36/42
+Current value: WDD36 (decorative door panel) - 11.875"W x 35.5"H x 0.75"D
+Source: DL Specification Book v.11/14/23 p.16; DL Price List P5 (v1_13_26) row WDD36 (core 53, slim 58, luxe 105)
+Needed: Admin confirms what this item is, the right master / category, and the real dimensions, then clears the conflict.
+Resolved fields: description, category, subCategory, width, height, depth', NOW()
+FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinets WHERE masterCode = 'WDD36')
+  AND NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinet_aliases WHERE alias = 'WDD36');
+
+-- Block 24: FLAGGED hidden master (report-only item) WDD42 (Spec book 'Wall Decorative Door': 11-7/8 wide x 29-1/2/35-1/2/41-1/2 x 3/4 panels, not cabinets. Nearest masters WDEP30/36/42 are 11-1/2 x 29/35/41 (USCD) or 12-3/4 x 29/35/41 (SK): sizes differ, so not mapped. Propose new accessory masters WDD30/36/42). Source: DL Specification Book v.11/14/23 p.16; DL Price List P5 (v1_13_26) row WDD42 (core 58, slim 64, luxe 115). Any value not in the source is NULL. CONFLICT entry added.
+INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet, specNotes, conflictStatus, conflictReason, conflictedAt)
+SELECT 'WDD42', 'WDD42 (decorative door panel) - 11.875"W x 41.5"H x 0.75"D', 'DL Cabinetry spec book v.11/14/23', 'Panels', 'Panel', 11.875, 41.5, 0.75, 'accessory', NULL, NULL, FALSE, NULL, FALSE, FALSE, FALSE, FALSE, TRUE, NULL, 'conflict', 'Issue: Spec book ''Wall Decorative Door'': 11-7/8 wide x 29-1/2/35-1/2/41-1/2 x 3/4 panels, not cabinets. Nearest masters WDEP30/36/42 are 11-1/2 x 29/35/41 (USCD) or 12-3/4 x 29/35/41 (SK): sizes differ, so not mapped. Propose new accessory masters WDD30/36/42
+Current value: WDD42 (decorative door panel) - 11.875"W x 41.5"H x 0.75"D
+Source: DL Specification Book v.11/14/23 p.16; DL Price List P5 (v1_13_26) row WDD42 (core 58, slim 64, luxe 115)
+Needed: Admin confirms what this item is, the right master / category, and the real dimensions, then clears the conflict.
+Resolved fields: description, category, subCategory, width, height, depth', NOW()
+FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinets WHERE masterCode = 'WDD42')
+  AND NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinet_aliases WHERE alias = 'WDD42');
+
+-- Block 25: FLAGGED hidden master (report-only item) BDD24 (Spec book 'Base Decorative Door': 23-3/4 x 29-1/4 x 3/4 flat door panel. Nearest BDEP is 23-1/2 x 29 x 3/4: size differs, not mapped. Propose a new accessory master BDD24). Source: DL Specification Book v.11/14/23 p.16; DL Price List P5 (v1_13_26) row BDD24 (core 66, slim 72, luxe 131). Any value not in the source is NULL. CONFLICT entry added.
+INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet, specNotes, conflictStatus, conflictReason, conflictedAt)
+SELECT 'BDD24', 'BDD24 (decorative door panel) - 23.75"W x 29.25"H x 0.75"D', 'DL Cabinetry spec book v.11/14/23', 'Panels', 'Panel', 23.75, 29.25, 0.75, 'accessory', NULL, NULL, FALSE, NULL, FALSE, FALSE, FALSE, FALSE, TRUE, NULL, 'conflict', 'Issue: Spec book ''Base Decorative Door'': 23-3/4 x 29-1/4 x 3/4 flat door panel. Nearest BDEP is 23-1/2 x 29 x 3/4: size differs, not mapped. Propose a new accessory master BDD24
+Current value: BDD24 (decorative door panel) - 23.75"W x 29.25"H x 0.75"D
+Source: DL Specification Book v.11/14/23 p.16; DL Price List P5 (v1_13_26) row BDD24 (core 66, slim 72, luxe 131)
+Needed: Admin confirms what this item is, the right master / category, and the real dimensions, then clears the conflict.
+Resolved fields: description, category, subCategory, width, height, depth', NOW()
+FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinets WHERE masterCode = 'BDD24')
+  AND NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinet_aliases WHERE alias = 'BDD24');
+
+-- Block 26: FLAGGED hidden master (report-only item) WF3 30 (Wall filler 3 x 30/36 x 3/4. Masters exist only at 42 and 96 high (F342, F396). Propose new accessory masters WF3 30 / WF3 36). Source: DL Specification Book v.11/14/23 p.13; DL Price List P5 (v1_13_26) row WF3 30 (core 13, slim 13, luxe 25). Any value not in the source is NULL. CONFLICT entry added.
+INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet, specNotes, conflictStatus, conflictReason, conflictedAt)
+SELECT 'WF3 30', 'WF3 30 (filler) - 3"W x 30"H x 0.75"D', 'DL Cabinetry spec book v.11/14/23', 'Filler', 'Filler', 3, 30, 0.75, 'accessory', NULL, NULL, FALSE, NULL, FALSE, FALSE, FALSE, FALSE, TRUE, NULL, 'conflict', 'Issue: Wall filler 3 x 30/36 x 3/4. Masters exist only at 42 and 96 high (F342, F396). Propose new accessory masters WF3 30 / WF3 36
+Current value: WF3 30 (filler) - 3"W x 30"H x 0.75"D
+Source: DL Specification Book v.11/14/23 p.13; DL Price List P5 (v1_13_26) row WF3 30 (core 13, slim 13, luxe 25)
+Needed: Admin confirms what this item is, the right master / category, and the real dimensions, then clears the conflict.
+Resolved fields: description, category, subCategory, width, height, depth', NOW()
+FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinets WHERE masterCode = 'WF3 30')
+  AND NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinet_aliases WHERE alias = 'WF3 30');
+
+-- Block 27: FLAGGED hidden master (report-only item) WF3 36 (Wall filler 3 x 30/36 x 3/4. Masters exist only at 42 and 96 high (F342, F396). Propose new accessory masters WF3 30 / WF3 36). Source: DL Specification Book v.11/14/23 p.13; DL Price List P5 (v1_13_26) row WF3 36 (core 15, slim 15, luxe 29). Any value not in the source is NULL. CONFLICT entry added.
+INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet, specNotes, conflictStatus, conflictReason, conflictedAt)
+SELECT 'WF3 36', 'WF3 36 (filler) - 3"W x 36"H x 0.75"D', 'DL Cabinetry spec book v.11/14/23', 'Filler', 'Filler', 3, 36, 0.75, 'accessory', NULL, NULL, FALSE, NULL, FALSE, FALSE, FALSE, FALSE, TRUE, NULL, 'conflict', 'Issue: Wall filler 3 x 30/36 x 3/4. Masters exist only at 42 and 96 high (F342, F396). Propose new accessory masters WF3 30 / WF3 36
+Current value: WF3 36 (filler) - 3"W x 36"H x 0.75"D
+Source: DL Specification Book v.11/14/23 p.13; DL Price List P5 (v1_13_26) row WF3 36 (core 15, slim 15, luxe 29)
+Needed: Admin confirms what this item is, the right master / category, and the real dimensions, then clears the conflict.
+Resolved fields: description, category, subCategory, width, height, depth', NOW()
+FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinets WHERE masterCode = 'WF3 36')
+  AND NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinet_aliases WHERE alias = 'WF3 36');
+
+-- Block 28: FLAGGED hidden master (report-only item) SIDE PANEL 36X96 (Side panel 96 x 36 x 1/2. No master with that thickness (SPW is 96 x 36 x 1/4). Propose a new accessory master). Source: DL Specification Book v.11/14/23 p.14; DL Price List P5 (v1_13_26) row SIDE PANEL 36X96 (core 107, slim 107, luxe 214). Any value not in the source is NULL. CONFLICT entry added.
+INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet, specNotes, conflictStatus, conflictReason, conflictedAt)
+SELECT 'SIDE PANEL 36X96', 'SIDE PANEL 36X96 (panel) - 96"W x 36"H x 0.5"D', 'DL Cabinetry spec book v.11/14/23', 'Panels', 'Panel', 96, 36, 0.5, 'accessory', NULL, NULL, FALSE, NULL, FALSE, FALSE, FALSE, FALSE, TRUE, NULL, 'conflict', 'Issue: Side panel 96 x 36 x 1/2. No master with that thickness (SPW is 96 x 36 x 1/4). Propose a new accessory master
+Current value: SIDE PANEL 36X96 (panel) - 96"W x 36"H x 0.5"D
+Source: DL Specification Book v.11/14/23 p.14; DL Price List P5 (v1_13_26) row SIDE PANEL 36X96 (core 107, slim 107, luxe 214)
+Needed: Admin confirms what this item is, the right master / category, and the real dimensions, then clears the conflict.
+Resolved fields: description, category, subCategory, width, height, depth', NOW()
+FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinets WHERE masterCode = 'SIDE PANEL 36X96')
+  AND NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinet_aliases WHERE alias = 'SIDE PANEL 36X96');
+
+-- Block 29: FLAGGED hidden master (report-only item) SKIN PANEL 36X96 (Skin panel 96 x 36 x 3/16. No master (SPW 1/4, USV2496 is 23-1/4 wide). Propose a new accessory master). Source: DL Specification Book v.11/14/23 p.14; DL Price List P5 (v1_13_26) row SKIN PANEL 36X96 (core 64, slim 64, luxe 127). Any value not in the source is NULL. CONFLICT entry added.
+INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet, specNotes, conflictStatus, conflictReason, conflictedAt)
+SELECT 'SKIN PANEL 36X96', 'SKIN PANEL 36X96 (panel) - 96"W x 36"H x 0.1875"D', 'DL Cabinetry spec book v.11/14/23', 'Panels', 'Panel', 96, 36, 0.1875, 'accessory', NULL, NULL, FALSE, NULL, FALSE, FALSE, FALSE, FALSE, TRUE, NULL, 'conflict', 'Issue: Skin panel 96 x 36 x 3/16. No master (SPW 1/4, USV2496 is 23-1/4 wide). Propose a new accessory master
+Current value: SKIN PANEL 36X96 (panel) - 96"W x 36"H x 0.1875"D
+Source: DL Specification Book v.11/14/23 p.14; DL Price List P5 (v1_13_26) row SKIN PANEL 36X96 (core 64, slim 64, luxe 127)
+Needed: Admin confirms what this item is, the right master / category, and the real dimensions, then clears the conflict.
+Resolved fields: description, category, subCategory, width, height, depth', NOW()
+FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinets WHERE masterCode = 'SKIN PANEL 36X96')
+  AND NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinet_aliases WHERE alias = 'SKIN PANEL 36X96');
+
+-- Block 30: FLAGGED hidden master (report-only item) BASEMOLDING (96 x 4-3/8 x 3/4 base molding. Furniture base moulding masters (FBM 4-15/16 / 4-1/2) differ. Propose a new accessory master). Source: DL Specification Book v.11/14/23 p.14; DL Price List P5 (v1_13_26) row BASEMOLDING (core 52, slim 52, luxe 103). Any value not in the source is NULL. CONFLICT entry added.
+INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet, specNotes, conflictStatus, conflictReason, conflictedAt)
+SELECT 'BASEMOLDING', 'BASEMOLDING (molding) - 96"W x 4.375"H x 0.75"D', 'DL Cabinetry spec book v.11/14/23', 'Moulding', 'Moulding', 96, 4.375, 0.75, 'accessory', NULL, NULL, FALSE, NULL, FALSE, FALSE, FALSE, FALSE, TRUE, NULL, 'conflict', 'Issue: 96 x 4-3/8 x 3/4 base molding. Furniture base moulding masters (FBM 4-15/16 / 4-1/2) differ. Propose a new accessory master
+Current value: BASEMOLDING (molding) - 96"W x 4.375"H x 0.75"D
+Source: DL Specification Book v.11/14/23 p.14; DL Price List P5 (v1_13_26) row BASEMOLDING (core 52, slim 52, luxe 103)
+Needed: Admin confirms what this item is, the right master / category, and the real dimensions, then clears the conflict.
+Resolved fields: description, category, subCategory, width, height, depth', NOW()
+FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinets WHERE masterCode = 'BASEMOLDING')
+  AND NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinet_aliases WHERE alias = 'BASEMOLDING');
+
+-- Block 31: FLAGGED hidden master (report-only item) SHOEMOLDING (96 x 1/2 x 1/2. Nearest SHM8 is 3/4 high x 1/2 deep: differs. Propose a new accessory master). Source: DL Specification Book v.11/14/23 p.14; DL Price List P5 (v1_13_26) row SHOEMOLDING (core 16, slim 16, luxe 31). Any value not in the source is NULL. CONFLICT entry added.
+INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet, specNotes, conflictStatus, conflictReason, conflictedAt)
+SELECT 'SHOEMOLDING', 'SHOEMOLDING (molding) - 96"W x 0.5"H x 0.5"D', 'DL Cabinetry spec book v.11/14/23', 'Moulding', 'Moulding', 96, 0.5, 0.5, 'accessory', NULL, NULL, FALSE, NULL, FALSE, FALSE, FALSE, FALSE, TRUE, NULL, 'conflict', 'Issue: 96 x 1/2 x 1/2. Nearest SHM8 is 3/4 high x 1/2 deep: differs. Propose a new accessory master
+Current value: SHOEMOLDING (molding) - 96"W x 0.5"H x 0.5"D
+Source: DL Specification Book v.11/14/23 p.14; DL Price List P5 (v1_13_26) row SHOEMOLDING (core 16, slim 16, luxe 31)
+Needed: Admin confirms what this item is, the right master / category, and the real dimensions, then clears the conflict.
+Resolved fields: description, category, subCategory, width, height, depth', NOW()
+FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinets WHERE masterCode = 'SHOEMOLDING')
+  AND NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinet_aliases WHERE alias = 'SHOEMOLDING');
+
+-- Block 32: FLAGGED hidden master (report-only item) ICM8 (Inside corner molding 96 x 1/2 x 1/2. No master found. Propose a new accessory master). Source: DL Specification Book v.11/14/23 p.15; DL Price List P5 (v1_13_26) row ICM8 (core 16, slim 16, luxe 31). Any value not in the source is NULL. CONFLICT entry added.
+INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet, specNotes, conflictStatus, conflictReason, conflictedAt)
+SELECT 'ICM8', 'ICM8 (molding) - 96"W x 0.5"H x 0.5"D', 'DL Cabinetry spec book v.11/14/23', 'Moulding', 'Moulding', 96, 0.5, 0.5, 'accessory', NULL, NULL, FALSE, NULL, FALSE, FALSE, FALSE, FALSE, TRUE, NULL, 'conflict', 'Issue: Inside corner molding 96 x 1/2 x 1/2. No master found. Propose a new accessory master
+Current value: ICM8 (molding) - 96"W x 0.5"H x 0.5"D
+Source: DL Specification Book v.11/14/23 p.15; DL Price List P5 (v1_13_26) row ICM8 (core 16, slim 16, luxe 31)
+Needed: Admin confirms what this item is, the right master / category, and the real dimensions, then clears the conflict.
+Resolved fields: description, category, subCategory, width, height, depth', NOW()
+FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinets WHERE masterCode = 'ICM8')
+  AND NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinet_aliases WHERE alias = 'ICM8');
+
+-- Block 33: FLAGGED hidden master (report-only item) ANGLEMOLDING (Angle molding 96 x 3/4 x 3/4. No master found (ACM8 is crown). Propose a new accessory master). Source: DL Specification Book v.11/14/23 p.15; DL Price List P5 (v1_13_26) row ANGLEMOLDING (core 16, slim 16, luxe 31). Any value not in the source is NULL. CONFLICT entry added.
+INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet, specNotes, conflictStatus, conflictReason, conflictedAt)
+SELECT 'ANGLEMOLDING', 'ANGLEMOLDING (molding) - 96"W x 0.75"H x 0.75"D', 'DL Cabinetry spec book v.11/14/23', 'Moulding', 'Moulding', 96, 0.75, 0.75, 'accessory', NULL, NULL, FALSE, NULL, FALSE, FALSE, FALSE, FALSE, TRUE, NULL, 'conflict', 'Issue: Angle molding 96 x 3/4 x 3/4. No master found (ACM8 is crown). Propose a new accessory master
+Current value: ANGLEMOLDING (molding) - 96"W x 0.75"H x 0.75"D
+Source: DL Specification Book v.11/14/23 p.15; DL Price List P5 (v1_13_26) row ANGLEMOLDING (core 16, slim 16, luxe 31)
+Needed: Admin confirms what this item is, the right master / category, and the real dimensions, then clears the conflict.
+Resolved fields: description, category, subCategory, width, height, depth', NOW()
+FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinets WHERE masterCode = 'ANGLEMOLDING')
+  AND NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinet_aliases WHERE alias = 'ANGLEMOLDING');
+
+-- Block 34: FLAGGED hidden master (report-only item) CCM8 (Crown 96 x 3 x 4-1/4 ('8' = 8 ft). Crown masters (LCM8 3-3/8, DCM 3x2) differ. Propose a new accessory master). Source: DL Specification Book v.11/14/23 p.15; DL Price List P5 (v1_13_26) row CCM8 (core 64, slim 64, luxe 127). Any value not in the source is NULL. CONFLICT entry added.
+INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet, specNotes, conflictStatus, conflictReason, conflictedAt)
+SELECT 'CCM8', 'CCM8 (molding) - 96"W x 3"H x 4.25"D', 'DL Cabinetry spec book v.11/14/23', 'Moulding', 'Moulding', 96, 3, 4.25, 'accessory', NULL, NULL, FALSE, NULL, FALSE, FALSE, FALSE, FALSE, TRUE, NULL, 'conflict', 'Issue: Crown 96 x 3 x 4-1/4 (''8'' = 8 ft). Crown masters (LCM8 3-3/8, DCM 3x2) differ. Propose a new accessory master
+Current value: CCM8 (molding) - 96"W x 3"H x 4.25"D
+Source: DL Specification Book v.11/14/23 p.15; DL Price List P5 (v1_13_26) row CCM8 (core 64, slim 64, luxe 127)
+Needed: Admin confirms what this item is, the right master / category, and the real dimensions, then clears the conflict.
+Resolved fields: description, category, subCategory, width, height, depth', NOW()
+FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinets WHERE masterCode = 'CCM8')
+  AND NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinet_aliases WHERE alias = 'CCM8');
+
+-- Block 35: FLAGGED hidden master (report-only item) ACM2.5 (96 x 2 x 3-1/2 (listed in the crown section). ACM8 masters are 2-1/2 x 2-1/2 or 1-3/4 x 1-13/16: differ. Propose a new accessory master). Source: DL Specification Book v.11/14/23 p.15; DL Price List P5 (v1_13_26) row ACM2.5 (core 47, slim 47, luxe 93). Any value not in the source is NULL. CONFLICT entry added.
+INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet, specNotes, conflictStatus, conflictReason, conflictedAt)
+SELECT 'ACM2.5', 'ACM2.5 (molding) - 96"W x 2"H x 3.5"D', 'DL Cabinetry spec book v.11/14/23', 'Moulding', 'Moulding', 96, 2, 3.5, 'accessory', NULL, NULL, FALSE, NULL, FALSE, FALSE, FALSE, FALSE, TRUE, NULL, 'conflict', 'Issue: 96 x 2 x 3-1/2 (listed in the crown section). ACM8 masters are 2-1/2 x 2-1/2 or 1-3/4 x 1-13/16: differ. Propose a new accessory master
+Current value: ACM2.5 (molding) - 96"W x 2"H x 3.5"D
+Source: DL Specification Book v.11/14/23 p.15; DL Price List P5 (v1_13_26) row ACM2.5 (core 47, slim 47, luxe 93)
+Needed: Admin confirms what this item is, the right master / category, and the real dimensions, then clears the conflict.
+Resolved fields: description, category, subCategory, width, height, depth', NOW()
+FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinets WHERE masterCode = 'ACM2.5')
+  AND NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinet_aliases WHERE alias = 'ACM2.5');
+
+-- Block 36: FLAGGED hidden master (report-only item) TLR8 (Traditional light rail 96 x 1-1/2 x 2-1/4. LRM8 masters are 2-1/4H x 3/4D or 1in: differ. Propose a new accessory master). Source: DL Specification Book v.11/14/23 p.16; DL Price List P5 (v1_13_26) row TLR8 (core 37, slim 37, luxe 74). Any value not in the source is NULL. CONFLICT entry added.
+INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet, specNotes, conflictStatus, conflictReason, conflictedAt)
+SELECT 'TLR8', 'TLR8 (molding) - 96"W x 1.5"H x 2.25"D', 'DL Cabinetry spec book v.11/14/23', 'Moulding', 'Moulding', 96, 1.5, 2.25, 'accessory', NULL, NULL, FALSE, NULL, FALSE, FALSE, FALSE, FALSE, TRUE, NULL, 'conflict', 'Issue: Traditional light rail 96 x 1-1/2 x 2-1/4. LRM8 masters are 2-1/4H x 3/4D or 1in: differ. Propose a new accessory master
+Current value: TLR8 (molding) - 96"W x 1.5"H x 2.25"D
+Source: DL Specification Book v.11/14/23 p.16; DL Price List P5 (v1_13_26) row TLR8 (core 37, slim 37, luxe 74)
+Needed: Admin confirms what this item is, the right master / category, and the real dimensions, then clears the conflict.
+Resolved fields: description, category, subCategory, width, height, depth', NOW()
+FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinets WHERE masterCode = 'TLR8')
+  AND NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinet_aliases WHERE alias = 'TLR8');
+
+-- Block 37: FLAGGED hidden master (report-only item) CORBEL 8X12 (Corbel 3 x 12 x 8. CBT 3 x 13-1/16 x 5-7/8 and MCB 3-1/2 x 12 x 9 differ. Propose a new accessory master). Source: DL Specification Book v.11/14/23 p.17; DL Price List P5 (v1_13_26) row CORBEL 8X12 (core 26, slim 26, luxe 51). Any value not in the source is NULL. CONFLICT entry added.
+INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet, specNotes, conflictStatus, conflictReason, conflictedAt)
+SELECT 'CORBEL 8X12', 'CORBEL 8X12 (decorative hardware) - 3"W x 12"H x 8"D', 'DL Cabinetry spec book v.11/14/23', 'Accessory', 'Decorative', 3, 12, 8, 'accessory', NULL, NULL, FALSE, NULL, FALSE, FALSE, FALSE, FALSE, TRUE, NULL, 'conflict', 'Issue: Corbel 3 x 12 x 8. CBT 3 x 13-1/16 x 5-7/8 and MCB 3-1/2 x 12 x 9 differ. Propose a new accessory master
+Current value: CORBEL 8X12 (decorative hardware) - 3"W x 12"H x 8"D
+Source: DL Specification Book v.11/14/23 p.17; DL Price List P5 (v1_13_26) row CORBEL 8X12 (core 26, slim 26, luxe 51)
+Needed: Admin confirms what this item is, the right master / category, and the real dimensions, then clears the conflict.
+Resolved fields: description, category, subCategory, width, height, depth', NOW()
+FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinets WHERE masterCode = 'CORBEL 8X12')
+  AND NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinet_aliases WHERE alias = 'CORBEL 8X12');
+
+-- Block 38: FLAGGED hidden master (report-only item) DLS 4X4X36 (Leg post 4 x 34-1/2 x 4. CLDL/SQDL are 3 x 34-1/2 x 3: differ. Propose a new accessory master). Source: DL Specification Book v.11/14/23 p.17; DL Price List P5 (v1_13_26) row DLS 4X4X36 (core 94, slim 94, luxe 188). Any value not in the source is NULL. CONFLICT entry added.
+INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet, specNotes, conflictStatus, conflictReason, conflictedAt)
+SELECT 'DLS 4X4X36', 'DLS 4X4X36 (decorative leg) - 4"W x 34.5"H x 4"D', 'DL Cabinetry spec book v.11/14/23', 'Accessory', 'Decorative', 4, 34.5, 4, 'accessory', NULL, NULL, FALSE, NULL, FALSE, FALSE, FALSE, FALSE, TRUE, NULL, 'conflict', 'Issue: Leg post 4 x 34-1/2 x 4. CLDL/SQDL are 3 x 34-1/2 x 3: differ. Propose a new accessory master
+Current value: DLS 4X4X36 (decorative leg) - 4"W x 34.5"H x 4"D
+Source: DL Specification Book v.11/14/23 p.17; DL Price List P5 (v1_13_26) row DLS 4X4X36 (core 94, slim 94, luxe 188)
+Needed: Admin confirms what this item is, the right master / category, and the real dimensions, then clears the conflict.
+Resolved fields: description, category, subCategory, width, height, depth', NOW()
+FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinets WHERE masterCode = 'DLS 4X4X36')
+  AND NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinet_aliases WHERE alias = 'DLS 4X4X36');
+
+-- Block 39: FLAGGED hidden master (report-only item) PULLOUT TRAY 18" (Pull-out tray 14/20/26/32 x 4 x 21. Roll-out shelf and tray masters (RS##, UNIV-ROT##) have different sizes. Propose new accessory masters). Source: DL Specification Book v.11/14/23 p.17; DL Price List P5 (v1_13_26) row PULLOUT TRAY 18" (core 33, slim 33, luxe 33). Any value not in the source is NULL. CONFLICT entry added.
+INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet, specNotes, conflictStatus, conflictReason, conflictedAt)
+SELECT 'PULLOUT TRAY 18"', 'PULLOUT TRAY 18" (pullout tray) - 14"W x 4"H x 21"D', 'DL Cabinetry spec book v.11/14/23', 'Accessory', 'Rollout Tray', 14, 4, 21, 'accessory', NULL, NULL, FALSE, NULL, FALSE, FALSE, FALSE, FALSE, TRUE, NULL, 'conflict', 'Issue: Pull-out tray 14/20/26/32 x 4 x 21. Roll-out shelf and tray masters (RS##, UNIV-ROT##) have different sizes. Propose new accessory masters
+Current value: PULLOUT TRAY 18" (pullout tray) - 14"W x 4"H x 21"D
+Source: DL Specification Book v.11/14/23 p.17; DL Price List P5 (v1_13_26) row PULLOUT TRAY 18" (core 33, slim 33, luxe 33)
+Needed: Admin confirms what this item is, the right master / category, and the real dimensions, then clears the conflict.
+Resolved fields: description, category, subCategory, width, height, depth', NOW()
+FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinets WHERE masterCode = 'PULLOUT TRAY 18"')
+  AND NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinet_aliases WHERE alias = 'PULLOUT TRAY 18"');
+
+-- Block 40: FLAGGED hidden master (report-only item) PULLOUT TRAY 24" (Pull-out tray 14/20/26/32 x 4 x 21. Roll-out shelf and tray masters (RS##, UNIV-ROT##) have different sizes. Propose new accessory masters). Source: DL Specification Book v.11/14/23 p.17; DL Price List P5 (v1_13_26) row PULLOUT TRAY 24" (core 40, slim 40, luxe 40). Any value not in the source is NULL. CONFLICT entry added.
+INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet, specNotes, conflictStatus, conflictReason, conflictedAt)
+SELECT 'PULLOUT TRAY 24"', 'PULLOUT TRAY 24" (pullout tray) - 20"W x 4"H x 21"D', 'DL Cabinetry spec book v.11/14/23', 'Accessory', 'Rollout Tray', 20, 4, 21, 'accessory', NULL, NULL, FALSE, NULL, FALSE, FALSE, FALSE, FALSE, TRUE, NULL, 'conflict', 'Issue: Pull-out tray 14/20/26/32 x 4 x 21. Roll-out shelf and tray masters (RS##, UNIV-ROT##) have different sizes. Propose new accessory masters
+Current value: PULLOUT TRAY 24" (pullout tray) - 20"W x 4"H x 21"D
+Source: DL Specification Book v.11/14/23 p.17; DL Price List P5 (v1_13_26) row PULLOUT TRAY 24" (core 40, slim 40, luxe 40)
+Needed: Admin confirms what this item is, the right master / category, and the real dimensions, then clears the conflict.
+Resolved fields: description, category, subCategory, width, height, depth', NOW()
+FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinets WHERE masterCode = 'PULLOUT TRAY 24"')
+  AND NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinet_aliases WHERE alias = 'PULLOUT TRAY 24"');
+
+-- Block 41: FLAGGED hidden master (report-only item) PULLOUT TRAY 30" (Pull-out tray 14/20/26/32 x 4 x 21. Roll-out shelf and tray masters (RS##, UNIV-ROT##) have different sizes. Propose new accessory masters). Source: DL Specification Book v.11/14/23 p.17; DL Price List P5 (v1_13_26) row PULLOUT TRAY 30" (core 52, slim 52, luxe 52). Any value not in the source is NULL. CONFLICT entry added.
+INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet, specNotes, conflictStatus, conflictReason, conflictedAt)
+SELECT 'PULLOUT TRAY 30"', 'PULLOUT TRAY 30" (pullout tray) - 26"W x 4"H x 21"D', 'DL Cabinetry spec book v.11/14/23', 'Accessory', 'Rollout Tray', 26, 4, 21, 'accessory', NULL, NULL, FALSE, NULL, FALSE, FALSE, FALSE, FALSE, TRUE, NULL, 'conflict', 'Issue: Pull-out tray 14/20/26/32 x 4 x 21. Roll-out shelf and tray masters (RS##, UNIV-ROT##) have different sizes. Propose new accessory masters
+Current value: PULLOUT TRAY 30" (pullout tray) - 26"W x 4"H x 21"D
+Source: DL Specification Book v.11/14/23 p.17; DL Price List P5 (v1_13_26) row PULLOUT TRAY 30" (core 52, slim 52, luxe 52)
+Needed: Admin confirms what this item is, the right master / category, and the real dimensions, then clears the conflict.
+Resolved fields: description, category, subCategory, width, height, depth', NOW()
+FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinets WHERE masterCode = 'PULLOUT TRAY 30"')
+  AND NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinet_aliases WHERE alias = 'PULLOUT TRAY 30"');
+
+-- Block 42: FLAGGED hidden master (report-only item) PULLOUT TRAY 36" (Pull-out tray 14/20/26/32 x 4 x 21. Roll-out shelf and tray masters (RS##, UNIV-ROT##) have different sizes. Propose new accessory masters). Source: DL Specification Book v.11/14/23 p.17; DL Price List P5 (v1_13_26) row PULLOUT TRAY 36" (core 62, slim 62, luxe 62). Any value not in the source is NULL. CONFLICT entry added.
+INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet, specNotes, conflictStatus, conflictReason, conflictedAt)
+SELECT 'PULLOUT TRAY 36"', 'PULLOUT TRAY 36" (pullout tray) - 32"W x 4"H x 21"D', 'DL Cabinetry spec book v.11/14/23', 'Accessory', 'Rollout Tray', 32, 4, 21, 'accessory', NULL, NULL, FALSE, NULL, FALSE, FALSE, FALSE, FALSE, TRUE, NULL, 'conflict', 'Issue: Pull-out tray 14/20/26/32 x 4 x 21. Roll-out shelf and tray masters (RS##, UNIV-ROT##) have different sizes. Propose new accessory masters
+Current value: PULLOUT TRAY 36" (pullout tray) - 32"W x 4"H x 21"D
+Source: DL Specification Book v.11/14/23 p.17; DL Price List P5 (v1_13_26) row PULLOUT TRAY 36" (core 62, slim 62, luxe 62)
+Needed: Admin confirms what this item is, the right master / category, and the real dimensions, then clears the conflict.
+Resolved fields: description, category, subCategory, width, height, depth', NOW()
+FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinets WHERE masterCode = 'PULLOUT TRAY 36"')
+  AND NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinet_aliases WHERE alias = 'PULLOUT TRAY 36"');
+
+-- Block 43: FLAGGED hidden master (report-only item) PULLOUT TRAY BWBKT15 (Not in the spec book. Tray for the BWBKT waste basket base. No master. List only until Rich confirms size). Source: DL Specification Book v.11/14/23: NOT FOUND (no entry for PULLOUT TRAY BWBKT15); DL Price List P5 (v1_13_26) row PULLOUT TRAY BWBKT15 (core 63, slim 63, luxe 63). Any value not in the source is NULL. CONFLICT entry added.
+INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet, specNotes, conflictStatus, conflictReason, conflictedAt)
+SELECT 'PULLOUT TRAY BWBKT15', 'PULLOUT TRAY BWBKT15 (pullout tray)', 'DL Price List P5 v1_13_26', 'Accessory', 'Rollout Tray', NULL, NULL, NULL, 'accessory', NULL, NULL, FALSE, NULL, FALSE, FALSE, FALSE, FALSE, TRUE, NULL, 'conflict', 'Issue: Not in the spec book. Tray for the BWBKT waste basket base. No master. List only until Rich confirms size
+Current value: PULLOUT TRAY BWBKT15 (pullout tray)
+Source: DL Specification Book v.11/14/23: NOT FOUND (no entry for PULLOUT TRAY BWBKT15); DL Price List P5 (v1_13_26) row PULLOUT TRAY BWBKT15 (core 63, slim 63, luxe 63)
+Needed: Admin confirms what this item is, the right master / category, and the real dimensions, then clears the conflict.
+Resolved fields: description, category, subCategory, width, height, depth', NOW()
+FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinets WHERE masterCode = 'PULLOUT TRAY BWBKT15')
+  AND NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinet_aliases WHERE alias = 'PULLOUT TRAY BWBKT15');
+
+-- Block 44: FLAGGED hidden master (report-only item) PULLOUT TRAY BWBKT18 (Not in the spec book. Tray for the BWBKT waste basket base. No master. List only until Rich confirms size). Source: DL Specification Book v.11/14/23: NOT FOUND (no entry for PULLOUT TRAY BWBKT18); DL Price List P5 (v1_13_26) row PULLOUT TRAY BWBKT18 (core 63, slim 63, luxe 63). Any value not in the source is NULL. CONFLICT entry added.
+INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet, specNotes, conflictStatus, conflictReason, conflictedAt)
+SELECT 'PULLOUT TRAY BWBKT18', 'PULLOUT TRAY BWBKT18 (pullout tray)', 'DL Price List P5 v1_13_26', 'Accessory', 'Rollout Tray', NULL, NULL, NULL, 'accessory', NULL, NULL, FALSE, NULL, FALSE, FALSE, FALSE, FALSE, TRUE, NULL, 'conflict', 'Issue: Not in the spec book. Tray for the BWBKT waste basket base. No master. List only until Rich confirms size
+Current value: PULLOUT TRAY BWBKT18 (pullout tray)
+Source: DL Specification Book v.11/14/23: NOT FOUND (no entry for PULLOUT TRAY BWBKT18); DL Price List P5 (v1_13_26) row PULLOUT TRAY BWBKT18 (core 63, slim 63, luxe 63)
+Needed: Admin confirms what this item is, the right master / category, and the real dimensions, then clears the conflict.
+Resolved fields: description, category, subCategory, width, height, depth', NOW()
+FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinets WHERE masterCode = 'PULLOUT TRAY BWBKT18')
+  AND NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinet_aliases WHERE alias = 'PULLOUT TRAY BWBKT18');
+
+-- Block 45: FLAGGED hidden master (report-only item) PULLOUT TRAY BWBKT21 (Not in the spec book. Tray for the BWBKT waste basket base. No master. List only until Rich confirms size). Source: DL Specification Book v.11/14/23: NOT FOUND (no entry for PULLOUT TRAY BWBKT21); DL Price List P5 (v1_13_26) row PULLOUT TRAY BWBKT21 (core 63, slim 63, luxe 63). Any value not in the source is NULL. CONFLICT entry added.
+INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet, specNotes, conflictStatus, conflictReason, conflictedAt)
+SELECT 'PULLOUT TRAY BWBKT21', 'PULLOUT TRAY BWBKT21 (pullout tray)', 'DL Price List P5 v1_13_26', 'Accessory', 'Rollout Tray', NULL, NULL, NULL, 'accessory', NULL, NULL, FALSE, NULL, FALSE, FALSE, FALSE, FALSE, TRUE, NULL, 'conflict', 'Issue: Not in the spec book. Tray for the BWBKT waste basket base. No master. List only until Rich confirms size
+Current value: PULLOUT TRAY BWBKT21 (pullout tray)
+Source: DL Specification Book v.11/14/23: NOT FOUND (no entry for PULLOUT TRAY BWBKT21); DL Price List P5 (v1_13_26) row PULLOUT TRAY BWBKT21 (core 63, slim 63, luxe 63)
+Needed: Admin confirms what this item is, the right master / category, and the real dimensions, then clears the conflict.
+Resolved fields: description, category, subCategory, width, height, depth', NOW()
+FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinets WHERE masterCode = 'PULLOUT TRAY BWBKT21')
+  AND NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinet_aliases WHERE alias = 'PULLOUT TRAY BWBKT21');
+
+-- Block 46: FLAGGED hidden master (report-only item) 9" DRAWER SLIDES (Not in the spec book; no master. Propose accessory masters once Rich confirms what the item is (sold per pair?)). Source: DL Specification Book v.11/14/23: NOT FOUND (no entry for 9" DRAWER SLIDES); DL Price List P5 (v1_13_26) row 9" DRAWER SLIDES (core 16, slim 16, luxe 16). Any value not in the source is NULL. CONFLICT entry added.
+INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet, specNotes, conflictStatus, conflictReason, conflictedAt)
+SELECT '9" DRAWER SLIDES', '9" DRAWER SLIDES (drawer slides)', 'DL Price List P5 v1_13_26', 'Accessory', 'Drawer Slides', NULL, NULL, NULL, 'accessory', NULL, NULL, FALSE, NULL, FALSE, FALSE, FALSE, FALSE, TRUE, NULL, 'conflict', 'Issue: Not in the spec book; no master. Propose accessory masters once Rich confirms what the item is (sold per pair?)
+Current value: 9" DRAWER SLIDES (drawer slides)
+Source: DL Specification Book v.11/14/23: NOT FOUND (no entry for 9" DRAWER SLIDES); DL Price List P5 (v1_13_26) row 9" DRAWER SLIDES (core 16, slim 16, luxe 16)
+Needed: Admin confirms what this item is, the right master / category, and the real dimensions, then clears the conflict.
+Resolved fields: description, category, subCategory, width, height, depth', NOW()
+FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinets WHERE masterCode = '9" DRAWER SLIDES')
+  AND NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinet_aliases WHERE alias = '9" DRAWER SLIDES');
+
+-- Block 47: FLAGGED hidden master (report-only item) 12" DRAWER SLIDES (Not in the spec book; no master. Propose accessory masters once Rich confirms what the item is (sold per pair?)). Source: DL Specification Book v.11/14/23: NOT FOUND (no entry for 12" DRAWER SLIDES); DL Price List P5 (v1_13_26) row 12" DRAWER SLIDES (core 16, slim 16, luxe 16). Any value not in the source is NULL. CONFLICT entry added.
+INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet, specNotes, conflictStatus, conflictReason, conflictedAt)
+SELECT '12" DRAWER SLIDES', '12" DRAWER SLIDES (drawer slides)', 'DL Price List P5 v1_13_26', 'Accessory', 'Drawer Slides', NULL, NULL, NULL, 'accessory', NULL, NULL, FALSE, NULL, FALSE, FALSE, FALSE, FALSE, TRUE, NULL, 'conflict', 'Issue: Not in the spec book; no master. Propose accessory masters once Rich confirms what the item is (sold per pair?)
+Current value: 12" DRAWER SLIDES (drawer slides)
+Source: DL Specification Book v.11/14/23: NOT FOUND (no entry for 12" DRAWER SLIDES); DL Price List P5 (v1_13_26) row 12" DRAWER SLIDES (core 16, slim 16, luxe 16)
+Needed: Admin confirms what this item is, the right master / category, and the real dimensions, then clears the conflict.
+Resolved fields: description, category, subCategory, width, height, depth', NOW()
+FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinets WHERE masterCode = '12" DRAWER SLIDES')
+  AND NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinet_aliases WHERE alias = '12" DRAWER SLIDES');
+
+-- Block 48: FLAGGED hidden master (report-only item) 15" DRAWER SLIDES (Not in the spec book; no master. Propose accessory masters once Rich confirms what the item is (sold per pair?)). Source: DL Specification Book v.11/14/23: NOT FOUND (no entry for 15" DRAWER SLIDES); DL Price List P5 (v1_13_26) row 15" DRAWER SLIDES (core 19, slim 19, luxe 19). Any value not in the source is NULL. CONFLICT entry added.
+INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet, specNotes, conflictStatus, conflictReason, conflictedAt)
+SELECT '15" DRAWER SLIDES', '15" DRAWER SLIDES (drawer slides)', 'DL Price List P5 v1_13_26', 'Accessory', 'Drawer Slides', NULL, NULL, NULL, 'accessory', NULL, NULL, FALSE, NULL, FALSE, FALSE, FALSE, FALSE, TRUE, NULL, 'conflict', 'Issue: Not in the spec book; no master. Propose accessory masters once Rich confirms what the item is (sold per pair?)
+Current value: 15" DRAWER SLIDES (drawer slides)
+Source: DL Specification Book v.11/14/23: NOT FOUND (no entry for 15" DRAWER SLIDES); DL Price List P5 (v1_13_26) row 15" DRAWER SLIDES (core 19, slim 19, luxe 19)
+Needed: Admin confirms what this item is, the right master / category, and the real dimensions, then clears the conflict.
+Resolved fields: description, category, subCategory, width, height, depth', NOW()
+FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinets WHERE masterCode = '15" DRAWER SLIDES')
+  AND NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinet_aliases WHERE alias = '15" DRAWER SLIDES');
+
+-- Block 49: FLAGGED hidden master (report-only item) 18" DRAWER SLIDES (Not in the spec book; no master. Propose accessory masters once Rich confirms what the item is (sold per pair?)). Source: DL Specification Book v.11/14/23: NOT FOUND (no entry for 18" DRAWER SLIDES); DL Price List P5 (v1_13_26) row 18" DRAWER SLIDES (core 21, slim 21, luxe 21). Any value not in the source is NULL. CONFLICT entry added.
+INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet, specNotes, conflictStatus, conflictReason, conflictedAt)
+SELECT '18" DRAWER SLIDES', '18" DRAWER SLIDES (drawer slides)', 'DL Price List P5 v1_13_26', 'Accessory', 'Drawer Slides', NULL, NULL, NULL, 'accessory', NULL, NULL, FALSE, NULL, FALSE, FALSE, FALSE, FALSE, TRUE, NULL, 'conflict', 'Issue: Not in the spec book; no master. Propose accessory masters once Rich confirms what the item is (sold per pair?)
+Current value: 18" DRAWER SLIDES (drawer slides)
+Source: DL Specification Book v.11/14/23: NOT FOUND (no entry for 18" DRAWER SLIDES); DL Price List P5 (v1_13_26) row 18" DRAWER SLIDES (core 21, slim 21, luxe 21)
+Needed: Admin confirms what this item is, the right master / category, and the real dimensions, then clears the conflict.
+Resolved fields: description, category, subCategory, width, height, depth', NOW()
+FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinets WHERE masterCode = '18" DRAWER SLIDES')
+  AND NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinet_aliases WHERE alias = '18" DRAWER SLIDES');
+
+-- Block 50: FLAGGED hidden master (report-only item) 21" DRAWER SLIDES (Not in the spec book; no master. Propose accessory masters once Rich confirms what the item is (sold per pair?)). Source: DL Specification Book v.11/14/23: NOT FOUND (no entry for 21" DRAWER SLIDES); DL Price List P5 (v1_13_26) row 21" DRAWER SLIDES (core 21, slim 21, luxe 21). Any value not in the source is NULL. CONFLICT entry added.
+INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet, specNotes, conflictStatus, conflictReason, conflictedAt)
+SELECT '21" DRAWER SLIDES', '21" DRAWER SLIDES (drawer slides)', 'DL Price List P5 v1_13_26', 'Accessory', 'Drawer Slides', NULL, NULL, NULL, 'accessory', NULL, NULL, FALSE, NULL, FALSE, FALSE, FALSE, FALSE, TRUE, NULL, 'conflict', 'Issue: Not in the spec book; no master. Propose accessory masters once Rich confirms what the item is (sold per pair?)
+Current value: 21" DRAWER SLIDES (drawer slides)
+Source: DL Specification Book v.11/14/23: NOT FOUND (no entry for 21" DRAWER SLIDES); DL Price List P5 (v1_13_26) row 21" DRAWER SLIDES (core 21, slim 21, luxe 21)
+Needed: Admin confirms what this item is, the right master / category, and the real dimensions, then clears the conflict.
+Resolved fields: description, category, subCategory, width, height, depth', NOW()
+FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinets WHERE masterCode = '21" DRAWER SLIDES')
+  AND NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinet_aliases WHERE alias = '21" DRAWER SLIDES');
+
+-- Block 51: FLAGGED hidden master (report-only item) TRASH CAN (Spec book: 14-1/8 x 15-1/2 x 9-15/16. No loose trash can master (B15TCPO etc. are pullout bases). Propose a new accessory master). Source: DL Specification Book v.11/14/23: NOT FOUND (no entry for TRASH CAN); DL Price List P5 (v1_13_26) row TRASH CAN (core 16, slim 16, luxe 16). Any value not in the source is NULL. CONFLICT entry added.
+INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet, specNotes, conflictStatus, conflictReason, conflictedAt)
+SELECT 'TRASH CAN', 'TRASH CAN (trash can)', 'DL Price List P5 v1_13_26', 'Accessory', 'Trash Can', NULL, NULL, NULL, 'accessory', NULL, NULL, FALSE, NULL, FALSE, FALSE, FALSE, FALSE, TRUE, NULL, 'conflict', 'Issue: Spec book: 14-1/8 x 15-1/2 x 9-15/16. No loose trash can master (B15TCPO etc. are pullout bases). Propose a new accessory master
+Current value: TRASH CAN (trash can)
+Source: DL Specification Book v.11/14/23: NOT FOUND (no entry for TRASH CAN); DL Price List P5 (v1_13_26) row TRASH CAN (core 16, slim 16, luxe 16)
+Needed: Admin confirms what this item is, the right master / category, and the real dimensions, then clears the conflict.
+Resolved fields: description, category, subCategory, width, height, depth', NOW()
+FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinets WHERE masterCode = 'TRASH CAN')
+  AND NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinet_aliases WHERE alias = 'TRASH CAN');
+
+-- Block 52: FLAGGED hidden master (report-only item) SAMPLE DOOR PACK (2025) (13 x 17 x 7 pack. SAMPLE DOOR / SD masters are single 11 x 15 sample doors. Propose a new accessory master or leave unlisted). Source: DL Specification Book v.11/14/23: NOT FOUND (no entry for SAMPLE DOOR PACK (2025)); DL Price List P5 (v1_13_26) row SAMPLE DOOR PACK (2025) (core 100, slim 100, luxe 100). Any value not in the source is NULL. CONFLICT entry added.
+INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet, specNotes, conflictStatus, conflictReason, conflictedAt)
+SELECT 'SAMPLE DOOR PACK (2025)', 'SAMPLE DOOR PACK (2025) (sample)', 'DL Price List P5 v1_13_26', 'Accessory', 'Sample', NULL, NULL, NULL, 'accessory', NULL, NULL, FALSE, NULL, FALSE, FALSE, FALSE, FALSE, TRUE, NULL, 'conflict', 'Issue: 13 x 17 x 7 pack. SAMPLE DOOR / SD masters are single 11 x 15 sample doors. Propose a new accessory master or leave unlisted
+Current value: SAMPLE DOOR PACK (2025) (sample)
+Source: DL Specification Book v.11/14/23: NOT FOUND (no entry for SAMPLE DOOR PACK (2025)); DL Price List P5 (v1_13_26) row SAMPLE DOOR PACK (2025) (core 100, slim 100, luxe 100)
+Needed: Admin confirms what this item is, the right master / category, and the real dimensions, then clears the conflict.
+Resolved fields: description, category, subCategory, width, height, depth', NOW()
+FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinets WHERE masterCode = 'SAMPLE DOOR PACK (2025)')
+  AND NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinet_aliases WHERE alias = 'SAMPLE DOOR PACK (2025)');
+
+-- Block 53: FLAGGED hidden master (report-only item) WN FS3012 (Not in the spec book; WN/WO presumably wood finishes. Floating shelf masters FS30/FS36/FS42/FS48 exist but size and finish are unconfirmed. Ask Rich). Source: DL Specification Book v.11/14/23: NOT FOUND (no entry for WN FS3012); DL Price List P5 (v1_13_26) row WN FS3012 (core 62, slim 62, luxe 62). Any value not in the source is NULL. CONFLICT entry added.
+INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet, specNotes, conflictStatus, conflictReason, conflictedAt)
+SELECT 'WN FS3012', 'WN FS3012 (floating shelf (not in spec book))', 'DL Price List P5 v1_13_26', 'Accessory', 'Floating Shelf', NULL, NULL, NULL, 'accessory', NULL, NULL, FALSE, NULL, FALSE, FALSE, FALSE, FALSE, TRUE, NULL, 'conflict', 'Issue: Not in the spec book; WN/WO presumably wood finishes. Floating shelf masters FS30/FS36/FS42/FS48 exist but size and finish are unconfirmed. Ask Rich
+Current value: WN FS3012 (floating shelf (not in spec book))
+Source: DL Specification Book v.11/14/23: NOT FOUND (no entry for WN FS3012); DL Price List P5 (v1_13_26) row WN FS3012 (core 62, slim 62, luxe 62)
+Needed: Admin confirms what this item is, the right master / category, and the real dimensions, then clears the conflict.
+Resolved fields: description, category, subCategory, width, height, depth', NOW()
+FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinets WHERE masterCode = 'WN FS3012')
+  AND NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinet_aliases WHERE alias = 'WN FS3012');
+
+-- Block 54: FLAGGED hidden master (report-only item) WN FS3612 (Not in the spec book; WN/WO presumably wood finishes. Floating shelf masters FS30/FS36/FS42/FS48 exist but size and finish are unconfirmed. Ask Rich). Source: DL Specification Book v.11/14/23: NOT FOUND (no entry for WN FS3612); DL Price List P5 (v1_13_26) row WN FS3612 (core 75, slim 75, luxe 75). Any value not in the source is NULL. CONFLICT entry added.
+INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet, specNotes, conflictStatus, conflictReason, conflictedAt)
+SELECT 'WN FS3612', 'WN FS3612 (floating shelf (not in spec book))', 'DL Price List P5 v1_13_26', 'Accessory', 'Floating Shelf', NULL, NULL, NULL, 'accessory', NULL, NULL, FALSE, NULL, FALSE, FALSE, FALSE, FALSE, TRUE, NULL, 'conflict', 'Issue: Not in the spec book; WN/WO presumably wood finishes. Floating shelf masters FS30/FS36/FS42/FS48 exist but size and finish are unconfirmed. Ask Rich
+Current value: WN FS3612 (floating shelf (not in spec book))
+Source: DL Specification Book v.11/14/23: NOT FOUND (no entry for WN FS3612); DL Price List P5 (v1_13_26) row WN FS3612 (core 75, slim 75, luxe 75)
+Needed: Admin confirms what this item is, the right master / category, and the real dimensions, then clears the conflict.
+Resolved fields: description, category, subCategory, width, height, depth', NOW()
+FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinets WHERE masterCode = 'WN FS3612')
+  AND NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinet_aliases WHERE alias = 'WN FS3612');
+
+-- Block 55: FLAGGED hidden master (report-only item) WN FS4812 (Not in the spec book; WN/WO presumably wood finishes. Floating shelf masters FS30/FS36/FS42/FS48 exist but size and finish are unconfirmed. Ask Rich). Source: DL Specification Book v.11/14/23: NOT FOUND (no entry for WN FS4812); DL Price List P5 (v1_13_26) row WN FS4812 (core 88, slim 88, luxe 88). Any value not in the source is NULL. CONFLICT entry added.
+INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet, specNotes, conflictStatus, conflictReason, conflictedAt)
+SELECT 'WN FS4812', 'WN FS4812 (floating shelf (not in spec book))', 'DL Price List P5 v1_13_26', 'Accessory', 'Floating Shelf', NULL, NULL, NULL, 'accessory', NULL, NULL, FALSE, NULL, FALSE, FALSE, FALSE, FALSE, TRUE, NULL, 'conflict', 'Issue: Not in the spec book; WN/WO presumably wood finishes. Floating shelf masters FS30/FS36/FS42/FS48 exist but size and finish are unconfirmed. Ask Rich
+Current value: WN FS4812 (floating shelf (not in spec book))
+Source: DL Specification Book v.11/14/23: NOT FOUND (no entry for WN FS4812); DL Price List P5 (v1_13_26) row WN FS4812 (core 88, slim 88, luxe 88)
+Needed: Admin confirms what this item is, the right master / category, and the real dimensions, then clears the conflict.
+Resolved fields: description, category, subCategory, width, height, depth', NOW()
+FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinets WHERE masterCode = 'WN FS4812')
+  AND NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinet_aliases WHERE alias = 'WN FS4812');
+
+-- Block 56: FLAGGED hidden master (report-only item) WO FS3012 (Not in the spec book; WN/WO presumably wood finishes. Floating shelf masters FS30/FS36/FS42/FS48 exist but size and finish are unconfirmed. Ask Rich). Source: DL Specification Book v.11/14/23: NOT FOUND (no entry for WO FS3012); DL Price List P5 (v1_13_26) row WO FS3012 (core 62, slim 62, luxe 62). Any value not in the source is NULL. CONFLICT entry added.
+INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet, specNotes, conflictStatus, conflictReason, conflictedAt)
+SELECT 'WO FS3012', 'WO FS3012 (floating shelf (not in spec book))', 'DL Price List P5 v1_13_26', 'Accessory', 'Floating Shelf', NULL, NULL, NULL, 'accessory', NULL, NULL, FALSE, NULL, FALSE, FALSE, FALSE, FALSE, TRUE, NULL, 'conflict', 'Issue: Not in the spec book; WN/WO presumably wood finishes. Floating shelf masters FS30/FS36/FS42/FS48 exist but size and finish are unconfirmed. Ask Rich
+Current value: WO FS3012 (floating shelf (not in spec book))
+Source: DL Specification Book v.11/14/23: NOT FOUND (no entry for WO FS3012); DL Price List P5 (v1_13_26) row WO FS3012 (core 62, slim 62, luxe 62)
+Needed: Admin confirms what this item is, the right master / category, and the real dimensions, then clears the conflict.
+Resolved fields: description, category, subCategory, width, height, depth', NOW()
+FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinets WHERE masterCode = 'WO FS3012')
+  AND NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinet_aliases WHERE alias = 'WO FS3012');
+
+-- Block 57: FLAGGED hidden master (report-only item) WO FS3612 (Not in the spec book; WN/WO presumably wood finishes. Floating shelf masters FS30/FS36/FS42/FS48 exist but size and finish are unconfirmed. Ask Rich). Source: DL Specification Book v.11/14/23: NOT FOUND (no entry for WO FS3612); DL Price List P5 (v1_13_26) row WO FS3612 (core 75, slim 75, luxe 75). Any value not in the source is NULL. CONFLICT entry added.
+INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet, specNotes, conflictStatus, conflictReason, conflictedAt)
+SELECT 'WO FS3612', 'WO FS3612 (floating shelf (not in spec book))', 'DL Price List P5 v1_13_26', 'Accessory', 'Floating Shelf', NULL, NULL, NULL, 'accessory', NULL, NULL, FALSE, NULL, FALSE, FALSE, FALSE, FALSE, TRUE, NULL, 'conflict', 'Issue: Not in the spec book; WN/WO presumably wood finishes. Floating shelf masters FS30/FS36/FS42/FS48 exist but size and finish are unconfirmed. Ask Rich
+Current value: WO FS3612 (floating shelf (not in spec book))
+Source: DL Specification Book v.11/14/23: NOT FOUND (no entry for WO FS3612); DL Price List P5 (v1_13_26) row WO FS3612 (core 75, slim 75, luxe 75)
+Needed: Admin confirms what this item is, the right master / category, and the real dimensions, then clears the conflict.
+Resolved fields: description, category, subCategory, width, height, depth', NOW()
+FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinets WHERE masterCode = 'WO FS3612')
+  AND NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinet_aliases WHERE alias = 'WO FS3612');
+
+-- Block 58: FLAGGED hidden master (report-only item) WO FS4812 (Not in the spec book; WN/WO presumably wood finishes. Floating shelf masters FS30/FS36/FS42/FS48 exist but size and finish are unconfirmed. Ask Rich). Source: DL Specification Book v.11/14/23: NOT FOUND (no entry for WO FS4812); DL Price List P5 (v1_13_26) row WO FS4812 (core 88, slim 88, luxe 88). Any value not in the source is NULL. CONFLICT entry added.
+INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet, specNotes, conflictStatus, conflictReason, conflictedAt)
+SELECT 'WO FS4812', 'WO FS4812 (floating shelf (not in spec book))', 'DL Price List P5 v1_13_26', 'Accessory', 'Floating Shelf', NULL, NULL, NULL, 'accessory', NULL, NULL, FALSE, NULL, FALSE, FALSE, FALSE, FALSE, TRUE, NULL, 'conflict', 'Issue: Not in the spec book; WN/WO presumably wood finishes. Floating shelf masters FS30/FS36/FS42/FS48 exist but size and finish are unconfirmed. Ask Rich
+Current value: WO FS4812 (floating shelf (not in spec book))
+Source: DL Specification Book v.11/14/23: NOT FOUND (no entry for WO FS4812); DL Price List P5 (v1_13_26) row WO FS4812 (core 88, slim 88, luxe 88)
+Needed: Admin confirms what this item is, the right master / category, and the real dimensions, then clears the conflict.
+Resolved fields: description, category, subCategory, width, height, depth', NOW()
+FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinets WHERE masterCode = 'WO FS4812')
+  AND NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinet_aliases WHERE alias = 'WO FS4812');
+
+-- Block 59: FLAGGED hidden master (report-only item) SP2436 (Spec-book lookup (pdftotext of v.11/14/23, searched 'SP2436', 'SP 2436', '2436'): NOT FOUND; only W2436 and WDC243612 contain the digits, so there is no description, thickness, finish or page. Price list row only: core $33 / slim $33 / luxe $66, no dimensions ('non-door item'). Tom: a panel / probably a decorative door, not a cabinet). Source: DL Specification Book v.11/14/23: NOT FOUND (no entry for SP2436); DL Price List P5 (v1_13_26) row SP2436 (core 33, slim 33, luxe 66). Any value not in the source is NULL. CONFLICT entry added.
+INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet, specNotes, conflictStatus, conflictReason, conflictedAt)
+SELECT 'SP2436', 'SP2436 (likely decorative door) - 24"W x 36"H (size inferred from the code)', 'DL Price List P5 v1_13_26', 'Panels', 'Decorative Door', 24, 36, NULL, 'accessory', NULL, NULL, FALSE, NULL, FALSE, FALSE, FALSE, FALSE, TRUE, NULL, 'conflict', 'Issue: Likely decorative door 24x36; not found in DL spec book; confirm. (Tom is fairly but not fully sure; 24x36 is read from the code.) Spec-book lookup (pdftotext of v.11/14/23, searched ''SP2436'', ''SP 2436'', ''2436''): NOT FOUND; only W2436 and WDC243612 contain the digits, so there is no description, thickness, finish or page. Price list row only: core $33 / slim $33 / luxe $66, no dimensions (''non-door item''). Tom: a panel / probably a decorative door, not a cabinet
+Current value: SP2436 (likely decorative door) - 24"W x 36"H (size inferred from the code)
+Source: DL Specification Book v.11/14/23: NOT FOUND (no entry for SP2436); DL Price List P5 (v1_13_26) row SP2436 (core 33, slim 33, luxe 66)
+Needed: Confirm it is a decorative door, its real size and thickness (ask Rich), then alias to the matching decorative door master if one exists.
+Resolved fields: description, category, subCategory, width, height, depth', NOW()
+FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinets WHERE masterCode = 'SP2436')
+  AND NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinet_aliases WHERE alias = 'SP2436');
+
+-- Block 60: FLAGGED hidden master (report-only item) QUARTER DOOR (Pending Rich: not in the spec book, no description). Source: DL Specification Book v.11/14/23: NOT FOUND (no entry for QUARTER DOOR); DL Price List P5 (v1_13_26) row QUARTER DOOR (10). Any value not in the source is NULL. CONFLICT entry added.
+INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet, specNotes, conflictStatus, conflictReason, conflictedAt)
+SELECT 'QUARTER DOOR', 'QUARTER DOOR (unidentified)', 'DL Price List P5 v1_13_26', 'Accessory', 'Unknown', NULL, NULL, NULL, 'accessory', NULL, NULL, FALSE, NULL, FALSE, FALSE, FALSE, FALSE, TRUE, NULL, 'conflict', 'Issue: Unidentified DL item; not found in DL spec book; pending Rich.
+Current value: QUARTER DOOR (unidentified)
+Source: DL Specification Book v.11/14/23: NOT FOUND; DL Price List P5 (v1_13_26) row QUARTER DOOR
+Needed: Rich identifies the item; admin then maps or classifies it.
+Resolved fields: description, category, subCategory, width, height, depth', NOW()
+FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinets WHERE masterCode = 'QUARTER DOOR')
+  AND NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinet_aliases WHERE alias = 'QUARTER DOOR');
+
+-- Block 61: aliases for every new / flagged master (the DL code is the alias; for W12##GD the alias WG12## points at the new glass cabinet)
 INSERT INTO cabinet_dealz.cabinet_aliases (cabinetId, alias)
 SELECT c.id, a.alias FROM (
+  SELECT '2DB33' AS alias, '2DB33' AS masterCode
+  UNION ALL
   SELECT 'W1230GD' AS alias, 'W1230GD' AS masterCode
   UNION ALL
   SELECT 'WG1230' AS alias, 'W1230GD' AS masterCode
@@ -175,472 +607,896 @@ SELECT c.id, a.alias FROM (
   SELECT 'WEOS0942' AS alias, 'WEOS0942' AS masterCode
   UNION ALL
   SELECT 'RH36' AS alias, 'RH36' AS masterCode
+  UNION ALL
+  SELECT 'WDD30' AS alias, 'WDD30' AS masterCode
+  UNION ALL
+  SELECT 'WDD36' AS alias, 'WDD36' AS masterCode
+  UNION ALL
+  SELECT 'WDD42' AS alias, 'WDD42' AS masterCode
+  UNION ALL
+  SELECT 'BDD24' AS alias, 'BDD24' AS masterCode
+  UNION ALL
+  SELECT 'WF3 30' AS alias, 'WF3 30' AS masterCode
+  UNION ALL
+  SELECT 'WF3 36' AS alias, 'WF3 36' AS masterCode
+  UNION ALL
+  SELECT 'SIDE PANEL 36X96' AS alias, 'SIDE PANEL 36X96' AS masterCode
+  UNION ALL
+  SELECT 'SKIN PANEL 36X96' AS alias, 'SKIN PANEL 36X96' AS masterCode
+  UNION ALL
+  SELECT 'BASEMOLDING' AS alias, 'BASEMOLDING' AS masterCode
+  UNION ALL
+  SELECT 'SHOEMOLDING' AS alias, 'SHOEMOLDING' AS masterCode
+  UNION ALL
+  SELECT 'ICM8' AS alias, 'ICM8' AS masterCode
+  UNION ALL
+  SELECT 'ANGLEMOLDING' AS alias, 'ANGLEMOLDING' AS masterCode
+  UNION ALL
+  SELECT 'CCM8' AS alias, 'CCM8' AS masterCode
+  UNION ALL
+  SELECT 'ACM2.5' AS alias, 'ACM2.5' AS masterCode
+  UNION ALL
+  SELECT 'TLR8' AS alias, 'TLR8' AS masterCode
+  UNION ALL
+  SELECT 'CORBEL 8X12' AS alias, 'CORBEL 8X12' AS masterCode
+  UNION ALL
+  SELECT 'DLS 4X4X36' AS alias, 'DLS 4X4X36' AS masterCode
+  UNION ALL
+  SELECT 'PULLOUT TRAY 18"' AS alias, 'PULLOUT TRAY 18"' AS masterCode
+  UNION ALL
+  SELECT 'PULLOUT TRAY 24"' AS alias, 'PULLOUT TRAY 24"' AS masterCode
+  UNION ALL
+  SELECT 'PULLOUT TRAY 30"' AS alias, 'PULLOUT TRAY 30"' AS masterCode
+  UNION ALL
+  SELECT 'PULLOUT TRAY 36"' AS alias, 'PULLOUT TRAY 36"' AS masterCode
+  UNION ALL
+  SELECT 'PULLOUT TRAY BWBKT15' AS alias, 'PULLOUT TRAY BWBKT15' AS masterCode
+  UNION ALL
+  SELECT 'PULLOUT TRAY BWBKT18' AS alias, 'PULLOUT TRAY BWBKT18' AS masterCode
+  UNION ALL
+  SELECT 'PULLOUT TRAY BWBKT21' AS alias, 'PULLOUT TRAY BWBKT21' AS masterCode
+  UNION ALL
+  SELECT '9" DRAWER SLIDES' AS alias, '9" DRAWER SLIDES' AS masterCode
+  UNION ALL
+  SELECT '12" DRAWER SLIDES' AS alias, '12" DRAWER SLIDES' AS masterCode
+  UNION ALL
+  SELECT '15" DRAWER SLIDES' AS alias, '15" DRAWER SLIDES' AS masterCode
+  UNION ALL
+  SELECT '18" DRAWER SLIDES' AS alias, '18" DRAWER SLIDES' AS masterCode
+  UNION ALL
+  SELECT '21" DRAWER SLIDES' AS alias, '21" DRAWER SLIDES' AS masterCode
+  UNION ALL
+  SELECT 'TRASH CAN' AS alias, 'TRASH CAN' AS masterCode
+  UNION ALL
+  SELECT 'SAMPLE DOOR PACK (2025)' AS alias, 'SAMPLE DOOR PACK (2025)' AS masterCode
+  UNION ALL
+  SELECT 'WN FS3012' AS alias, 'WN FS3012' AS masterCode
+  UNION ALL
+  SELECT 'WN FS3612' AS alias, 'WN FS3612' AS masterCode
+  UNION ALL
+  SELECT 'WN FS4812' AS alias, 'WN FS4812' AS masterCode
+  UNION ALL
+  SELECT 'WO FS3012' AS alias, 'WO FS3012' AS masterCode
+  UNION ALL
+  SELECT 'WO FS3612' AS alias, 'WO FS3612' AS masterCode
+  UNION ALL
+  SELECT 'WO FS4812' AS alias, 'WO FS4812' AS masterCode
+  UNION ALL
+  SELECT 'SP2436' AS alias, 'SP2436' AS masterCode
+  UNION ALL
+  SELECT 'QUARTER DOOR' AS alias, 'QUARTER DOOR' AS masterCode
 ) a
 JOIN cabinet_dealz.cabinets c ON c.masterCode = a.masterCode
 WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinet_aliases x WHERE x.alias = a.alias);
 
--- Block 22: Tom-confirmed aliases on EXISTING masters (SP09 -> SPB9, BWBKT18 -> BWB18, 2DB33 -> B33). Skipped if the alias already exists or the master is missing.
+-- Block 62: Tom-confirmed aliases on EXISTING masters (SP09 -> SPB9 spice pull-out, BWBKT18 -> BWB18). Skipped if the alias already exists or the master is missing.
 INSERT INTO cabinet_dealz.cabinet_aliases (cabinetId, alias)
 SELECT c.id, a.alias FROM (
   SELECT 'SP09' AS alias, 'SPB9' AS masterCode
   UNION ALL
   SELECT 'BWBKT18' AS alias, 'BWB18' AS masterCode
-  UNION ALL
-  SELECT '2DB33' AS alias, 'B33' AS masterCode
 ) a
 JOIN cabinet_dealz.cabinets c ON c.masterCode = a.masterCode
 WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinet_aliases x WHERE x.alias = a.alias);
 
--- Block 23: distributor_skus for door style DL-WS using the CORE price column (51 SKUs; pending, unpublished). Glass rows = cabinet + door price.
+-- Block 63: CABINET CONFLICT (review, stays public) on existing master PWB-MOS-30-18 for medium-confidence DL SKU WMC3018. Does not overwrite an existing flag.
+UPDATE cabinet_dealz.cabinets SET conflictStatus = 'review', conflictReason = 'Issue: DL SKU WMC3018 was mapped to this existing master at MEDIUM confidence (dimension-equivalent). Please confirm the mapping.
+Current value: master PWB-MOS-30-18
+Source: DL Specification Book v.11/14/23 p.8; DL Price List P5 (v1_13_26) row WMC3018; master description sheet 2026-10-26 (repo xlsx); DL Specification Book v.11/14/23: wall microwave cabinet 30 x 18 x 12, 0 doors, 1 shelf (open). Master is ''30 x 18 x 11 7/8 Wall Microwave Open Box'' (SK). Same type and construction; depth differs by 1/8 in
+Needed: Confirm DL''s item is the same as this master (type, size, construction), or tell us the right master.', conflictedAt = NOW()
+WHERE masterCode = 'PWB-MOS-30-18' AND conflictStatus = 'none';
+
+-- Block 64: CABINET CONFLICT (review, stays public) on existing master TUK for medium-confidence DL SKU TOUCHUP KIT. Does not overwrite an existing flag.
+UPDATE cabinet_dealz.cabinets SET conflictStatus = 'review', conflictReason = 'Issue: DL SKU TOUCHUP KIT was mapped to this existing master at MEDIUM confidence (nomenclature-equivalent). Please confirm the mapping.
+Current value: master TUK
+Source: DL Specification Book v.11/14/23: no entry for TOUCHUP KIT; DL Price List P5 (v1_13_26) row TOUCHUP KIT; master description sheet 2026-10-26 (repo xlsx); DL Specification Book v.11/14/23: touch-up kit (paint pen and putty). Master TUK is ''Touch Up Kit''. Same item; no dimensions in the master to compare
+Needed: Confirm DL''s item is the same as this master (type, size, construction), or tell us the right master.', conflictedAt = NOW()
+WHERE masterCode = 'TUK' AND conflictStatus = 'none';
+
+-- Block 65: CABINET CONFLICT (review, stays public) on existing master SPRAYPAINT for medium-confidence DL SKU PAINT. Does not overwrite an existing flag.
+UPDATE cabinet_dealz.cabinets SET conflictStatus = 'review', conflictReason = 'Issue: DL SKU PAINT was mapped to this existing master at MEDIUM confidence (nomenclature-equivalent). Please confirm the mapping.
+Current value: master SPRAYPAINT
+Source: DL Specification Book v.11/14/23 p.18; DL Price List P5 (v1_13_26) row PAINT; master description sheet 2026-10-26 (repo xlsx); DL Specification Book v.11/14/23: spray paint 2-1/2 x 8 x 2-1/2. Master SPRAYPAINT is ''Spray Paint Touch-Up''. Same item; the master has no dimensions or color, so DL''s color match is not confirmed
+Needed: Confirm DL''s item is the same as this master (type, size, construction), or tell us the right master.', conflictedAt = NOW()
+WHERE masterCode = 'SPRAYPAINT' AND conflictStatus = 'none';
+
+-- Block 66: CABINET CONFLICT (review, stays public) on existing master SM8 for medium-confidence DL SKU SCRIBEMOLDING. Does not overwrite an existing flag.
+UPDATE cabinet_dealz.cabinets SET conflictStatus = 'review', conflictReason = 'Issue: DL SKU SCRIBEMOLDING was mapped to this existing master at MEDIUM confidence (nomenclature-equivalent). Please confirm the mapping.
+Current value: master SM8
+Source: DL Specification Book v.11/14/23 p.15; DL Price List P5 (v1_13_26) row SCRIBEMOLDING; master description sheet 2026-10-26 (repo xlsx); DL Specification Book v.11/14/23: scribe molding 96 x 3/4 x 1/4. Master SM8 is ''Scribe Moulding - 96"''. Same item and length; the master has no profile dimensions
+Needed: Confirm DL''s item is the same as this master (type, size, construction), or tell us the right master.', conflictedAt = NOW()
+WHERE masterCode = 'SM8' AND conflictStatus = 'none';
+
+-- Block 67: CABINET CONFLICT (review, stays public) on existing master REPV2796 for medium-confidence DL SKU RRP27(1.5). Does not overwrite an existing flag.
+UPDATE cabinet_dealz.cabinets SET conflictStatus = 'review', conflictReason = 'Issue: DL SKU RRP27(1.5) was mapped to this existing master at MEDIUM confidence (dimension-equivalent). Please confirm the mapping.
+Current value: master REPV2796
+Source: DL Specification Book v.11/14/23: no entry for RRP27(1.5); DL Price List P5 (v1_13_26) row RRP27(1.5); master description sheet 2026-10-26 (repo xlsx); DL Specification Book v.11/14/23: refrigerator panel 1-1/2 x 96 x 27. Master REPV2796 is ''Refrigerator End Panel - 27"D x 96"H'' (SK). Same item, height and depth; the master has no thickness
+Needed: Confirm DL''s item is the same as this master (type, size, construction), or tell us the right master.', conflictedAt = NOW()
+WHERE masterCode = 'REPV2796' AND conflictStatus = 'none';
+
+-- Block 68: distributor_skus for door style DL-WS using the CORE price column (90 SKUs; pending, unpublished). Glass rows = cabinet + door price. noCt = accessory (constructionType NULL).
 INSERT INTO cabinet_dealz.distributor_skus (cabinetId, distributorId, styleId, platformSku, distributorSku, constructionType, listPrice, isPublished, status, supplierCabinetName)
-SELECT c.id, ds.distributorId, ds.id, CONCAT(m.dlSku, '-WS-DL'), m.distSku, 'framed', m.listPrice, FALSE, 'pending', m.distSku
+SELECT c.id, ds.distributorId, ds.id, CONCAT(m.dlSku, '-WS-DL'), m.distSku, CASE WHEN m.noCt = 1 THEN NULL ELSE 'framed' END, m.listPrice, FALSE, 'pending', m.distSku
 FROM (
-  SELECT 'FDB18' AS dlSku, 'FDB18' AS distSku, 'B18FH' AS masterCode, 134 AS listPrice /* FDB18 134 */
+  SELECT 'FDB18' AS dlSku, 'FDB18' AS distSku, 'B18FH' AS masterCode, 134 AS listPrice, 0 AS noCt /* FDB18 134 */
   UNION ALL
-  SELECT 'FDB21' AS dlSku, 'FDB21' AS distSku, 'B21FH' AS masterCode, 146 AS listPrice /* FDB21 146 */
+  SELECT 'FDB21' AS dlSku, 'FDB21' AS distSku, 'B21FH' AS masterCode, 146 AS listPrice, 0 AS noCt /* FDB21 146 */
   UNION ALL
-  SELECT 'FDB24' AS dlSku, 'FDB24' AS distSku, 'B24FH' AS masterCode, 166 AS listPrice /* FDB24 166 */
+  SELECT 'FDB24' AS dlSku, 'FDB24' AS distSku, 'B24FH' AS masterCode, 166 AS listPrice, 0 AS noCt /* FDB24 166 */
   UNION ALL
-  SELECT 'FDB27' AS dlSku, 'FDB27' AS distSku, 'B27FH' AS masterCode, 180 AS listPrice /* FDB27 180 */
+  SELECT 'FDB27' AS dlSku, 'FDB27' AS distSku, 'B27FH' AS masterCode, 180 AS listPrice, 0 AS noCt /* FDB27 180 */
   UNION ALL
-  SELECT 'FDB30' AS dlSku, 'FDB30' AS distSku, 'B30FH' AS masterCode, 187 AS listPrice /* FDB30 187 */
+  SELECT 'FDB30' AS dlSku, 'FDB30' AS distSku, 'B30FH' AS masterCode, 187 AS listPrice, 0 AS noCt /* FDB30 187 */
   UNION ALL
-  SELECT 'FDB33' AS dlSku, 'FDB33' AS distSku, 'B33FH' AS masterCode, 198 AS listPrice /* FDB33 198 */
+  SELECT 'FDB33' AS dlSku, 'FDB33' AS distSku, 'B33FH' AS masterCode, 198 AS listPrice, 0 AS noCt /* FDB33 198 */
   UNION ALL
-  SELECT 'FDB36' AS dlSku, 'FDB36' AS distSku, 'B36FH' AS masterCode, 208 AS listPrice /* FDB36 208 */
+  SELECT 'FDB36' AS dlSku, 'FDB36' AS distSku, 'B36FH' AS masterCode, 208 AS listPrice, 0 AS noCt /* FDB36 208 */
   UNION ALL
-  SELECT 'W1218' AS dlSku, 'W1218' AS distSku, 'W1218' AS masterCode, 64 AS listPrice /* W1218 64 */
+  SELECT 'W1218' AS dlSku, 'W1218' AS distSku, 'W1218' AS masterCode, 64 AS listPrice, 0 AS noCt /* W1218 64 */
   UNION ALL
-  SELECT 'W1518' AS dlSku, 'W1518' AS distSku, 'W1518' AS masterCode, 71 AS listPrice /* W1518 71 */
+  SELECT 'W1518' AS dlSku, 'W1518' AS distSku, 'W1518' AS masterCode, 71 AS listPrice, 0 AS noCt /* W1518 71 */
   UNION ALL
-  SELECT 'W1818' AS dlSku, 'W1818' AS distSku, 'W1818' AS masterCode, 81 AS listPrice /* W1818 81 */
+  SELECT 'W1818' AS dlSku, 'W1818' AS distSku, 'W1818' AS masterCode, 81 AS listPrice, 0 AS noCt /* W1818 81 */
   UNION ALL
-  SELECT 'VAN48D-6' AS dlSku, 'VAN48D-6' AS distSku, 'VDDB48' AS masterCode, 345 AS listPrice /* VAN48D-6 345 */
+  SELECT 'VAN48D-6' AS dlSku, 'VAN48D-6' AS distSku, 'VDDB48' AS masterCode, 345 AS listPrice, 0 AS noCt /* VAN48D-6 345 */
   UNION ALL
-  SELECT 'WMC3018' AS dlSku, 'WMC3018' AS distSku, 'PWB-MOS-30-18' AS masterCode, 93 AS listPrice /* WMC3018 93 */
+  SELECT 'WMC3018' AS dlSku, 'WMC3018' AS distSku, 'PWB-MOS-30-18' AS masterCode, 93 AS listPrice, 0 AS noCt /* WMC3018 93 */
   UNION ALL
-  SELECT 'DWP3' AS dlSku, 'DWP3' AS distSku, 'DWR3' AS masterCode, 40 AS listPrice /* DWP3 40 */
+  SELECT 'DWP3' AS dlSku, 'DWP3' AS distSku, 'DWR3' AS masterCode, 40 AS listPrice, 1 AS noCt /* DWP3 40 */
   UNION ALL
-  SELECT 'GH30' AS dlSku, 'GH30' AS distSku, 'SGH30' AS masterCode, 34 AS listPrice /* GH30 34 */
+  SELECT 'GH30' AS dlSku, 'GH30' AS distSku, 'SGH30' AS masterCode, 34 AS listPrice, 1 AS noCt /* GH30 34 */
   UNION ALL
-  SELECT 'TOUCHUP KIT' AS dlSku, 'TOUCHUP KIT' AS distSku, 'TUK' AS masterCode, 15 AS listPrice /* TOUCHUP KIT 15 */
+  SELECT 'TOUCHUP KIT' AS dlSku, 'TOUCHUP KIT' AS distSku, 'TUK' AS masterCode, 15 AS listPrice, 1 AS noCt /* TOUCHUP KIT 15 */
   UNION ALL
-  SELECT 'PAINT' AS dlSku, 'PAINT' AS distSku, 'SPRAYPAINT' AS masterCode, 30 AS listPrice /* PAINT 30 */
+  SELECT 'PAINT' AS dlSku, 'PAINT' AS distSku, 'SPRAYPAINT' AS masterCode, 30 AS listPrice, 1 AS noCt /* PAINT 30 */
   UNION ALL
-  SELECT 'SCRIBEMOLDING' AS dlSku, 'SCRIBEMOLDING' AS distSku, 'SM8' AS masterCode, 16 AS listPrice /* SCRIBEMOLDING 16 */
+  SELECT 'SCRIBEMOLDING' AS dlSku, 'SCRIBEMOLDING' AS distSku, 'SM8' AS masterCode, 16 AS listPrice, 1 AS noCt /* SCRIBEMOLDING 16 */
   UNION ALL
-  SELECT 'RRP27(1.5)' AS dlSku, 'RRP27(1.5)' AS distSku, 'REPV2796' AS masterCode, 79 AS listPrice /* RRP27(1.5) 79 */
+  SELECT 'RRP27(1.5)' AS dlSku, 'RRP27(1.5)' AS distSku, 'REPV2796' AS masterCode, 79 AS listPrice, 1 AS noCt /* RRP27(1.5) 79 */
   UNION ALL
-  SELECT 'FILLER 6X96' AS dlSku, 'FILLER 6X96' AS distSku, 'F696' AS masterCode, 74 AS listPrice /* FILLER 6X96 74 */
+  SELECT 'FILLER 6X96' AS dlSku, 'FILLER 6X96' AS distSku, 'F696' AS masterCode, 74 AS listPrice, 1 AS noCt /* FILLER 6X96 74 */
   UNION ALL
-  SELECT 'SP09' AS dlSku, 'SP09' AS distSku, 'SPB9' AS masterCode, 118 AS listPrice /* SP09 118 */
+  SELECT 'SP09' AS dlSku, 'SP09' AS distSku, 'SPB9' AS masterCode, 118 AS listPrice, 0 AS noCt /* SP09 118 */
   UNION ALL
-  SELECT 'BWBKT18' AS dlSku, 'BWBKT18' AS distSku, 'BWB18' AS masterCode, 196 AS listPrice /* BWBKT18 196 */
+  SELECT 'BWBKT18' AS dlSku, 'BWBKT18' AS distSku, 'BWB18' AS masterCode, 196 AS listPrice, 0 AS noCt /* BWBKT18 196 */
   UNION ALL
-  SELECT '2DB33' AS dlSku, '2DB33' AS distSku, 'B33' AS masterCode, 263 AS listPrice /* 2DB33 263 */
+  SELECT 'WG1530' AS dlSku, 'W1530 + WG1530' AS distSku, 'W1530GD' AS masterCode, 123 AS listPrice, 0 AS noCt /* W1530 88 + WG1530 35 */
   UNION ALL
-  SELECT 'WG1530' AS dlSku, 'W1530 + WG1530' AS distSku, 'W1530GD' AS masterCode, 123 AS listPrice /* W1530 88 + WG1530 35 */
+  SELECT 'WG1536' AS dlSku, 'W1536 + WG1536' AS distSku, 'W1536GD' AS masterCode, 142 AS listPrice, 0 AS noCt /* W1536 100 + WG1536 42 */
   UNION ALL
-  SELECT 'WG1536' AS dlSku, 'W1536 + WG1536' AS distSku, 'W1536GD' AS masterCode, 142 AS listPrice /* W1536 100 + WG1536 42 */
+  SELECT 'WG1542' AS dlSku, 'W1542 + WG1542' AS distSku, 'W1542GD' AS masterCode, 161 AS listPrice, 0 AS noCt /* W1542 115 + WG1542 46 */
   UNION ALL
-  SELECT 'WG1542' AS dlSku, 'W1542 + WG1542' AS distSku, 'W1542GD' AS masterCode, 161 AS listPrice /* W1542 115 + WG1542 46 */
+  SELECT 'WG1830' AS dlSku, 'W1830 + WG1830' AS distSku, 'W1830GD' AS masterCode, 142 AS listPrice, 0 AS noCt /* W1830 101 + WG1830 41 */
   UNION ALL
-  SELECT 'WG1830' AS dlSku, 'W1830 + WG1830' AS distSku, 'W1830GD' AS masterCode, 142 AS listPrice /* W1830 101 + WG1830 41 */
+  SELECT 'WG1836' AS dlSku, 'W1836 + WG1836' AS distSku, 'W1836GD' AS masterCode, 159 AS listPrice, 0 AS noCt /* W1836 112 + WG1836 47 */
   UNION ALL
-  SELECT 'WG1836' AS dlSku, 'W1836 + WG1836' AS distSku, 'W1836GD' AS masterCode, 159 AS listPrice /* W1836 112 + WG1836 47 */
+  SELECT 'WG1842' AS dlSku, 'W1842 + WG1842' AS distSku, 'W1842GD' AS masterCode, 171 AS listPrice, 0 AS noCt /* W1842 120 + WG1842 51 */
   UNION ALL
-  SELECT 'WG1842' AS dlSku, 'W1842 + WG1842' AS distSku, 'W1842GD' AS masterCode, 171 AS listPrice /* W1842 120 + WG1842 51 */
+  SELECT 'WDCG243012' AS dlSku, 'WDC243012 + WDCG243012' AS distSku, 'DCW2430GD' AS masterCode, 256 AS listPrice, 0 AS noCt /* WDC243012 211 + WDCG243012 45 */
   UNION ALL
-  SELECT 'WDCG243012' AS dlSku, 'WDC243012 + WDCG243012' AS distSku, 'DCW2430GD' AS masterCode, 256 AS listPrice /* WDC243012 211 + WDCG243012 45 */
+  SELECT 'WDCG243612' AS dlSku, 'WDC243612 + WDCG243612' AS distSku, 'DCW2436GD' AS masterCode, 273 AS listPrice, 0 AS noCt /* WDC243612 225 + WDCG243612 48 */
   UNION ALL
-  SELECT 'WDCG243612' AS dlSku, 'WDC243612 + WDCG243612' AS distSku, 'DCW2436GD' AS masterCode, 273 AS listPrice /* WDC243612 225 + WDCG243612 48 */
+  SELECT 'WDCG244212' AS dlSku, 'WDC244212 + WDCG244212' AS distSku, 'DCW2442GD' AS masterCode, 302 AS listPrice, 0 AS noCt /* WDC244212 249 + WDCG244212 53 */
   UNION ALL
-  SELECT 'WDCG244212' AS dlSku, 'WDC244212 + WDCG244212' AS distSku, 'DCW2442GD' AS masterCode, 302 AS listPrice /* WDC244212 249 + WDCG244212 53 */
+  SELECT '2DB33' AS dlSku, '2DB33' AS distSku, '2DB33' AS masterCode, 263 AS listPrice, 0 AS noCt /* 2DB33 263 */
   UNION ALL
-  SELECT 'WG1230' AS dlSku, 'W1230 + WG1230' AS distSku, 'W1230GD' AS masterCode, 111 AS listPrice /* W1230 80 + WG1230 31 */
+  SELECT 'WG1230' AS dlSku, 'W1230 + WG1230' AS distSku, 'W1230GD' AS masterCode, 111 AS listPrice, 0 AS noCt /* W1230 80 + WG1230 31 */
   UNION ALL
-  SELECT 'WG1236' AS dlSku, 'W1236 + WG1236' AS distSku, 'W1236GD' AS masterCode, 127 AS listPrice /* W1236 93 + WG1236 34 */
+  SELECT 'WG1236' AS dlSku, 'W1236 + WG1236' AS distSku, 'W1236GD' AS masterCode, 127 AS listPrice, 0 AS noCt /* W1236 93 + WG1236 34 */
   UNION ALL
-  SELECT 'WG1242' AS dlSku, 'W1242 + WG1242' AS distSku, 'W1242GD' AS masterCode, 145 AS listPrice /* W1242 107 + WG1242 38 */
+  SELECT 'WG1242' AS dlSku, 'W1242 + WG1242' AS distSku, 'W1242GD' AS masterCode, 145 AS listPrice, 0 AS noCt /* W1242 107 + WG1242 38 */
   UNION ALL
-  SELECT 'FLAT PANEL 28X96' AS dlSku, 'FLAT PANEL 28X96' AS distSku, 'FLAT PANEL 28X96' AS masterCode, 64 AS listPrice /* FLAT PANEL 28X96 64 */
+  SELECT 'FLAT PANEL 28X96' AS dlSku, 'FLAT PANEL 28X96' AS distSku, 'FLAT PANEL 28X96' AS masterCode, 64 AS listPrice, 1 AS noCt /* FLAT PANEL 28X96 64 */
   UNION ALL
-  SELECT 'FDB09' AS dlSku, 'FDB09' AS distSku, 'FDB09' AS masterCode, 107 AS listPrice /* FDB09 107 */
+  SELECT 'FDB09' AS dlSku, 'FDB09' AS distSku, 'FDB09' AS masterCode, 107 AS listPrice, 0 AS noCt /* FDB09 107 */
   UNION ALL
-  SELECT 'W2118' AS dlSku, 'W2118' AS distSku, 'W2118' AS masterCode, 86 AS listPrice /* W2118 86 */
+  SELECT 'W2118' AS dlSku, 'W2118' AS distSku, 'W2118' AS masterCode, 86 AS listPrice, 0 AS noCt /* W2118 86 */
   UNION ALL
-  SELECT 'W2412' AS dlSku, 'W2412' AS distSku, 'W2412' AS masterCode, 80 AS listPrice /* W2412 80 */
+  SELECT 'W2412' AS dlSku, 'W2412' AS distSku, 'W2412' AS masterCode, 80 AS listPrice, 0 AS noCt /* W2412 80 */
   UNION ALL
-  SELECT 'W2415' AS dlSku, 'W2415' AS distSku, 'W2415' AS masterCode, 89 AS listPrice /* W2415 89 */
+  SELECT 'W2415' AS dlSku, 'W2415' AS distSku, 'W2415' AS masterCode, 89 AS listPrice, 0 AS noCt /* W2415 89 */
   UNION ALL
-  SELECT 'W2424' AS dlSku, 'W2424' AS distSku, 'W2424' AS masterCode, 111 AS listPrice /* W2424 111 */
+  SELECT 'W2424' AS dlSku, 'W2424' AS distSku, 'W2424' AS masterCode, 111 AS listPrice, 0 AS noCt /* W2424 111 */
   UNION ALL
-  SELECT 'W2718' AS dlSku, 'W2718' AS distSku, 'W2718' AS masterCode, 103 AS listPrice /* W2718 103 */
+  SELECT 'W2718' AS dlSku, 'W2718' AS distSku, 'W2718' AS masterCode, 103 AS listPrice, 0 AS noCt /* W2718 103 */
   UNION ALL
-  SELECT 'WDC241812' AS dlSku, 'WDC241812' AS distSku, 'WDC241812' AS masterCode, 156 AS listPrice /* WDC241812 156 */
+  SELECT 'WDC241812' AS dlSku, 'WDC241812' AS distSku, 'WDC241812' AS masterCode, 156 AS listPrice, 0 AS noCt /* WDC241812 156 */
   UNION ALL
-  SELECT 'BBC33-9' AS dlSku, 'BBC33-9' AS distSku, 'BBC33-9' AS masterCode, 183 AS listPrice /* BBC33-9 183 */
+  SELECT 'BBC33-9' AS dlSku, 'BBC33-9' AS distSku, 'BBC33-9' AS masterCode, 183 AS listPrice, 0 AS noCt /* BBC33-9 183 */
   UNION ALL
-  SELECT 'BES09' AS dlSku, 'BES09' AS distSku, 'BES09' AS masterCode, 91 AS listPrice /* BES09 91 */
+  SELECT 'BES09' AS dlSku, 'BES09' AS distSku, 'BES09' AS masterCode, 91 AS listPrice, 0 AS noCt /* BES09 91 */
   UNION ALL
-  SELECT 'CL156012' AS dlSku, 'CL156012' AS distSku, 'CL156012' AS masterCode, 166 AS listPrice /* CL156012 166 */
+  SELECT 'CL156012' AS dlSku, 'CL156012' AS distSku, 'CL156012' AS masterCode, 166 AS listPrice, 0 AS noCt /* CL156012 166 */
   UNION ALL
-  SELECT 'DSK2421' AS dlSku, 'DSK2421' AS distSku, 'DSK2421' AS masterCode, 157 AS listPrice /* DSK2421 157 */
+  SELECT 'DSK2421' AS dlSku, 'DSK2421' AS distSku, 'DSK2421' AS masterCode, 157 AS listPrice, 0 AS noCt /* DSK2421 157 */
   UNION ALL
-  SELECT 'DSK3021' AS dlSku, 'DSK3021' AS distSku, 'DSK3021' AS masterCode, 157 AS listPrice /* DSK3021 157 */
+  SELECT 'DSK3021' AS dlSku, 'DSK3021' AS distSku, 'DSK3021' AS masterCode, 157 AS listPrice, 0 AS noCt /* DSK3021 157 */
   UNION ALL
-  SELECT 'WEOS0930' AS dlSku, 'WEOS0930' AS distSku, 'WEOS0930' AS masterCode, 69 AS listPrice /* WEOS0930 69 */
+  SELECT 'WEOS0930' AS dlSku, 'WEOS0930' AS distSku, 'WEOS0930' AS masterCode, 69 AS listPrice, 0 AS noCt /* WEOS0930 69 */
   UNION ALL
-  SELECT 'WEOS0936' AS dlSku, 'WEOS0936' AS distSku, 'WEOS0936' AS masterCode, 75 AS listPrice /* WEOS0936 75 */
+  SELECT 'WEOS0936' AS dlSku, 'WEOS0936' AS distSku, 'WEOS0936' AS masterCode, 75 AS listPrice, 0 AS noCt /* WEOS0936 75 */
   UNION ALL
-  SELECT 'WEOS0942' AS dlSku, 'WEOS0942' AS distSku, 'WEOS0942' AS masterCode, 87 AS listPrice /* WEOS0942 87 */
+  SELECT 'WEOS0942' AS dlSku, 'WEOS0942' AS distSku, 'WEOS0942' AS masterCode, 87 AS listPrice, 0 AS noCt /* WEOS0942 87 */
   UNION ALL
-  SELECT 'RH36' AS dlSku, 'RH36' AS distSku, 'RH36' AS masterCode, 543 AS listPrice /* RH36 543 */
+  SELECT 'RH36' AS dlSku, 'RH36' AS distSku, 'RH36' AS masterCode, 543 AS listPrice, 0 AS noCt /* RH36 543 */
+  UNION ALL
+  SELECT 'WDD30' AS dlSku, 'WDD30' AS distSku, 'WDD30' AS masterCode, 48 AS listPrice, 1 AS noCt /* WDD30 48 */
+  UNION ALL
+  SELECT 'WDD36' AS dlSku, 'WDD36' AS distSku, 'WDD36' AS masterCode, 53 AS listPrice, 1 AS noCt /* WDD36 53 */
+  UNION ALL
+  SELECT 'WDD42' AS dlSku, 'WDD42' AS distSku, 'WDD42' AS masterCode, 58 AS listPrice, 1 AS noCt /* WDD42 58 */
+  UNION ALL
+  SELECT 'BDD24' AS dlSku, 'BDD24' AS distSku, 'BDD24' AS masterCode, 66 AS listPrice, 1 AS noCt /* BDD24 66 */
+  UNION ALL
+  SELECT 'WF3 30' AS dlSku, 'WF3 30' AS distSku, 'WF3 30' AS masterCode, 13 AS listPrice, 1 AS noCt /* WF3 30 13 */
+  UNION ALL
+  SELECT 'WF3 36' AS dlSku, 'WF3 36' AS distSku, 'WF3 36' AS masterCode, 15 AS listPrice, 1 AS noCt /* WF3 36 15 */
+  UNION ALL
+  SELECT 'SIDE PANEL 36X96' AS dlSku, 'SIDE PANEL 36X96' AS distSku, 'SIDE PANEL 36X96' AS masterCode, 107 AS listPrice, 1 AS noCt /* SIDE PANEL 36X96 107 */
+  UNION ALL
+  SELECT 'SKIN PANEL 36X96' AS dlSku, 'SKIN PANEL 36X96' AS distSku, 'SKIN PANEL 36X96' AS masterCode, 64 AS listPrice, 1 AS noCt /* SKIN PANEL 36X96 64 */
+  UNION ALL
+  SELECT 'BASEMOLDING' AS dlSku, 'BASEMOLDING' AS distSku, 'BASEMOLDING' AS masterCode, 52 AS listPrice, 1 AS noCt /* BASEMOLDING 52 */
+  UNION ALL
+  SELECT 'SHOEMOLDING' AS dlSku, 'SHOEMOLDING' AS distSku, 'SHOEMOLDING' AS masterCode, 16 AS listPrice, 1 AS noCt /* SHOEMOLDING 16 */
+  UNION ALL
+  SELECT 'ICM8' AS dlSku, 'ICM8' AS distSku, 'ICM8' AS masterCode, 16 AS listPrice, 1 AS noCt /* ICM8 16 */
+  UNION ALL
+  SELECT 'ANGLEMOLDING' AS dlSku, 'ANGLEMOLDING' AS distSku, 'ANGLEMOLDING' AS masterCode, 16 AS listPrice, 1 AS noCt /* ANGLEMOLDING 16 */
+  UNION ALL
+  SELECT 'CCM8' AS dlSku, 'CCM8' AS distSku, 'CCM8' AS masterCode, 64 AS listPrice, 1 AS noCt /* CCM8 64 */
+  UNION ALL
+  SELECT 'ACM2.5' AS dlSku, 'ACM2.5' AS distSku, 'ACM2.5' AS masterCode, 47 AS listPrice, 1 AS noCt /* ACM2.5 47 */
+  UNION ALL
+  SELECT 'TLR8' AS dlSku, 'TLR8' AS distSku, 'TLR8' AS masterCode, 37 AS listPrice, 1 AS noCt /* TLR8 37 */
+  UNION ALL
+  SELECT 'CORBEL 8X12' AS dlSku, 'CORBEL 8X12' AS distSku, 'CORBEL 8X12' AS masterCode, 26 AS listPrice, 1 AS noCt /* CORBEL 8X12 26 */
+  UNION ALL
+  SELECT 'DLS 4X4X36' AS dlSku, 'DLS 4X4X36' AS distSku, 'DLS 4X4X36' AS masterCode, 94 AS listPrice, 1 AS noCt /* DLS 4X4X36 94 */
+  UNION ALL
+  SELECT 'PULLOUT TRAY 18"' AS dlSku, 'PULLOUT TRAY 18"' AS distSku, 'PULLOUT TRAY 18"' AS masterCode, 33 AS listPrice, 1 AS noCt /* PULLOUT TRAY 18" 33 */
+  UNION ALL
+  SELECT 'PULLOUT TRAY 24"' AS dlSku, 'PULLOUT TRAY 24"' AS distSku, 'PULLOUT TRAY 24"' AS masterCode, 40 AS listPrice, 1 AS noCt /* PULLOUT TRAY 24" 40 */
+  UNION ALL
+  SELECT 'PULLOUT TRAY 30"' AS dlSku, 'PULLOUT TRAY 30"' AS distSku, 'PULLOUT TRAY 30"' AS masterCode, 52 AS listPrice, 1 AS noCt /* PULLOUT TRAY 30" 52 */
+  UNION ALL
+  SELECT 'PULLOUT TRAY 36"' AS dlSku, 'PULLOUT TRAY 36"' AS distSku, 'PULLOUT TRAY 36"' AS masterCode, 62 AS listPrice, 1 AS noCt /* PULLOUT TRAY 36" 62 */
+  UNION ALL
+  SELECT 'PULLOUT TRAY BWBKT15' AS dlSku, 'PULLOUT TRAY BWBKT15' AS distSku, 'PULLOUT TRAY BWBKT15' AS masterCode, 63 AS listPrice, 1 AS noCt /* PULLOUT TRAY BWBKT15 63 */
+  UNION ALL
+  SELECT 'PULLOUT TRAY BWBKT18' AS dlSku, 'PULLOUT TRAY BWBKT18' AS distSku, 'PULLOUT TRAY BWBKT18' AS masterCode, 63 AS listPrice, 1 AS noCt /* PULLOUT TRAY BWBKT18 63 */
+  UNION ALL
+  SELECT 'PULLOUT TRAY BWBKT21' AS dlSku, 'PULLOUT TRAY BWBKT21' AS distSku, 'PULLOUT TRAY BWBKT21' AS masterCode, 63 AS listPrice, 1 AS noCt /* PULLOUT TRAY BWBKT21 63 */
+  UNION ALL
+  SELECT '9" DRAWER SLIDES' AS dlSku, '9" DRAWER SLIDES' AS distSku, '9" DRAWER SLIDES' AS masterCode, 16 AS listPrice, 1 AS noCt /* 9" DRAWER SLIDES 16 */
+  UNION ALL
+  SELECT '12" DRAWER SLIDES' AS dlSku, '12" DRAWER SLIDES' AS distSku, '12" DRAWER SLIDES' AS masterCode, 16 AS listPrice, 1 AS noCt /* 12" DRAWER SLIDES 16 */
+  UNION ALL
+  SELECT '15" DRAWER SLIDES' AS dlSku, '15" DRAWER SLIDES' AS distSku, '15" DRAWER SLIDES' AS masterCode, 19 AS listPrice, 1 AS noCt /* 15" DRAWER SLIDES 19 */
+  UNION ALL
+  SELECT '18" DRAWER SLIDES' AS dlSku, '18" DRAWER SLIDES' AS distSku, '18" DRAWER SLIDES' AS masterCode, 21 AS listPrice, 1 AS noCt /* 18" DRAWER SLIDES 21 */
+  UNION ALL
+  SELECT '21" DRAWER SLIDES' AS dlSku, '21" DRAWER SLIDES' AS distSku, '21" DRAWER SLIDES' AS masterCode, 21 AS listPrice, 1 AS noCt /* 21" DRAWER SLIDES 21 */
+  UNION ALL
+  SELECT 'TRASH CAN' AS dlSku, 'TRASH CAN' AS distSku, 'TRASH CAN' AS masterCode, 16 AS listPrice, 1 AS noCt /* TRASH CAN 16 */
+  UNION ALL
+  SELECT 'SAMPLE DOOR PACK (2025)' AS dlSku, 'SAMPLE DOOR PACK (2025)' AS distSku, 'SAMPLE DOOR PACK (2025)' AS masterCode, 100 AS listPrice, 1 AS noCt /* SAMPLE DOOR PACK (2025) 100 */
+  UNION ALL
+  SELECT 'WN FS3012' AS dlSku, 'WN FS3012' AS distSku, 'WN FS3012' AS masterCode, 62 AS listPrice, 1 AS noCt /* WN FS3012 62 */
+  UNION ALL
+  SELECT 'WN FS3612' AS dlSku, 'WN FS3612' AS distSku, 'WN FS3612' AS masterCode, 75 AS listPrice, 1 AS noCt /* WN FS3612 75 */
+  UNION ALL
+  SELECT 'WN FS4812' AS dlSku, 'WN FS4812' AS distSku, 'WN FS4812' AS masterCode, 88 AS listPrice, 1 AS noCt /* WN FS4812 88 */
+  UNION ALL
+  SELECT 'WO FS3012' AS dlSku, 'WO FS3012' AS distSku, 'WO FS3012' AS masterCode, 62 AS listPrice, 1 AS noCt /* WO FS3012 62 */
+  UNION ALL
+  SELECT 'WO FS3612' AS dlSku, 'WO FS3612' AS distSku, 'WO FS3612' AS masterCode, 75 AS listPrice, 1 AS noCt /* WO FS3612 75 */
+  UNION ALL
+  SELECT 'WO FS4812' AS dlSku, 'WO FS4812' AS distSku, 'WO FS4812' AS masterCode, 88 AS listPrice, 1 AS noCt /* WO FS4812 88 */
+  UNION ALL
+  SELECT 'SP2436' AS dlSku, 'SP2436' AS distSku, 'SP2436' AS masterCode, 33 AS listPrice, 1 AS noCt /* SP2436 33 */
+  UNION ALL
+  SELECT 'QUARTER DOOR' AS dlSku, 'QUARTER DOOR' AS distSku, 'QUARTER DOOR' AS masterCode, 10 AS listPrice, 1 AS noCt /* QUARTER DOOR 10 */
 ) m
 JOIN cabinet_dealz.cabinets c ON c.masterCode = m.masterCode
 JOIN cabinet_dealz.door_styles ds ON ds.styleCode = 'DL-WS' AND ds.distributorId = (SELECT id FROM cabinet_dealz.distributors WHERE code = 'DL')
 WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.distributor_skus x WHERE x.platformSku = CONCAT(m.dlSku, '-WS-DL'))
-  AND (m.dlSku = '2DB33' /* intentional 2nd DL SKU on B33 (Tom) */ OR NOT EXISTS (SELECT 1 FROM cabinet_dealz.distributor_skus y WHERE y.distributorId = ds.distributorId AND y.styleId = ds.id AND y.cabinetId = c.id));
+  AND NOT EXISTS (SELECT 1 FROM cabinet_dealz.distributor_skus y WHERE y.distributorId = ds.distributorId AND y.styleId = ds.id AND y.cabinetId = c.id);
 
--- Block 24: distributor_skus for door style DL-SSA using the SLIM price column (51 SKUs; pending, unpublished). Glass rows = cabinet + door price.
+-- Block 69: distributor_skus for door style DL-SSA using the SLIM price column (90 SKUs; pending, unpublished). Glass rows = cabinet + door price. noCt = accessory (constructionType NULL).
 INSERT INTO cabinet_dealz.distributor_skus (cabinetId, distributorId, styleId, platformSku, distributorSku, constructionType, listPrice, isPublished, status, supplierCabinetName)
-SELECT c.id, ds.distributorId, ds.id, CONCAT(m.dlSku, '-SSA-DL'), m.distSku, 'framed', m.listPrice, FALSE, 'pending', m.distSku
+SELECT c.id, ds.distributorId, ds.id, CONCAT(m.dlSku, '-SSA-DL'), m.distSku, CASE WHEN m.noCt = 1 THEN NULL ELSE 'framed' END, m.listPrice, FALSE, 'pending', m.distSku
 FROM (
-  SELECT 'FDB18' AS dlSku, 'FDB18' AS distSku, 'B18FH' AS masterCode, 147 AS listPrice /* FDB18 147 */
+  SELECT 'FDB18' AS dlSku, 'FDB18' AS distSku, 'B18FH' AS masterCode, 147 AS listPrice, 0 AS noCt /* FDB18 147 */
   UNION ALL
-  SELECT 'FDB21' AS dlSku, 'FDB21' AS distSku, 'B21FH' AS masterCode, 161 AS listPrice /* FDB21 161 */
+  SELECT 'FDB21' AS dlSku, 'FDB21' AS distSku, 'B21FH' AS masterCode, 161 AS listPrice, 0 AS noCt /* FDB21 161 */
   UNION ALL
-  SELECT 'FDB24' AS dlSku, 'FDB24' AS distSku, 'B24FH' AS masterCode, 183 AS listPrice /* FDB24 183 */
+  SELECT 'FDB24' AS dlSku, 'FDB24' AS distSku, 'B24FH' AS masterCode, 183 AS listPrice, 0 AS noCt /* FDB24 183 */
   UNION ALL
-  SELECT 'FDB27' AS dlSku, 'FDB27' AS distSku, 'B27FH' AS masterCode, 198 AS listPrice /* FDB27 198 */
+  SELECT 'FDB27' AS dlSku, 'FDB27' AS distSku, 'B27FH' AS masterCode, 198 AS listPrice, 0 AS noCt /* FDB27 198 */
   UNION ALL
-  SELECT 'FDB30' AS dlSku, 'FDB30' AS distSku, 'B30FH' AS masterCode, 206 AS listPrice /* FDB30 206 */
+  SELECT 'FDB30' AS dlSku, 'FDB30' AS distSku, 'B30FH' AS masterCode, 206 AS listPrice, 0 AS noCt /* FDB30 206 */
   UNION ALL
-  SELECT 'FDB33' AS dlSku, 'FDB33' AS distSku, 'B33FH' AS masterCode, 218 AS listPrice /* FDB33 218 */
+  SELECT 'FDB33' AS dlSku, 'FDB33' AS distSku, 'B33FH' AS masterCode, 218 AS listPrice, 0 AS noCt /* FDB33 218 */
   UNION ALL
-  SELECT 'FDB36' AS dlSku, 'FDB36' AS distSku, 'B36FH' AS masterCode, 229 AS listPrice /* FDB36 229 */
+  SELECT 'FDB36' AS dlSku, 'FDB36' AS distSku, 'B36FH' AS masterCode, 229 AS listPrice, 0 AS noCt /* FDB36 229 */
   UNION ALL
-  SELECT 'W1218' AS dlSku, 'W1218' AS distSku, 'W1218' AS masterCode, 71 AS listPrice /* W1218 71 */
+  SELECT 'W1218' AS dlSku, 'W1218' AS distSku, 'W1218' AS masterCode, 71 AS listPrice, 0 AS noCt /* W1218 71 */
   UNION ALL
-  SELECT 'W1518' AS dlSku, 'W1518' AS distSku, 'W1518' AS masterCode, 79 AS listPrice /* W1518 79 */
+  SELECT 'W1518' AS dlSku, 'W1518' AS distSku, 'W1518' AS masterCode, 79 AS listPrice, 0 AS noCt /* W1518 79 */
   UNION ALL
-  SELECT 'W1818' AS dlSku, 'W1818' AS distSku, 'W1818' AS masterCode, 90 AS listPrice /* W1818 90 */
+  SELECT 'W1818' AS dlSku, 'W1818' AS distSku, 'W1818' AS masterCode, 90 AS listPrice, 0 AS noCt /* W1818 90 */
   UNION ALL
-  SELECT 'VAN48D-6' AS dlSku, 'VAN48D-6' AS distSku, 'VDDB48' AS masterCode, 380 AS listPrice /* VAN48D-6 380 */
+  SELECT 'VAN48D-6' AS dlSku, 'VAN48D-6' AS distSku, 'VDDB48' AS masterCode, 380 AS listPrice, 0 AS noCt /* VAN48D-6 380 */
   UNION ALL
-  SELECT 'WMC3018' AS dlSku, 'WMC3018' AS distSku, 'PWB-MOS-30-18' AS masterCode, 93 AS listPrice /* WMC3018 93 */
+  SELECT 'WMC3018' AS dlSku, 'WMC3018' AS distSku, 'PWB-MOS-30-18' AS masterCode, 93 AS listPrice, 0 AS noCt /* WMC3018 93 */
   UNION ALL
-  SELECT 'DWP3' AS dlSku, 'DWP3' AS distSku, 'DWR3' AS masterCode, 40 AS listPrice /* DWP3 40 */
+  SELECT 'DWP3' AS dlSku, 'DWP3' AS distSku, 'DWR3' AS masterCode, 40 AS listPrice, 1 AS noCt /* DWP3 40 */
   UNION ALL
-  SELECT 'GH30' AS dlSku, 'GH30' AS distSku, 'SGH30' AS masterCode, 38 AS listPrice /* GH30 38 */
+  SELECT 'GH30' AS dlSku, 'GH30' AS distSku, 'SGH30' AS masterCode, 38 AS listPrice, 1 AS noCt /* GH30 38 */
   UNION ALL
-  SELECT 'TOUCHUP KIT' AS dlSku, 'TOUCHUP KIT' AS distSku, 'TUK' AS masterCode, 15 AS listPrice /* TOUCHUP KIT 15 */
+  SELECT 'TOUCHUP KIT' AS dlSku, 'TOUCHUP KIT' AS distSku, 'TUK' AS masterCode, 15 AS listPrice, 1 AS noCt /* TOUCHUP KIT 15 */
   UNION ALL
-  SELECT 'PAINT' AS dlSku, 'PAINT' AS distSku, 'SPRAYPAINT' AS masterCode, 30 AS listPrice /* PAINT 30 */
+  SELECT 'PAINT' AS dlSku, 'PAINT' AS distSku, 'SPRAYPAINT' AS masterCode, 30 AS listPrice, 1 AS noCt /* PAINT 30 */
   UNION ALL
-  SELECT 'SCRIBEMOLDING' AS dlSku, 'SCRIBEMOLDING' AS distSku, 'SM8' AS masterCode, 16 AS listPrice /* SCRIBEMOLDING 16 */
+  SELECT 'SCRIBEMOLDING' AS dlSku, 'SCRIBEMOLDING' AS distSku, 'SM8' AS masterCode, 16 AS listPrice, 1 AS noCt /* SCRIBEMOLDING 16 */
   UNION ALL
-  SELECT 'RRP27(1.5)' AS dlSku, 'RRP27(1.5)' AS distSku, 'REPV2796' AS masterCode, 79 AS listPrice /* RRP27(1.5) 79 */
+  SELECT 'RRP27(1.5)' AS dlSku, 'RRP27(1.5)' AS distSku, 'REPV2796' AS masterCode, 79 AS listPrice, 1 AS noCt /* RRP27(1.5) 79 */
   UNION ALL
-  SELECT 'FILLER 6X96' AS dlSku, 'FILLER 6X96' AS distSku, 'F696' AS masterCode, 74 AS listPrice /* FILLER 6X96 74 */
+  SELECT 'FILLER 6X96' AS dlSku, 'FILLER 6X96' AS distSku, 'F696' AS masterCode, 74 AS listPrice, 1 AS noCt /* FILLER 6X96 74 */
   UNION ALL
-  SELECT 'SP09' AS dlSku, 'SP09' AS distSku, 'SPB9' AS masterCode, 129 AS listPrice /* SP09 129 */
+  SELECT 'SP09' AS dlSku, 'SP09' AS distSku, 'SPB9' AS masterCode, 129 AS listPrice, 0 AS noCt /* SP09 129 */
   UNION ALL
-  SELECT 'BWBKT18' AS dlSku, 'BWBKT18' AS distSku, 'BWB18' AS masterCode, 215 AS listPrice /* BWBKT18 215 */
+  SELECT 'BWBKT18' AS dlSku, 'BWBKT18' AS distSku, 'BWB18' AS masterCode, 215 AS listPrice, 0 AS noCt /* BWBKT18 215 */
   UNION ALL
-  SELECT '2DB33' AS dlSku, '2DB33' AS distSku, 'B33' AS masterCode, 290 AS listPrice /* 2DB33 290 */
+  SELECT 'WG1530' AS dlSku, 'W1530 + WG1530' AS distSku, 'W1530GD' AS masterCode, 137 AS listPrice, 0 AS noCt /* W1530 98 + WG1530 39 */
   UNION ALL
-  SELECT 'WG1530' AS dlSku, 'W1530 + WG1530' AS distSku, 'W1530GD' AS masterCode, 137 AS listPrice /* W1530 98 + WG1530 39 */
+  SELECT 'WG1536' AS dlSku, 'W1536 + WG1536' AS distSku, 'W1536GD' AS masterCode, 157 AS listPrice, 0 AS noCt /* W1536 110 + WG1536 47 */
   UNION ALL
-  SELECT 'WG1536' AS dlSku, 'W1536 + WG1536' AS distSku, 'W1536GD' AS masterCode, 157 AS listPrice /* W1536 110 + WG1536 47 */
+  SELECT 'WG1542' AS dlSku, 'W1542 + WG1542' AS distSku, 'W1542GD' AS masterCode, 177 AS listPrice, 0 AS noCt /* W1542 126 + WG1542 51 */
   UNION ALL
-  SELECT 'WG1542' AS dlSku, 'W1542 + WG1542' AS distSku, 'W1542GD' AS masterCode, 177 AS listPrice /* W1542 126 + WG1542 51 */
+  SELECT 'WG1830' AS dlSku, 'W1830 + WG1830' AS distSku, 'W1830GD' AS masterCode, 156 AS listPrice, 0 AS noCt /* W1830 110 + WG1830 46 */
   UNION ALL
-  SELECT 'WG1830' AS dlSku, 'W1830 + WG1830' AS distSku, 'W1830GD' AS masterCode, 156 AS listPrice /* W1830 110 + WG1830 46 */
+  SELECT 'WG1836' AS dlSku, 'W1836 + WG1836' AS distSku, 'W1836GD' AS masterCode, 175 AS listPrice, 0 AS noCt /* W1836 123 + WG1836 52 */
   UNION ALL
-  SELECT 'WG1836' AS dlSku, 'W1836 + WG1836' AS distSku, 'W1836GD' AS masterCode, 175 AS listPrice /* W1836 123 + WG1836 52 */
+  SELECT 'WG1842' AS dlSku, 'W1842 + WG1842' AS distSku, 'W1842GD' AS masterCode, 188 AS listPrice, 0 AS noCt /* W1842 132 + WG1842 56 */
   UNION ALL
-  SELECT 'WG1842' AS dlSku, 'W1842 + WG1842' AS distSku, 'W1842GD' AS masterCode, 188 AS listPrice /* W1842 132 + WG1842 56 */
+  SELECT 'WDCG243012' AS dlSku, 'WDC243012 + WDCG243012' AS distSku, 'DCW2430GD' AS masterCode, 282 AS listPrice, 0 AS noCt /* WDC243012 232 + WDCG243012 50 */
   UNION ALL
-  SELECT 'WDCG243012' AS dlSku, 'WDC243012 + WDCG243012' AS distSku, 'DCW2430GD' AS masterCode, 282 AS listPrice /* WDC243012 232 + WDCG243012 50 */
+  SELECT 'WDCG243612' AS dlSku, 'WDC243612 + WDCG243612' AS distSku, 'DCW2436GD' AS masterCode, 300 AS listPrice, 0 AS noCt /* WDC243612 248 + WDCG243612 52 */
   UNION ALL
-  SELECT 'WDCG243612' AS dlSku, 'WDC243612 + WDCG243612' AS distSku, 'DCW2436GD' AS masterCode, 300 AS listPrice /* WDC243612 248 + WDCG243612 52 */
+  SELECT 'WDCG244212' AS dlSku, 'WDC244212 + WDCG244212' AS distSku, 'DCW2442GD' AS masterCode, 333 AS listPrice, 0 AS noCt /* WDC244212 275 + WDCG244212 58 */
   UNION ALL
-  SELECT 'WDCG244212' AS dlSku, 'WDC244212 + WDCG244212' AS distSku, 'DCW2442GD' AS masterCode, 333 AS listPrice /* WDC244212 275 + WDCG244212 58 */
+  SELECT '2DB33' AS dlSku, '2DB33' AS distSku, '2DB33' AS masterCode, 290 AS listPrice, 0 AS noCt /* 2DB33 290 */
   UNION ALL
-  SELECT 'WG1230' AS dlSku, 'W1230 + WG1230' AS distSku, 'W1230GD' AS masterCode, 122 AS listPrice /* W1230 88 + WG1230 34 */
+  SELECT 'WG1230' AS dlSku, 'W1230 + WG1230' AS distSku, 'W1230GD' AS masterCode, 122 AS listPrice, 0 AS noCt /* W1230 88 + WG1230 34 */
   UNION ALL
-  SELECT 'WG1236' AS dlSku, 'W1236 + WG1236' AS distSku, 'W1236GD' AS masterCode, 140 AS listPrice /* W1236 102 + WG1236 38 */
+  SELECT 'WG1236' AS dlSku, 'W1236 + WG1236' AS distSku, 'W1236GD' AS masterCode, 140 AS listPrice, 0 AS noCt /* W1236 102 + WG1236 38 */
   UNION ALL
-  SELECT 'WG1242' AS dlSku, 'W1242 + WG1242' AS distSku, 'W1242GD' AS masterCode, 160 AS listPrice /* W1242 118 + WG1242 42 */
+  SELECT 'WG1242' AS dlSku, 'W1242 + WG1242' AS distSku, 'W1242GD' AS masterCode, 160 AS listPrice, 0 AS noCt /* W1242 118 + WG1242 42 */
   UNION ALL
-  SELECT 'FLAT PANEL 28X96' AS dlSku, 'FLAT PANEL 28X96' AS distSku, 'FLAT PANEL 28X96' AS masterCode, 64 AS listPrice /* FLAT PANEL 28X96 64 */
+  SELECT 'FLAT PANEL 28X96' AS dlSku, 'FLAT PANEL 28X96' AS distSku, 'FLAT PANEL 28X96' AS masterCode, 64 AS listPrice, 1 AS noCt /* FLAT PANEL 28X96 64 */
   UNION ALL
-  SELECT 'FDB09' AS dlSku, 'FDB09' AS distSku, 'FDB09' AS masterCode, 118 AS listPrice /* FDB09 118 */
+  SELECT 'FDB09' AS dlSku, 'FDB09' AS distSku, 'FDB09' AS masterCode, 118 AS listPrice, 0 AS noCt /* FDB09 118 */
   UNION ALL
-  SELECT 'W2118' AS dlSku, 'W2118' AS distSku, 'W2118' AS masterCode, 95 AS listPrice /* W2118 95 */
+  SELECT 'W2118' AS dlSku, 'W2118' AS distSku, 'W2118' AS masterCode, 95 AS listPrice, 0 AS noCt /* W2118 95 */
   UNION ALL
-  SELECT 'W2412' AS dlSku, 'W2412' AS distSku, 'W2412' AS masterCode, 88 AS listPrice /* W2412 88 */
+  SELECT 'W2412' AS dlSku, 'W2412' AS distSku, 'W2412' AS masterCode, 88 AS listPrice, 0 AS noCt /* W2412 88 */
   UNION ALL
-  SELECT 'W2415' AS dlSku, 'W2415' AS distSku, 'W2415' AS masterCode, 98 AS listPrice /* W2415 98 */
+  SELECT 'W2415' AS dlSku, 'W2415' AS distSku, 'W2415' AS masterCode, 98 AS listPrice, 0 AS noCt /* W2415 98 */
   UNION ALL
-  SELECT 'W2424' AS dlSku, 'W2424' AS distSku, 'W2424' AS masterCode, 123 AS listPrice /* W2424 123 */
+  SELECT 'W2424' AS dlSku, 'W2424' AS distSku, 'W2424' AS masterCode, 123 AS listPrice, 0 AS noCt /* W2424 123 */
   UNION ALL
-  SELECT 'W2718' AS dlSku, 'W2718' AS distSku, 'W2718' AS masterCode, 113 AS listPrice /* W2718 113 */
+  SELECT 'W2718' AS dlSku, 'W2718' AS distSku, 'W2718' AS masterCode, 113 AS listPrice, 0 AS noCt /* W2718 113 */
   UNION ALL
-  SELECT 'WDC241812' AS dlSku, 'WDC241812' AS distSku, 'WDC241812' AS masterCode, 172 AS listPrice /* WDC241812 172 */
+  SELECT 'WDC241812' AS dlSku, 'WDC241812' AS distSku, 'WDC241812' AS masterCode, 172 AS listPrice, 0 AS noCt /* WDC241812 172 */
   UNION ALL
-  SELECT 'BBC33-9' AS dlSku, 'BBC33-9' AS distSku, 'BBC33-9' AS masterCode, 201 AS listPrice /* BBC33-9 201 */
+  SELECT 'BBC33-9' AS dlSku, 'BBC33-9' AS distSku, 'BBC33-9' AS masterCode, 201 AS listPrice, 0 AS noCt /* BBC33-9 201 */
   UNION ALL
-  SELECT 'BES09' AS dlSku, 'BES09' AS distSku, 'BES09' AS masterCode, 91 AS listPrice /* BES09 91 */
+  SELECT 'BES09' AS dlSku, 'BES09' AS distSku, 'BES09' AS masterCode, 91 AS listPrice, 0 AS noCt /* BES09 91 */
   UNION ALL
-  SELECT 'CL156012' AS dlSku, 'CL156012' AS distSku, 'CL156012' AS masterCode, 183 AS listPrice /* CL156012 183 */
+  SELECT 'CL156012' AS dlSku, 'CL156012' AS distSku, 'CL156012' AS masterCode, 183 AS listPrice, 0 AS noCt /* CL156012 183 */
   UNION ALL
-  SELECT 'DSK2421' AS dlSku, 'DSK2421' AS distSku, 'DSK2421' AS masterCode, 172 AS listPrice /* DSK2421 172 */
+  SELECT 'DSK2421' AS dlSku, 'DSK2421' AS distSku, 'DSK2421' AS masterCode, 172 AS listPrice, 0 AS noCt /* DSK2421 172 */
   UNION ALL
-  SELECT 'DSK3021' AS dlSku, 'DSK3021' AS distSku, 'DSK3021' AS masterCode, 172 AS listPrice /* DSK3021 172 */
+  SELECT 'DSK3021' AS dlSku, 'DSK3021' AS distSku, 'DSK3021' AS masterCode, 172 AS listPrice, 0 AS noCt /* DSK3021 172 */
   UNION ALL
-  SELECT 'WEOS0930' AS dlSku, 'WEOS0930' AS distSku, 'WEOS0930' AS masterCode, 69 AS listPrice /* WEOS0930 69 */
+  SELECT 'WEOS0930' AS dlSku, 'WEOS0930' AS distSku, 'WEOS0930' AS masterCode, 69 AS listPrice, 0 AS noCt /* WEOS0930 69 */
   UNION ALL
-  SELECT 'WEOS0936' AS dlSku, 'WEOS0936' AS distSku, 'WEOS0936' AS masterCode, 75 AS listPrice /* WEOS0936 75 */
+  SELECT 'WEOS0936' AS dlSku, 'WEOS0936' AS distSku, 'WEOS0936' AS masterCode, 75 AS listPrice, 0 AS noCt /* WEOS0936 75 */
   UNION ALL
-  SELECT 'WEOS0942' AS dlSku, 'WEOS0942' AS distSku, 'WEOS0942' AS masterCode, 87 AS listPrice /* WEOS0942 87 */
+  SELECT 'WEOS0942' AS dlSku, 'WEOS0942' AS distSku, 'WEOS0942' AS masterCode, 87 AS listPrice, 0 AS noCt /* WEOS0942 87 */
   UNION ALL
-  SELECT 'RH36' AS dlSku, 'RH36' AS distSku, 'RH36' AS masterCode, 543 AS listPrice /* RH36 543 */
+  SELECT 'RH36' AS dlSku, 'RH36' AS distSku, 'RH36' AS masterCode, 543 AS listPrice, 0 AS noCt /* RH36 543 */
+  UNION ALL
+  SELECT 'WDD30' AS dlSku, 'WDD30' AS distSku, 'WDD30' AS masterCode, 52 AS listPrice, 1 AS noCt /* WDD30 52 */
+  UNION ALL
+  SELECT 'WDD36' AS dlSku, 'WDD36' AS distSku, 'WDD36' AS masterCode, 58 AS listPrice, 1 AS noCt /* WDD36 58 */
+  UNION ALL
+  SELECT 'WDD42' AS dlSku, 'WDD42' AS distSku, 'WDD42' AS masterCode, 64 AS listPrice, 1 AS noCt /* WDD42 64 */
+  UNION ALL
+  SELECT 'BDD24' AS dlSku, 'BDD24' AS distSku, 'BDD24' AS masterCode, 72 AS listPrice, 1 AS noCt /* BDD24 72 */
+  UNION ALL
+  SELECT 'WF3 30' AS dlSku, 'WF3 30' AS distSku, 'WF3 30' AS masterCode, 13 AS listPrice, 1 AS noCt /* WF3 30 13 */
+  UNION ALL
+  SELECT 'WF3 36' AS dlSku, 'WF3 36' AS distSku, 'WF3 36' AS masterCode, 15 AS listPrice, 1 AS noCt /* WF3 36 15 */
+  UNION ALL
+  SELECT 'SIDE PANEL 36X96' AS dlSku, 'SIDE PANEL 36X96' AS distSku, 'SIDE PANEL 36X96' AS masterCode, 107 AS listPrice, 1 AS noCt /* SIDE PANEL 36X96 107 */
+  UNION ALL
+  SELECT 'SKIN PANEL 36X96' AS dlSku, 'SKIN PANEL 36X96' AS distSku, 'SKIN PANEL 36X96' AS masterCode, 64 AS listPrice, 1 AS noCt /* SKIN PANEL 36X96 64 */
+  UNION ALL
+  SELECT 'BASEMOLDING' AS dlSku, 'BASEMOLDING' AS distSku, 'BASEMOLDING' AS masterCode, 52 AS listPrice, 1 AS noCt /* BASEMOLDING 52 */
+  UNION ALL
+  SELECT 'SHOEMOLDING' AS dlSku, 'SHOEMOLDING' AS distSku, 'SHOEMOLDING' AS masterCode, 16 AS listPrice, 1 AS noCt /* SHOEMOLDING 16 */
+  UNION ALL
+  SELECT 'ICM8' AS dlSku, 'ICM8' AS distSku, 'ICM8' AS masterCode, 16 AS listPrice, 1 AS noCt /* ICM8 16 */
+  UNION ALL
+  SELECT 'ANGLEMOLDING' AS dlSku, 'ANGLEMOLDING' AS distSku, 'ANGLEMOLDING' AS masterCode, 16 AS listPrice, 1 AS noCt /* ANGLEMOLDING 16 */
+  UNION ALL
+  SELECT 'CCM8' AS dlSku, 'CCM8' AS distSku, 'CCM8' AS masterCode, 64 AS listPrice, 1 AS noCt /* CCM8 64 */
+  UNION ALL
+  SELECT 'ACM2.5' AS dlSku, 'ACM2.5' AS distSku, 'ACM2.5' AS masterCode, 47 AS listPrice, 1 AS noCt /* ACM2.5 47 */
+  UNION ALL
+  SELECT 'TLR8' AS dlSku, 'TLR8' AS distSku, 'TLR8' AS masterCode, 37 AS listPrice, 1 AS noCt /* TLR8 37 */
+  UNION ALL
+  SELECT 'CORBEL 8X12' AS dlSku, 'CORBEL 8X12' AS distSku, 'CORBEL 8X12' AS masterCode, 26 AS listPrice, 1 AS noCt /* CORBEL 8X12 26 */
+  UNION ALL
+  SELECT 'DLS 4X4X36' AS dlSku, 'DLS 4X4X36' AS distSku, 'DLS 4X4X36' AS masterCode, 94 AS listPrice, 1 AS noCt /* DLS 4X4X36 94 */
+  UNION ALL
+  SELECT 'PULLOUT TRAY 18"' AS dlSku, 'PULLOUT TRAY 18"' AS distSku, 'PULLOUT TRAY 18"' AS masterCode, 33 AS listPrice, 1 AS noCt /* PULLOUT TRAY 18" 33 */
+  UNION ALL
+  SELECT 'PULLOUT TRAY 24"' AS dlSku, 'PULLOUT TRAY 24"' AS distSku, 'PULLOUT TRAY 24"' AS masterCode, 40 AS listPrice, 1 AS noCt /* PULLOUT TRAY 24" 40 */
+  UNION ALL
+  SELECT 'PULLOUT TRAY 30"' AS dlSku, 'PULLOUT TRAY 30"' AS distSku, 'PULLOUT TRAY 30"' AS masterCode, 52 AS listPrice, 1 AS noCt /* PULLOUT TRAY 30" 52 */
+  UNION ALL
+  SELECT 'PULLOUT TRAY 36"' AS dlSku, 'PULLOUT TRAY 36"' AS distSku, 'PULLOUT TRAY 36"' AS masterCode, 62 AS listPrice, 1 AS noCt /* PULLOUT TRAY 36" 62 */
+  UNION ALL
+  SELECT 'PULLOUT TRAY BWBKT15' AS dlSku, 'PULLOUT TRAY BWBKT15' AS distSku, 'PULLOUT TRAY BWBKT15' AS masterCode, 63 AS listPrice, 1 AS noCt /* PULLOUT TRAY BWBKT15 63 */
+  UNION ALL
+  SELECT 'PULLOUT TRAY BWBKT18' AS dlSku, 'PULLOUT TRAY BWBKT18' AS distSku, 'PULLOUT TRAY BWBKT18' AS masterCode, 63 AS listPrice, 1 AS noCt /* PULLOUT TRAY BWBKT18 63 */
+  UNION ALL
+  SELECT 'PULLOUT TRAY BWBKT21' AS dlSku, 'PULLOUT TRAY BWBKT21' AS distSku, 'PULLOUT TRAY BWBKT21' AS masterCode, 63 AS listPrice, 1 AS noCt /* PULLOUT TRAY BWBKT21 63 */
+  UNION ALL
+  SELECT '9" DRAWER SLIDES' AS dlSku, '9" DRAWER SLIDES' AS distSku, '9" DRAWER SLIDES' AS masterCode, 16 AS listPrice, 1 AS noCt /* 9" DRAWER SLIDES 16 */
+  UNION ALL
+  SELECT '12" DRAWER SLIDES' AS dlSku, '12" DRAWER SLIDES' AS distSku, '12" DRAWER SLIDES' AS masterCode, 16 AS listPrice, 1 AS noCt /* 12" DRAWER SLIDES 16 */
+  UNION ALL
+  SELECT '15" DRAWER SLIDES' AS dlSku, '15" DRAWER SLIDES' AS distSku, '15" DRAWER SLIDES' AS masterCode, 19 AS listPrice, 1 AS noCt /* 15" DRAWER SLIDES 19 */
+  UNION ALL
+  SELECT '18" DRAWER SLIDES' AS dlSku, '18" DRAWER SLIDES' AS distSku, '18" DRAWER SLIDES' AS masterCode, 21 AS listPrice, 1 AS noCt /* 18" DRAWER SLIDES 21 */
+  UNION ALL
+  SELECT '21" DRAWER SLIDES' AS dlSku, '21" DRAWER SLIDES' AS distSku, '21" DRAWER SLIDES' AS masterCode, 21 AS listPrice, 1 AS noCt /* 21" DRAWER SLIDES 21 */
+  UNION ALL
+  SELECT 'TRASH CAN' AS dlSku, 'TRASH CAN' AS distSku, 'TRASH CAN' AS masterCode, 16 AS listPrice, 1 AS noCt /* TRASH CAN 16 */
+  UNION ALL
+  SELECT 'SAMPLE DOOR PACK (2025)' AS dlSku, 'SAMPLE DOOR PACK (2025)' AS distSku, 'SAMPLE DOOR PACK (2025)' AS masterCode, 100 AS listPrice, 1 AS noCt /* SAMPLE DOOR PACK (2025) 100 */
+  UNION ALL
+  SELECT 'WN FS3012' AS dlSku, 'WN FS3012' AS distSku, 'WN FS3012' AS masterCode, 62 AS listPrice, 1 AS noCt /* WN FS3012 62 */
+  UNION ALL
+  SELECT 'WN FS3612' AS dlSku, 'WN FS3612' AS distSku, 'WN FS3612' AS masterCode, 75 AS listPrice, 1 AS noCt /* WN FS3612 75 */
+  UNION ALL
+  SELECT 'WN FS4812' AS dlSku, 'WN FS4812' AS distSku, 'WN FS4812' AS masterCode, 88 AS listPrice, 1 AS noCt /* WN FS4812 88 */
+  UNION ALL
+  SELECT 'WO FS3012' AS dlSku, 'WO FS3012' AS distSku, 'WO FS3012' AS masterCode, 62 AS listPrice, 1 AS noCt /* WO FS3012 62 */
+  UNION ALL
+  SELECT 'WO FS3612' AS dlSku, 'WO FS3612' AS distSku, 'WO FS3612' AS masterCode, 75 AS listPrice, 1 AS noCt /* WO FS3612 75 */
+  UNION ALL
+  SELECT 'WO FS4812' AS dlSku, 'WO FS4812' AS distSku, 'WO FS4812' AS masterCode, 88 AS listPrice, 1 AS noCt /* WO FS4812 88 */
+  UNION ALL
+  SELECT 'SP2436' AS dlSku, 'SP2436' AS distSku, 'SP2436' AS masterCode, 33 AS listPrice, 1 AS noCt /* SP2436 33 */
+  UNION ALL
+  SELECT 'QUARTER DOOR' AS dlSku, 'QUARTER DOOR' AS distSku, 'QUARTER DOOR' AS masterCode, 10 AS listPrice, 1 AS noCt /* QUARTER DOOR 10 */
 ) m
 JOIN cabinet_dealz.cabinets c ON c.masterCode = m.masterCode
 JOIN cabinet_dealz.door_styles ds ON ds.styleCode = 'DL-SSA' AND ds.distributorId = (SELECT id FROM cabinet_dealz.distributors WHERE code = 'DL')
 WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.distributor_skus x WHERE x.platformSku = CONCAT(m.dlSku, '-SSA-DL'))
-  AND (m.dlSku = '2DB33' /* intentional 2nd DL SKU on B33 (Tom) */ OR NOT EXISTS (SELECT 1 FROM cabinet_dealz.distributor_skus y WHERE y.distributorId = ds.distributorId AND y.styleId = ds.id AND y.cabinetId = c.id));
+  AND NOT EXISTS (SELECT 1 FROM cabinet_dealz.distributor_skus y WHERE y.distributorId = ds.distributorId AND y.styleId = ds.id AND y.cabinetId = c.id);
 
--- Block 25: distributor_skus for door style DL-SSE using the SLIM price column (51 SKUs; pending, unpublished). Glass rows = cabinet + door price.
+-- Block 70: distributor_skus for door style DL-SSE using the SLIM price column (90 SKUs; pending, unpublished). Glass rows = cabinet + door price. noCt = accessory (constructionType NULL).
 INSERT INTO cabinet_dealz.distributor_skus (cabinetId, distributorId, styleId, platformSku, distributorSku, constructionType, listPrice, isPublished, status, supplierCabinetName)
-SELECT c.id, ds.distributorId, ds.id, CONCAT(m.dlSku, '-SSE-DL'), m.distSku, 'framed', m.listPrice, FALSE, 'pending', m.distSku
+SELECT c.id, ds.distributorId, ds.id, CONCAT(m.dlSku, '-SSE-DL'), m.distSku, CASE WHEN m.noCt = 1 THEN NULL ELSE 'framed' END, m.listPrice, FALSE, 'pending', m.distSku
 FROM (
-  SELECT 'FDB18' AS dlSku, 'FDB18' AS distSku, 'B18FH' AS masterCode, 147 AS listPrice /* FDB18 147 */
+  SELECT 'FDB18' AS dlSku, 'FDB18' AS distSku, 'B18FH' AS masterCode, 147 AS listPrice, 0 AS noCt /* FDB18 147 */
   UNION ALL
-  SELECT 'FDB21' AS dlSku, 'FDB21' AS distSku, 'B21FH' AS masterCode, 161 AS listPrice /* FDB21 161 */
+  SELECT 'FDB21' AS dlSku, 'FDB21' AS distSku, 'B21FH' AS masterCode, 161 AS listPrice, 0 AS noCt /* FDB21 161 */
   UNION ALL
-  SELECT 'FDB24' AS dlSku, 'FDB24' AS distSku, 'B24FH' AS masterCode, 183 AS listPrice /* FDB24 183 */
+  SELECT 'FDB24' AS dlSku, 'FDB24' AS distSku, 'B24FH' AS masterCode, 183 AS listPrice, 0 AS noCt /* FDB24 183 */
   UNION ALL
-  SELECT 'FDB27' AS dlSku, 'FDB27' AS distSku, 'B27FH' AS masterCode, 198 AS listPrice /* FDB27 198 */
+  SELECT 'FDB27' AS dlSku, 'FDB27' AS distSku, 'B27FH' AS masterCode, 198 AS listPrice, 0 AS noCt /* FDB27 198 */
   UNION ALL
-  SELECT 'FDB30' AS dlSku, 'FDB30' AS distSku, 'B30FH' AS masterCode, 206 AS listPrice /* FDB30 206 */
+  SELECT 'FDB30' AS dlSku, 'FDB30' AS distSku, 'B30FH' AS masterCode, 206 AS listPrice, 0 AS noCt /* FDB30 206 */
   UNION ALL
-  SELECT 'FDB33' AS dlSku, 'FDB33' AS distSku, 'B33FH' AS masterCode, 218 AS listPrice /* FDB33 218 */
+  SELECT 'FDB33' AS dlSku, 'FDB33' AS distSku, 'B33FH' AS masterCode, 218 AS listPrice, 0 AS noCt /* FDB33 218 */
   UNION ALL
-  SELECT 'FDB36' AS dlSku, 'FDB36' AS distSku, 'B36FH' AS masterCode, 229 AS listPrice /* FDB36 229 */
+  SELECT 'FDB36' AS dlSku, 'FDB36' AS distSku, 'B36FH' AS masterCode, 229 AS listPrice, 0 AS noCt /* FDB36 229 */
   UNION ALL
-  SELECT 'W1218' AS dlSku, 'W1218' AS distSku, 'W1218' AS masterCode, 71 AS listPrice /* W1218 71 */
+  SELECT 'W1218' AS dlSku, 'W1218' AS distSku, 'W1218' AS masterCode, 71 AS listPrice, 0 AS noCt /* W1218 71 */
   UNION ALL
-  SELECT 'W1518' AS dlSku, 'W1518' AS distSku, 'W1518' AS masterCode, 79 AS listPrice /* W1518 79 */
+  SELECT 'W1518' AS dlSku, 'W1518' AS distSku, 'W1518' AS masterCode, 79 AS listPrice, 0 AS noCt /* W1518 79 */
   UNION ALL
-  SELECT 'W1818' AS dlSku, 'W1818' AS distSku, 'W1818' AS masterCode, 90 AS listPrice /* W1818 90 */
+  SELECT 'W1818' AS dlSku, 'W1818' AS distSku, 'W1818' AS masterCode, 90 AS listPrice, 0 AS noCt /* W1818 90 */
   UNION ALL
-  SELECT 'VAN48D-6' AS dlSku, 'VAN48D-6' AS distSku, 'VDDB48' AS masterCode, 380 AS listPrice /* VAN48D-6 380 */
+  SELECT 'VAN48D-6' AS dlSku, 'VAN48D-6' AS distSku, 'VDDB48' AS masterCode, 380 AS listPrice, 0 AS noCt /* VAN48D-6 380 */
   UNION ALL
-  SELECT 'WMC3018' AS dlSku, 'WMC3018' AS distSku, 'PWB-MOS-30-18' AS masterCode, 93 AS listPrice /* WMC3018 93 */
+  SELECT 'WMC3018' AS dlSku, 'WMC3018' AS distSku, 'PWB-MOS-30-18' AS masterCode, 93 AS listPrice, 0 AS noCt /* WMC3018 93 */
   UNION ALL
-  SELECT 'DWP3' AS dlSku, 'DWP3' AS distSku, 'DWR3' AS masterCode, 40 AS listPrice /* DWP3 40 */
+  SELECT 'DWP3' AS dlSku, 'DWP3' AS distSku, 'DWR3' AS masterCode, 40 AS listPrice, 1 AS noCt /* DWP3 40 */
   UNION ALL
-  SELECT 'GH30' AS dlSku, 'GH30' AS distSku, 'SGH30' AS masterCode, 38 AS listPrice /* GH30 38 */
+  SELECT 'GH30' AS dlSku, 'GH30' AS distSku, 'SGH30' AS masterCode, 38 AS listPrice, 1 AS noCt /* GH30 38 */
   UNION ALL
-  SELECT 'TOUCHUP KIT' AS dlSku, 'TOUCHUP KIT' AS distSku, 'TUK' AS masterCode, 15 AS listPrice /* TOUCHUP KIT 15 */
+  SELECT 'TOUCHUP KIT' AS dlSku, 'TOUCHUP KIT' AS distSku, 'TUK' AS masterCode, 15 AS listPrice, 1 AS noCt /* TOUCHUP KIT 15 */
   UNION ALL
-  SELECT 'PAINT' AS dlSku, 'PAINT' AS distSku, 'SPRAYPAINT' AS masterCode, 30 AS listPrice /* PAINT 30 */
+  SELECT 'PAINT' AS dlSku, 'PAINT' AS distSku, 'SPRAYPAINT' AS masterCode, 30 AS listPrice, 1 AS noCt /* PAINT 30 */
   UNION ALL
-  SELECT 'SCRIBEMOLDING' AS dlSku, 'SCRIBEMOLDING' AS distSku, 'SM8' AS masterCode, 16 AS listPrice /* SCRIBEMOLDING 16 */
+  SELECT 'SCRIBEMOLDING' AS dlSku, 'SCRIBEMOLDING' AS distSku, 'SM8' AS masterCode, 16 AS listPrice, 1 AS noCt /* SCRIBEMOLDING 16 */
   UNION ALL
-  SELECT 'RRP27(1.5)' AS dlSku, 'RRP27(1.5)' AS distSku, 'REPV2796' AS masterCode, 79 AS listPrice /* RRP27(1.5) 79 */
+  SELECT 'RRP27(1.5)' AS dlSku, 'RRP27(1.5)' AS distSku, 'REPV2796' AS masterCode, 79 AS listPrice, 1 AS noCt /* RRP27(1.5) 79 */
   UNION ALL
-  SELECT 'FILLER 6X96' AS dlSku, 'FILLER 6X96' AS distSku, 'F696' AS masterCode, 74 AS listPrice /* FILLER 6X96 74 */
+  SELECT 'FILLER 6X96' AS dlSku, 'FILLER 6X96' AS distSku, 'F696' AS masterCode, 74 AS listPrice, 1 AS noCt /* FILLER 6X96 74 */
   UNION ALL
-  SELECT 'SP09' AS dlSku, 'SP09' AS distSku, 'SPB9' AS masterCode, 129 AS listPrice /* SP09 129 */
+  SELECT 'SP09' AS dlSku, 'SP09' AS distSku, 'SPB9' AS masterCode, 129 AS listPrice, 0 AS noCt /* SP09 129 */
   UNION ALL
-  SELECT 'BWBKT18' AS dlSku, 'BWBKT18' AS distSku, 'BWB18' AS masterCode, 215 AS listPrice /* BWBKT18 215 */
+  SELECT 'BWBKT18' AS dlSku, 'BWBKT18' AS distSku, 'BWB18' AS masterCode, 215 AS listPrice, 0 AS noCt /* BWBKT18 215 */
   UNION ALL
-  SELECT '2DB33' AS dlSku, '2DB33' AS distSku, 'B33' AS masterCode, 290 AS listPrice /* 2DB33 290 */
+  SELECT 'WG1530' AS dlSku, 'W1530 + WG1530' AS distSku, 'W1530GD' AS masterCode, 137 AS listPrice, 0 AS noCt /* W1530 98 + WG1530 39 */
   UNION ALL
-  SELECT 'WG1530' AS dlSku, 'W1530 + WG1530' AS distSku, 'W1530GD' AS masterCode, 137 AS listPrice /* W1530 98 + WG1530 39 */
+  SELECT 'WG1536' AS dlSku, 'W1536 + WG1536' AS distSku, 'W1536GD' AS masterCode, 157 AS listPrice, 0 AS noCt /* W1536 110 + WG1536 47 */
   UNION ALL
-  SELECT 'WG1536' AS dlSku, 'W1536 + WG1536' AS distSku, 'W1536GD' AS masterCode, 157 AS listPrice /* W1536 110 + WG1536 47 */
+  SELECT 'WG1542' AS dlSku, 'W1542 + WG1542' AS distSku, 'W1542GD' AS masterCode, 177 AS listPrice, 0 AS noCt /* W1542 126 + WG1542 51 */
   UNION ALL
-  SELECT 'WG1542' AS dlSku, 'W1542 + WG1542' AS distSku, 'W1542GD' AS masterCode, 177 AS listPrice /* W1542 126 + WG1542 51 */
+  SELECT 'WG1830' AS dlSku, 'W1830 + WG1830' AS distSku, 'W1830GD' AS masterCode, 156 AS listPrice, 0 AS noCt /* W1830 110 + WG1830 46 */
   UNION ALL
-  SELECT 'WG1830' AS dlSku, 'W1830 + WG1830' AS distSku, 'W1830GD' AS masterCode, 156 AS listPrice /* W1830 110 + WG1830 46 */
+  SELECT 'WG1836' AS dlSku, 'W1836 + WG1836' AS distSku, 'W1836GD' AS masterCode, 175 AS listPrice, 0 AS noCt /* W1836 123 + WG1836 52 */
   UNION ALL
-  SELECT 'WG1836' AS dlSku, 'W1836 + WG1836' AS distSku, 'W1836GD' AS masterCode, 175 AS listPrice /* W1836 123 + WG1836 52 */
+  SELECT 'WG1842' AS dlSku, 'W1842 + WG1842' AS distSku, 'W1842GD' AS masterCode, 188 AS listPrice, 0 AS noCt /* W1842 132 + WG1842 56 */
   UNION ALL
-  SELECT 'WG1842' AS dlSku, 'W1842 + WG1842' AS distSku, 'W1842GD' AS masterCode, 188 AS listPrice /* W1842 132 + WG1842 56 */
+  SELECT 'WDCG243012' AS dlSku, 'WDC243012 + WDCG243012' AS distSku, 'DCW2430GD' AS masterCode, 282 AS listPrice, 0 AS noCt /* WDC243012 232 + WDCG243012 50 */
   UNION ALL
-  SELECT 'WDCG243012' AS dlSku, 'WDC243012 + WDCG243012' AS distSku, 'DCW2430GD' AS masterCode, 282 AS listPrice /* WDC243012 232 + WDCG243012 50 */
+  SELECT 'WDCG243612' AS dlSku, 'WDC243612 + WDCG243612' AS distSku, 'DCW2436GD' AS masterCode, 300 AS listPrice, 0 AS noCt /* WDC243612 248 + WDCG243612 52 */
   UNION ALL
-  SELECT 'WDCG243612' AS dlSku, 'WDC243612 + WDCG243612' AS distSku, 'DCW2436GD' AS masterCode, 300 AS listPrice /* WDC243612 248 + WDCG243612 52 */
+  SELECT 'WDCG244212' AS dlSku, 'WDC244212 + WDCG244212' AS distSku, 'DCW2442GD' AS masterCode, 333 AS listPrice, 0 AS noCt /* WDC244212 275 + WDCG244212 58 */
   UNION ALL
-  SELECT 'WDCG244212' AS dlSku, 'WDC244212 + WDCG244212' AS distSku, 'DCW2442GD' AS masterCode, 333 AS listPrice /* WDC244212 275 + WDCG244212 58 */
+  SELECT '2DB33' AS dlSku, '2DB33' AS distSku, '2DB33' AS masterCode, 290 AS listPrice, 0 AS noCt /* 2DB33 290 */
   UNION ALL
-  SELECT 'WG1230' AS dlSku, 'W1230 + WG1230' AS distSku, 'W1230GD' AS masterCode, 122 AS listPrice /* W1230 88 + WG1230 34 */
+  SELECT 'WG1230' AS dlSku, 'W1230 + WG1230' AS distSku, 'W1230GD' AS masterCode, 122 AS listPrice, 0 AS noCt /* W1230 88 + WG1230 34 */
   UNION ALL
-  SELECT 'WG1236' AS dlSku, 'W1236 + WG1236' AS distSku, 'W1236GD' AS masterCode, 140 AS listPrice /* W1236 102 + WG1236 38 */
+  SELECT 'WG1236' AS dlSku, 'W1236 + WG1236' AS distSku, 'W1236GD' AS masterCode, 140 AS listPrice, 0 AS noCt /* W1236 102 + WG1236 38 */
   UNION ALL
-  SELECT 'WG1242' AS dlSku, 'W1242 + WG1242' AS distSku, 'W1242GD' AS masterCode, 160 AS listPrice /* W1242 118 + WG1242 42 */
+  SELECT 'WG1242' AS dlSku, 'W1242 + WG1242' AS distSku, 'W1242GD' AS masterCode, 160 AS listPrice, 0 AS noCt /* W1242 118 + WG1242 42 */
   UNION ALL
-  SELECT 'FLAT PANEL 28X96' AS dlSku, 'FLAT PANEL 28X96' AS distSku, 'FLAT PANEL 28X96' AS masterCode, 64 AS listPrice /* FLAT PANEL 28X96 64 */
+  SELECT 'FLAT PANEL 28X96' AS dlSku, 'FLAT PANEL 28X96' AS distSku, 'FLAT PANEL 28X96' AS masterCode, 64 AS listPrice, 1 AS noCt /* FLAT PANEL 28X96 64 */
   UNION ALL
-  SELECT 'FDB09' AS dlSku, 'FDB09' AS distSku, 'FDB09' AS masterCode, 118 AS listPrice /* FDB09 118 */
+  SELECT 'FDB09' AS dlSku, 'FDB09' AS distSku, 'FDB09' AS masterCode, 118 AS listPrice, 0 AS noCt /* FDB09 118 */
   UNION ALL
-  SELECT 'W2118' AS dlSku, 'W2118' AS distSku, 'W2118' AS masterCode, 95 AS listPrice /* W2118 95 */
+  SELECT 'W2118' AS dlSku, 'W2118' AS distSku, 'W2118' AS masterCode, 95 AS listPrice, 0 AS noCt /* W2118 95 */
   UNION ALL
-  SELECT 'W2412' AS dlSku, 'W2412' AS distSku, 'W2412' AS masterCode, 88 AS listPrice /* W2412 88 */
+  SELECT 'W2412' AS dlSku, 'W2412' AS distSku, 'W2412' AS masterCode, 88 AS listPrice, 0 AS noCt /* W2412 88 */
   UNION ALL
-  SELECT 'W2415' AS dlSku, 'W2415' AS distSku, 'W2415' AS masterCode, 98 AS listPrice /* W2415 98 */
+  SELECT 'W2415' AS dlSku, 'W2415' AS distSku, 'W2415' AS masterCode, 98 AS listPrice, 0 AS noCt /* W2415 98 */
   UNION ALL
-  SELECT 'W2424' AS dlSku, 'W2424' AS distSku, 'W2424' AS masterCode, 123 AS listPrice /* W2424 123 */
+  SELECT 'W2424' AS dlSku, 'W2424' AS distSku, 'W2424' AS masterCode, 123 AS listPrice, 0 AS noCt /* W2424 123 */
   UNION ALL
-  SELECT 'W2718' AS dlSku, 'W2718' AS distSku, 'W2718' AS masterCode, 113 AS listPrice /* W2718 113 */
+  SELECT 'W2718' AS dlSku, 'W2718' AS distSku, 'W2718' AS masterCode, 113 AS listPrice, 0 AS noCt /* W2718 113 */
   UNION ALL
-  SELECT 'WDC241812' AS dlSku, 'WDC241812' AS distSku, 'WDC241812' AS masterCode, 172 AS listPrice /* WDC241812 172 */
+  SELECT 'WDC241812' AS dlSku, 'WDC241812' AS distSku, 'WDC241812' AS masterCode, 172 AS listPrice, 0 AS noCt /* WDC241812 172 */
   UNION ALL
-  SELECT 'BBC33-9' AS dlSku, 'BBC33-9' AS distSku, 'BBC33-9' AS masterCode, 201 AS listPrice /* BBC33-9 201 */
+  SELECT 'BBC33-9' AS dlSku, 'BBC33-9' AS distSku, 'BBC33-9' AS masterCode, 201 AS listPrice, 0 AS noCt /* BBC33-9 201 */
   UNION ALL
-  SELECT 'BES09' AS dlSku, 'BES09' AS distSku, 'BES09' AS masterCode, 91 AS listPrice /* BES09 91 */
+  SELECT 'BES09' AS dlSku, 'BES09' AS distSku, 'BES09' AS masterCode, 91 AS listPrice, 0 AS noCt /* BES09 91 */
   UNION ALL
-  SELECT 'CL156012' AS dlSku, 'CL156012' AS distSku, 'CL156012' AS masterCode, 183 AS listPrice /* CL156012 183 */
+  SELECT 'CL156012' AS dlSku, 'CL156012' AS distSku, 'CL156012' AS masterCode, 183 AS listPrice, 0 AS noCt /* CL156012 183 */
   UNION ALL
-  SELECT 'DSK2421' AS dlSku, 'DSK2421' AS distSku, 'DSK2421' AS masterCode, 172 AS listPrice /* DSK2421 172 */
+  SELECT 'DSK2421' AS dlSku, 'DSK2421' AS distSku, 'DSK2421' AS masterCode, 172 AS listPrice, 0 AS noCt /* DSK2421 172 */
   UNION ALL
-  SELECT 'DSK3021' AS dlSku, 'DSK3021' AS distSku, 'DSK3021' AS masterCode, 172 AS listPrice /* DSK3021 172 */
+  SELECT 'DSK3021' AS dlSku, 'DSK3021' AS distSku, 'DSK3021' AS masterCode, 172 AS listPrice, 0 AS noCt /* DSK3021 172 */
   UNION ALL
-  SELECT 'WEOS0930' AS dlSku, 'WEOS0930' AS distSku, 'WEOS0930' AS masterCode, 69 AS listPrice /* WEOS0930 69 */
+  SELECT 'WEOS0930' AS dlSku, 'WEOS0930' AS distSku, 'WEOS0930' AS masterCode, 69 AS listPrice, 0 AS noCt /* WEOS0930 69 */
   UNION ALL
-  SELECT 'WEOS0936' AS dlSku, 'WEOS0936' AS distSku, 'WEOS0936' AS masterCode, 75 AS listPrice /* WEOS0936 75 */
+  SELECT 'WEOS0936' AS dlSku, 'WEOS0936' AS distSku, 'WEOS0936' AS masterCode, 75 AS listPrice, 0 AS noCt /* WEOS0936 75 */
   UNION ALL
-  SELECT 'WEOS0942' AS dlSku, 'WEOS0942' AS distSku, 'WEOS0942' AS masterCode, 87 AS listPrice /* WEOS0942 87 */
+  SELECT 'WEOS0942' AS dlSku, 'WEOS0942' AS distSku, 'WEOS0942' AS masterCode, 87 AS listPrice, 0 AS noCt /* WEOS0942 87 */
   UNION ALL
-  SELECT 'RH36' AS dlSku, 'RH36' AS distSku, 'RH36' AS masterCode, 543 AS listPrice /* RH36 543 */
+  SELECT 'RH36' AS dlSku, 'RH36' AS distSku, 'RH36' AS masterCode, 543 AS listPrice, 0 AS noCt /* RH36 543 */
+  UNION ALL
+  SELECT 'WDD30' AS dlSku, 'WDD30' AS distSku, 'WDD30' AS masterCode, 52 AS listPrice, 1 AS noCt /* WDD30 52 */
+  UNION ALL
+  SELECT 'WDD36' AS dlSku, 'WDD36' AS distSku, 'WDD36' AS masterCode, 58 AS listPrice, 1 AS noCt /* WDD36 58 */
+  UNION ALL
+  SELECT 'WDD42' AS dlSku, 'WDD42' AS distSku, 'WDD42' AS masterCode, 64 AS listPrice, 1 AS noCt /* WDD42 64 */
+  UNION ALL
+  SELECT 'BDD24' AS dlSku, 'BDD24' AS distSku, 'BDD24' AS masterCode, 72 AS listPrice, 1 AS noCt /* BDD24 72 */
+  UNION ALL
+  SELECT 'WF3 30' AS dlSku, 'WF3 30' AS distSku, 'WF3 30' AS masterCode, 13 AS listPrice, 1 AS noCt /* WF3 30 13 */
+  UNION ALL
+  SELECT 'WF3 36' AS dlSku, 'WF3 36' AS distSku, 'WF3 36' AS masterCode, 15 AS listPrice, 1 AS noCt /* WF3 36 15 */
+  UNION ALL
+  SELECT 'SIDE PANEL 36X96' AS dlSku, 'SIDE PANEL 36X96' AS distSku, 'SIDE PANEL 36X96' AS masterCode, 107 AS listPrice, 1 AS noCt /* SIDE PANEL 36X96 107 */
+  UNION ALL
+  SELECT 'SKIN PANEL 36X96' AS dlSku, 'SKIN PANEL 36X96' AS distSku, 'SKIN PANEL 36X96' AS masterCode, 64 AS listPrice, 1 AS noCt /* SKIN PANEL 36X96 64 */
+  UNION ALL
+  SELECT 'BASEMOLDING' AS dlSku, 'BASEMOLDING' AS distSku, 'BASEMOLDING' AS masterCode, 52 AS listPrice, 1 AS noCt /* BASEMOLDING 52 */
+  UNION ALL
+  SELECT 'SHOEMOLDING' AS dlSku, 'SHOEMOLDING' AS distSku, 'SHOEMOLDING' AS masterCode, 16 AS listPrice, 1 AS noCt /* SHOEMOLDING 16 */
+  UNION ALL
+  SELECT 'ICM8' AS dlSku, 'ICM8' AS distSku, 'ICM8' AS masterCode, 16 AS listPrice, 1 AS noCt /* ICM8 16 */
+  UNION ALL
+  SELECT 'ANGLEMOLDING' AS dlSku, 'ANGLEMOLDING' AS distSku, 'ANGLEMOLDING' AS masterCode, 16 AS listPrice, 1 AS noCt /* ANGLEMOLDING 16 */
+  UNION ALL
+  SELECT 'CCM8' AS dlSku, 'CCM8' AS distSku, 'CCM8' AS masterCode, 64 AS listPrice, 1 AS noCt /* CCM8 64 */
+  UNION ALL
+  SELECT 'ACM2.5' AS dlSku, 'ACM2.5' AS distSku, 'ACM2.5' AS masterCode, 47 AS listPrice, 1 AS noCt /* ACM2.5 47 */
+  UNION ALL
+  SELECT 'TLR8' AS dlSku, 'TLR8' AS distSku, 'TLR8' AS masterCode, 37 AS listPrice, 1 AS noCt /* TLR8 37 */
+  UNION ALL
+  SELECT 'CORBEL 8X12' AS dlSku, 'CORBEL 8X12' AS distSku, 'CORBEL 8X12' AS masterCode, 26 AS listPrice, 1 AS noCt /* CORBEL 8X12 26 */
+  UNION ALL
+  SELECT 'DLS 4X4X36' AS dlSku, 'DLS 4X4X36' AS distSku, 'DLS 4X4X36' AS masterCode, 94 AS listPrice, 1 AS noCt /* DLS 4X4X36 94 */
+  UNION ALL
+  SELECT 'PULLOUT TRAY 18"' AS dlSku, 'PULLOUT TRAY 18"' AS distSku, 'PULLOUT TRAY 18"' AS masterCode, 33 AS listPrice, 1 AS noCt /* PULLOUT TRAY 18" 33 */
+  UNION ALL
+  SELECT 'PULLOUT TRAY 24"' AS dlSku, 'PULLOUT TRAY 24"' AS distSku, 'PULLOUT TRAY 24"' AS masterCode, 40 AS listPrice, 1 AS noCt /* PULLOUT TRAY 24" 40 */
+  UNION ALL
+  SELECT 'PULLOUT TRAY 30"' AS dlSku, 'PULLOUT TRAY 30"' AS distSku, 'PULLOUT TRAY 30"' AS masterCode, 52 AS listPrice, 1 AS noCt /* PULLOUT TRAY 30" 52 */
+  UNION ALL
+  SELECT 'PULLOUT TRAY 36"' AS dlSku, 'PULLOUT TRAY 36"' AS distSku, 'PULLOUT TRAY 36"' AS masterCode, 62 AS listPrice, 1 AS noCt /* PULLOUT TRAY 36" 62 */
+  UNION ALL
+  SELECT 'PULLOUT TRAY BWBKT15' AS dlSku, 'PULLOUT TRAY BWBKT15' AS distSku, 'PULLOUT TRAY BWBKT15' AS masterCode, 63 AS listPrice, 1 AS noCt /* PULLOUT TRAY BWBKT15 63 */
+  UNION ALL
+  SELECT 'PULLOUT TRAY BWBKT18' AS dlSku, 'PULLOUT TRAY BWBKT18' AS distSku, 'PULLOUT TRAY BWBKT18' AS masterCode, 63 AS listPrice, 1 AS noCt /* PULLOUT TRAY BWBKT18 63 */
+  UNION ALL
+  SELECT 'PULLOUT TRAY BWBKT21' AS dlSku, 'PULLOUT TRAY BWBKT21' AS distSku, 'PULLOUT TRAY BWBKT21' AS masterCode, 63 AS listPrice, 1 AS noCt /* PULLOUT TRAY BWBKT21 63 */
+  UNION ALL
+  SELECT '9" DRAWER SLIDES' AS dlSku, '9" DRAWER SLIDES' AS distSku, '9" DRAWER SLIDES' AS masterCode, 16 AS listPrice, 1 AS noCt /* 9" DRAWER SLIDES 16 */
+  UNION ALL
+  SELECT '12" DRAWER SLIDES' AS dlSku, '12" DRAWER SLIDES' AS distSku, '12" DRAWER SLIDES' AS masterCode, 16 AS listPrice, 1 AS noCt /* 12" DRAWER SLIDES 16 */
+  UNION ALL
+  SELECT '15" DRAWER SLIDES' AS dlSku, '15" DRAWER SLIDES' AS distSku, '15" DRAWER SLIDES' AS masterCode, 19 AS listPrice, 1 AS noCt /* 15" DRAWER SLIDES 19 */
+  UNION ALL
+  SELECT '18" DRAWER SLIDES' AS dlSku, '18" DRAWER SLIDES' AS distSku, '18" DRAWER SLIDES' AS masterCode, 21 AS listPrice, 1 AS noCt /* 18" DRAWER SLIDES 21 */
+  UNION ALL
+  SELECT '21" DRAWER SLIDES' AS dlSku, '21" DRAWER SLIDES' AS distSku, '21" DRAWER SLIDES' AS masterCode, 21 AS listPrice, 1 AS noCt /* 21" DRAWER SLIDES 21 */
+  UNION ALL
+  SELECT 'TRASH CAN' AS dlSku, 'TRASH CAN' AS distSku, 'TRASH CAN' AS masterCode, 16 AS listPrice, 1 AS noCt /* TRASH CAN 16 */
+  UNION ALL
+  SELECT 'SAMPLE DOOR PACK (2025)' AS dlSku, 'SAMPLE DOOR PACK (2025)' AS distSku, 'SAMPLE DOOR PACK (2025)' AS masterCode, 100 AS listPrice, 1 AS noCt /* SAMPLE DOOR PACK (2025) 100 */
+  UNION ALL
+  SELECT 'WN FS3012' AS dlSku, 'WN FS3012' AS distSku, 'WN FS3012' AS masterCode, 62 AS listPrice, 1 AS noCt /* WN FS3012 62 */
+  UNION ALL
+  SELECT 'WN FS3612' AS dlSku, 'WN FS3612' AS distSku, 'WN FS3612' AS masterCode, 75 AS listPrice, 1 AS noCt /* WN FS3612 75 */
+  UNION ALL
+  SELECT 'WN FS4812' AS dlSku, 'WN FS4812' AS distSku, 'WN FS4812' AS masterCode, 88 AS listPrice, 1 AS noCt /* WN FS4812 88 */
+  UNION ALL
+  SELECT 'WO FS3012' AS dlSku, 'WO FS3012' AS distSku, 'WO FS3012' AS masterCode, 62 AS listPrice, 1 AS noCt /* WO FS3012 62 */
+  UNION ALL
+  SELECT 'WO FS3612' AS dlSku, 'WO FS3612' AS distSku, 'WO FS3612' AS masterCode, 75 AS listPrice, 1 AS noCt /* WO FS3612 75 */
+  UNION ALL
+  SELECT 'WO FS4812' AS dlSku, 'WO FS4812' AS distSku, 'WO FS4812' AS masterCode, 88 AS listPrice, 1 AS noCt /* WO FS4812 88 */
+  UNION ALL
+  SELECT 'SP2436' AS dlSku, 'SP2436' AS distSku, 'SP2436' AS masterCode, 33 AS listPrice, 1 AS noCt /* SP2436 33 */
+  UNION ALL
+  SELECT 'QUARTER DOOR' AS dlSku, 'QUARTER DOOR' AS distSku, 'QUARTER DOOR' AS masterCode, 10 AS listPrice, 1 AS noCt /* QUARTER DOOR 10 */
 ) m
 JOIN cabinet_dealz.cabinets c ON c.masterCode = m.masterCode
 JOIN cabinet_dealz.door_styles ds ON ds.styleCode = 'DL-SSE' AND ds.distributorId = (SELECT id FROM cabinet_dealz.distributors WHERE code = 'DL')
 WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.distributor_skus x WHERE x.platformSku = CONCAT(m.dlSku, '-SSE-DL'))
-  AND (m.dlSku = '2DB33' /* intentional 2nd DL SKU on B33 (Tom) */ OR NOT EXISTS (SELECT 1 FROM cabinet_dealz.distributor_skus y WHERE y.distributorId = ds.distributorId AND y.styleId = ds.id AND y.cabinetId = c.id));
+  AND NOT EXISTS (SELECT 1 FROM cabinet_dealz.distributor_skus y WHERE y.distributorId = ds.distributorId AND y.styleId = ds.id AND y.cabinetId = c.id);
 
--- Block 26: distributor_skus for door style DL-LUXE-TBD using the LUXE price column (51 SKUs; pending, unpublished). Glass rows = cabinet + door price.
+-- Block 71: distributor_skus for door style DL-LUXE-TBD using the LUXE price column (90 SKUs; pending, unpublished). Glass rows = cabinet + door price. noCt = accessory (constructionType NULL).
 INSERT INTO cabinet_dealz.distributor_skus (cabinetId, distributorId, styleId, platformSku, distributorSku, constructionType, listPrice, isPublished, status, supplierCabinetName)
-SELECT c.id, ds.distributorId, ds.id, CONCAT(m.dlSku, '-LUXE-TBD-DL'), m.distSku, 'framed', m.listPrice, FALSE, 'pending', m.distSku
+SELECT c.id, ds.distributorId, ds.id, CONCAT(m.dlSku, '-LUXE-TBD-DL'), m.distSku, CASE WHEN m.noCt = 1 THEN NULL ELSE 'framed' END, m.listPrice, FALSE, 'pending', m.distSku
 FROM (
-  SELECT 'FDB18' AS dlSku, 'FDB18' AS distSku, 'B18FH' AS masterCode, 268 AS listPrice /* FDB18 268 */
+  SELECT 'FDB18' AS dlSku, 'FDB18' AS distSku, 'B18FH' AS masterCode, 268 AS listPrice, 0 AS noCt /* FDB18 268 */
   UNION ALL
-  SELECT 'FDB21' AS dlSku, 'FDB21' AS distSku, 'B21FH' AS masterCode, 292 AS listPrice /* FDB21 292 */
+  SELECT 'FDB21' AS dlSku, 'FDB21' AS distSku, 'B21FH' AS masterCode, 292 AS listPrice, 0 AS noCt /* FDB21 292 */
   UNION ALL
-  SELECT 'FDB24' AS dlSku, 'FDB24' AS distSku, 'B24FH' AS masterCode, 332 AS listPrice /* FDB24 332 */
+  SELECT 'FDB24' AS dlSku, 'FDB24' AS distSku, 'B24FH' AS masterCode, 332 AS listPrice, 0 AS noCt /* FDB24 332 */
   UNION ALL
-  SELECT 'FDB27' AS dlSku, 'FDB27' AS distSku, 'B27FH' AS masterCode, 360 AS listPrice /* FDB27 360 */
+  SELECT 'FDB27' AS dlSku, 'FDB27' AS distSku, 'B27FH' AS masterCode, 360 AS listPrice, 0 AS noCt /* FDB27 360 */
   UNION ALL
-  SELECT 'FDB30' AS dlSku, 'FDB30' AS distSku, 'B30FH' AS masterCode, 373 AS listPrice /* FDB30 373 */
+  SELECT 'FDB30' AS dlSku, 'FDB30' AS distSku, 'B30FH' AS masterCode, 373 AS listPrice, 0 AS noCt /* FDB30 373 */
   UNION ALL
-  SELECT 'FDB33' AS dlSku, 'FDB33' AS distSku, 'B33FH' AS masterCode, 396 AS listPrice /* FDB33 396 */
+  SELECT 'FDB33' AS dlSku, 'FDB33' AS distSku, 'B33FH' AS masterCode, 396 AS listPrice, 0 AS noCt /* FDB33 396 */
   UNION ALL
-  SELECT 'FDB36' AS dlSku, 'FDB36' AS distSku, 'B36FH' AS masterCode, 415 AS listPrice /* FDB36 415 */
+  SELECT 'FDB36' AS dlSku, 'FDB36' AS distSku, 'B36FH' AS masterCode, 415 AS listPrice, 0 AS noCt /* FDB36 415 */
   UNION ALL
-  SELECT 'W1218' AS dlSku, 'W1218' AS distSku, 'W1218' AS masterCode, 128 AS listPrice /* W1218 128 */
+  SELECT 'W1218' AS dlSku, 'W1218' AS distSku, 'W1218' AS masterCode, 128 AS listPrice, 0 AS noCt /* W1218 128 */
   UNION ALL
-  SELECT 'W1518' AS dlSku, 'W1518' AS distSku, 'W1518' AS masterCode, 142 AS listPrice /* W1518 142 */
+  SELECT 'W1518' AS dlSku, 'W1518' AS distSku, 'W1518' AS masterCode, 142 AS listPrice, 0 AS noCt /* W1518 142 */
   UNION ALL
-  SELECT 'W1818' AS dlSku, 'W1818' AS distSku, 'W1818' AS masterCode, 162 AS listPrice /* W1818 162 */
+  SELECT 'W1818' AS dlSku, 'W1818' AS distSku, 'W1818' AS masterCode, 162 AS listPrice, 0 AS noCt /* W1818 162 */
   UNION ALL
-  SELECT 'VAN48D-6' AS dlSku, 'VAN48D-6' AS distSku, 'VDDB48' AS masterCode, 690 AS listPrice /* VAN48D-6 690 */
+  SELECT 'VAN48D-6' AS dlSku, 'VAN48D-6' AS distSku, 'VDDB48' AS masterCode, 690 AS listPrice, 0 AS noCt /* VAN48D-6 690 */
   UNION ALL
-  SELECT 'WMC3018' AS dlSku, 'WMC3018' AS distSku, 'PWB-MOS-30-18' AS masterCode, 186 AS listPrice /* WMC3018 186 */
+  SELECT 'WMC3018' AS dlSku, 'WMC3018' AS distSku, 'PWB-MOS-30-18' AS masterCode, 186 AS listPrice, 0 AS noCt /* WMC3018 186 */
   UNION ALL
-  SELECT 'DWP3' AS dlSku, 'DWP3' AS distSku, 'DWR3' AS masterCode, 80 AS listPrice /* DWP3 80 */
+  SELECT 'DWP3' AS dlSku, 'DWP3' AS distSku, 'DWR3' AS masterCode, 80 AS listPrice, 1 AS noCt /* DWP3 80 */
   UNION ALL
-  SELECT 'GH30' AS dlSku, 'GH30' AS distSku, 'SGH30' AS masterCode, 68 AS listPrice /* GH30 68 */
+  SELECT 'GH30' AS dlSku, 'GH30' AS distSku, 'SGH30' AS masterCode, 68 AS listPrice, 1 AS noCt /* GH30 68 */
   UNION ALL
-  SELECT 'TOUCHUP KIT' AS dlSku, 'TOUCHUP KIT' AS distSku, 'TUK' AS masterCode, 15 AS listPrice /* TOUCHUP KIT 15 */
+  SELECT 'TOUCHUP KIT' AS dlSku, 'TOUCHUP KIT' AS distSku, 'TUK' AS masterCode, 15 AS listPrice, 1 AS noCt /* TOUCHUP KIT 15 */
   UNION ALL
-  SELECT 'PAINT' AS dlSku, 'PAINT' AS distSku, 'SPRAYPAINT' AS masterCode, 30 AS listPrice /* PAINT 30 */
+  SELECT 'PAINT' AS dlSku, 'PAINT' AS distSku, 'SPRAYPAINT' AS masterCode, 30 AS listPrice, 1 AS noCt /* PAINT 30 */
   UNION ALL
-  SELECT 'SCRIBEMOLDING' AS dlSku, 'SCRIBEMOLDING' AS distSku, 'SM8' AS masterCode, 31 AS listPrice /* SCRIBEMOLDING 31 */
+  SELECT 'SCRIBEMOLDING' AS dlSku, 'SCRIBEMOLDING' AS distSku, 'SM8' AS masterCode, 31 AS listPrice, 1 AS noCt /* SCRIBEMOLDING 31 */
   UNION ALL
-  SELECT 'RRP27(1.5)' AS dlSku, 'RRP27(1.5)' AS distSku, 'REPV2796' AS masterCode, 157 AS listPrice /* RRP27(1.5) 157 */
+  SELECT 'RRP27(1.5)' AS dlSku, 'RRP27(1.5)' AS distSku, 'REPV2796' AS masterCode, 157 AS listPrice, 1 AS noCt /* RRP27(1.5) 157 */
   UNION ALL
-  SELECT 'FILLER 6X96' AS dlSku, 'FILLER 6X96' AS distSku, 'F696' AS masterCode, 147 AS listPrice /* FILLER 6X96 147 */
+  SELECT 'FILLER 6X96' AS dlSku, 'FILLER 6X96' AS distSku, 'F696' AS masterCode, 147 AS listPrice, 1 AS noCt /* FILLER 6X96 147 */
   UNION ALL
-  SELECT 'SP09' AS dlSku, 'SP09' AS distSku, 'SPB9' AS masterCode, 235 AS listPrice /* SP09 235 */
+  SELECT 'SP09' AS dlSku, 'SP09' AS distSku, 'SPB9' AS masterCode, 235 AS listPrice, 0 AS noCt /* SP09 235 */
   UNION ALL
-  SELECT 'BWBKT18' AS dlSku, 'BWBKT18' AS distSku, 'BWB18' AS masterCode, 391 AS listPrice /* BWBKT18 391 */
+  SELECT 'BWBKT18' AS dlSku, 'BWBKT18' AS distSku, 'BWB18' AS masterCode, 391 AS listPrice, 0 AS noCt /* BWBKT18 391 */
   UNION ALL
-  SELECT '2DB33' AS dlSku, '2DB33' AS distSku, 'B33' AS masterCode, 526 AS listPrice /* 2DB33 526 */
+  SELECT 'WG1530' AS dlSku, 'W1530 + WG1530' AS distSku, 'W1530GD' AS masterCode, 246 AS listPrice, 0 AS noCt /* W1530 176 + WG1530 70 */
   UNION ALL
-  SELECT 'WG1530' AS dlSku, 'W1530 + WG1530' AS distSku, 'W1530GD' AS masterCode, 246 AS listPrice /* W1530 176 + WG1530 70 */
+  SELECT 'WG1536' AS dlSku, 'W1536 + WG1536' AS distSku, 'W1536GD' AS masterCode, 283 AS listPrice, 0 AS noCt /* W1536 199 + WG1536 84 */
   UNION ALL
-  SELECT 'WG1536' AS dlSku, 'W1536 + WG1536' AS distSku, 'W1536GD' AS masterCode, 283 AS listPrice /* W1536 199 + WG1536 84 */
+  SELECT 'WG1542' AS dlSku, 'W1542 + WG1542' AS distSku, 'W1542GD' AS masterCode, 321 AS listPrice, 0 AS noCt /* W1542 229 + WG1542 92 */
   UNION ALL
-  SELECT 'WG1542' AS dlSku, 'W1542 + WG1542' AS distSku, 'W1542GD' AS masterCode, 321 AS listPrice /* W1542 229 + WG1542 92 */
+  SELECT 'WG1830' AS dlSku, 'W1830 + WG1830' AS distSku, 'W1830GD' AS masterCode, 283 AS listPrice, 0 AS noCt /* W1830 201 + WG1830 82 */
   UNION ALL
-  SELECT 'WG1830' AS dlSku, 'W1830 + WG1830' AS distSku, 'W1830GD' AS masterCode, 283 AS listPrice /* W1830 201 + WG1830 82 */
+  SELECT 'WG1836' AS dlSku, 'W1836 + WG1836' AS distSku, 'W1836GD' AS masterCode, 316 AS listPrice, 0 AS noCt /* W1836 223 + WG1836 93 */
   UNION ALL
-  SELECT 'WG1836' AS dlSku, 'W1836 + WG1836' AS distSku, 'W1836GD' AS masterCode, 316 AS listPrice /* W1836 223 + WG1836 93 */
+  SELECT 'WG1842' AS dlSku, 'W1842 + WG1842' AS distSku, 'W1842GD' AS masterCode, 341 AS listPrice, 0 AS noCt /* W1842 240 + WG1842 101 */
   UNION ALL
-  SELECT 'WG1842' AS dlSku, 'W1842 + WG1842' AS distSku, 'W1842GD' AS masterCode, 341 AS listPrice /* W1842 240 + WG1842 101 */
+  SELECT 'WDCG243012' AS dlSku, 'WDC243012 + WDCG243012' AS distSku, 'DCW2430GD' AS masterCode, 512 AS listPrice, 0 AS noCt /* WDC243012 422 + WDCG243012 90 */
   UNION ALL
-  SELECT 'WDCG243012' AS dlSku, 'WDC243012 + WDCG243012' AS distSku, 'DCW2430GD' AS masterCode, 512 AS listPrice /* WDC243012 422 + WDCG243012 90 */
+  SELECT 'WDCG243612' AS dlSku, 'WDC243612 + WDCG243612' AS distSku, 'DCW2436GD' AS masterCode, 545 AS listPrice, 0 AS noCt /* WDC243612 450 + WDCG243612 95 */
   UNION ALL
-  SELECT 'WDCG243612' AS dlSku, 'WDC243612 + WDCG243612' AS distSku, 'DCW2436GD' AS masterCode, 545 AS listPrice /* WDC243612 450 + WDCG243612 95 */
+  SELECT 'WDCG244212' AS dlSku, 'WDC244212 + WDCG244212' AS distSku, 'DCW2442GD' AS masterCode, 603 AS listPrice, 0 AS noCt /* WDC244212 498 + WDCG244212 105 */
   UNION ALL
-  SELECT 'WDCG244212' AS dlSku, 'WDC244212 + WDCG244212' AS distSku, 'DCW2442GD' AS masterCode, 603 AS listPrice /* WDC244212 498 + WDCG244212 105 */
+  SELECT '2DB33' AS dlSku, '2DB33' AS distSku, '2DB33' AS masterCode, 526 AS listPrice, 0 AS noCt /* 2DB33 526 */
   UNION ALL
-  SELECT 'WG1230' AS dlSku, 'W1230 + WG1230' AS distSku, 'W1230GD' AS masterCode, 222 AS listPrice /* W1230 160 + WG1230 62 */
+  SELECT 'WG1230' AS dlSku, 'W1230 + WG1230' AS distSku, 'W1230GD' AS masterCode, 222 AS listPrice, 0 AS noCt /* W1230 160 + WG1230 62 */
   UNION ALL
-  SELECT 'WG1236' AS dlSku, 'W1236 + WG1236' AS distSku, 'W1236GD' AS masterCode, 253 AS listPrice /* W1236 185 + WG1236 68 */
+  SELECT 'WG1236' AS dlSku, 'W1236 + WG1236' AS distSku, 'W1236GD' AS masterCode, 253 AS listPrice, 0 AS noCt /* W1236 185 + WG1236 68 */
   UNION ALL
-  SELECT 'WG1242' AS dlSku, 'W1242 + WG1242' AS distSku, 'W1242GD' AS masterCode, 290 AS listPrice /* W1242 214 + WG1242 76 */
+  SELECT 'WG1242' AS dlSku, 'W1242 + WG1242' AS distSku, 'W1242GD' AS masterCode, 290 AS listPrice, 0 AS noCt /* W1242 214 + WG1242 76 */
   UNION ALL
-  SELECT 'FLAT PANEL 28X96' AS dlSku, 'FLAT PANEL 28X96' AS distSku, 'FLAT PANEL 28X96' AS masterCode, 127 AS listPrice /* FLAT PANEL 28X96 127 */
+  SELECT 'FLAT PANEL 28X96' AS dlSku, 'FLAT PANEL 28X96' AS distSku, 'FLAT PANEL 28X96' AS masterCode, 127 AS listPrice, 1 AS noCt /* FLAT PANEL 28X96 127 */
   UNION ALL
-  SELECT 'FDB09' AS dlSku, 'FDB09' AS distSku, 'FDB09' AS masterCode, 214 AS listPrice /* FDB09 214 */
+  SELECT 'FDB09' AS dlSku, 'FDB09' AS distSku, 'FDB09' AS masterCode, 214 AS listPrice, 0 AS noCt /* FDB09 214 */
   UNION ALL
-  SELECT 'W2118' AS dlSku, 'W2118' AS distSku, 'W2118' AS masterCode, 171 AS listPrice /* W2118 171 */
+  SELECT 'W2118' AS dlSku, 'W2118' AS distSku, 'W2118' AS masterCode, 171 AS listPrice, 0 AS noCt /* W2118 171 */
   UNION ALL
-  SELECT 'W2412' AS dlSku, 'W2412' AS distSku, 'W2412' AS masterCode, 159 AS listPrice /* W2412 159 */
+  SELECT 'W2412' AS dlSku, 'W2412' AS distSku, 'W2412' AS masterCode, 159 AS listPrice, 0 AS noCt /* W2412 159 */
   UNION ALL
-  SELECT 'W2415' AS dlSku, 'W2415' AS distSku, 'W2415' AS masterCode, 178 AS listPrice /* W2415 178 */
+  SELECT 'W2415' AS dlSku, 'W2415' AS distSku, 'W2415' AS masterCode, 178 AS listPrice, 0 AS noCt /* W2415 178 */
   UNION ALL
-  SELECT 'W2424' AS dlSku, 'W2424' AS distSku, 'W2424' AS masterCode, 222 AS listPrice /* W2424 222 */
+  SELECT 'W2424' AS dlSku, 'W2424' AS distSku, 'W2424' AS masterCode, 222 AS listPrice, 0 AS noCt /* W2424 222 */
   UNION ALL
-  SELECT 'W2718' AS dlSku, 'W2718' AS distSku, 'W2718' AS masterCode, 206 AS listPrice /* W2718 206 */
+  SELECT 'W2718' AS dlSku, 'W2718' AS distSku, 'W2718' AS masterCode, 206 AS listPrice, 0 AS noCt /* W2718 206 */
   UNION ALL
-  SELECT 'WDC241812' AS dlSku, 'WDC241812' AS distSku, 'WDC241812' AS masterCode, 312 AS listPrice /* WDC241812 312 */
+  SELECT 'WDC241812' AS dlSku, 'WDC241812' AS distSku, 'WDC241812' AS masterCode, 312 AS listPrice, 0 AS noCt /* WDC241812 312 */
   UNION ALL
-  SELECT 'BBC33-9' AS dlSku, 'BBC33-9' AS distSku, 'BBC33-9' AS masterCode, 365 AS listPrice /* BBC33-9 365 */
+  SELECT 'BBC33-9' AS dlSku, 'BBC33-9' AS distSku, 'BBC33-9' AS masterCode, 365 AS listPrice, 0 AS noCt /* BBC33-9 365 */
   UNION ALL
-  SELECT 'BES09' AS dlSku, 'BES09' AS distSku, 'BES09' AS masterCode, 181 AS listPrice /* BES09 181 */
+  SELECT 'BES09' AS dlSku, 'BES09' AS distSku, 'BES09' AS masterCode, 181 AS listPrice, 0 AS noCt /* BES09 181 */
   UNION ALL
-  SELECT 'CL156012' AS dlSku, 'CL156012' AS distSku, 'CL156012' AS masterCode, 332 AS listPrice /* CL156012 332 */
+  SELECT 'CL156012' AS dlSku, 'CL156012' AS distSku, 'CL156012' AS masterCode, 332 AS listPrice, 0 AS noCt /* CL156012 332 */
   UNION ALL
-  SELECT 'DSK2421' AS dlSku, 'DSK2421' AS distSku, 'DSK2421' AS masterCode, 313 AS listPrice /* DSK2421 313 */
+  SELECT 'DSK2421' AS dlSku, 'DSK2421' AS distSku, 'DSK2421' AS masterCode, 313 AS listPrice, 0 AS noCt /* DSK2421 313 */
   UNION ALL
-  SELECT 'DSK3021' AS dlSku, 'DSK3021' AS distSku, 'DSK3021' AS masterCode, 313 AS listPrice /* DSK3021 313 */
+  SELECT 'DSK3021' AS dlSku, 'DSK3021' AS distSku, 'DSK3021' AS masterCode, 313 AS listPrice, 0 AS noCt /* DSK3021 313 */
   UNION ALL
-  SELECT 'WEOS0930' AS dlSku, 'WEOS0930' AS distSku, 'WEOS0930' AS masterCode, 138 AS listPrice /* WEOS0930 138 */
+  SELECT 'WEOS0930' AS dlSku, 'WEOS0930' AS distSku, 'WEOS0930' AS masterCode, 138 AS listPrice, 0 AS noCt /* WEOS0930 138 */
   UNION ALL
-  SELECT 'WEOS0936' AS dlSku, 'WEOS0936' AS distSku, 'WEOS0936' AS masterCode, 149 AS listPrice /* WEOS0936 149 */
+  SELECT 'WEOS0936' AS dlSku, 'WEOS0936' AS distSku, 'WEOS0936' AS masterCode, 149 AS listPrice, 0 AS noCt /* WEOS0936 149 */
   UNION ALL
-  SELECT 'WEOS0942' AS dlSku, 'WEOS0942' AS distSku, 'WEOS0942' AS masterCode, 173 AS listPrice /* WEOS0942 173 */
+  SELECT 'WEOS0942' AS dlSku, 'WEOS0942' AS distSku, 'WEOS0942' AS masterCode, 173 AS listPrice, 0 AS noCt /* WEOS0942 173 */
   UNION ALL
-  SELECT 'RH36' AS dlSku, 'RH36' AS distSku, 'RH36' AS masterCode, 1085 AS listPrice /* RH36 1085 */
+  SELECT 'RH36' AS dlSku, 'RH36' AS distSku, 'RH36' AS masterCode, 1085 AS listPrice, 0 AS noCt /* RH36 1085 */
+  UNION ALL
+  SELECT 'WDD30' AS dlSku, 'WDD30' AS distSku, 'WDD30' AS masterCode, 95 AS listPrice, 1 AS noCt /* WDD30 95 */
+  UNION ALL
+  SELECT 'WDD36' AS dlSku, 'WDD36' AS distSku, 'WDD36' AS masterCode, 105 AS listPrice, 1 AS noCt /* WDD36 105 */
+  UNION ALL
+  SELECT 'WDD42' AS dlSku, 'WDD42' AS distSku, 'WDD42' AS masterCode, 115 AS listPrice, 1 AS noCt /* WDD42 115 */
+  UNION ALL
+  SELECT 'BDD24' AS dlSku, 'BDD24' AS distSku, 'BDD24' AS masterCode, 131 AS listPrice, 1 AS noCt /* BDD24 131 */
+  UNION ALL
+  SELECT 'WF3 30' AS dlSku, 'WF3 30' AS distSku, 'WF3 30' AS masterCode, 25 AS listPrice, 1 AS noCt /* WF3 30 25 */
+  UNION ALL
+  SELECT 'WF3 36' AS dlSku, 'WF3 36' AS distSku, 'WF3 36' AS masterCode, 29 AS listPrice, 1 AS noCt /* WF3 36 29 */
+  UNION ALL
+  SELECT 'SIDE PANEL 36X96' AS dlSku, 'SIDE PANEL 36X96' AS distSku, 'SIDE PANEL 36X96' AS masterCode, 214 AS listPrice, 1 AS noCt /* SIDE PANEL 36X96 214 */
+  UNION ALL
+  SELECT 'SKIN PANEL 36X96' AS dlSku, 'SKIN PANEL 36X96' AS distSku, 'SKIN PANEL 36X96' AS masterCode, 127 AS listPrice, 1 AS noCt /* SKIN PANEL 36X96 127 */
+  UNION ALL
+  SELECT 'BASEMOLDING' AS dlSku, 'BASEMOLDING' AS distSku, 'BASEMOLDING' AS masterCode, 103 AS listPrice, 1 AS noCt /* BASEMOLDING 103 */
+  UNION ALL
+  SELECT 'SHOEMOLDING' AS dlSku, 'SHOEMOLDING' AS distSku, 'SHOEMOLDING' AS masterCode, 31 AS listPrice, 1 AS noCt /* SHOEMOLDING 31 */
+  UNION ALL
+  SELECT 'ICM8' AS dlSku, 'ICM8' AS distSku, 'ICM8' AS masterCode, 31 AS listPrice, 1 AS noCt /* ICM8 31 */
+  UNION ALL
+  SELECT 'ANGLEMOLDING' AS dlSku, 'ANGLEMOLDING' AS distSku, 'ANGLEMOLDING' AS masterCode, 31 AS listPrice, 1 AS noCt /* ANGLEMOLDING 31 */
+  UNION ALL
+  SELECT 'CCM8' AS dlSku, 'CCM8' AS distSku, 'CCM8' AS masterCode, 127 AS listPrice, 1 AS noCt /* CCM8 127 */
+  UNION ALL
+  SELECT 'ACM2.5' AS dlSku, 'ACM2.5' AS distSku, 'ACM2.5' AS masterCode, 93 AS listPrice, 1 AS noCt /* ACM2.5 93 */
+  UNION ALL
+  SELECT 'TLR8' AS dlSku, 'TLR8' AS distSku, 'TLR8' AS masterCode, 74 AS listPrice, 1 AS noCt /* TLR8 74 */
+  UNION ALL
+  SELECT 'CORBEL 8X12' AS dlSku, 'CORBEL 8X12' AS distSku, 'CORBEL 8X12' AS masterCode, 51 AS listPrice, 1 AS noCt /* CORBEL 8X12 51 */
+  UNION ALL
+  SELECT 'DLS 4X4X36' AS dlSku, 'DLS 4X4X36' AS distSku, 'DLS 4X4X36' AS masterCode, 188 AS listPrice, 1 AS noCt /* DLS 4X4X36 188 */
+  UNION ALL
+  SELECT 'PULLOUT TRAY 18"' AS dlSku, 'PULLOUT TRAY 18"' AS distSku, 'PULLOUT TRAY 18"' AS masterCode, 33 AS listPrice, 1 AS noCt /* PULLOUT TRAY 18" 33 */
+  UNION ALL
+  SELECT 'PULLOUT TRAY 24"' AS dlSku, 'PULLOUT TRAY 24"' AS distSku, 'PULLOUT TRAY 24"' AS masterCode, 40 AS listPrice, 1 AS noCt /* PULLOUT TRAY 24" 40 */
+  UNION ALL
+  SELECT 'PULLOUT TRAY 30"' AS dlSku, 'PULLOUT TRAY 30"' AS distSku, 'PULLOUT TRAY 30"' AS masterCode, 52 AS listPrice, 1 AS noCt /* PULLOUT TRAY 30" 52 */
+  UNION ALL
+  SELECT 'PULLOUT TRAY 36"' AS dlSku, 'PULLOUT TRAY 36"' AS distSku, 'PULLOUT TRAY 36"' AS masterCode, 62 AS listPrice, 1 AS noCt /* PULLOUT TRAY 36" 62 */
+  UNION ALL
+  SELECT 'PULLOUT TRAY BWBKT15' AS dlSku, 'PULLOUT TRAY BWBKT15' AS distSku, 'PULLOUT TRAY BWBKT15' AS masterCode, 63 AS listPrice, 1 AS noCt /* PULLOUT TRAY BWBKT15 63 */
+  UNION ALL
+  SELECT 'PULLOUT TRAY BWBKT18' AS dlSku, 'PULLOUT TRAY BWBKT18' AS distSku, 'PULLOUT TRAY BWBKT18' AS masterCode, 63 AS listPrice, 1 AS noCt /* PULLOUT TRAY BWBKT18 63 */
+  UNION ALL
+  SELECT 'PULLOUT TRAY BWBKT21' AS dlSku, 'PULLOUT TRAY BWBKT21' AS distSku, 'PULLOUT TRAY BWBKT21' AS masterCode, 63 AS listPrice, 1 AS noCt /* PULLOUT TRAY BWBKT21 63 */
+  UNION ALL
+  SELECT '9" DRAWER SLIDES' AS dlSku, '9" DRAWER SLIDES' AS distSku, '9" DRAWER SLIDES' AS masterCode, 16 AS listPrice, 1 AS noCt /* 9" DRAWER SLIDES 16 */
+  UNION ALL
+  SELECT '12" DRAWER SLIDES' AS dlSku, '12" DRAWER SLIDES' AS distSku, '12" DRAWER SLIDES' AS masterCode, 16 AS listPrice, 1 AS noCt /* 12" DRAWER SLIDES 16 */
+  UNION ALL
+  SELECT '15" DRAWER SLIDES' AS dlSku, '15" DRAWER SLIDES' AS distSku, '15" DRAWER SLIDES' AS masterCode, 19 AS listPrice, 1 AS noCt /* 15" DRAWER SLIDES 19 */
+  UNION ALL
+  SELECT '18" DRAWER SLIDES' AS dlSku, '18" DRAWER SLIDES' AS distSku, '18" DRAWER SLIDES' AS masterCode, 21 AS listPrice, 1 AS noCt /* 18" DRAWER SLIDES 21 */
+  UNION ALL
+  SELECT '21" DRAWER SLIDES' AS dlSku, '21" DRAWER SLIDES' AS distSku, '21" DRAWER SLIDES' AS masterCode, 21 AS listPrice, 1 AS noCt /* 21" DRAWER SLIDES 21 */
+  UNION ALL
+  SELECT 'TRASH CAN' AS dlSku, 'TRASH CAN' AS distSku, 'TRASH CAN' AS masterCode, 16 AS listPrice, 1 AS noCt /* TRASH CAN 16 */
+  UNION ALL
+  SELECT 'SAMPLE DOOR PACK (2025)' AS dlSku, 'SAMPLE DOOR PACK (2025)' AS distSku, 'SAMPLE DOOR PACK (2025)' AS masterCode, 100 AS listPrice, 1 AS noCt /* SAMPLE DOOR PACK (2025) 100 */
+  UNION ALL
+  SELECT 'WN FS3012' AS dlSku, 'WN FS3012' AS distSku, 'WN FS3012' AS masterCode, 62 AS listPrice, 1 AS noCt /* WN FS3012 62 */
+  UNION ALL
+  SELECT 'WN FS3612' AS dlSku, 'WN FS3612' AS distSku, 'WN FS3612' AS masterCode, 75 AS listPrice, 1 AS noCt /* WN FS3612 75 */
+  UNION ALL
+  SELECT 'WN FS4812' AS dlSku, 'WN FS4812' AS distSku, 'WN FS4812' AS masterCode, 88 AS listPrice, 1 AS noCt /* WN FS4812 88 */
+  UNION ALL
+  SELECT 'WO FS3012' AS dlSku, 'WO FS3012' AS distSku, 'WO FS3012' AS masterCode, 62 AS listPrice, 1 AS noCt /* WO FS3012 62 */
+  UNION ALL
+  SELECT 'WO FS3612' AS dlSku, 'WO FS3612' AS distSku, 'WO FS3612' AS masterCode, 75 AS listPrice, 1 AS noCt /* WO FS3612 75 */
+  UNION ALL
+  SELECT 'WO FS4812' AS dlSku, 'WO FS4812' AS distSku, 'WO FS4812' AS masterCode, 88 AS listPrice, 1 AS noCt /* WO FS4812 88 */
+  UNION ALL
+  SELECT 'SP2436' AS dlSku, 'SP2436' AS distSku, 'SP2436' AS masterCode, 66 AS listPrice, 1 AS noCt /* SP2436 66 */
+  UNION ALL
+  SELECT 'QUARTER DOOR' AS dlSku, 'QUARTER DOOR' AS distSku, 'QUARTER DOOR' AS masterCode, 10 AS listPrice, 1 AS noCt /* QUARTER DOOR 10 */
 ) m
 JOIN cabinet_dealz.cabinets c ON c.masterCode = m.masterCode
 JOIN cabinet_dealz.door_styles ds ON ds.styleCode = 'DL-LUXE-TBD' AND ds.distributorId = (SELECT id FROM cabinet_dealz.distributors WHERE code = 'DL')
 WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.distributor_skus x WHERE x.platformSku = CONCAT(m.dlSku, '-LUXE-TBD-DL'))
-  AND (m.dlSku = '2DB33' /* intentional 2nd DL SKU on B33 (Tom) */ OR NOT EXISTS (SELECT 1 FROM cabinet_dealz.distributor_skus y WHERE y.distributorId = ds.distributorId AND y.styleId = ds.id AND y.cabinetId = c.id));
+  AND NOT EXISTS (SELECT 1 FROM cabinet_dealz.distributor_skus y WHERE y.distributorId = ds.distributorId AND y.styleId = ds.id AND y.cabinetId = c.id);
 
--- Block 27: read-only check. Expect new_masters = 20 (0 if re-run), new_masters_hidden = 20, new_published = 0.
+-- Block 72: read-only check. Expect (first run) new_masters = 60, new_masters_hidden = 60, flagged_conflict = 47, dl_published_new = 0.
 SELECT
-  (SELECT COUNT(*) FROM cabinet_dealz.cabinets WHERE masterCode IN ('W1230GD', 'W1236GD', 'W1242GD', 'FLAT PANEL 28X96', 'FDB09', 'W2118', 'W2412', 'W2415', 'W2424', 'W2718', 'WDC241812', 'BBC33-9', 'BES09', 'CL156012', 'DSK2421', 'DSK3021', 'WEOS0930', 'WEOS0936', 'WEOS0942', 'RH36')) AS new_masters,
-  (SELECT COUNT(*) FROM cabinet_dealz.cabinets WHERE masterCode IN ('W1230GD', 'W1236GD', 'W1242GD', 'FLAT PANEL 28X96', 'FDB09', 'W2118', 'W2412', 'W2415', 'W2424', 'W2718', 'WDC241812', 'BBC33-9', 'BES09', 'CL156012', 'DSK2421', 'DSK3021', 'WEOS0930', 'WEOS0936', 'WEOS0942', 'RH36') AND isActive = 0 AND showInDesigner = 0 AND showInCatalog = 0 AND showIn2020 = 0) AS new_masters_hidden,
+  (SELECT COUNT(*) FROM cabinet_dealz.cabinets WHERE masterCode IN ('2DB33', 'W1230GD', 'W1236GD', 'W1242GD', 'FLAT PANEL 28X96', 'FDB09', 'W2118', 'W2412', 'W2415', 'W2424', 'W2718', 'WDC241812', 'BBC33-9', 'BES09', 'CL156012', 'DSK2421', 'DSK3021', 'WEOS0930', 'WEOS0936', 'WEOS0942', 'RH36', 'WDD30', 'WDD36', 'WDD42', 'BDD24', 'WF3 30', 'WF3 36', 'SIDE PANEL 36X96', 'SKIN PANEL 36X96', 'BASEMOLDING', 'SHOEMOLDING', 'ICM8', 'ANGLEMOLDING', 'CCM8', 'ACM2.5', 'TLR8', 'CORBEL 8X12', 'DLS 4X4X36', 'PULLOUT TRAY 18"', 'PULLOUT TRAY 24"', 'PULLOUT TRAY 30"', 'PULLOUT TRAY 36"', 'PULLOUT TRAY BWBKT15', 'PULLOUT TRAY BWBKT18', 'PULLOUT TRAY BWBKT21', '9" DRAWER SLIDES', '12" DRAWER SLIDES', '15" DRAWER SLIDES', '18" DRAWER SLIDES', '21" DRAWER SLIDES', 'TRASH CAN', 'SAMPLE DOOR PACK (2025)', 'WN FS3012', 'WN FS3612', 'WN FS4812', 'WO FS3012', 'WO FS3612', 'WO FS4812', 'SP2436', 'QUARTER DOOR')) AS new_masters,
+  (SELECT COUNT(*) FROM cabinet_dealz.cabinets WHERE masterCode IN ('2DB33', 'W1230GD', 'W1236GD', 'W1242GD', 'FLAT PANEL 28X96', 'FDB09', 'W2118', 'W2412', 'W2415', 'W2424', 'W2718', 'WDC241812', 'BBC33-9', 'BES09', 'CL156012', 'DSK2421', 'DSK3021', 'WEOS0930', 'WEOS0936', 'WEOS0942', 'RH36', 'WDD30', 'WDD36', 'WDD42', 'BDD24', 'WF3 30', 'WF3 36', 'SIDE PANEL 36X96', 'SKIN PANEL 36X96', 'BASEMOLDING', 'SHOEMOLDING', 'ICM8', 'ANGLEMOLDING', 'CCM8', 'ACM2.5', 'TLR8', 'CORBEL 8X12', 'DLS 4X4X36', 'PULLOUT TRAY 18"', 'PULLOUT TRAY 24"', 'PULLOUT TRAY 30"', 'PULLOUT TRAY 36"', 'PULLOUT TRAY BWBKT15', 'PULLOUT TRAY BWBKT18', 'PULLOUT TRAY BWBKT21', '9" DRAWER SLIDES', '12" DRAWER SLIDES', '15" DRAWER SLIDES', '18" DRAWER SLIDES', '21" DRAWER SLIDES', 'TRASH CAN', 'SAMPLE DOOR PACK (2025)', 'WN FS3012', 'WN FS3612', 'WN FS4812', 'WO FS3012', 'WO FS3612', 'WO FS4812', 'SP2436', 'QUARTER DOOR') AND isActive = 0 AND showInDesigner = 0 AND showInCatalog = 0 AND showIn2020 = 0) AS new_masters_hidden,
+  (SELECT COUNT(*) FROM cabinet_dealz.cabinets WHERE masterCode IN ('2DB33', 'W1230GD', 'W1236GD', 'W1242GD', 'FLAT PANEL 28X96', 'FDB09', 'W2118', 'W2412', 'W2415', 'W2424', 'W2718', 'WDC241812', 'BBC33-9', 'BES09', 'CL156012', 'DSK2421', 'DSK3021', 'WEOS0930', 'WEOS0936', 'WEOS0942', 'RH36', 'WDD30', 'WDD36', 'WDD42', 'BDD24', 'WF3 30', 'WF3 36', 'SIDE PANEL 36X96', 'SKIN PANEL 36X96', 'BASEMOLDING', 'SHOEMOLDING', 'ICM8', 'ANGLEMOLDING', 'CCM8', 'ACM2.5', 'TLR8', 'CORBEL 8X12', 'DLS 4X4X36', 'PULLOUT TRAY 18"', 'PULLOUT TRAY 24"', 'PULLOUT TRAY 30"', 'PULLOUT TRAY 36"', 'PULLOUT TRAY BWBKT15', 'PULLOUT TRAY BWBKT18', 'PULLOUT TRAY BWBKT21', '9" DRAWER SLIDES', '12" DRAWER SLIDES', '15" DRAWER SLIDES', '18" DRAWER SLIDES', '21" DRAWER SLIDES', 'TRASH CAN', 'SAMPLE DOOR PACK (2025)', 'WN FS3012', 'WN FS3612', 'WN FS4812', 'WO FS3012', 'WO FS3612', 'WO FS4812', 'SP2436', 'QUARTER DOOR') AND conflictStatus = 'conflict') AS flagged_conflict,
   (SELECT COUNT(*) FROM cabinet_dealz.distributor_skus WHERE platformSku LIKE '%-DL' AND isPublished = 0 AND status = 'pending') AS dl_pending_skus,
   (SELECT COUNT(*) FROM cabinet_dealz.distributor_skus WHERE platformSku LIKE '%-DL' AND isPublished = 1) AS dl_published_skus;
 
--- Read-only: confirm how existing masters are flagged. RH36 is created isNotCabinet = FALSE like the RHF hood fronts (cabinets). FLAT PANEL 28X96 is created isNotCabinet = TRUE like the filler/panel accessories: if FPL3796 / SPW / IS3696 show isNotCabinet = 0 here, change it before running.
-SELECT masterCode, category, subCategory, isNotCabinet, isActive, showInDesigner FROM cabinet_dealz.cabinets WHERE masterCode IN ('RHF30', 'RHF36', 'RH36', 'FPL3796', 'SPW', 'IS3696', 'FPV4296', 'WSV30', 'SPB9', 'BWB18', 'B33');
+-- Read-only: confirm how existing masters are flagged. RH36 is created isNotCabinet = FALSE like the RHF hood fronts (cabinets). FLAT PANEL 28X96 and the report-only items are isNotCabinet = TRUE like the filler/panel accessories: if FPL3796 / SPW / IS3696 show isNotCabinet = 0 here, change them before running.
+SELECT masterCode, category, subCategory, isNotCabinet, isActive, showInDesigner, conflictStatus FROM cabinet_dealz.cabinets WHERE masterCode IN ('RHF30', 'RHF36', 'RH36', 'FPL3796', 'SPW', 'IS3696', 'FPV4296', 'WSV30', 'SPB9', 'BWB18', 'B33', '2DB33');
