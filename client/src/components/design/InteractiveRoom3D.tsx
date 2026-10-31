@@ -30,6 +30,7 @@ import { ovenOpeningGeometry } from "@/lib/ovenOpening";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { normalizeCode } from "@shared/cabinetCodeMatch";
+import { doorEdgeProfileStrips, normalizeInsideEdgeProfile } from "@shared/doorProfiles";
 import { AEF_PRINTED_GEOMETRY_MARKER } from "@shared/aefFramelessGeometry";
 import { toast } from "sonner";
 import { pantryDrawerFrontLayout } from "@/lib/pantryDrawerLayout";
@@ -4636,7 +4637,7 @@ export function addCabinet(
 	      selectedStyleFace: forceGlassFrame ? "glass-door-frame" : raisedProfile ? "raised-panel" : "shaker",
 	      physicalRails: true,
 	      panelConstruction: raisedProfile ? "raised" : doorProfile?.panelConstruction ?? "flat",
-	      insideEdgeProfile: doorProfile?.insideEdgeProfile ?? "square",
+	      insideEdgeProfile: normalizeInsideEdgeProfile(doorProfile?.insideEdgeProfile) ?? "square",
 	      ...(forceGlassFrame ? { glassDoorFrame: true, selectedFinishGlassFrame: true } : {}),
 	    };
     const pieces = [
@@ -4650,6 +4651,14 @@ export function addCabinet(
       railMesh.position.set(offsetX, offsetY, 0);
 	      railMesh.userData = { selectedStyleFace: forceGlassFrame ? "glass-door-frame" : raisedProfile ? "raised-panel" : "shaker", physicalRail: true, grainPiece: piece, ...(forceGlassFrame ? { glassDoorFrameRail: true, selectedFinishGlassFrame: true } : {}) };
       frameGroup.add(railMesh);
+    }
+    // Inside-edge profile (square, bevel, ogee, cove, bead, step): layered strips along
+    // the inner edge of the rails/stiles. `square` (and unset) adds nothing.
+    for (const strip of doorEdgeProfileStrips(doorProfile?.insideEdgeProfile, Math.max(0.04, faceWidth - stile * 2), Math.max(0.04, faceHeight - rail * 2), INCH)) {
+      const edgeMesh = new THREE.Mesh(new THREE.BoxGeometry(strip.width, strip.height, 0.006), frameMaterialFor("stile"));
+      edgeMesh.position.set(strip.x, strip.y, strip.z);
+      edgeMesh.userData = { doorEdgeProfile: normalizeInsideEdgeProfile(doorProfile?.insideEdgeProfile), doorEdgeLayer: strip.layer, doorEdgeSide: strip.side };
+      frameGroup.add(edgeMesh);
     }
 	    if (raisedProfile) {
 	      const bevelWidth = Math.max(0.025, Math.min(

@@ -31,6 +31,7 @@ import { encryptDistributorSecret } from "../lib/distributorIntegrationCrypto";
 import { markOrderVerified } from "../lib/orderSideEffects";
 import { decryptDistributorSecret } from "../lib/distributorIntegrationCrypto";
 import { generateImage } from "../_core/imageGeneration";
+import { assertCanEditDoorStyle, buildDoorProfilePatch, doorProfileFieldsShape } from "../lib/doorProfileAccess";
 import { nextSampleVerifiedFlag } from "@shared/doorStyleRoomSceneGeneration";
 import { scheduleDoorStyleRoomSceneGeneration, scheduleDoorStyleRoomSceneGenerationForStyles } from "../doorStyleRoomSceneGeneration";
 import { scheduleDoorModelAudit, scheduleDoorModelAuditForStyles } from "../doorModelAudit";
@@ -770,6 +771,13 @@ export const distributorPortalRouter = router({
 	          drawerSampleVerified: doorStyles.drawerSampleVerified,
 	          isFeatured: doorStyles.isFeatured,
 	          featuredRank: doorStyles.featuredRank,
+	          panelConstruction: doorStyles.panelConstruction,
+	          bevelWidth: doorStyles.bevelWidth,
+	          bevelDepth: doorStyles.bevelDepth,
+	          insideEdgeProfile: doorStyles.insideEdgeProfile,
+	          drawerFrontType: doorStyles.drawerFrontType,
+	          grainDirection: doorStyles.grainDirection,
+	          finishSheen: doorStyles.finishSheen,
 	          warehouseZips: doorStyles.warehouseZips,
 	          flatFreightFeeCents: doorStyles.flatFreightFeeCents,
 	          railWidth: doorStyles.railWidth,
@@ -1003,12 +1011,8 @@ export const distributorPortalRouter = router({
 	    roomSceneImageUrl: z.string().max(512).nullable().optional(),
 	    thumbnailImageUrl: z.string().max(512).nullable().optional(),
 	    cornerSwatchImageUrl: z.string().max(512).nullable().optional(),
-	    railWidth: z.number().min(0).max(99).nullable().optional(),
-	    stileWidth: z.number().min(0).max(99).nullable().optional(),
-	    centerRailWidth: z.number().min(0).max(99).nullable().optional(),
-	    profileNotes: z.string().max(256).nullable().optional(),
+	    ...doorProfileFieldsShape,
 	    profileDescription: z.string().nullable().optional(),
-	    sourceSpecification: z.string().max(512).nullable().optional(),
 	  }))
 	  .mutation(async ({ ctx, input }) => {
 	    const db = await getDb();
@@ -1017,15 +1021,18 @@ export const distributorPortalRouter = router({
 	    const [style] = await db
 		      .select({
 		        id: doorStyles.id,
+		        distributorId: doorStyles.distributorId,
 		        isFeatured: doorStyles.isFeatured,
 		        doorSampleImageUrl: doorStyles.doorSampleImageUrl,
 		        drawerSampleImageUrl: doorStyles.drawerSampleImageUrl,
 		        thumbnailImageUrl: doorStyles.thumbnailImageUrl,
 		      })
 	      .from(doorStyles)
-	      .where(and(eq(doorStyles.id, input.styleId), eq(doorStyles.distributorId, lineId)))
+	      .where(eq(doorStyles.id, input.styleId))
 	      .limit(1);
-	    if (!style) throw new TRPCError({ code: "FORBIDDEN", message: "That Door Style does not belong to your cabinet line." });
+	    // A distributor may edit only styles tied to its own distributor id (admins: any).
+	    assertCanEditDoorStyle({ isAdmin: ctx.isAdmin, distributorIds: [lineId, ...(ctx.linkedDistributorIds ?? [])] }, style);
+	    if (style.distributorId !== lineId) throw new TRPCError({ code: "FORBIDDEN", message: "That Door Style does not belong to your cabinet line." });
 	    const [catalogEvidence] = await db
 	      .select({ id: distributorSkus.id })
 	      .from(distributorSkus)
@@ -1034,16 +1041,6 @@ export const distributorPortalRouter = router({
 		    if (!catalogEvidence) throw new TRPCError({ code: "BAD_REQUEST", message: "Only Door Styles linked to your cabinets can be edited here." });
 
 		    const { distributorId: _distributorId, styleId: _styleId, ...fields } = input;
-		    const measurementFieldsSubmitted = fields.railWidth !== undefined
-		      || fields.stileWidth !== undefined
-		      || fields.centerRailWidth !== undefined
-		      || fields.sourceSpecification !== undefined;
-		    if (measurementFieldsSubmitted && !ctx.isAdmin) {
-		      throw new TRPCError({
-		        code: "BAD_REQUEST",
-		        message: "Submit sample-door measurements for CabinetDealz verification instead of editing Designer frame data directly.",
-		      });
-		    }
 		    const patch: Record<string, unknown> = {};
 	    if (fields.featuredLabel !== undefined) patch.featuredLabel = fields.featuredLabel?.trim() || null;
 	    if (fields.aliasName !== undefined) patch.aliasName = fields.aliasName?.trim() || null;
@@ -1076,12 +1073,8 @@ export const distributorPortalRouter = router({
 		    const submittedDoorSample = fields.doorSampleImageUrl?.trim() || style.doorSampleImageUrl || null;
 		    if (submittedDoorSample && !style.thumbnailImageUrl && !fields.thumbnailImageUrl) patch.thumbnailImageUrl = submittedDoorSample;
 		    if (fields.cornerSwatchImageUrl !== undefined) patch.cornerSwatchImageUrl = fields.cornerSwatchImageUrl?.trim() || null;
-	    if (fields.railWidth !== undefined) patch.railWidth = fields.railWidth ?? null;
-	    if (fields.stileWidth !== undefined) patch.stileWidth = fields.stileWidth ?? null;
-	    if (fields.centerRailWidth !== undefined) patch.centerRailWidth = fields.centerRailWidth ?? null;
-	    if (fields.profileNotes !== undefined) patch.profileNotes = fields.profileNotes?.trim() || null;
+	    Object.assign(patch, buildDoorProfilePatch(fields));
 	    if (fields.profileDescription !== undefined) patch.profileDescription = fields.profileDescription?.trim() || null;
-	    if (fields.sourceSpecification !== undefined) patch.sourceSpecification = fields.sourceSpecification?.trim() || null;
 	    const submittedRoomScene = fields.roomSceneImageUrl?.trim() || null;
 	    if (fields.roomSceneImageUrl !== undefined && !submittedRoomScene && style.isFeatured) {
 	      throw new TRPCError({ code: "BAD_REQUEST", message: "Remove this style from Featured Styles before clearing its room scene." });

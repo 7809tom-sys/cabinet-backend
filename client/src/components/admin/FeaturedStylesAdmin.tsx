@@ -1,3 +1,5 @@
+import DoorProfileEditor from "@/components/door/DoorProfileEditor";
+import { doorProfileValuesFromStyle, doorProfileValuesToPayload, type DoorProfileValues } from "@/lib/doorProfileForm";
 import { useState, useMemo, useRef } from "react";
 import {
   Star, Search, GripVertical, ArrowUp, ArrowDown, X,
@@ -322,19 +324,8 @@ function EditDialog({ style, open, onClose, onSaved }: EditDialogProps) {
   const [drawerSampleImageUrl, setDrawerSampleImageUrl] = useState(style.drawerSampleImageUrl ?? "");
   const [roomSceneImageUrl, setRoomSceneImageUrl] = useState(style.roomSceneImageUrl ?? "");
   const [thumbnailImageUrl, setThumbnailImageUrl] = useState(style.thumbnailImageUrl ?? "");
-  const [railWidth, setRailWidth] = useState(style.railWidth != null ? String(style.railWidth) : "");
-  const [stileWidth, setStileWidth] = useState(style.stileWidth != null ? String(style.stileWidth) : "");
-  const [centerRailWidth, setCenterRailWidth] = useState(style.centerRailWidth != null ? String(style.centerRailWidth) : "");
-  const [panelConstruction, setPanelConstruction] = useState<NonNullable<AdminStyle["panelConstruction"]>>(style.panelConstruction ?? "flat");
-  const [bevelWidth, setBevelWidth] = useState(style.bevelWidth != null ? String(style.bevelWidth) : "");
-  const [bevelDepth, setBevelDepth] = useState(style.bevelDepth != null ? String(style.bevelDepth) : "");
-  const [insideEdgeProfile, setInsideEdgeProfile] = useState(style.insideEdgeProfile ?? "");
-  const [drawerFrontType, setDrawerFrontType] = useState<NonNullable<AdminStyle["drawerFrontType"]>>(style.drawerFrontType ?? "slab");
-  const [grainDirection, setGrainDirection] = useState<NonNullable<AdminStyle["grainDirection"]>>(style.grainDirection ?? "none");
-  const [finishSheen, setFinishSheen] = useState<NonNullable<AdminStyle["finishSheen"]>>(style.finishSheen ?? "satin");
-  const [profileNotes, setProfileNotes] = useState(style.profileNotes ?? "");
+  const [profile, setProfile] = useState<DoorProfileValues>(() => doorProfileValuesFromStyle(style));
   const [profileDescription, setProfileDescription] = useState((style as AdminStyle & { profileDescription?: string | null }).profileDescription ?? "");
-  const [sourceSpecification, setSourceSpecification] = useState(style.sourceSpecification ?? "");
   const [cornerSwatchImageUrl, setCornerSwatchImageUrl] = useState(style.cornerSwatchImageUrl ?? "");
   const [newSceneUrl, setNewSceneUrl] = useState("");
   const [newSceneSourceNote, setNewSceneSourceNote] = useState("");
@@ -357,19 +348,8 @@ function EditDialog({ style, open, onClose, onSaved }: EditDialogProps) {
     setDrawerSampleImageUrl(s.drawerSampleImageUrl ?? "");
     setRoomSceneImageUrl(s.roomSceneImageUrl ?? "");
     setThumbnailImageUrl(s.thumbnailImageUrl ?? "");
-    setRailWidth(s.railWidth != null ? String(s.railWidth) : "");
-    setStileWidth(s.stileWidth != null ? String(s.stileWidth) : "");
-    setCenterRailWidth(s.centerRailWidth != null ? String(s.centerRailWidth) : "");
-    setPanelConstruction(s.panelConstruction ?? "flat");
-    setBevelWidth(s.bevelWidth != null ? String(s.bevelWidth) : "");
-    setBevelDepth(s.bevelDepth != null ? String(s.bevelDepth) : "");
-    setInsideEdgeProfile(s.insideEdgeProfile ?? "");
-    setDrawerFrontType(s.drawerFrontType ?? "slab");
-    setGrainDirection(s.grainDirection ?? "none");
-    setFinishSheen(s.finishSheen ?? "satin");
-    setProfileNotes(s.profileNotes ?? "");
+    setProfile(doorProfileValuesFromStyle(s));
     setProfileDescription((s as AdminStyle & { profileDescription?: string | null }).profileDescription ?? "");
-    setSourceSpecification(s.sourceSpecification ?? "");
     setCornerSwatchImageUrl(s.cornerSwatchImageUrl ?? "");
   };
 
@@ -395,6 +375,7 @@ function EditDialog({ style, open, onClose, onSaved }: EditDialogProps) {
     const parsed = Number.parseFloat(value.trim());
     return Number.isFinite(parsed) && parsed > 0 && parsed <= 99 ? parsed : null;
   };
+  const { railWidth, stileWidth, sourceSpecification } = profile;
   const enteredRail = parsedMeasurement(railWidth);
   const enteredStile = parsedMeasurement(stileWidth);
   const hasRailText = railWidth.trim().length > 0;
@@ -451,19 +432,10 @@ function EditDialog({ style, open, onClose, onSaved }: EditDialogProps) {
       roomSceneImageUrl: imgField(roomSceneImageUrl, orig.roomSceneImageUrl),
       thumbnailImageUrl: imgField(thumbnailImageUrl, orig.thumbnailImageUrl),
       cornerSwatchImageUrl: imgField(cornerSwatchImageUrl, orig.cornerSwatchImageUrl),
+      ...doorProfileValuesToPayload(profile),
       railWidth: enteredRail,
       stileWidth: enteredStile,
-      centerRailWidth: centerRailWidth.trim() ? parseFloat(centerRailWidth) : null,
-      panelConstruction,
-      bevelWidth: bevelWidth.trim() ? parseFloat(bevelWidth) : null,
-      bevelDepth: bevelDepth.trim() ? parseFloat(bevelDepth) : null,
-      insideEdgeProfile: insideEdgeProfile.trim() || null,
-      drawerFrontType,
-      grainDirection,
-      finishSheen,
-      profileNotes: profileNotes.trim() || null,
       profileDescription: profileDescription.trim() || null,
-      sourceSpecification: sourceSpecification.trim() || null,
     });
   }
 
@@ -665,124 +637,7 @@ function EditDialog({ style, open, onClose, onSaved }: EditDialogProps) {
                 <p className="mt-0.5 text-muted-foreground">{designerFrameReady ? "The cited rail and stile values are the Designer’s rendered frame dimensions for this exact style." : frameEntryStatus === "complete" ? "Add the official source citation before these dimensions can render. The Designer will retain its neutral fallback." : frameEntryStatus === "partial" ? "Enter both rail and stile widths to record a complete verified frame. A blank dimension keeps the neutral fallback." : "Leave blank only when a verified source measurement is unavailable; the Designer retains its neutral fallback."}</p>
               </div>
             </div>
-            <div className="grid grid-cols-3 gap-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="ed-rail">Rail Width (in)</Label>
-                <Input
-                  id="ed-rail"
-                  type="number"
-                  min="0" max="99" step="0.125"
-                  value={railWidth}
-                  onChange={(e) => setRailWidth(e.target.value)}
-                  placeholder="e.g. 2.5"
-                />
-                <p className="text-xs text-muted-foreground">Top &amp; bottom rail</p>
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="ed-stile">Stile Width (in)</Label>
-                <Input
-                  id="ed-stile"
-                  type="number"
-                  min="0" max="99" step="0.125"
-                  value={stileWidth}
-                  onChange={(e) => setStileWidth(e.target.value)}
-                  placeholder="e.g. 2.5"
-                />
-                <p className="text-xs text-muted-foreground">Left &amp; right stile</p>
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="ed-center-rail">Center Rail (in)</Label>
-                <Input
-                  id="ed-center-rail"
-                  type="number"
-                  min="0" max="99" step="0.125"
-                  value={centerRailWidth}
-                  onChange={(e) => setCenterRailWidth(e.target.value)}
-                  placeholder="e.g. 2.5"
-                />
-                <p className="text-xs text-muted-foreground">Mid rail if any</p>
-              </div>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-3">
-              <div className="space-y-1.5">
-                <Label>Panel construction</Label>
-                <Select value={panelConstruction} onValueChange={(value) => setPanelConstruction(value as NonNullable<AdminStyle["panelConstruction"]>)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="raised">Raised panel</SelectItem>
-                    <SelectItem value="flat">Flat panel</SelectItem>
-                    <SelectItem value="slab">Slab</SelectItem>
-                    <SelectItem value="glass">Glass</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="ed-bevel-width">Bevel width (in)</Label>
-                <Input id="ed-bevel-width" type="number" min="0" max="12" step="0.125" value={bevelWidth} onChange={(event) => setBevelWidth(event.target.value)} placeholder="e.g. 0.5" />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="ed-bevel-depth">Bevel depth (in)</Label>
-                <Input id="ed-bevel-depth" type="number" min="0" max="4" step="0.0625" value={bevelDepth} onChange={(event) => setBevelDepth(event.target.value)} placeholder="e.g. 0.18" />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="ed-edge-profile">Inside-edge profile</Label>
-                <Input id="ed-edge-profile" value={insideEdgeProfile} onChange={(event) => setInsideEdgeProfile(event.target.value)} placeholder="e.g. beveled ogee" />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Drawer front</Label>
-                <Select value={drawerFrontType} onValueChange={(value) => setDrawerFrontType(value as NonNullable<AdminStyle["drawerFrontType"]>)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="five-piece-raised">5-piece raised panel</SelectItem>
-                    <SelectItem value="five-piece-flat">5-piece flat panel</SelectItem>
-                    <SelectItem value="slab">Slab</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Finish sheen</Label>
-                <Select value={finishSheen} onValueChange={(value) => setFinishSheen(value as NonNullable<AdminStyle["finishSheen"]>)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="satin">Satin</SelectItem>
-                    <SelectItem value="matte">Matte</SelectItem>
-                    <SelectItem value="gloss">Gloss</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Wood-grain direction</Label>
-              <Select value={grainDirection} onValueChange={(value) => setGrainDirection(value as NonNullable<AdminStyle["grainDirection"]>)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="vertical-stiles-horizontal-rails">Vertical stiles / horizontal rails</SelectItem>
-                  <SelectItem value="vertical">Vertical</SelectItem>
-                  <SelectItem value="horizontal">Horizontal</SelectItem>
-                  <SelectItem value="none">No visible grain direction</SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">The 3D Designer uses these physical profile settings only for this catalog style. Provide or cite a sample-door source before entering frame dimensions.</p>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="ed-frame-source">Official frame source citation</Label>
-              <Input
-                id="ed-frame-source"
-                value={sourceSpecification}
-                onChange={(event) => setSourceSpecification(event.target.value)}
-                placeholder="e.g. Skyline 2026 Slim Shaker catalog — exact style code SS-DW"
-              />
-              <p className="text-xs text-muted-foreground">Required with rail and stile measurements. Cite the official document and exact supplier style code; generic family assumptions do not render.</p>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="ed-profile-notes">Profile Notes</Label>
-              <Input
-                id="ed-profile-notes"
-                value={profileNotes}
-                onChange={(e) => setProfileNotes(e.target.value)}
-                placeholder="e.g. Ogee profile, Beaded inner edge, Step detail"
-              />
-            </div>
+            <DoorProfileEditor values={profile} onChange={setProfile} idPrefix="ed" />
           </div>
 
           {/* Profile Description */}

@@ -58,6 +58,7 @@ import { priceLadder } from "@shared/pricing";
 import { resolveCanonicalCatalogSources } from "../lib/canonicalCatalogSources";
 import { isWallWineRackCabinet } from "../../shared/wallWineRack";
 import { designerCabinetReadinessBySku } from "../lib/designerCabinetReadiness";
+import { buildDoorProfilePatch } from "../lib/doorProfileAccess";
 import { recomputeDesignerEligibility } from "../lib/designerEligibilityRecompute";
 import { hasConfirmedLandedCostRule, landedCostFromList, landedCostMultiplier } from "../lib/distributorCostMultiplier";
 import { loadCodeEquivalenceGroups } from "../lib/codeEquivalenceLoader";
@@ -698,21 +699,11 @@ export const doorStylesRouter = router({
       if (fields.drawerSampleImageUrl !== undefined) patch.drawerSampleImageUrl = fields.drawerSampleImageUrl?.trim() || null;
       if (fields.roomSceneImageUrl !== undefined) patch.roomSceneImageUrl = fields.roomSceneImageUrl?.trim() || null;
       if (fields.thumbnailImageUrl !== undefined) patch.thumbnailImageUrl = fields.thumbnailImageUrl?.trim() || null;
-      if (fields.railWidth !== undefined) patch.railWidth = fields.railWidth ?? null;
-      if (fields.stileWidth !== undefined) patch.stileWidth = fields.stileWidth ?? null;
-      if (fields.centerRailWidth !== undefined) patch.centerRailWidth = fields.centerRailWidth ?? null;
-      if (fields.panelConstruction !== undefined) patch.panelConstruction = fields.panelConstruction;
+      // Door profile fields go through the shared builder (also used by the Vendor Portal).
+      Object.assign(patch, buildDoorProfilePatch(fields));
       if (fields.renderHex !== undefined) patch.renderHex = fields.renderHex?.trim().toLowerCase() || null;
       if (fields.doorShape !== undefined) patch.doorShape = fields.doorShape;
-      if (fields.bevelWidth !== undefined) patch.bevelWidth = fields.bevelWidth ?? null;
-      if (fields.bevelDepth !== undefined) patch.bevelDepth = fields.bevelDepth ?? null;
-      if (fields.insideEdgeProfile !== undefined) patch.insideEdgeProfile = fields.insideEdgeProfile?.trim() || null;
-      if (fields.drawerFrontType !== undefined) patch.drawerFrontType = fields.drawerFrontType;
-      if (fields.grainDirection !== undefined) patch.grainDirection = fields.grainDirection;
-      if (fields.finishSheen !== undefined) patch.finishSheen = fields.finishSheen;
-      if (fields.profileNotes !== undefined) patch.profileNotes = fields.profileNotes?.trim() || null;
       if (fields.profileDescription !== undefined) patch.profileDescription = fields.profileDescription?.trim() || null;
-      if (fields.sourceSpecification !== undefined) patch.sourceSpecification = fields.sourceSpecification?.trim() || null;
       if (fields.cornerSwatchImageUrl !== undefined) patch.cornerSwatchImageUrl = fields.cornerSwatchImageUrl?.trim() || null;
       if (fields.isActive !== undefined) patch.isActive = fields.isActive;
       const currentImages = await db

@@ -26,11 +26,10 @@ describe("vendor sample-door measurement workflow", () => {
     expect(portalSource).toContain("appliesToStyleIds.length");
   });
 
-  it("removes direct vendor control of Designer frame measurements", () => {
+  it("vendors use the shared door profile editor (Tom, Oct 31); the server limits them to their own line", () => {
     const editor = portalSource.slice(portalSource.indexOf("function VendorFeaturedStyleEditor"), portalSource.indexOf("function VendorFeaturedStylesPage"));
-    expect(editor).toContain("Designer geometry is controlled by a submitted physical sample door");
-    expect(editor).not.toContain("railWidth: rail");
-    expect(editor).not.toContain("sourceSpecification: sourceSpecification.trim()");
+    expect(editor).toContain("<DoorProfileEditor");
+    expect(editor).toContain("doorProfileValuesToPayload(profile)");
   });
 
   it("requires the administrator to confirm a physical sample and team-measured rail and stile before Designer approval", () => {
