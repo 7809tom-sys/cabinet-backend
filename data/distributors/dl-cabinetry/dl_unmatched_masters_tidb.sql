@@ -4,7 +4,7 @@
 -- New master cabinets are UNPUBLISHED: isActive = FALSE, showInDesigner = FALSE, showInCatalog = FALSE, showIn2020 = FALSE. Nothing here makes any master visible.
 -- DL is live and its existing SKUs are published. Every distributor_skus row below is isPublished = FALSE, status = 'pending' and stays that way until Tom publishes it.
 -- BEFORE running: confirm in the live database that none of the NEW master codes already exists under another code (see SP09 note), and that each MAPPED master exists.
--- Not covered here (see findings.md): accessories, glass doors, and the skipped items.
+-- Not covered here (see findings_unmatched.md): accessories, WG1230/1236/1242 (no 12-wide glass master) and the skipped items.
 
 -- Block 1: NEW master FDB09 (FDB family maps to B##FH but the master catalog has nothing below B12FH, and FDB09 is not in the spec book (smallest FDB listed is FDB18); size is from the price list only). Source: DL Price List P5 (v1_13_26) row FDB09 only. Any door/drawer count not in the source is NULL.
 INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet)
@@ -54,7 +54,7 @@ SELECT 'BBC33-9', 'Corner Base Cabinet - 33"W x 34.5"H x 24"D, 1 door(s), 1 draw
 FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinets WHERE masterCode = 'BBC33-9')
   AND NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinet_aliases WHERE alias = 'BBC33-9');
 
--- Block 9: NEW master 2DB33 (2-drawer base masters exist at 24/30/36 only). Source: DL Specification Book v.11/14/23 p.2. Any door/drawer count not in the source is NULL.
+-- Block 9: NEW master 2DB33 (checked: no 2-drawer 33in base exists under any code or alias (B33 is 2 door 2 drawer, 3DB33 is 3 drawer, ADA-B33 is ADA, 2DB masters exist at 24/30/36 only)). Source: DL Specification Book v.11/14/23 p.2. Any door/drawer count not in the source is NULL.
 INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet)
 SELECT '2DB33', 'Drawer Base Cabinet - 33"W x 34.5"H x 24"D, 0 door(s), 2 drawer(s), 0 shelf(ves)', 'DL Cabinetry spec book v.11/14/23', 'Base', 'Drawer Base', 33, 34.5, 24, 'base', 0, 2, FALSE, NULL, FALSE, FALSE, FALSE, FALSE, FALSE
 FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinets WHERE masterCode = '2DB33')
@@ -66,55 +66,49 @@ SELECT 'BES09', 'Specialty Base Cabinet - 9"W x 34.5"H x 24"D, 0 door(s), 0 draw
 FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinets WHERE masterCode = 'BES09')
   AND NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinet_aliases WHERE alias = 'BES09');
 
--- Block 11: NEW master SP09 (SPB9 (SK, '9in Spice Base / Pull-Out') is a possible duplicate, but its door/drawer/shelf counts are not in the master description, so construction cannot be confirmed. REVIEW for duplicate before publishing). Source: DL Specification Book v.11/14/23 p.3. Any door/drawer count not in the source is NULL.
-INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet)
-SELECT 'SP09', 'Specialty Base Cabinet - 9"W x 34.5"H x 24"D, 0 door(s), 1 drawer(s), 3 shelf(ves)', 'DL Cabinetry spec book v.11/14/23', 'Base', 'Spice Base', 9, 34.5, 24, 'base', 0, 1, FALSE, NULL, FALSE, FALSE, FALSE, FALSE, FALSE
-FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinets WHERE masterCode = 'SP09')
-  AND NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinet_aliases WHERE alias = 'SP09');
-
--- Block 12: NEW master CL156012 (no linen cabinet master. Category 'Tall' is my classification (60in high)). Source: DL Specification Book v.11/14/23 p.10. Any door/drawer count not in the source is NULL.
+-- Block 11: NEW master CL156012 (no linen cabinet master. Category 'Tall' is my classification (60in high)). Source: DL Specification Book v.11/14/23 p.10. Any door/drawer count not in the source is NULL.
 INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet)
 SELECT 'CL156012', 'Counter Linen Cabinet - 15"W x 60"H x 12"D, 1 door(s), 2 drawer(s), 3 shelf(ves)', 'DL Cabinetry spec book v.11/14/23', 'Tall', 'Counter Linen Cabinet', 15, 60, 12, 'tall', 1, 2, FALSE, NULL, FALSE, FALSE, FALSE, FALSE, FALSE
 FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinets WHERE masterCode = 'CL156012')
   AND NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinet_aliases WHERE alias = 'CL156012');
 
--- Block 13: NEW master DSK2421 (knee drawer masters differ in size (DKD30 30x5-1/4, VKD36 36x7); none at 24 x 7-1/2 x 21). Source: DL Specification Book v.11/14/23 p.17. Any door/drawer count not in the source is NULL.
+-- Block 12: NEW master DSK2421 (knee drawer masters differ in size (DKD30 30x5-1/4, VKD36 36x7); none at 24 x 7-1/2 x 21). Source: DL Specification Book v.11/14/23 p.17. Any door/drawer count not in the source is NULL.
 INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet)
 SELECT 'DSK2421', 'Knee Drawer - 24"W x 7.5"H x 21"D', 'DL Cabinetry spec book v.11/14/23', 'Base', 'Knee Drawer', 24, 7.5, 21, 'base', NULL, NULL, FALSE, NULL, FALSE, FALSE, FALSE, FALSE, FALSE
 FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinets WHERE masterCode = 'DSK2421')
   AND NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinet_aliases WHERE alias = 'DSK2421');
 
--- Block 14: NEW master DSK3021 (DKD30 is 30 x 5-1/4 x 21 (height differs); none at 30 x 7-1/2 x 21). Source: DL Specification Book v.11/14/23 p.17. Any door/drawer count not in the source is NULL.
+-- Block 13: NEW master DSK3021 (DKD30 is 30 x 5-1/4 x 21 (height differs); none at 30 x 7-1/2 x 21). Source: DL Specification Book v.11/14/23 p.17. Any door/drawer count not in the source is NULL.
 INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet)
 SELECT 'DSK3021', 'Knee Drawer - 30"W x 7.5"H x 21"D', 'DL Cabinetry spec book v.11/14/23', 'Base', 'Knee Drawer', 30, 7.5, 21, 'base', NULL, NULL, FALSE, NULL, FALSE, FALSE, FALSE, FALSE, FALSE
 FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinets WHERE masterCode = 'DSK3021')
   AND NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinet_aliases WHERE alias = 'DSK3021');
 
--- Block 15: NEW master WEOS0930 (open end shelf masters are 6in wide (OE630/636/642); DL is 9in). Source: DL Specification Book v.11/14/23 p.7. Any door/drawer count not in the source is NULL.
+-- Block 14: NEW master WEOS0930 (open end shelf masters are 6in wide (OE630/636/642); DL is 9in). Source: DL Specification Book v.11/14/23 p.7. Any door/drawer count not in the source is NULL.
 INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet)
 SELECT 'WEOS0930', 'Wall Shelve - 9"W x 30"H x 12"D, 0 door(s), 2 shelf(ves)', 'DL Cabinetry spec book v.11/14/23', 'Wall', 'Open Shelf', 9, 30, 12, 'wall', 0, NULL, FALSE, NULL, FALSE, FALSE, FALSE, FALSE, FALSE
 FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinets WHERE masterCode = 'WEOS0930')
   AND NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinet_aliases WHERE alias = 'WEOS0930');
 
--- Block 16: NEW master WEOS0936 (open end shelf masters are 6in wide (OE630/636/642); DL is 9in). Source: DL Specification Book v.11/14/23 p.7. Any door/drawer count not in the source is NULL.
+-- Block 15: NEW master WEOS0936 (open end shelf masters are 6in wide (OE630/636/642); DL is 9in). Source: DL Specification Book v.11/14/23 p.7. Any door/drawer count not in the source is NULL.
 INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet)
 SELECT 'WEOS0936', 'Wall Shelve - 9"W x 36"H x 12"D, 0 door(s), 2 shelf(ves)', 'DL Cabinetry spec book v.11/14/23', 'Wall', 'Open Shelf', 9, 36, 12, 'wall', 0, NULL, FALSE, NULL, FALSE, FALSE, FALSE, FALSE, FALSE
 FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinets WHERE masterCode = 'WEOS0936')
   AND NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinet_aliases WHERE alias = 'WEOS0936');
 
--- Block 17: NEW master WEOS0942 (open end shelf masters are 6in wide (OE630/636/642); DL is 9in). Source: DL Specification Book v.11/14/23 p.7. Any door/drawer count not in the source is NULL.
+-- Block 16: NEW master WEOS0942 (open end shelf masters are 6in wide (OE630/636/642); DL is 9in). Source: DL Specification Book v.11/14/23 p.7. Any door/drawer count not in the source is NULL.
 INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet)
 SELECT 'WEOS0942', 'Wall Shelve - 9"W x 42"H x 12"D, 0 door(s), 3 shelf(ves)', 'DL Cabinetry spec book v.11/14/23', 'Wall', 'Open Shelf', 9, 42, 12, 'wall', 0, NULL, FALSE, NULL, FALSE, FALSE, FALSE, FALSE, FALSE
 FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinets WHERE masterCode = 'WEOS0942')
   AND NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinet_aliases WHERE alias = 'WEOS0942');
 
--- Block 18: NEW master RH36 (RHF36 (CS) is only a 'Range Hood Front' with no dimensions; DL RH36 is a 36 x 36 x 24 cover box). Source: DL Specification Book v.11/14/23 p.7. Any door/drawer count not in the source is NULL.
+-- Block 17: NEW master RH36 (range hood. Modeled like the existing hood masters RHF30/RHF36 (category Wall, subCategory Range Hood Front, cataloged as wall-cabinet hood fronts, not isNotCabinet). RHF36 has no dimensions in the master sheet; DL RH36 is 36 x 36 x 24). Source: DL Specification Book v.11/14/23 p.7. Any door/drawer count not in the source is NULL.
 INSERT INTO cabinet_dealz.cabinets (masterCode, description, descriptionSource, category, subCategory, width, height, depth, placementType, numberOfDoors, numberOfDrawers, isCornerCabinet, cornerType, isActive, showInDesigner, showInCatalog, showIn2020, isNotCabinet)
-SELECT 'RH36', 'Range Hood Cover - 36"W x 36"H x 24"D, 0 door(s), 0 shelf(ves)', 'DL Cabinetry spec book v.11/14/23', 'Wall', 'Range Hood Cover', 36, 36, 24, 'wall', 0, NULL, FALSE, NULL, FALSE, FALSE, FALSE, FALSE, FALSE
+SELECT 'RH36', 'Range Hood Cover - 36"W x 36"H x 24"D, 0 door(s), 0 shelf(ves)', 'DL Cabinetry spec book v.11/14/23', 'Wall', 'Range Hood Front', 36, 36, 24, 'wall', 0, NULL, FALSE, NULL, FALSE, FALSE, FALSE, FALSE, FALSE
 FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinets WHERE masterCode = 'RH36')
   AND NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinet_aliases WHERE alias = 'RH36');
 
--- Block 19: alias = the DL code for every new master (supplier code becomes the master's code and alias)
+-- Block 18: alias = the DL code for every new master (supplier code becomes the master's code and alias)
 INSERT INTO cabinet_dealz.cabinet_aliases (cabinetId, alias)
 SELECT c.id, a.alias FROM (
   SELECT 'FDB09' AS alias
@@ -137,8 +131,6 @@ SELECT c.id, a.alias FROM (
   UNION ALL
   SELECT 'BES09' AS alias
   UNION ALL
-  SELECT 'SP09' AS alias
-  UNION ALL
   SELECT 'CL156012' AS alias
   UNION ALL
   SELECT 'DSK2421' AS alias
@@ -156,7 +148,17 @@ SELECT c.id, a.alias FROM (
 JOIN cabinet_dealz.cabinets c ON c.masterCode = a.alias
 WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinet_aliases x WHERE x.alias = a.alias);
 
--- Block 20: distributor_skus for door style DL-WS using the CORE price column (37 SKUs; pending, unpublished)
+-- Block 19: Tom-confirmed aliases on EXISTING masters (SP09 -> SPB9, BWBKT18 -> BWB18). Skipped if the alias already exists or the master is missing.
+INSERT INTO cabinet_dealz.cabinet_aliases (cabinetId, alias)
+SELECT c.id, a.alias FROM (
+  SELECT 'SP09' AS alias, 'SPB9' AS masterCode
+  UNION ALL
+  SELECT 'BWBKT18' AS alias, 'BWB18' AS masterCode
+) a
+JOIN cabinet_dealz.cabinets c ON c.masterCode = a.masterCode
+WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinet_aliases x WHERE x.alias = a.alias);
+
+-- Block 20: distributor_skus for door style DL-WS using the CORE price column (47 SKUs; pending, unpublished)
 INSERT INTO cabinet_dealz.distributor_skus (cabinetId, distributorId, styleId, platformSku, distributorSku, constructionType, listPrice, isPublished, status, supplierCabinetName)
 SELECT c.id, ds.distributorId, ds.id, CONCAT(m.dlSku, '-WS-DL'), m.dlSku, 'framed', m.listPrice, FALSE, 'pending', m.dlSku
 FROM (
@@ -198,6 +200,28 @@ FROM (
   UNION ALL
   SELECT 'FILLER 6X96' AS dlSku, 'F696' AS masterCode, 74 AS listPrice
   UNION ALL
+  SELECT 'SP09' AS dlSku, 'SPB9' AS masterCode, 118 AS listPrice
+  UNION ALL
+  SELECT 'BWBKT18' AS dlSku, 'BWB18' AS masterCode, 196 AS listPrice
+  UNION ALL
+  SELECT 'WG1530' AS dlSku, 'W1530GD' AS masterCode, 35 AS listPrice
+  UNION ALL
+  SELECT 'WG1536' AS dlSku, 'W1536GD' AS masterCode, 42 AS listPrice
+  UNION ALL
+  SELECT 'WG1542' AS dlSku, 'W1542GD' AS masterCode, 46 AS listPrice
+  UNION ALL
+  SELECT 'WG1830' AS dlSku, 'W1830GD' AS masterCode, 41 AS listPrice
+  UNION ALL
+  SELECT 'WG1836' AS dlSku, 'W1836GD' AS masterCode, 47 AS listPrice
+  UNION ALL
+  SELECT 'WG1842' AS dlSku, 'W1842GD' AS masterCode, 51 AS listPrice
+  UNION ALL
+  SELECT 'WDCG243012' AS dlSku, 'DCW2430GD' AS masterCode, 45 AS listPrice
+  UNION ALL
+  SELECT 'WDCG243612' AS dlSku, 'DCW2436GD' AS masterCode, 48 AS listPrice
+  UNION ALL
+  SELECT 'WDCG244212' AS dlSku, 'DCW2442GD' AS masterCode, 53 AS listPrice
+  UNION ALL
   SELECT 'FDB09' AS dlSku, 'FDB09' AS masterCode, 107 AS listPrice
   UNION ALL
   SELECT 'W2118' AS dlSku, 'W2118' AS masterCode, 86 AS listPrice
@@ -218,8 +242,6 @@ FROM (
   UNION ALL
   SELECT 'BES09' AS dlSku, 'BES09' AS masterCode, 91 AS listPrice
   UNION ALL
-  SELECT 'SP09' AS dlSku, 'SP09' AS masterCode, 118 AS listPrice
-  UNION ALL
   SELECT 'CL156012' AS dlSku, 'CL156012' AS masterCode, 166 AS listPrice
   UNION ALL
   SELECT 'DSK2421' AS dlSku, 'DSK2421' AS masterCode, 157 AS listPrice
@@ -239,7 +261,7 @@ JOIN cabinet_dealz.door_styles ds ON ds.styleCode = 'DL-WS' AND ds.distributorId
 WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.distributor_skus x WHERE x.platformSku = CONCAT(m.dlSku, '-WS-DL'))
   AND NOT EXISTS (SELECT 1 FROM cabinet_dealz.distributor_skus y WHERE y.distributorId = ds.distributorId AND y.styleId = ds.id AND y.cabinetId = c.id);
 
--- Block 21: distributor_skus for door style DL-SSA using the SLIM price column (37 SKUs; pending, unpublished)
+-- Block 21: distributor_skus for door style DL-SSA using the SLIM price column (47 SKUs; pending, unpublished)
 INSERT INTO cabinet_dealz.distributor_skus (cabinetId, distributorId, styleId, platformSku, distributorSku, constructionType, listPrice, isPublished, status, supplierCabinetName)
 SELECT c.id, ds.distributorId, ds.id, CONCAT(m.dlSku, '-SSA-DL'), m.dlSku, 'framed', m.listPrice, FALSE, 'pending', m.dlSku
 FROM (
@@ -281,6 +303,28 @@ FROM (
   UNION ALL
   SELECT 'FILLER 6X96' AS dlSku, 'F696' AS masterCode, 74 AS listPrice
   UNION ALL
+  SELECT 'SP09' AS dlSku, 'SPB9' AS masterCode, 129 AS listPrice
+  UNION ALL
+  SELECT 'BWBKT18' AS dlSku, 'BWB18' AS masterCode, 215 AS listPrice
+  UNION ALL
+  SELECT 'WG1530' AS dlSku, 'W1530GD' AS masterCode, 39 AS listPrice
+  UNION ALL
+  SELECT 'WG1536' AS dlSku, 'W1536GD' AS masterCode, 47 AS listPrice
+  UNION ALL
+  SELECT 'WG1542' AS dlSku, 'W1542GD' AS masterCode, 51 AS listPrice
+  UNION ALL
+  SELECT 'WG1830' AS dlSku, 'W1830GD' AS masterCode, 46 AS listPrice
+  UNION ALL
+  SELECT 'WG1836' AS dlSku, 'W1836GD' AS masterCode, 52 AS listPrice
+  UNION ALL
+  SELECT 'WG1842' AS dlSku, 'W1842GD' AS masterCode, 56 AS listPrice
+  UNION ALL
+  SELECT 'WDCG243012' AS dlSku, 'DCW2430GD' AS masterCode, 50 AS listPrice
+  UNION ALL
+  SELECT 'WDCG243612' AS dlSku, 'DCW2436GD' AS masterCode, 52 AS listPrice
+  UNION ALL
+  SELECT 'WDCG244212' AS dlSku, 'DCW2442GD' AS masterCode, 58 AS listPrice
+  UNION ALL
   SELECT 'FDB09' AS dlSku, 'FDB09' AS masterCode, 118 AS listPrice
   UNION ALL
   SELECT 'W2118' AS dlSku, 'W2118' AS masterCode, 95 AS listPrice
@@ -301,8 +345,6 @@ FROM (
   UNION ALL
   SELECT 'BES09' AS dlSku, 'BES09' AS masterCode, 91 AS listPrice
   UNION ALL
-  SELECT 'SP09' AS dlSku, 'SP09' AS masterCode, 129 AS listPrice
-  UNION ALL
   SELECT 'CL156012' AS dlSku, 'CL156012' AS masterCode, 183 AS listPrice
   UNION ALL
   SELECT 'DSK2421' AS dlSku, 'DSK2421' AS masterCode, 172 AS listPrice
@@ -322,7 +364,7 @@ JOIN cabinet_dealz.door_styles ds ON ds.styleCode = 'DL-SSA' AND ds.distributorI
 WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.distributor_skus x WHERE x.platformSku = CONCAT(m.dlSku, '-SSA-DL'))
   AND NOT EXISTS (SELECT 1 FROM cabinet_dealz.distributor_skus y WHERE y.distributorId = ds.distributorId AND y.styleId = ds.id AND y.cabinetId = c.id);
 
--- Block 22: distributor_skus for door style DL-SSE using the SLIM price column (37 SKUs; pending, unpublished)
+-- Block 22: distributor_skus for door style DL-SSE using the SLIM price column (47 SKUs; pending, unpublished)
 INSERT INTO cabinet_dealz.distributor_skus (cabinetId, distributorId, styleId, platformSku, distributorSku, constructionType, listPrice, isPublished, status, supplierCabinetName)
 SELECT c.id, ds.distributorId, ds.id, CONCAT(m.dlSku, '-SSE-DL'), m.dlSku, 'framed', m.listPrice, FALSE, 'pending', m.dlSku
 FROM (
@@ -364,6 +406,28 @@ FROM (
   UNION ALL
   SELECT 'FILLER 6X96' AS dlSku, 'F696' AS masterCode, 74 AS listPrice
   UNION ALL
+  SELECT 'SP09' AS dlSku, 'SPB9' AS masterCode, 129 AS listPrice
+  UNION ALL
+  SELECT 'BWBKT18' AS dlSku, 'BWB18' AS masterCode, 215 AS listPrice
+  UNION ALL
+  SELECT 'WG1530' AS dlSku, 'W1530GD' AS masterCode, 39 AS listPrice
+  UNION ALL
+  SELECT 'WG1536' AS dlSku, 'W1536GD' AS masterCode, 47 AS listPrice
+  UNION ALL
+  SELECT 'WG1542' AS dlSku, 'W1542GD' AS masterCode, 51 AS listPrice
+  UNION ALL
+  SELECT 'WG1830' AS dlSku, 'W1830GD' AS masterCode, 46 AS listPrice
+  UNION ALL
+  SELECT 'WG1836' AS dlSku, 'W1836GD' AS masterCode, 52 AS listPrice
+  UNION ALL
+  SELECT 'WG1842' AS dlSku, 'W1842GD' AS masterCode, 56 AS listPrice
+  UNION ALL
+  SELECT 'WDCG243012' AS dlSku, 'DCW2430GD' AS masterCode, 50 AS listPrice
+  UNION ALL
+  SELECT 'WDCG243612' AS dlSku, 'DCW2436GD' AS masterCode, 52 AS listPrice
+  UNION ALL
+  SELECT 'WDCG244212' AS dlSku, 'DCW2442GD' AS masterCode, 58 AS listPrice
+  UNION ALL
   SELECT 'FDB09' AS dlSku, 'FDB09' AS masterCode, 118 AS listPrice
   UNION ALL
   SELECT 'W2118' AS dlSku, 'W2118' AS masterCode, 95 AS listPrice
@@ -384,8 +448,6 @@ FROM (
   UNION ALL
   SELECT 'BES09' AS dlSku, 'BES09' AS masterCode, 91 AS listPrice
   UNION ALL
-  SELECT 'SP09' AS dlSku, 'SP09' AS masterCode, 129 AS listPrice
-  UNION ALL
   SELECT 'CL156012' AS dlSku, 'CL156012' AS masterCode, 183 AS listPrice
   UNION ALL
   SELECT 'DSK2421' AS dlSku, 'DSK2421' AS masterCode, 172 AS listPrice
@@ -405,7 +467,7 @@ JOIN cabinet_dealz.door_styles ds ON ds.styleCode = 'DL-SSE' AND ds.distributorI
 WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.distributor_skus x WHERE x.platformSku = CONCAT(m.dlSku, '-SSE-DL'))
   AND NOT EXISTS (SELECT 1 FROM cabinet_dealz.distributor_skus y WHERE y.distributorId = ds.distributorId AND y.styleId = ds.id AND y.cabinetId = c.id);
 
--- Block 23: distributor_skus for door style DL-LUXE-TBD using the LUXE price column (37 SKUs; pending, unpublished)
+-- Block 23: distributor_skus for door style DL-LUXE-TBD using the LUXE price column (47 SKUs; pending, unpublished)
 INSERT INTO cabinet_dealz.distributor_skus (cabinetId, distributorId, styleId, platformSku, distributorSku, constructionType, listPrice, isPublished, status, supplierCabinetName)
 SELECT c.id, ds.distributorId, ds.id, CONCAT(m.dlSku, '-LUXE-TBD-DL'), m.dlSku, 'framed', m.listPrice, FALSE, 'pending', m.dlSku
 FROM (
@@ -447,6 +509,28 @@ FROM (
   UNION ALL
   SELECT 'FILLER 6X96' AS dlSku, 'F696' AS masterCode, 147 AS listPrice
   UNION ALL
+  SELECT 'SP09' AS dlSku, 'SPB9' AS masterCode, 235 AS listPrice
+  UNION ALL
+  SELECT 'BWBKT18' AS dlSku, 'BWB18' AS masterCode, 391 AS listPrice
+  UNION ALL
+  SELECT 'WG1530' AS dlSku, 'W1530GD' AS masterCode, 70 AS listPrice
+  UNION ALL
+  SELECT 'WG1536' AS dlSku, 'W1536GD' AS masterCode, 84 AS listPrice
+  UNION ALL
+  SELECT 'WG1542' AS dlSku, 'W1542GD' AS masterCode, 92 AS listPrice
+  UNION ALL
+  SELECT 'WG1830' AS dlSku, 'W1830GD' AS masterCode, 82 AS listPrice
+  UNION ALL
+  SELECT 'WG1836' AS dlSku, 'W1836GD' AS masterCode, 93 AS listPrice
+  UNION ALL
+  SELECT 'WG1842' AS dlSku, 'W1842GD' AS masterCode, 101 AS listPrice
+  UNION ALL
+  SELECT 'WDCG243012' AS dlSku, 'DCW2430GD' AS masterCode, 90 AS listPrice
+  UNION ALL
+  SELECT 'WDCG243612' AS dlSku, 'DCW2436GD' AS masterCode, 95 AS listPrice
+  UNION ALL
+  SELECT 'WDCG244212' AS dlSku, 'DCW2442GD' AS masterCode, 105 AS listPrice
+  UNION ALL
   SELECT 'FDB09' AS dlSku, 'FDB09' AS masterCode, 214 AS listPrice
   UNION ALL
   SELECT 'W2118' AS dlSku, 'W2118' AS masterCode, 171 AS listPrice
@@ -467,8 +551,6 @@ FROM (
   UNION ALL
   SELECT 'BES09' AS dlSku, 'BES09' AS masterCode, 181 AS listPrice
   UNION ALL
-  SELECT 'SP09' AS dlSku, 'SP09' AS masterCode, 235 AS listPrice
-  UNION ALL
   SELECT 'CL156012' AS dlSku, 'CL156012' AS masterCode, 332 AS listPrice
   UNION ALL
   SELECT 'DSK2421' AS dlSku, 'DSK2421' AS masterCode, 313 AS listPrice
@@ -488,9 +570,12 @@ JOIN cabinet_dealz.door_styles ds ON ds.styleCode = 'DL-LUXE-TBD' AND ds.distrib
 WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.distributor_skus x WHERE x.platformSku = CONCAT(m.dlSku, '-LUXE-TBD-DL'))
   AND NOT EXISTS (SELECT 1 FROM cabinet_dealz.distributor_skus y WHERE y.distributorId = ds.distributorId AND y.styleId = ds.id AND y.cabinetId = c.id);
 
--- Block 24: read-only check. Expect new_masters = 18, new_masters_hidden = 18, new_pending_skus = the sum of the SKU blocks above, new_published = 0.
+-- Block 24: read-only check. Expect new_masters = 17, new_masters_hidden = 17, new_pending_skus = the sum of the SKU blocks above, new_published = 0.
 SELECT
-  (SELECT COUNT(*) FROM cabinet_dealz.cabinets WHERE masterCode IN ('FDB09', 'W2118', 'W2412', 'W2415', 'W2424', 'W2718', 'WDC241812', 'BBC33-9', '2DB33', 'BES09', 'SP09', 'CL156012', 'DSK2421', 'DSK3021', 'WEOS0930', 'WEOS0936', 'WEOS0942', 'RH36')) AS new_masters,
-  (SELECT COUNT(*) FROM cabinet_dealz.cabinets WHERE masterCode IN ('FDB09', 'W2118', 'W2412', 'W2415', 'W2424', 'W2718', 'WDC241812', 'BBC33-9', '2DB33', 'BES09', 'SP09', 'CL156012', 'DSK2421', 'DSK3021', 'WEOS0930', 'WEOS0936', 'WEOS0942', 'RH36') AND isActive = 0 AND showInDesigner = 0) AS new_masters_hidden,
+  (SELECT COUNT(*) FROM cabinet_dealz.cabinets WHERE masterCode IN ('FDB09', 'W2118', 'W2412', 'W2415', 'W2424', 'W2718', 'WDC241812', 'BBC33-9', '2DB33', 'BES09', 'CL156012', 'DSK2421', 'DSK3021', 'WEOS0930', 'WEOS0936', 'WEOS0942', 'RH36')) AS new_masters,
+  (SELECT COUNT(*) FROM cabinet_dealz.cabinets WHERE masterCode IN ('FDB09', 'W2118', 'W2412', 'W2415', 'W2424', 'W2718', 'WDC241812', 'BBC33-9', '2DB33', 'BES09', 'CL156012', 'DSK2421', 'DSK3021', 'WEOS0930', 'WEOS0936', 'WEOS0942', 'RH36') AND isActive = 0 AND showInDesigner = 0) AS new_masters_hidden,
   (SELECT COUNT(*) FROM cabinet_dealz.distributor_skus WHERE platformSku LIKE '%-DL' AND isPublished = 0 AND status = 'pending') AS dl_pending_skus,
   (SELECT COUNT(*) FROM cabinet_dealz.distributor_skus WHERE platformSku LIKE '%-DL' AND isPublished = 1) AS dl_published_skus;
+
+-- Read-only: confirm how the existing hood masters are flagged. RH36 is created with isNotCabinet = FALSE like the cataloged RHF hood fronts; if RHF30/RHF36 show isNotCabinet = 1 here, change RH36 to match before running.
+SELECT masterCode, category, subCategory, isNotCabinet, isActive, showInDesigner FROM cabinet_dealz.cabinets WHERE masterCode IN ('RHF30', 'RHF36', 'HOOD-30', 'HOOD-36', 'RH36');

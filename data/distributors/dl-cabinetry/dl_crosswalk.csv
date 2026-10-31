@@ -10,20 +10,20 @@ WDC244212,WDC2442,dimension-equivalent,high,,diagonal corner wall 24x{h}x12
 "15"" DRAWER SLIDES",,accessory-report,,,drawer slides: Not in the spec book; no master. Propose accessory masters once Rich confirms what the item is (sold per pair?)
 FDB36,B36FH,nomenclature-equivalent,high,,"DL Specification Book v.11/14/23 p.1: FDB = Full Height Door Base (2 door, 0 drawers, 1 shelf, 36 x 34-1/2 x 24); master B36FH is the 36"" Full Height double-door door base (master description sheet 2026-10-26 (repo xlsx)). Same type, door count and width. NOTE Tom's brief called FDB 'full-drawer bases'; the spec book says Full Height DOOR Base"
 W1830,W1830,exact,high,"330013, 330014, 390001",normalized code equals master
-WDCG243012,,accessory-report,,,"glass door only (decision for Tom): Spec book 'Glass Door': 14-5/8 wide diagonal-corner glass doors, door only. Same decision as WG####: accessory masters if doors, otherwise the existing diagonal glass cabinets"
+WDCG243012,DCW2430GD,nomenclature-equivalent,medium,,"Tom's decision (glass doors map to the existing glass door cabinets). WDCG243012 is a diagonal-corner glass door; the existing diagonal corner glass cabinet is DCW2430GD (24W x 30H x 12D, SK/USCD). Tom named W####GD; the DCW####GD diagonal equivalent is my extension: confirm"
 "18"" DRAWER SLIDES",,accessory-report,,,drawer slides: Not in the spec book; no master. Propose accessory masters once Rich confirms what the item is (sold per pair?)
 FILLER 3X96,WF396,dimension-equivalent,medium,,3x96 filler
 W1836,W1836,exact,high,"330013, 330014, 390001",normalized code equals master
-WDCG243612,,accessory-report,,,"glass door only (decision for Tom): Spec book 'Glass Door': 14-5/8 wide diagonal-corner glass doors, door only. Same decision as WG####: accessory masters if doors, otherwise the existing diagonal glass cabinets"
+WDCG243612,DCW2436GD,nomenclature-equivalent,medium,,"Tom's decision (glass doors map to the existing glass door cabinets). WDCG243612 is a diagonal-corner glass door; the existing diagonal corner glass cabinet is DCW2436GD (24W x 36H x 12D, SK/USCD). Tom named W####GD; the DCW####GD diagonal equivalent is my extension: confirm"
 "21"" DRAWER SLIDES",,accessory-report,,,drawer slides: Not in the spec book; no master. Propose accessory masters once Rich confirms what the item is (sold per pair?)
 FILLER 6X96,F696,dimension-equivalent,high,,"DL Specification Book v.11/14/23: filler 6 x 96 x 3/4. Master F696 is '6"" x 96"" Tall Filler' (CS/SK/USCD). Same item and size"
 W1842,W1842,exact,high,"330013, 330014, 390001",normalized code equals master
-WDCG244212,,accessory-report,,,"glass door only (decision for Tom): Spec book 'Glass Door': 14-5/8 wide diagonal-corner glass doors, door only. Same decision as WG####: accessory masters if doors, otherwise the existing diagonal glass cabinets"
+WDCG244212,DCW2442GD,nomenclature-equivalent,medium,,"Tom's decision (glass doors map to the existing glass door cabinets). WDCG244212 is a diagonal-corner glass door; the existing diagonal corner glass cabinet is DCW2442GD (24W x 42H x 12D, SK/USCD). Tom named W####GD; the DCW####GD diagonal equivalent is my extension: confirm"
 2DB30,2DB30,exact,high,"330014, 390001",normalized code equals master
 FLAT PANEL 28X96,,accessory-report,,,panel: Not in the spec book. The spec book lists FLAT PANEL 27X96 (3/4 x 96 x 27): 28 may be a price list typo. Ask Rich before creating anything
 W2118,W2118,new-master,,,"NEW master W2118 (unpublished, isActive=0, showInDesigner=0): no W2118 master (only the glass W2118GD). Specs: DL Specification Book v.11/14/23"
 WDD30,,accessory-report,,,"decorative door panel: Spec book 'Wall Decorative Door': 11-7/8 wide x 29-1/2/35-1/2/41-1/2 x 3/4 panels, not cabinets. Nearest masters WDEP30/36/42 are 11-1/2 x 29/35/41 (USCD) or 12-3/4 x 29/35/41 (SK): sizes differ, so not mapped. Propose new accessory masters WDD30/36/42"
-2DB33,2DB33,new-master,,,"NEW master 2DB33 (unpublished, isActive=0, showInDesigner=0): 2-drawer base masters exist at 24/30/36 only. Specs: DL Specification Book v.11/14/23"
+2DB33,2DB33,new-master,,,"NEW master 2DB33 (unpublished, isActive=0, showInDesigner=0): checked: no 2-drawer 33in base exists under any code or alias (B33 is 2 door 2 drawer, 3DB33 is 3 drawer, ADA-B33 is ADA, 2DB masters exist at 24/30/36 only). Specs: DL Specification Book v.11/14/23"
 FSB36,FSB36,exact,high,"330013, 330014, 390001",normalized code equals master
 W2130,W2130,exact,high,"330013, 330014, 390001",normalized code equals master
 WDD36,,accessory-report,,,"decorative door panel: Spec book 'Wall Decorative Door': 11-7/8 wide x 29-1/2/35-1/2/41-1/2 x 3/4 panels, not cabinets. Nearest masters WDEP30/36/42 are 11-1/2 x 29/35/41 (USCD) or 12-3/4 x 29/35/41 (SK): sizes differ, so not mapped. Propose new accessory masters WDD30/36/42"
@@ -62,45 +62,45 @@ WF6 42,WF642,exact,high,,normalized code equals master
 B27,B27,exact,high,"330013, 330014, 390001",normalized code equals master
 QUARTER DOOR,,skipped,,,"not in the spec book, no description. Ask Rich what it is"
 W2442,W2442,exact,high,"330013, 330014, 390001",normalized code equals master
-WG1230,,accessory-report,,,"glass door only (decision for Tom): Spec book p.16 'Glass Door': WG#### are loose glass DOORS (11-11/16 wide x 29-1/2 to 41-1/2 high x 3/4), not cabinets, and the price list says 'door only? unconfirmed'. Tom's brief listed them as cabinets. No cabinet master created. If they are doors, add accessory masters 'Glass Door' per code; if Tom wants glass wall cabinets instead, those already exist as W####GD"
+WG1230,,accessory-report,,,"glass door, NO matching master: Tom's decision maps WG#### to W####GD, but no 12-wide W12{30,36,42}GD master exists (12-wide glass cabinets exist only at 12 high: W1212GD). Listed here, no master created. Ask Tom/Rich"
 B30,B30,exact,high,"330013, 330014, 390001",normalized code equals master
-RH36,RH36,new-master,,,"NEW master RH36 (unpublished, isActive=0, showInDesigner=0): RHF36 (CS) is only a 'Range Hood Front' with no dimensions; DL RH36 is a 36 x 36 x 24 cover box. Specs: DL Specification Book v.11/14/23"
+RH36,RH36,new-master,,,"NEW master RH36 (unpublished, isActive=0, showInDesigner=0): range hood. Modeled like the existing hood masters RHF30/RHF36 (category Wall, subCategory Range Hood Front, cataloged as wall-cabinet hood fronts, not isNotCabinet). RHF36 has no dimensions in the master sheet; DL RH36 is 36 x 36 x 24. Specs: DL Specification Book v.11/14/23"
 W2718,W2718,new-master,,,"NEW master W2718 (unpublished, isActive=0, showInDesigner=0): no W2718 master (only the glass W2718GD). Specs: DL Specification Book v.11/14/23"
-WG1236,,accessory-report,,,"glass door only (decision for Tom): Spec book p.16 'Glass Door': WG#### are loose glass DOORS (11-11/16 wide x 29-1/2 to 41-1/2 high x 3/4), not cabinets, and the price list says 'door only? unconfirmed'. Tom's brief listed them as cabinets. No cabinet master created. If they are doors, add accessory masters 'Glass Door' per code; if Tom wants glass wall cabinets instead, those already exist as W####GD"
+WG1236,,accessory-report,,,"glass door, NO matching master: Tom's decision maps WG#### to W####GD, but no 12-wide W12{30,36,42}GD master exists (12-wide glass cabinets exist only at 12 high: W1212GD). Listed here, no master created. Ask Tom/Rich"
 B33,B33,exact,high,"330013, 330014, 390001",normalized code equals master
 RRP27(1.5),REPV2796,dimension-equivalent,medium,,"DL Specification Book v.11/14/23: refrigerator panel 1-1/2 x 96 x 27. Master REPV2796 is 'Refrigerator End Panel - 27""D x 96""H' (SK). Same item, height and depth; the master has no thickness"
 W2730,W2730,exact,high,"330013, 330014, 390001",normalized code equals master
-WG1242,,accessory-report,,,"glass door only (decision for Tom): Spec book p.16 'Glass Door': WG#### are loose glass DOORS (11-11/16 wide x 29-1/2 to 41-1/2 high x 3/4), not cabinets, and the price list says 'door only? unconfirmed'. Tom's brief listed them as cabinets. No cabinet master created. If they are doors, add accessory masters 'Glass Door' per code; if Tom wants glass wall cabinets instead, those already exist as W####GD"
+WG1242,,accessory-report,,,"glass door, NO matching master: Tom's decision maps WG#### to W####GD, but no 12-wide W12{30,36,42}GD master exists (12-wide glass cabinets exist only at 12 high: W1212GD). Listed here, no master created. Ask Tom/Rich"
 B36,B36,exact,high,"330013, 330014, 390001",normalized code equals master
 SAMPLE DOOR,Sample Door,exact,high,"330013, 330014",normalized code equals master
 W2736,W2736,exact,high,"330013, 330014, 390001",normalized code equals master
-WG1530,,accessory-report,,,"glass door only (decision for Tom): Spec book p.16 'Glass Door': WG#### are loose glass DOORS (11-11/16 wide x 29-1/2 to 41-1/2 high x 3/4), not cabinets, and the price list says 'door only? unconfirmed'. Tom's brief listed them as cabinets. No cabinet master created. If they are doors, add accessory masters 'Glass Door' per code; if Tom wants glass wall cabinets instead, those already exist as W####GD"
+WG1530,W1530GD,nomenclature-equivalent,high,,"Tom's decision: a DL glass door maps to the existing W1530GD wall glass door cabinet ('it's just a glass door, not a cabinet'). DL Specification Book v.11/14/23: WG1530 is a loose glass door (14.6875 wide x 29.5 high x 3/4). Price list: 'door only? unconfirmed'"
 B39,B39,exact,high,"330013, 330014",normalized code equals master
 SB30,SB30,exact,high,390001,normalized code equals master
 W2742,W2742,exact,high,"330013, 330014, 390001",normalized code equals master
-WG1536,,accessory-report,,,"glass door only (decision for Tom): Spec book p.16 'Glass Door': WG#### are loose glass DOORS (11-11/16 wide x 29-1/2 to 41-1/2 high x 3/4), not cabinets, and the price list says 'door only? unconfirmed'. Tom's brief listed them as cabinets. No cabinet master created. If they are doors, add accessory masters 'Glass Door' per code; if Tom wants glass wall cabinets instead, those already exist as W####GD"
+WG1536,W1536GD,nomenclature-equivalent,high,,"Tom's decision: a DL glass door maps to the existing W1536GD wall glass door cabinet ('it's just a glass door, not a cabinet'). DL Specification Book v.11/14/23: WG1536 is a loose glass door (14.6875 wide x 35.5 high x 3/4). Price list: 'door only? unconfirmed'"
 B42,B42,exact,high,"330013, 330014, 390001",normalized code equals master
 SB36,SB36,exact,high,"330013, 330014, 390001",normalized code equals master
 W3012,W3012,exact,high,"330013, 330014, 390001",normalized code equals master
-WG1542,,accessory-report,,,"glass door only (decision for Tom): Spec book p.16 'Glass Door': WG#### are loose glass DOORS (11-11/16 wide x 29-1/2 to 41-1/2 high x 3/4), not cabinets, and the price list says 'door only? unconfirmed'. Tom's brief listed them as cabinets. No cabinet master created. If they are doors, add accessory masters 'Glass Door' per code; if Tom wants glass wall cabinets instead, those already exist as W####GD"
+WG1542,W1542GD,nomenclature-equivalent,high,,"Tom's decision: a DL glass door maps to the existing W1542GD wall glass door cabinet ('it's just a glass door, not a cabinet'). DL Specification Book v.11/14/23: WG1542 is a loose glass door (14.6875 wide x 41.5 high x 3/4). Price list: 'door only? unconfirmed'"
 BASEMOLDING,,accessory-report,,,molding: 96 x 4-3/8 x 3/4 base molding. Furniture base moulding masters (FBM 4-15/16 / 4-1/2) differ. Propose a new accessory master
 SCRIBEMOLDING,SM8,nomenclature-equivalent,medium,,"DL Specification Book v.11/14/23: scribe molding 96 x 3/4 x 1/4. Master SM8 is 'Scribe Moulding - 96""'. Same item and length; the master has no profile dimensions"
 W3015,W3015,exact,high,"330013, 330014, 390001",normalized code equals master
-WG1830,,accessory-report,,,"glass door only (decision for Tom): Spec book p.16 'Glass Door': WG#### are loose glass DOORS (11-11/16 wide x 29-1/2 to 41-1/2 high x 3/4), not cabinets, and the price list says 'door only? unconfirmed'. Tom's brief listed them as cabinets. No cabinet master created. If they are doors, add accessory masters 'Glass Door' per code; if Tom wants glass wall cabinets instead, those already exist as W####GD"
+WG1830,W1830GD,nomenclature-equivalent,high,,"Tom's decision: a DL glass door maps to the existing W1830GD wall glass door cabinet ('it's just a glass door, not a cabinet'). DL Specification Book v.11/14/23: WG1830 is a loose glass door (17.6875 wide x 29.5 high x 3/4). Price list: 'door only? unconfirmed'"
 BBC33-9,BBC33-9,new-master,,,"NEW master BBC33-9 (unpublished, isActive=0, showInDesigner=0): blind corner base masters start at BBC36; none at 33. Specs: DL Specification Book v.11/14/23"
 SHOEMOLDING,,accessory-report,,,molding: 96 x 1/2 x 1/2. Nearest SHM8 is 3/4 high x 1/2 deep: differs. Propose a new accessory master
 W3018,W3018,exact,high,"330013, 330014, 390001",normalized code equals master
-WG1836,,accessory-report,,,"glass door only (decision for Tom): Spec book p.16 'Glass Door': WG#### are loose glass DOORS (11-11/16 wide x 29-1/2 to 41-1/2 high x 3/4), not cabinets, and the price list says 'door only? unconfirmed'. Tom's brief listed them as cabinets. No cabinet master created. If they are doors, add accessory masters 'Glass Door' per code; if Tom wants glass wall cabinets instead, those already exist as W####GD"
+WG1836,W1836GD,nomenclature-equivalent,high,,"Tom's decision: a DL glass door maps to the existing W1836GD wall glass door cabinet ('it's just a glass door, not a cabinet'). DL Specification Book v.11/14/23: WG1836 is a loose glass door (17.6875 wide x 35.5 high x 3/4). Price list: 'door only? unconfirmed'"
 BDD24,,accessory-report,,,"decorative door panel: Spec book 'Base Decorative Door': 23-3/4 x 29-1/4 x 3/4 flat door panel. Nearest BDEP is 23-1/2 x 29 x 3/4: size differs, not mapped. Propose a new accessory master BDD24"
 SIDE PANEL 36X96,,accessory-report,,,panel: Side panel 96 x 36 x 1/2. No master with that thickness (SPW is 96 x 36 x 1/4). Propose a new accessory master
 W3024,W3024,exact,high,"330013, 330014, 390001",normalized code equals master
-WG1842,,accessory-report,,,"glass door only (decision for Tom): Spec book p.16 'Glass Door': WG#### are loose glass DOORS (11-11/16 wide x 29-1/2 to 41-1/2 high x 3/4), not cabinets, and the price list says 'door only? unconfirmed'. Tom's brief listed them as cabinets. No cabinet master created. If they are doors, add accessory masters 'Glass Door' per code; if Tom wants glass wall cabinets instead, those already exist as W####GD"
+WG1842,W1842GD,nomenclature-equivalent,high,,"Tom's decision: a DL glass door maps to the existing W1842GD wall glass door cabinet ('it's just a glass door, not a cabinet'). DL Specification Book v.11/14/23: WG1842 is a loose glass door (17.6875 wide x 41.5 high x 3/4). Price list: 'door only? unconfirmed'"
 BES09,BES09,new-master,,,"NEW master BES09 (unpublished, isActive=0, showInDesigner=0): only BES12 (12in, 5 shelves, curved) exists; DL BES09 is 9in with 2 shelves. Specs: DL Specification Book v.11/14/23"
 SKIN PANEL 36X96,,accessory-report,,,"panel: Skin panel 96 x 36 x 3/16. No master (SPW 1/4, USV2496 is 23-1/4 wide). Propose a new accessory master"
 W3030,W3030,exact,high,"330013, 330014, 390001",normalized code equals master
 WMC3018,PWB-MOS-30-18,dimension-equivalent,medium,,"DL Specification Book v.11/14/23: wall microwave cabinet 30 x 18 x 12, 0 doors, 1 shelf (open). Master is '30 x 18 x 11 7/8 Wall Microwave Open Box' (SK). Same type and construction; depth differs by 1/8 in"
 BF3,BF3,exact,high,,normalized code equals master
-SP09,SP09,new-master,,,"NEW master SP09 (unpublished, isActive=0, showInDesigner=0): SPB9 (SK, '9in Spice Base / Pull-Out') is a possible duplicate, but its door/drawer/shelf counts are not in the master description, so construction cannot be confirmed. REVIEW for duplicate before publishing. Specs: DL Specification Book v.11/14/23"
+SP09,SPB9,alias,high,,"Tom confirmed SP09 = SPB9, the same item: splice pull-outs (9in Spice Base / Pull-Out, SK). Alias SP09 -> SPB9. This is the duplicate flagged in the first draft, resolved by mapping instead of a new master"
 W3036,W3036,exact,high,"330013, 330014, 390001",normalized code equals master
 WP188427,U188424,dimension-equivalent,medium,"330013, 330014, 390001",DL WP=pantry; DL code depth 27 vs master 24 - confirm DL actual depth
 BF6,BF6,exact,high,330013,normalized code equals master
@@ -111,7 +111,7 @@ BMC30,BMC30,exact,high,,normalized code equals master
 TK8,TK8(TKC),alias,high,"330013, 330014, 390001",Alias map: ACTIVE alias
 W3312,W3312,exact,high,"330013, 390001",normalized code equals master
 WP189627,U189624,dimension-equivalent,medium,"330013, 330014, 390001",DL WP=pantry; DL code depth 27 vs master 24 - confirm DL actual depth
-BWBKT18,BWB18,skipped,low,390001,"LOW-confidence candidate BWB18 (SK 18in Base Waste Basket) kept for review. Spec book: BWBKT18 is 18 x 34-1/2 x 24, 0 doors, 2 drawers, trash cans sold separately; BWB18's door/drawer counts are not in the master description. Tom: map to BWB18 or create a new master BWBKT18"
+BWBKT18,BWB18,alias,high,390001,"Tom confirmed BWBKT18 = BWB18, the same cabinet (18in Base Waste Basket, SK). Alias BWBKT18 -> BWB18. Spec book: 18 x 34-1/2 x 24, 0 doors, 2 drawers, trash cans sold separately"
 TLR8,,accessory-report,,,molding: Traditional light rail 96 x 1-1/2 x 2-1/4. LRM8 masters are 2-1/4H x 3/4D or 1in: differ. Propose a new accessory master
 W3315,W3315,exact,high,"330013, 390001",normalized code equals master
 WP248427,U248424,dimension-equivalent,medium,"330013, 330014, 390001",DL WP=pantry; DL code depth 27 vs master 24 - confirm DL actual depth

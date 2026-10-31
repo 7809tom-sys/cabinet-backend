@@ -160,7 +160,7 @@ BBC33-9,category/subCategory/placement,Base / Blind Corner Base / base,classific
 2DB33,package_height,NULL,not found,"not in the spec book or price list; weight/cube rule: DL-written first, then master, then similar SKU/research (not implemented, held for Tom)"
 2DB33,package_weight_lb,NULL,not found,"not in the spec book or price list; weight/cube rule: DL-written first, then master, then similar SKU/research (not implemented, held for Tom)"
 2DB33,photo,NULL,none,"photo source order: master/reference image first (none exists for a new master), then DL's spec book image; not extracted or uploaded"
-2DB33,category/subCategory/placement,Base / Drawer Base / base,classification (mine),2-drawer base masters exist at 24/30/36 only
+2DB33,category/subCategory/placement,Base / Drawer Base / base,classification (mine),"checked: no 2-drawer 33in base exists under any code or alias (B33 is 2 door 2 drawer, 3DB33 is 3 drawer, ADA-B33 is ADA, 2DB masters exist at 24/30/36 only)"
 BES09,width_in,9.0,DL Specification Book v.11/14/23 p.3,
 BES09,height_in,34.5,DL Specification Book v.11/14/23 p.3,
 BES09,depth_in,24.0,DL Specification Book v.11/14/23 p.3,
@@ -179,24 +179,6 @@ BES09,package_height,NULL,not found,"not in the spec book or price list; weight/
 BES09,package_weight_lb,NULL,not found,"not in the spec book or price list; weight/cube rule: DL-written first, then master, then similar SKU/research (not implemented, held for Tom)"
 BES09,photo,NULL,none,"photo source order: master/reference image first (none exists for a new master), then DL's spec book image; not extracted or uploaded"
 BES09,category/subCategory/placement,Base / Base End Cabinet / base,classification (mine),"only BES12 (12in, 5 shelves, curved) exists; DL BES09 is 9in with 2 shelves"
-SP09,width_in,9.0,DL Specification Book v.11/14/23 p.3,
-SP09,height_in,34.5,DL Specification Book v.11/14/23 p.3,
-SP09,depth_in,24.0,DL Specification Book v.11/14/23 p.3,
-SP09,doors,0,DL Specification Book v.11/14/23 p.3,
-SP09,drawers,1,DL Specification Book v.11/14/23 p.3,
-SP09,shelves,3,DL Specification Book v.11/14/23 p.3,
-SP09,door_sizes,NULL,not found,not in the spec book or price list
-SP09,drawer_sizes,NULL,not found,not in the spec book or price list
-SP09,construction,NULL,not found,not in the spec book or price list
-SP09,materials,NULL,not found,not in the spec book or price list
-SP09,hardware,NULL,not found,not in the spec book or price list
-SP09,finish,NULL,not found,not in the spec book or price list
-SP09,package_length,NULL,not found,"not in the spec book or price list; weight/cube rule: DL-written first, then master, then similar SKU/research (not implemented, held for Tom)"
-SP09,package_width,NULL,not found,"not in the spec book or price list; weight/cube rule: DL-written first, then master, then similar SKU/research (not implemented, held for Tom)"
-SP09,package_height,NULL,not found,"not in the spec book or price list; weight/cube rule: DL-written first, then master, then similar SKU/research (not implemented, held for Tom)"
-SP09,package_weight_lb,NULL,not found,"not in the spec book or price list; weight/cube rule: DL-written first, then master, then similar SKU/research (not implemented, held for Tom)"
-SP09,photo,NULL,none,"photo source order: master/reference image first (none exists for a new master), then DL's spec book image; not extracted or uploaded"
-SP09,category/subCategory/placement,Base / Spice Base / base,classification (mine),"SPB9 (SK, '9in Spice Base / Pull-Out') is a possible duplicate, but its door/drawer/shelf counts are not in the master description, so construction cannot be confirmed. REVIEW for duplicate before publishing"
 CL156012,width_in,15.0,DL Specification Book v.11/14/23 p.10,
 CL156012,height_in,60.0,DL Specification Book v.11/14/23 p.10,
 CL156012,depth_in,12.0,DL Specification Book v.11/14/23 p.10,
@@ -322,4 +304,4 @@ RH36,package_width,NULL,not found,"not in the spec book or price list; weight/cu
 RH36,package_height,NULL,not found,"not in the spec book or price list; weight/cube rule: DL-written first, then master, then similar SKU/research (not implemented, held for Tom)"
 RH36,package_weight_lb,NULL,not found,"not in the spec book or price list; weight/cube rule: DL-written first, then master, then similar SKU/research (not implemented, held for Tom)"
 RH36,photo,NULL,none,"photo source order: master/reference image first (none exists for a new master), then DL's spec book image; not extracted or uploaded"
-RH36,category/subCategory/placement,Wall / Range Hood Cover / wall,classification (mine),RHF36 (CS) is only a 'Range Hood Front' with no dimensions; DL RH36 is a 36 x 36 x 24 cover box
+RH36,category/subCategory/placement,Wall / Range Hood Front / wall,classification (mine),"range hood. Modeled like the existing hood masters RHF30/RHF36 (category Wall, subCategory Range Hood Front, cataloged as wall-cabinet hood fronts, not isNotCabinet). RHF36 has no dimensions in the master sheet; DL RH36 is 36 x 36 x 24"

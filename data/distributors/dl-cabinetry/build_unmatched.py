@@ -42,6 +42,10 @@ MAP["SCRIBEMOLDING"] = ("SM8", "nomenclature-equivalent", "medium", f"{SB}: scri
 MAP["RRP27(1.5)"] = ("REPV2796", "dimension-equivalent", "medium", f"{SB}: refrigerator panel 1-1/2 x 96 x 27. Master REPV2796 is 'Refrigerator End Panel - 27\"D x 96\"H' (SK). Same item, height and depth; the master has no thickness")
 MAP["FILLER 6X96"] = ("F696", "dimension-equivalent", "high", f"{SB}: filler 6 x 96 x 3/4. Master F696 is '6\" x 96\" Tall Filler' (CS/SK/USCD). Same item and size")
 
+MAP["SP09"] = ("SPB9", "alias", "high", "Tom confirmed SP09 = SPB9, the same item: splice pull-outs (9in Spice Base / Pull-Out, SK). Alias SP09 -> SPB9. This is the duplicate flagged in the first draft, resolved by mapping instead of a new master")
+MAP["BWBKT18"] = ("BWB18", "alias", "high", "Tom confirmed BWBKT18 = BWB18, the same cabinet (18in Base Waste Basket, SK). Alias BWBKT18 -> BWB18. Spec book: 18 x 34-1/2 x 24, 0 doors, 2 drawers, trash cans sold separately")
+ALIASES_FOR_MAPPED = {"SP09": "SPB9", "BWBKT18": "BWB18"}
+
 # NEW masters (cabinets). dlSku -> (category, subCategory, placement, cornerType or None, why-no-master)
 NEW = {
  "FDB09": ("Base", "Full Height", "base", None, "FDB family maps to B##FH but the master catalog has nothing below B12FH, and FDB09 is not in the spec book (smallest FDB listed is FDB18); size is from the price list only"),
@@ -52,26 +56,30 @@ NEW = {
  "W2718": ("Wall", "Wall Bridge Cabinet", "wall", None, "no W2718 master (only the glass W2718GD)"),
  "WDC241812": ("Wall", "Diagonal Corner Cabinet", "wall", "diagonal", "diagonal corner wall masters exist only at 30/36/42 high"),
  "BBC33-9": ("Base", "Blind Corner Base", "base", "blind-corner", "blind corner base masters start at BBC36; none at 33"),
- "2DB33": ("Base", "Drawer Base", "base", None, "2-drawer base masters exist at 24/30/36 only"),
+ "2DB33": ("Base", "Drawer Base", "base", None, "checked: no 2-drawer 33in base exists under any code or alias (B33 is 2 door 2 drawer, 3DB33 is 3 drawer, ADA-B33 is ADA, 2DB masters exist at 24/30/36 only)"),
  "BES09": ("Base", "Base End Cabinet", "base", None, "only BES12 (12in, 5 shelves, curved) exists; DL BES09 is 9in with 2 shelves"),
- "SP09": ("Base", "Spice Base", "base", None, "SPB9 (SK, '9in Spice Base / Pull-Out') is a possible duplicate, but its door/drawer/shelf counts are not in the master description, so construction cannot be confirmed. REVIEW for duplicate before publishing"),
  "CL156012": ("Tall", "Counter Linen Cabinet", "tall", None, "no linen cabinet master. Category 'Tall' is my classification (60in high)"),
  "DSK2421": ("Base", "Knee Drawer", "base", None, "knee drawer masters differ in size (DKD30 30x5-1/4, VKD36 36x7); none at 24 x 7-1/2 x 21"),
  "DSK3021": ("Base", "Knee Drawer", "base", None, "DKD30 is 30 x 5-1/4 x 21 (height differs); none at 30 x 7-1/2 x 21"),
  "WEOS0930": ("Wall", "Open Shelf", "wall", None, "open end shelf masters are 6in wide (OE630/636/642); DL is 9in"),
  "WEOS0936": ("Wall", "Open Shelf", "wall", None, "open end shelf masters are 6in wide (OE630/636/642); DL is 9in"),
  "WEOS0942": ("Wall", "Open Shelf", "wall", None, "open end shelf masters are 6in wide (OE630/636/642); DL is 9in"),
- "RH36": ("Wall", "Range Hood Cover", "wall", None, "RHF36 (CS) is only a 'Range Hood Front' with no dimensions; DL RH36 is a 36 x 36 x 24 cover box"),
+ "RH36": ("Wall", "Range Hood Front", "wall", None, "range hood. Modeled like the existing hood masters RHF30/RHF36 (category Wall, subCategory Range Hood Front, cataloged as wall-cabinet hood fronts, not isNotCabinet). RHF36 has no dimensions in the master sheet; DL RH36 is 36 x 36 x 24"),
 }
 
 # ACCESSORY / report items: dlSku -> (class, proposed handling)
 ACC = {}
 def acc(skus, cls, handling):
     for s in skus: ACC[s] = (cls, handling)
-acc([f"WG{w}{h}" for w in (12, 15, 18) for h in (30, 36, 42)], "glass door only (decision for Tom)",
-    "Spec book p.%s 'Glass Door': WG#### are loose glass DOORS (11-11/16 wide x 29-1/2 to 41-1/2 high x 3/4), not cabinets, and the price list says 'door only? unconfirmed'. Tom's brief listed them as cabinets. No cabinet master created. If they are doors, add accessory masters 'Glass Door' per code; if Tom wants glass wall cabinets instead, those already exist as W####GD" % SPEC["WG1230"]["specBookPage"])
-acc(["WDCG243012", "WDCG243612", "WDCG244212"], "glass door only (decision for Tom)",
-    "Spec book 'Glass Door': 14-5/8 wide diagonal-corner glass doors, door only. Same decision as WG####: accessory masters if doors, otherwise the existing diagonal glass cabinets")
+for w in (15, 18):
+    for h in (30, 36, 42):
+        MAP[f"WG{w}{h}"] = (f"W{w}{h}GD", "nomenclature-equivalent", "high",
+            f"Tom's decision: a DL glass door maps to the existing W{w}{h}GD wall glass door cabinet ('it's just a glass door, not a cabinet'). {SB}: WG{w}{h} is a loose glass door ({SPEC[f'WG{w}{h}']['widthIn']} wide x {SPEC[f'WG{w}{h}']['heightIn']} high x 3/4). Price list: 'door only? unconfirmed'")
+for s, m in (("WDCG243012", "DCW2430GD"), ("WDCG243612", "DCW2436GD"), ("WDCG244212", "DCW2442GD")):
+    MAP[s] = (m, "nomenclature-equivalent", "medium",
+        f"Tom's decision (glass doors map to the existing glass door cabinets). {s} is a diagonal-corner glass door; the existing diagonal corner glass cabinet is {m} (24W x {s[6:8]}H x 12D, SK/USCD). Tom named W####GD; the DCW####GD diagonal equivalent is my extension: confirm")
+acc([f"WG12{h}" for h in (30, 36, 42)], "glass door, NO matching master",
+    "Tom's decision maps WG#### to W####GD, but no 12-wide W12{30,36,42}GD master exists (12-wide glass cabinets exist only at 12 high: W1212GD). Listed here, no master created. Ask Tom/Rich")
 acc(["WDD30", "WDD36", "WDD42"], "decorative door panel",
     "Spec book 'Wall Decorative Door': 11-7/8 wide x 29-1/2/35-1/2/41-1/2 x 3/4 panels, not cabinets. Nearest masters WDEP30/36/42 are 11-1/2 x 29/35/41 (USCD) or 12-3/4 x 29/35/41 (SK): sizes differ, so not mapped. Propose new accessory masters WDD30/36/42")
 acc(["BDD24"], "decorative door panel", "Spec book 'Base Decorative Door': 23-3/4 x 29-1/4 x 3/4 flat door panel. Nearest BDEP is 23-1/2 x 29 x 3/4: size differs, not mapped. Propose a new accessory master BDD24")
@@ -98,9 +106,8 @@ acc([f"WN FS{n}" for n in (3012, 3612, 4812)] + [f"WO FS{n}" for n in (3012, 361
 SKIP = {
  "QUARTER DOOR": "not in the spec book, no description. Ask Rich what it is",
  "SP2436": "not in the spec book (the spec lists SP09 only). Ask Rich",
- "BWBKT18": "LOW-confidence candidate BWB18 (SK 18in Base Waste Basket) kept for review. Spec book: BWBKT18 is 18 x 34-1/2 x 24, 0 doors, 2 drawers, trash cans sold separately; BWB18's door/drawer counts are not in the master description. Tom: map to BWB18 or create a new master BWBKT18",
 }
-CAND = {"BWBKT18": "BWB18"}
+CAND = {}
 
 targets = [r for r in ORIG if r["matchType"] == "none" or r["confidence"] == "low"]
 assert len(targets) == 90, len(targets)
@@ -158,7 +165,7 @@ L = ["-- DL Cabinetry: NEW masters and pending SKUs for the previously unmatched
  "-- New master cabinets are UNPUBLISHED: isActive = FALSE, showInDesigner = FALSE, showInCatalog = FALSE, showIn2020 = FALSE. Nothing here makes any master visible.",
  "-- DL is live and its existing SKUs are published. Every distributor_skus row below is isPublished = FALSE, status = 'pending' and stays that way until Tom publishes it.",
  "-- BEFORE running: confirm in the live database that none of the NEW master codes already exists under another code (see SP09 note), and that each MAPPED master exists.",
- "-- Not covered here (see findings.md): accessories, glass doors, and the skipped items.", ""]
+ "-- Not covered here (see findings_unmatched.md): accessories, WG1230/1236/1242 (no 12-wide glass master) and the skipped items.", ""]
 b = 0
 for code, (cat, sub, place, corner, why) in NEW.items():
     b += 1
@@ -178,6 +185,13 @@ L += [f"-- Block {b}: alias = the DL code for every new master (supplier code be
       "SELECT c.id, a.alias FROM (",
       "\n  UNION ALL\n".join(f"  SELECT {q(c)} AS alias" for c in NEW) + "\n) a",
       "JOIN cabinet_dealz.cabinets c ON c.masterCode = a.alias",
+      "WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinet_aliases x WHERE x.alias = a.alias);", ""]
+b += 1
+L += [f"-- Block {b}: Tom-confirmed aliases on EXISTING masters (SP09 -> SPB9, BWBKT18 -> BWB18). Skipped if the alias already exists or the master is missing.",
+      "INSERT INTO cabinet_dealz.cabinet_aliases (cabinetId, alias)",
+      "SELECT c.id, a.alias FROM (",
+      "\n  UNION ALL\n".join(f"  SELECT {q(k)} AS alias, {q(v)} AS masterCode" for k, v in ALIASES_FOR_MAPPED.items()) + "\n) a",
+      "JOIN cabinet_dealz.cabinets c ON c.masterCode = a.masterCode",
       "WHERE NOT EXISTS (SELECT 1 FROM cabinet_dealz.cabinet_aliases x WHERE x.alias = a.alias);", ""]
 STY = [("DL-WS", "WS", "core"), ("DL-SSA", "SSA", "slim"), ("DL-SSE", "SSE", "slim"), ("DL-LUXE-TBD", "LUXE-TBD", "luxe")]
 sku_master = {s: v[0] for s, v in MAP.items()}
@@ -203,7 +217,9 @@ L += [f"-- Block {b}: read-only check. Expect new_masters = {len(NEW)}, new_mast
  f"  (SELECT COUNT(*) FROM cabinet_dealz.cabinets WHERE masterCode IN ({', '.join(q(c) for c in NEW)})) AS new_masters,",
  f"  (SELECT COUNT(*) FROM cabinet_dealz.cabinets WHERE masterCode IN ({', '.join(q(c) for c in NEW)}) AND isActive = 0 AND showInDesigner = 0) AS new_masters_hidden,",
  "  (SELECT COUNT(*) FROM cabinet_dealz.distributor_skus WHERE platformSku LIKE '%-DL' AND isPublished = 0 AND status = 'pending') AS dl_pending_skus,",
- "  (SELECT COUNT(*) FROM cabinet_dealz.distributor_skus WHERE platformSku LIKE '%-DL' AND isPublished = 1) AS dl_published_skus;", ""]
+ "  (SELECT COUNT(*) FROM cabinet_dealz.distributor_skus WHERE platformSku LIKE '%-DL' AND isPublished = 1) AS dl_published_skus;", "",
+ "-- Read-only: confirm how the existing hood masters are flagged. RH36 is created with isNotCabinet = FALSE like the cataloged RHF hood fronts; if RHF30/RHF36 show isNotCabinet = 1 here, change RH36 to match before running.",
+ "SELECT masterCode, category, subCategory, isNotCabinet, isActive, showInDesigner FROM cabinet_dealz.cabinets WHERE masterCode IN ('RHF30', 'RHF36', 'HOOD-30', 'HOOD-36', 'RH36');", ""]
 open("dl_unmatched_masters_tidb.sql", "w").write("\n".join(L))
 
 # ---- per-value specs for the new masters ----------------------------------------------------------------------
