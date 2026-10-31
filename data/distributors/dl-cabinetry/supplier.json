@@ -1,0 +1,43 @@
+{
+  "name": "DL Cabinetry",
+  "code": "DL",
+  "status": "offline (isActive = 0); SKUs unpublished. Not live until Tom runs go-live.",
+  "website": {
+    "url": "https://www.dlcabinetry.com",
+    "source": "Tom, 2026-10-31"
+  },
+  "specBook": {
+    "title": "DL Cabinetry Specification Book",
+    "version": "v.11/14/23",
+    "url": "https://www.dlcabinetry.com/_files/ugd/bd0079_982d3ca8295d49f6b917c3f814615612.pdf",
+    "savedFilename": null,
+    "savedFilenameNote": "Not saved in the repo yet: the build sandbox cannot download PDFs. Attach the PDF and it will be saved here under a stable name.",
+    "source": "Tom, 2026-10-31 (fetched and read the same day)"
+  },
+  "priceList": {
+    "title": "Price List - P5 (v1_13_26)",
+    "receivedFrom": "Rich (DL)",
+    "received": "2026-10-09",
+    "note": "Tom confirmed on 2026-10-31 that these prices are his cost.",
+    "source": "Tom, 2026-10-31"
+  },
+  "freightOrigins": {
+    "warehouseZips": ["32256", "78754", "37086", "70126", "32822", "33634"],
+    "order": "First ZIP (32256, Jacksonville HQ) is the fallback; the nearest origin to the delivery ZIP is used by default unless Rich/DL confirms a specific ship-from warehouse for the order.",
+    "warehouses": [
+      { "zip": "32256", "place": "Jacksonville, FL", "address": "8145 Baymeadows Way W", "note": "Main HQ warehouse" },
+      { "zip": "78754", "place": "Austin, TX", "address": "9019 Tuscany Way" },
+      { "zip": "37086", "place": "La Vergne, TN (Nashville)", "address": "1421 Gould Blvd Suite D" },
+      { "zip": "70126", "place": "New Orleans, LA", "address": null },
+      { "zip": "32822", "place": "Orlando, FL", "address": null },
+      { "zip": "33634", "place": "Tampa, FL", "address": null }
+    ],
+    "source": "Tom, 2026-10-31"
+  },
+  "contactAndOrdering": {
+    "contact": "Rich (DL). Sent the Oct 9 price list; that email had no body text.",
+    "ordering": "Not documented yet (order email and process unknown).",
+    "freight": "LTL, priced by weight and pallet size. The platform quotes it live per order; freightMultiplier stays 0.",
+    "source": "Tom, 2026-10-31; price-list email 2026-10-09"
+  }
+}
