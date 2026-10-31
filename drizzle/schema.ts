@@ -353,6 +353,8 @@ export const distributors = mysqlTable("distributors", {
   // distributor supplies only its fulfillment location and freight policy.
   warehouseName: varchar("warehouseName", { length: 128 }),
   warehouseAddress: varchar("warehouseAddress", { length: 512 }),
+  // Supplier website (read-only in Admin > Distributors). Optional; set by hand in SQL.
+  websiteUrl: varchar("websiteUrl", { length: 512 }),
   shippingRuleMode: mysqlEnum("shippingRuleMode", ["live", "fixed", "threshold"]).default("live").notNull(),
   shippingFlatFreightFeeCents: int("shippingFlatFreightFeeCents"),
   shippingFreeFreightThresholdCents: int("shippingFreeFreightThresholdCents"),
