@@ -5,6 +5,7 @@ import { TRPCError } from "@trpc/server";
 import { adminProcedure, router } from "../_core/trpc";
 import { buildGoLiveTerms, distributorColumns, GO_LIVE_TERMS_VERSION } from "../lib/distributorPreview";
 import { getDb, recalculateStoredTierPrices } from "../db";
+import { recomputeDesignerEligibility } from "../lib/designerEligibilityRecompute";
 import { distributors, cabinets, cabinetAliases, cabinetDistributorEligibility, distributorSkus, doorStyles, categoryAliases, shippingSettings } from "../../drizzle/schema";
 import {
   parseDistributorCsv,
@@ -832,9 +833,11 @@ export const distributorImportRouter = router({
           ));
         return styles;
       });
+      const designerEligibility = await recomputeDesignerEligibility();
       return {
         id: input.distributorId,
         isActive: true,
+        designerEligibility,
         publishedSkus: terms.facts.pendingSkuCount,
         activatedStyles: outcome.activate.length,
         skippedStyles: outcome.skipped.map((style) => style.ourName),
@@ -1185,7 +1188,8 @@ export const distributorImportRouter = router({
       // Finish by recalculating the stored wholesale / contractor / homeowner
       // prices so freshly imported costs never leave stale or empty tier prices.
       const recalculation = await recalculateStoredTierPrices();
-      return { created, updated, priced, skipped, recalculation };
+      const designerEligibility = await recomputeDesignerEligibility();
+      return { created, updated, priced, skipped, recalculation, designerEligibility };
     }),
 
   // ─── Quick-create helpers ──────────────────────────────────────────────────
@@ -1802,9 +1806,11 @@ export const distributorImportRouter = router({
 
       // A real run (not a dry run) recalculates the stored tier prices at the end.
       const recalculation = input.dryRun ? null : await recalculateStoredTierPrices();
+      const designerEligibility = input.dryRun ? null : await recomputeDesignerEligibility();
       return {
         dryRun: input.dryRun ?? false,
         recalculation,
+        designerEligibility,
         created,
         updated,
         priced,
