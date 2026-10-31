@@ -1,129 +1,129 @@
 dlSku,masterCode,matchType,confidence,onSiteStyles,note
-"9"" DRAWER SLIDES",,none,,,no master/alias found
-FDB30,,none,,,"FDB type unconfirmed (possibly full-door base, B##FH?) - ask Rich"
+"9"" DRAWER SLIDES",,accessory-report,,,drawer slides: Not in the spec book; no master. Propose accessory masters once Rich confirms what the item is (sold per pair?)
+FDB30,B30FH,nomenclature-equivalent,high,,"DL Specification Book v.11/14/23 p.1: FDB = Full Height Door Base (2 door, 0 drawers, 1 shelf, 30 x 34-1/2 x 24); master B30FH is the 30"" Full Height 2-door door base (master description sheet 2026-10-26 (repo xlsx)). Same type, door count and width. NOTE Tom's brief called FDB 'full-drawer bases'; the spec book says Full Height DOOR Base"
 W1542,W1542,exact,high,"330013, 330014, 390001",normalized code equals master
 WDC243612,WDC2436,dimension-equivalent,high,,diagonal corner wall 24x{h}x12
-"12"" DRAWER SLIDES",,none,,,no master/alias found
-FDB33,,none,,,"FDB type unconfirmed (possibly full-door base, B##FH?) - ask Rich"
-W1818,,none,,,no master/alias found
+"12"" DRAWER SLIDES",,accessory-report,,,drawer slides: Not in the spec book; no master. Propose accessory masters once Rich confirms what the item is (sold per pair?)
+FDB33,B33FH,nomenclature-equivalent,high,,"DL Specification Book v.11/14/23 p.1: FDB = Full Height Door Base (2 door, 0 drawers, 1 shelf, 33 x 34-1/2 x 24); master B33FH is the 33"" Full Height 2-door door base (master description sheet 2026-10-26 (repo xlsx)). Same type, door count and width. NOTE Tom's brief called FDB 'full-drawer bases'; the spec book says Full Height DOOR Base"
+W1818,W1818,exact,high,,"identical code; master description sheet 2026-10-26 (repo xlsx) lists W1818 '18"" x 18"" High Single Door Wall Cabinet' (eligibility CS only). DL Specification Book v.11/14/23 p.6: 18.0 x 18.0 x 12.0, 1 door, 0 shelves. Master description has no depth or shelf count: confirm in the live catalog"
 WDC244212,WDC2442,dimension-equivalent,high,,diagonal corner wall 24x{h}x12
-"15"" DRAWER SLIDES",,none,,,no master/alias found
-FDB36,,none,,,"FDB type unconfirmed (possibly full-door base, B##FH?) - ask Rich"
+"15"" DRAWER SLIDES",,accessory-report,,,drawer slides: Not in the spec book; no master. Propose accessory masters once Rich confirms what the item is (sold per pair?)
+FDB36,B36FH,nomenclature-equivalent,high,,"DL Specification Book v.11/14/23 p.1: FDB = Full Height Door Base (2 door, 0 drawers, 1 shelf, 36 x 34-1/2 x 24); master B36FH is the 36"" Full Height double-door door base (master description sheet 2026-10-26 (repo xlsx)). Same type, door count and width. NOTE Tom's brief called FDB 'full-drawer bases'; the spec book says Full Height DOOR Base"
 W1830,W1830,exact,high,"330013, 330014, 390001",normalized code equals master
-WDCG243012,,none,,,no master/alias found
-"18"" DRAWER SLIDES",,none,,,no master/alias found
+WDCG243012,,accessory-report,,,"glass door only (decision for Tom): Spec book 'Glass Door': 14-5/8 wide diagonal-corner glass doors, door only. Same decision as WG####: accessory masters if doors, otherwise the existing diagonal glass cabinets"
+"18"" DRAWER SLIDES",,accessory-report,,,drawer slides: Not in the spec book; no master. Propose accessory masters once Rich confirms what the item is (sold per pair?)
 FILLER 3X96,WF396,dimension-equivalent,medium,,3x96 filler
 W1836,W1836,exact,high,"330013, 330014, 390001",normalized code equals master
-WDCG243612,,none,,,no master/alias found
-"21"" DRAWER SLIDES",,none,,,no master/alias found
-FILLER 6X96,,none,,,no master/alias found
+WDCG243612,,accessory-report,,,"glass door only (decision for Tom): Spec book 'Glass Door': 14-5/8 wide diagonal-corner glass doors, door only. Same decision as WG####: accessory masters if doors, otherwise the existing diagonal glass cabinets"
+"21"" DRAWER SLIDES",,accessory-report,,,drawer slides: Not in the spec book; no master. Propose accessory masters once Rich confirms what the item is (sold per pair?)
+FILLER 6X96,F696,dimension-equivalent,high,,"DL Specification Book v.11/14/23: filler 6 x 96 x 3/4. Master F696 is '6"" x 96"" Tall Filler' (CS/SK/USCD). Same item and size"
 W1842,W1842,exact,high,"330013, 330014, 390001",normalized code equals master
-WDCG244212,,none,,,no master/alias found
+WDCG244212,,accessory-report,,,"glass door only (decision for Tom): Spec book 'Glass Door': 14-5/8 wide diagonal-corner glass doors, door only. Same decision as WG####: accessory masters if doors, otherwise the existing diagonal glass cabinets"
 2DB30,2DB30,exact,high,"330014, 390001",normalized code equals master
-FLAT PANEL 28X96,,none,,,no master/alias found
-W2118,,none,,,no master/alias found
-WDD30,,none,,,no master/alias found
-2DB33,,none,,,no 2DB33 master
+FLAT PANEL 28X96,,accessory-report,,,panel: Not in the spec book. The spec book lists FLAT PANEL 27X96 (3/4 x 96 x 27): 28 may be a price list typo. Ask Rich before creating anything
+W2118,W2118,new-master,,,"NEW master W2118 (unpublished, isActive=0, showInDesigner=0): no W2118 master (only the glass W2118GD). Specs: DL Specification Book v.11/14/23"
+WDD30,,accessory-report,,,"decorative door panel: Spec book 'Wall Decorative Door': 11-7/8 wide x 29-1/2/35-1/2/41-1/2 x 3/4 panels, not cabinets. Nearest masters WDEP30/36/42 are 11-1/2 x 29/35/41 (USCD) or 12-3/4 x 29/35/41 (SK): sizes differ, so not mapped. Propose new accessory masters WDD30/36/42"
+2DB33,2DB33,new-master,,,"NEW master 2DB33 (unpublished, isActive=0, showInDesigner=0): 2-drawer base masters exist at 24/30/36 only. Specs: DL Specification Book v.11/14/23"
 FSB36,FSB36,exact,high,"330013, 330014, 390001",normalized code equals master
 W2130,W2130,exact,high,"330013, 330014, 390001",normalized code equals master
-WDD36,,none,,,no master/alias found
+WDD36,,accessory-report,,,"decorative door panel: Spec book 'Wall Decorative Door': 11-7/8 wide x 29-1/2/35-1/2/41-1/2 x 3/4 panels, not cabinets. Nearest masters WDEP30/36/42 are 11-1/2 x 29/35/41 (USCD) or 12-3/4 x 29/35/41 (SK): sizes differ, so not mapped. Propose new accessory masters WDD30/36/42"
 2DB36,2DB36,exact,high,"330014, 390001",normalized code equals master
-GH30,,none,,,no master/alias found
+GH30,SGH30,nomenclature-equivalent,high,,DL Specification Book v.11/14/23: glass holder 30 x 1-1/2 x 12 (Tom confirmed). SGH30 is Stem Glass Holder 30W x 1-1/2H x 12D. Identical size and item
 W2136,W2136,exact,high,"330013, 330014, 390001",normalized code equals master
-WDD42,,none,,,no master/alias found
-ACM2.5,,none,,,no master/alias found
-ICM8,,none,,,no master/alias found
+WDD42,,accessory-report,,,"decorative door panel: Spec book 'Wall Decorative Door': 11-7/8 wide x 29-1/2/35-1/2/41-1/2 x 3/4 panels, not cabinets. Nearest masters WDEP30/36/42 are 11-1/2 x 29/35/41 (USCD) or 12-3/4 x 29/35/41 (SK): sizes differ, so not mapped. Propose new accessory masters WDD30/36/42"
+ACM2.5,,accessory-report,,,molding: 96 x 2 x 3-1/2 (listed in the crown section). ACM8 masters are 2-1/2 x 2-1/2 or 1-3/4 x 1-13/16: differ. Propose a new accessory master
+ICM8,,accessory-report,,,molding: Inside corner molding 96 x 1/2 x 1/2. No master found. Propose a new accessory master
 W2142,W2142,exact,high,"330013, 330014, 390001",normalized code equals master
-WEOS0930,,none,,,no master/alias found
-ANGLEMOLDING,,none,,,no master/alias found
+WEOS0930,WEOS0930,new-master,,,"NEW master WEOS0930 (unpublished, isActive=0, showInDesigner=0): open end shelf masters are 6in wide (OE630/636/642); DL is 9in. Specs: DL Specification Book v.11/14/23"
+ANGLEMOLDING,,accessory-report,,,molding: Angle molding 96 x 3/4 x 3/4. No master found (ACM8 is crown). Propose a new accessory master
 LZS33,LSB33,dimension-equivalent,medium,"330013, 330014",lazy susan 33; LSB33/LS3312 same item per Tom (alias recs)
-W2412,,none,,,no master/alias found
-WEOS0936,,none,,,no master/alias found
+W2412,W2412,new-master,,,"NEW master W2412 (unpublished, isActive=0, showInDesigner=0): no W2412 master (only the glass W2412GD). Specs: DL Specification Book v.11/14/23"
+WEOS0936,WEOS0936,new-master,,,"NEW master WEOS0936 (unpublished, isActive=0, showInDesigner=0): open end shelf masters are 6in wide (OE630/636/642); DL is 9in. Specs: DL Specification Book v.11/14/23"
 B12,B12,exact,high,"330013, 330014, 390001",normalized code equals master
 LZS3612,LS3612,dimension-equivalent,medium,,lazy susan 36
-W2415,,none,,,no master/alias found
-WEOS0942,,none,,,no master/alias found
+W2415,W2415,new-master,,,"NEW master W2415 (unpublished, isActive=0, showInDesigner=0): no W2415 master (only the glass W2415GD). Specs: DL Specification Book v.11/14/23"
+WEOS0942,WEOS0942,new-master,,,"NEW master WEOS0942 (unpublished, isActive=0, showInDesigner=0): open end shelf masters are 6in wide (OE630/636/642); DL is 9in. Specs: DL Specification Book v.11/14/23"
 B15,B15,exact,high,"330013, 330014, 390001",normalized code equals master
 OVD338427,O338424,dimension-equivalent,medium,"330013, 330014, 390001",oven cabinet; DL depth digits 27 vs master 24 - confirm
 W2418,W2418,exact,high,390001,normalized code equals master
-WF3 30,,none,,,no master/alias found
+WF3 30,,accessory-report,,,"filler: Wall filler 3 x 30/36 x 3/4. Masters exist only at 42 and 96 high (F342, F396). Propose new accessory masters WF3 30 / WF3 36"
 B18,B18,exact,high,"330013, 330014, 390001",normalized code equals master
 OVD339027,O339024,dimension-equivalent,medium,,oven cabinet; DL depth digits 27 vs master 24 - confirm
-W2424,,none,,,no master/alias found
-WF3 36,,none,,,no master/alias found
+W2424,W2424,new-master,,,"NEW master W2424 (unpublished, isActive=0, showInDesigner=0): no 24x24 wall master (bridge masters start at 30W). Specs: DL Specification Book v.11/14/23"
+WF3 36,,accessory-report,,,"filler: Wall filler 3 x 30/36 x 3/4. Masters exist only at 42 and 96 high (F342, F396). Propose new accessory masters WF3 30 / WF3 36"
 B21,B21,exact,high,"330013, 330014, 390001",normalized code equals master
 OVD339627,O339624,dimension-equivalent,medium,"330013, 330014, 390001",oven cabinet; DL depth digits 27 vs master 24 - confirm
 W2430,W2430,exact,high,"330013, 330014, 390001",normalized code equals master
 WF3 42,WF342,exact,high,,normalized code equals master
 B24,B24,exact,high,"330013, 330014, 390001",normalized code equals master
-PAINT,,none,,,no master/alias found
+PAINT,SPRAYPAINT,nomenclature-equivalent,medium,,"DL Specification Book v.11/14/23: spray paint 2-1/2 x 8 x 2-1/2. Master SPRAYPAINT is 'Spray Paint Touch-Up'. Same item; the master has no dimensions or color, so DL's color match is not confirmed"
 W2436,W2436,exact,high,"330013, 330014, 390001",normalized code equals master
 WF6 42,WF642,exact,high,,normalized code equals master
 B27,B27,exact,high,"330013, 330014, 390001",normalized code equals master
-QUARTER DOOR,,none,,,no master/alias found
+QUARTER DOOR,,skipped,,,"not in the spec book, no description. Ask Rich what it is"
 W2442,W2442,exact,high,"330013, 330014, 390001",normalized code equals master
-WG1230,,none,,,glass door insert/door - no master
+WG1230,,accessory-report,,,"glass door only (decision for Tom): Spec book p.16 'Glass Door': WG#### are loose glass DOORS (11-11/16 wide x 29-1/2 to 41-1/2 high x 3/4), not cabinets, and the price list says 'door only? unconfirmed'. Tom's brief listed them as cabinets. No cabinet master created. If they are doors, add accessory masters 'Glass Door' per code; if Tom wants glass wall cabinets instead, those already exist as W####GD"
 B30,B30,exact,high,"330013, 330014, 390001",normalized code equals master
-RH36,,none,,,no master/alias found
-W2718,,none,,,no master/alias found
-WG1236,,none,,,glass door insert/door - no master
+RH36,RH36,new-master,,,"NEW master RH36 (unpublished, isActive=0, showInDesigner=0): RHF36 (CS) is only a 'Range Hood Front' with no dimensions; DL RH36 is a 36 x 36 x 24 cover box. Specs: DL Specification Book v.11/14/23"
+W2718,W2718,new-master,,,"NEW master W2718 (unpublished, isActive=0, showInDesigner=0): no W2718 master (only the glass W2718GD). Specs: DL Specification Book v.11/14/23"
+WG1236,,accessory-report,,,"glass door only (decision for Tom): Spec book p.16 'Glass Door': WG#### are loose glass DOORS (11-11/16 wide x 29-1/2 to 41-1/2 high x 3/4), not cabinets, and the price list says 'door only? unconfirmed'. Tom's brief listed them as cabinets. No cabinet master created. If they are doors, add accessory masters 'Glass Door' per code; if Tom wants glass wall cabinets instead, those already exist as W####GD"
 B33,B33,exact,high,"330013, 330014, 390001",normalized code equals master
-RRP27(1.5),,none,,,no master/alias found
+RRP27(1.5),REPV2796,dimension-equivalent,medium,,"DL Specification Book v.11/14/23: refrigerator panel 1-1/2 x 96 x 27. Master REPV2796 is 'Refrigerator End Panel - 27""D x 96""H' (SK). Same item, height and depth; the master has no thickness"
 W2730,W2730,exact,high,"330013, 330014, 390001",normalized code equals master
-WG1242,,none,,,glass door insert/door - no master
+WG1242,,accessory-report,,,"glass door only (decision for Tom): Spec book p.16 'Glass Door': WG#### are loose glass DOORS (11-11/16 wide x 29-1/2 to 41-1/2 high x 3/4), not cabinets, and the price list says 'door only? unconfirmed'. Tom's brief listed them as cabinets. No cabinet master created. If they are doors, add accessory masters 'Glass Door' per code; if Tom wants glass wall cabinets instead, those already exist as W####GD"
 B36,B36,exact,high,"330013, 330014, 390001",normalized code equals master
 SAMPLE DOOR,Sample Door,exact,high,"330013, 330014",normalized code equals master
 W2736,W2736,exact,high,"330013, 330014, 390001",normalized code equals master
-WG1530,,none,,,glass door insert/door - no master
+WG1530,,accessory-report,,,"glass door only (decision for Tom): Spec book p.16 'Glass Door': WG#### are loose glass DOORS (11-11/16 wide x 29-1/2 to 41-1/2 high x 3/4), not cabinets, and the price list says 'door only? unconfirmed'. Tom's brief listed them as cabinets. No cabinet master created. If they are doors, add accessory masters 'Glass Door' per code; if Tom wants glass wall cabinets instead, those already exist as W####GD"
 B39,B39,exact,high,"330013, 330014",normalized code equals master
 SB30,SB30,exact,high,390001,normalized code equals master
 W2742,W2742,exact,high,"330013, 330014, 390001",normalized code equals master
-WG1536,,none,,,glass door insert/door - no master
+WG1536,,accessory-report,,,"glass door only (decision for Tom): Spec book p.16 'Glass Door': WG#### are loose glass DOORS (11-11/16 wide x 29-1/2 to 41-1/2 high x 3/4), not cabinets, and the price list says 'door only? unconfirmed'. Tom's brief listed them as cabinets. No cabinet master created. If they are doors, add accessory masters 'Glass Door' per code; if Tom wants glass wall cabinets instead, those already exist as W####GD"
 B42,B42,exact,high,"330013, 330014, 390001",normalized code equals master
 SB36,SB36,exact,high,"330013, 330014, 390001",normalized code equals master
 W3012,W3012,exact,high,"330013, 330014, 390001",normalized code equals master
-WG1542,,none,,,glass door insert/door - no master
-BASEMOLDING,,none,,,no master/alias found
-SCRIBEMOLDING,,none,,,no master/alias found
+WG1542,,accessory-report,,,"glass door only (decision for Tom): Spec book p.16 'Glass Door': WG#### are loose glass DOORS (11-11/16 wide x 29-1/2 to 41-1/2 high x 3/4), not cabinets, and the price list says 'door only? unconfirmed'. Tom's brief listed them as cabinets. No cabinet master created. If they are doors, add accessory masters 'Glass Door' per code; if Tom wants glass wall cabinets instead, those already exist as W####GD"
+BASEMOLDING,,accessory-report,,,molding: 96 x 4-3/8 x 3/4 base molding. Furniture base moulding masters (FBM 4-15/16 / 4-1/2) differ. Propose a new accessory master
+SCRIBEMOLDING,SM8,nomenclature-equivalent,medium,,"DL Specification Book v.11/14/23: scribe molding 96 x 3/4 x 1/4. Master SM8 is 'Scribe Moulding - 96""'. Same item and length; the master has no profile dimensions"
 W3015,W3015,exact,high,"330013, 330014, 390001",normalized code equals master
-WG1830,,none,,,glass door insert/door - no master
-BBC33-9,,none,,,no BBC33 master (BBC36+ only)
-SHOEMOLDING,,none,,,no master/alias found
+WG1830,,accessory-report,,,"glass door only (decision for Tom): Spec book p.16 'Glass Door': WG#### are loose glass DOORS (11-11/16 wide x 29-1/2 to 41-1/2 high x 3/4), not cabinets, and the price list says 'door only? unconfirmed'. Tom's brief listed them as cabinets. No cabinet master created. If they are doors, add accessory masters 'Glass Door' per code; if Tom wants glass wall cabinets instead, those already exist as W####GD"
+BBC33-9,BBC33-9,new-master,,,"NEW master BBC33-9 (unpublished, isActive=0, showInDesigner=0): blind corner base masters start at BBC36; none at 33. Specs: DL Specification Book v.11/14/23"
+SHOEMOLDING,,accessory-report,,,molding: 96 x 1/2 x 1/2. Nearest SHM8 is 3/4 high x 1/2 deep: differs. Propose a new accessory master
 W3018,W3018,exact,high,"330013, 330014, 390001",normalized code equals master
-WG1836,,none,,,glass door insert/door - no master
-BDD24,,none,,,no master/alias found
-SIDE PANEL 36X96,,none,,,no master/alias found
+WG1836,,accessory-report,,,"glass door only (decision for Tom): Spec book p.16 'Glass Door': WG#### are loose glass DOORS (11-11/16 wide x 29-1/2 to 41-1/2 high x 3/4), not cabinets, and the price list says 'door only? unconfirmed'. Tom's brief listed them as cabinets. No cabinet master created. If they are doors, add accessory masters 'Glass Door' per code; if Tom wants glass wall cabinets instead, those already exist as W####GD"
+BDD24,,accessory-report,,,"decorative door panel: Spec book 'Base Decorative Door': 23-3/4 x 29-1/4 x 3/4 flat door panel. Nearest BDEP is 23-1/2 x 29 x 3/4: size differs, not mapped. Propose a new accessory master BDD24"
+SIDE PANEL 36X96,,accessory-report,,,panel: Side panel 96 x 36 x 1/2. No master with that thickness (SPW is 96 x 36 x 1/4). Propose a new accessory master
 W3024,W3024,exact,high,"330013, 330014, 390001",normalized code equals master
-WG1842,,none,,,glass door insert/door - no master
-BES09,,none,,,no master/alias found
-SKIN PANEL 36X96,,none,,,no master/alias found
+WG1842,,accessory-report,,,"glass door only (decision for Tom): Spec book p.16 'Glass Door': WG#### are loose glass DOORS (11-11/16 wide x 29-1/2 to 41-1/2 high x 3/4), not cabinets, and the price list says 'door only? unconfirmed'. Tom's brief listed them as cabinets. No cabinet master created. If they are doors, add accessory masters 'Glass Door' per code; if Tom wants glass wall cabinets instead, those already exist as W####GD"
+BES09,BES09,new-master,,,"NEW master BES09 (unpublished, isActive=0, showInDesigner=0): only BES12 (12in, 5 shelves, curved) exists; DL BES09 is 9in with 2 shelves. Specs: DL Specification Book v.11/14/23"
+SKIN PANEL 36X96,,accessory-report,,,"panel: Skin panel 96 x 36 x 3/16. No master (SPW 1/4, USV2496 is 23-1/4 wide). Propose a new accessory master"
 W3030,W3030,exact,high,"330013, 330014, 390001",normalized code equals master
-WMC3018,,none,,,no master/alias found
+WMC3018,PWB-MOS-30-18,dimension-equivalent,medium,,"DL Specification Book v.11/14/23: wall microwave cabinet 30 x 18 x 12, 0 doors, 1 shelf (open). Master is '30 x 18 x 11 7/8 Wall Microwave Open Box' (SK). Same type and construction; depth differs by 1/8 in"
 BF3,BF3,exact,high,,normalized code equals master
-SP09,,none,,,no master/alias found
+SP09,SP09,new-master,,,"NEW master SP09 (unpublished, isActive=0, showInDesigner=0): SPB9 (SK, '9in Spice Base / Pull-Out') is a possible duplicate, but its door/drawer/shelf counts are not in the master description, so construction cannot be confirmed. REVIEW for duplicate before publishing. Specs: DL Specification Book v.11/14/23"
 W3036,W3036,exact,high,"330013, 330014, 390001",normalized code equals master
 WP188427,U188424,dimension-equivalent,medium,"330013, 330014, 390001",DL WP=pantry; DL code depth 27 vs master 24 - confirm DL actual depth
 BF6,BF6,exact,high,330013,normalized code equals master
-SP2436,,none,,,no master/alias found
+SP2436,,skipped,,,not in the spec book (the spec lists SP09 only). Ask Rich
 W3042,W3042,exact,high,"330013, 330014, 390001",normalized code equals master
 WP189027,U189024,dimension-equivalent,medium,"330013, 330014, 390001",DL WP=pantry; DL code depth 27 vs master 24 - confirm DL actual depth
 BMC30,BMC30,exact,high,,normalized code equals master
 TK8,TK8(TKC),alias,high,"330013, 330014, 390001",Alias map: ACTIVE alias
 W3312,W3312,exact,high,"330013, 390001",normalized code equals master
 WP189627,U189624,dimension-equivalent,medium,"330013, 330014, 390001",DL WP=pantry; DL code depth 27 vs master 24 - confirm DL actual depth
-BWBKT18,BWB18,dimension-equivalent,low,390001,wastebasket base vs kit - confirm
-TLR8,,none,,,no master/alias found
+BWBKT18,BWB18,skipped,low,390001,"LOW-confidence candidate BWB18 (SK 18in Base Waste Basket) kept for review. Spec book: BWBKT18 is 18 x 34-1/2 x 24, 0 doors, 2 drawers, trash cans sold separately; BWB18's door/drawer counts are not in the master description. Tom: map to BWB18 or create a new master BWBKT18"
+TLR8,,accessory-report,,,molding: Traditional light rail 96 x 1-1/2 x 2-1/4. LRM8 masters are 2-1/4H x 3/4D or 1in: differ. Propose a new accessory master
 W3315,W3315,exact,high,"330013, 390001",normalized code equals master
 WP248427,U248424,dimension-equivalent,medium,"330013, 330014, 390001",DL WP=pantry; DL code depth 27 vs master 24 - confirm DL actual depth
-CCM8,,none,,,no master/alias found
-TOUCHUP KIT,,none,,,no master/alias found
+CCM8,,accessory-report,,,"molding: Crown 96 x 3 x 4-1/4 ('8' = 8 ft). Crown masters (LCM8 3-3/8, DCM 3x2) differ. Propose a new accessory master"
+TOUCHUP KIT,TUK,nomenclature-equivalent,medium,,DL Specification Book v.11/14/23: touch-up kit (paint pen and putty). Master TUK is 'Touch Up Kit'. Same item; no dimensions in the master to compare
 W3318,W3318,exact,high,"330013, 390001",normalized code equals master
 WP249027,U249024,dimension-equivalent,medium,"330013, 330014, 390001",DL WP=pantry; DL code depth 27 vs master 24 - confirm DL actual depth
-CL156012,,none,,,no master/alias found
+CL156012,CL156012,new-master,,,"NEW master CL156012 (unpublished, isActive=0, showInDesigner=0): no linen cabinet master. Category 'Tall' is my classification (60in high). Specs: DL Specification Book v.11/14/23"
 VAN24,V2421,dimension-equivalent,medium,,"vanity sink base; assumes 21"" depth"
 W3324,W3324,exact,high,"330013, 390001",normalized code equals master
 WP249627,U249624,dimension-equivalent,medium,"330013, 330014, 390001",DL WP=pantry; DL code depth 27 vs master 24 - confirm DL actual depth
-CORBEL 8X12,,none,,,no master/alias found
+CORBEL 8X12,,accessory-report,,,decorative hardware: Corbel 3 x 12 x 8. CBT 3 x 13-1/16 x 5-7/8 and MCB 3-1/2 x 12 x 9 differ. Propose a new accessory master
 VAN30,V3021,dimension-equivalent,medium,,"vanity sink base; assumes 21"" depth"
 W3330,W3330,exact,high,"330013, 330014, 390001",normalized code equals master
 WP308427,U308424,dimension-equivalent,medium,"330014, 390001",DL WP=pantry; DL code depth 27 vs master 24 - confirm DL actual depth
@@ -136,66 +136,66 @@ VAN36DR,V3621DR,dimension-equivalent,medium,"330013, 330014, 390001","vanity w/ 
 W3342,W3342,exact,high,"330013, 330014, 390001",normalized code equals master
 WP309627,U309624,dimension-equivalent,medium,"330014, 390001",DL WP=pantry; DL code depth 27 vs master 24 - confirm DL actual depth
 DB18,3DB18,alias,high,"330013, 330014, 390001",Alias map: PARSE RULE (DB+width = 3-drawer)
-VAN48D-6,,none,,,"no matching 48"" vanity master confirmed"
+VAN48D-6,VDDB48,dimension-equivalent,high,,"DL Specification Book v.11/14/23 p.12: 48 x 34-1/2 x 21, 2 doors, 6 drawers + 1 false front. VDDB48 (USCD) is 48W x 34-1/2H x 21D, 3 drawers each side (6), 2 centre doors, long false drawer front above. Same type, size, door and drawer counts"
 W3612,W3612,exact,high,"330013, 330014, 390001",normalized code equals master
 WRC3018,WRC3018,exact,high,390001,normalized code equals master
 DB21,3DB21,alias,high,"330013, 330014, 390001",Alias map: PARSE RULE (DB+width = 3-drawer)
 VDB12,VDB1221(3VDB12),dimension-equivalent,medium,,"vanity 3-drawer base; assumes 21"" depth"
 W361227,W361224,dimension-equivalent,medium,"330013, 330014, 390001","24""-deep refrigerator wall; DL depth digits 27 vs master 24 - confirm"
-"PULLOUT TRAY 18""",,none,,,no master/alias found
+"PULLOUT TRAY 18""",,accessory-report,,,"pullout tray: Pull-out tray 14/20/26/32 x 4 x 21. Roll-out shelf and tray masters (RS##, UNIV-ROT##) have different sizes. Propose new accessory masters"
 DB24,3DB24,alias,high,"330013, 330014, 390001",Alias map: PARSE RULE (DB+width = 3-drawer)
 VDB15,VDB1521(3VDB15),dimension-equivalent,medium,,"vanity 3-drawer base; assumes 21"" depth"
 W3615,W3615,exact,high,"330013, 330014, 390001",normalized code equals master
-"PULLOUT TRAY 24""",,none,,,no master/alias found
+"PULLOUT TRAY 24""",,accessory-report,,,"pullout tray: Pull-out tray 14/20/26/32 x 4 x 21. Roll-out shelf and tray masters (RS##, UNIV-ROT##) have different sizes. Propose new accessory masters"
 DB27,3DB27,alias,high,"330014, 390001",Alias map: PARSE RULE
 VDB18,VDB1821(3VDB18),dimension-equivalent,medium,,"vanity 3-drawer base; assumes 21"" depth"
 W361527,W361524,dimension-equivalent,medium,"330013, 330014, 390001","24""-deep refrigerator wall; DL depth digits 27 vs master 24 - confirm"
-"PULLOUT TRAY 30""",,none,,,no master/alias found
+"PULLOUT TRAY 30""",,accessory-report,,,"pullout tray: Pull-out tray 14/20/26/32 x 4 x 21. Roll-out shelf and tray masters (RS##, UNIV-ROT##) have different sizes. Propose new accessory masters"
 DB30,3DB30,alias,high,"330013, 330014, 390001",Alias map: PARSE RULE (DB+width = 3-drawer)
 VDB24,VDB2421,dimension-equivalent,medium,,"vanity drawer base; assumes 21"" depth"
 W3618,W3618,exact,high,"330013, 330014, 390001",normalized code equals master
-"PULLOUT TRAY 36""",,none,,,no master/alias found
+"PULLOUT TRAY 36""",,accessory-report,,,"pullout tray: Pull-out tray 14/20/26/32 x 4 x 21. Roll-out shelf and tray masters (RS##, UNIV-ROT##) have different sizes. Propose new accessory masters"
 DB33,3DB33,alias,high,"330014, 390001",Alias map: PARSE RULE
 VSB36,VS36,dimension-equivalent,medium,"330013, 330014, 390001",vanity sink base
 W361827,W361824,dimension-equivalent,medium,"330013, 330014, 390001","24""-deep refrigerator wall; DL depth digits 27 vs master 24 - confirm"
-PULLOUT TRAY BWBKT15,,none,,,no master/alias found
+PULLOUT TRAY BWBKT15,,accessory-report,,,pullout tray: Not in the spec book. Tray for the BWBKT waste basket base. No master. List only until Rich confirms size
 DB36,3DB36,alias,high,"330013, 330014, 390001",Alias map: PARSE RULE (DB+width = 3-drawer)
 W0930,W0930,exact,high,"330013, 330014, 390001",normalized code equals master
 W3624,W3624,exact,high,"330013, 330014, 390001",normalized code equals master
-PULLOUT TRAY BWBKT18,,none,,,no master/alias found
-DLS 4X4X36,,none,,,no master/alias found
+PULLOUT TRAY BWBKT18,,accessory-report,,,pullout tray: Not in the spec book. Tray for the BWBKT waste basket base. No master. List only until Rich confirms size
+DLS 4X4X36,,accessory-report,,,decorative leg: Leg post 4 x 34-1/2 x 4. CLDL/SQDL are 3 x 34-1/2 x 3: differ. Propose a new accessory master
 W0936,W0936,exact,high,"330013, 330014, 390001",normalized code equals master
 W362427,W362424,dimension-equivalent,medium,"330013, 330014, 390001","24""-deep refrigerator wall; DL depth digits 27 vs master 24 - confirm"
-PULLOUT TRAY BWBKT21,,none,,,no master/alias found
-DSK2421,,none,,,no master/alias found
+PULLOUT TRAY BWBKT21,,accessory-report,,,pullout tray: Not in the spec book. Tray for the BWBKT waste basket base. No master. List only until Rich confirms size
+DSK2421,DSK2421,new-master,,,"NEW master DSK2421 (unpublished, isActive=0, showInDesigner=0): knee drawer masters differ in size (DKD30 30x5-1/4, VKD36 36x7); none at 24 x 7-1/2 x 21. Specs: DL Specification Book v.11/14/23"
 W0942,W0942,exact,high,"330013, 330014, 390001",normalized code equals master
 W3630,W3630,exact,high,"330013, 330014, 390001",normalized code equals master
-SAMPLE DOOR PACK (2025),,none,,,no master/alias found
-DSK3021,,none,,,no master/alias found
-W1218,,none,,,no master/alias found
+SAMPLE DOOR PACK (2025),,accessory-report,,,sample: 13 x 17 x 7 pack. SAMPLE DOOR / SD masters are single 11 x 15 sample doors. Propose a new accessory master or leave unlisted
+DSK3021,DSK3021,new-master,,,"NEW master DSK3021 (unpublished, isActive=0, showInDesigner=0): DKD30 is 30 x 5-1/4 x 21 (height differs); none at 30 x 7-1/2 x 21. Specs: DL Specification Book v.11/14/23"
+W1218,W1218,exact,high,,"identical code; master description sheet 2026-10-26 (repo xlsx) lists W1218 '12"" x 18"" High Single Door Wall Cabinet' (eligibility CS only). DL Specification Book v.11/14/23 p.6: 12.0 x 18.0 x 12.0, 1 door, 0 shelves. Master description has no depth or shelf count: confirm in the live catalog"
 W3636,W3636,exact,high,"330013, 330014, 390001",normalized code equals master
-TRASH CAN,,none,,,no master/alias found
-DWP3,,none,,,no master/alias found
+TRASH CAN,,accessory-report,,,trash can: Spec book: 14-1/8 x 15-1/2 x 9-15/16. No loose trash can master (B15TCPO etc. are pullout bases). Propose a new accessory master
+DWP3,DWR3,nomenclature-equivalent,high,,DL Specification Book v.11/14/23: dishwasher panel 3 x 34-1/2 x 24 (Tom confirmed). DWR3 (alias BEP3) is the 3W x 34-1/2H x 24D dishwasher return panel. Identical size and item
 W1230,W1230,exact,high,"330013, 330014, 390001",normalized code equals master
 W3642,W3642,exact,high,"330013, 330014, 390001",normalized code equals master
-WN FS3012,,none,,,no master/alias found
-FDB09,,none,,,"FDB type unconfirmed (possibly full-door base, B##FH?) - ask Rich"
+WN FS3012,,accessory-report,,,floating shelf (not in spec book): Not in the spec book; WN/WO presumably wood finishes. Floating shelf masters FS30/FS36/FS42/FS48 exist but size and finish are unconfirmed. Ask Rich
+FDB09,FDB09,new-master,,,"NEW master FDB09: FDB family maps to B##FH but the master catalog has nothing below B12FH, and FDB09 is not in the spec book (smallest FDB listed is FDB18); size is from the price list only. Specs: DL Price List P5 (v1_13_26) only"
 W1236,W1236,exact,high,"330013, 330014, 390001",normalized code equals master
 WBC2730,WBC2730,exact,high,"330013, 330014, 390001",normalized code equals master
-WN FS3612,,none,,,no master/alias found
-FDB18,,none,,,"FDB type unconfirmed (possibly full-door base, B##FH?) - ask Rich"
+WN FS3612,,accessory-report,,,floating shelf (not in spec book): Not in the spec book; WN/WO presumably wood finishes. Floating shelf masters FS30/FS36/FS42/FS48 exist but size and finish are unconfirmed. Ask Rich
+FDB18,B18FH,nomenclature-equivalent,high,,"DL Specification Book v.11/14/23 p.1: FDB = Full Height Door Base (1 door, 0 drawers, 1 shelf, 18 x 34-1/2 x 24); master B18FH is the 18"" Full Height single door base (master description sheet 2026-10-26 (repo xlsx)). Same type, door count and width. NOTE Tom's brief called FDB 'full-drawer bases'; the spec book says Full Height DOOR Base"
 W1242,W1242,exact,high,"330013, 330014, 390001",normalized code equals master
 WBC2736,WBC2736,exact,high,"330013, 330014, 390001",normalized code equals master
-WN FS4812,,none,,,no master/alias found
-FDB21,,none,,,"FDB type unconfirmed (possibly full-door base, B##FH?) - ask Rich"
-W1518,,none,,,no master/alias found
+WN FS4812,,accessory-report,,,floating shelf (not in spec book): Not in the spec book; WN/WO presumably wood finishes. Floating shelf masters FS30/FS36/FS42/FS48 exist but size and finish are unconfirmed. Ask Rich
+FDB21,B21FH,nomenclature-equivalent,high,,"DL Specification Book v.11/14/23 p.1: FDB = Full Height Door Base (1 door, 0 drawers, 1 shelf, 21 x 34-1/2 x 24); master B21FH is the 21"" Full Height single door base (master description sheet 2026-10-26 (repo xlsx)). Same type, door count and width. NOTE Tom's brief called FDB 'full-drawer bases'; the spec book says Full Height DOOR Base"
+W1518,W1518,exact,high,,"identical code; master description sheet 2026-10-26 (repo xlsx) lists W1518 '15"" x 18"" High Single Door Wall Cabinet' (eligibility CS only). DL Specification Book v.11/14/23 p.6: 15.0 x 18.0 x 12.0, 1 door, 0 shelves. Master description has no depth or shelf count: confirm in the live catalog"
 WBC2742,WBC2742,exact,high,"330013, 330014, 390001",normalized code equals master
-WO FS3012,,none,,,no master/alias found
-FDB24,,none,,,"FDB type unconfirmed (possibly full-door base, B##FH?) - ask Rich"
+WO FS3012,,accessory-report,,,floating shelf (not in spec book): Not in the spec book; WN/WO presumably wood finishes. Floating shelf masters FS30/FS36/FS42/FS48 exist but size and finish are unconfirmed. Ask Rich
+FDB24,B24FH,nomenclature-equivalent,high,,"DL Specification Book v.11/14/23 p.1: FDB = Full Height Door Base (2 door, 0 drawers, 1 shelf, 24 x 34-1/2 x 24); master B24FH is the 24"" Full Height 2-door door base (master description sheet 2026-10-26 (repo xlsx)). Same type, door count and width. NOTE Tom's brief called FDB 'full-drawer bases'; the spec book says Full Height DOOR Base"
 W1530,W-15-30,exact,high,"330013, 330014, 390001",normalized code equals master
-WDC241812,,none,,,no master/alias found
-WO FS3612,,none,,,no master/alias found
-FDB27,,none,,,"FDB type unconfirmed (possibly full-door base, B##FH?) - ask Rich"
+WDC241812,WDC241812,new-master,,,"NEW master WDC241812 (unpublished, isActive=0, showInDesigner=0): diagonal corner wall masters exist only at 30/36/42 high. Specs: DL Specification Book v.11/14/23"
+WO FS3612,,accessory-report,,,floating shelf (not in spec book): Not in the spec book; WN/WO presumably wood finishes. Floating shelf masters FS30/FS36/FS42/FS48 exist but size and finish are unconfirmed. Ask Rich
+FDB27,B27FH,nomenclature-equivalent,high,,"DL Specification Book v.11/14/23 p.1: FDB = Full Height Door Base (2 door, 0 drawers, 1 shelf, 27 x 34-1/2 x 24); master B27FH is the 27"" Full Height 2-door door base (master description sheet 2026-10-26 (repo xlsx)). Same type, door count and width. NOTE Tom's brief called FDB 'full-drawer bases'; the spec book says Full Height DOOR Base"
 W1536,W1536,exact,high,"330013, 330014, 390001",normalized code equals master
 WDC243012,WDC2430,dimension-equivalent,high,,diagonal corner wall 24x{h}x12
-WO FS4812,,none,,,no master/alias found
+WO FS4812,,accessory-report,,,floating shelf (not in spec book): Not in the spec book; WN/WO presumably wood finishes. Floating shelf masters FS30/FS36/FS42/FS48 exist but size and finish are unconfirmed. Ask Rich

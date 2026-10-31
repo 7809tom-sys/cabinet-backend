@@ -1,0 +1,325 @@
+masterCode,field,value,source,note
+FDB09,width_in,09,DL Price List P5 (v1_13_26) row FDB09,
+FDB09,height_in,34.5,DL Price List P5 (v1_13_26) row FDB09,
+FDB09,depth_in,24,DL Price List P5 (v1_13_26) row FDB09,
+FDB09,doors,NULL,not found,not in any source: left NULL
+FDB09,drawers,NULL,not found,not in any source: left NULL
+FDB09,shelves,NULL,not found,not in any source: left NULL
+FDB09,door_sizes,NULL,not found,not in the spec book or price list
+FDB09,drawer_sizes,NULL,not found,not in the spec book or price list
+FDB09,construction,NULL,not found,not in the spec book or price list
+FDB09,materials,NULL,not found,not in the spec book or price list
+FDB09,hardware,NULL,not found,not in the spec book or price list
+FDB09,finish,NULL,not found,not in the spec book or price list
+FDB09,package_length,NULL,not found,"not in the spec book or price list; weight/cube rule: DL-written first, then master, then similar SKU/research (not implemented, held for Tom)"
+FDB09,package_width,NULL,not found,"not in the spec book or price list; weight/cube rule: DL-written first, then master, then similar SKU/research (not implemented, held for Tom)"
+FDB09,package_height,NULL,not found,"not in the spec book or price list; weight/cube rule: DL-written first, then master, then similar SKU/research (not implemented, held for Tom)"
+FDB09,package_weight_lb,NULL,not found,"not in the spec book or price list; weight/cube rule: DL-written first, then master, then similar SKU/research (not implemented, held for Tom)"
+FDB09,photo,NULL,none,"photo source order: master/reference image first (none exists for a new master), then DL's spec book image; not extracted or uploaded"
+FDB09,category/subCategory/placement,Base / Full Height / base,classification (mine),"FDB family maps to B##FH but the master catalog has nothing below B12FH, and FDB09 is not in the spec book (smallest FDB listed is FDB18); size is from the price list only"
+W2118,width_in,21.0,DL Specification Book v.11/14/23 p.6,
+W2118,height_in,18.0,DL Specification Book v.11/14/23 p.6,
+W2118,depth_in,12.0,DL Specification Book v.11/14/23 p.6,
+W2118,doors,1,DL Specification Book v.11/14/23 p.6,
+W2118,drawers,NULL,not found,not in any source: left NULL
+W2118,shelves,0,DL Specification Book v.11/14/23 p.6,
+W2118,door_sizes,NULL,not found,not in the spec book or price list
+W2118,drawer_sizes,NULL,not found,not in the spec book or price list
+W2118,construction,NULL,not found,not in the spec book or price list
+W2118,materials,NULL,not found,not in the spec book or price list
+W2118,hardware,NULL,not found,not in the spec book or price list
+W2118,finish,NULL,not found,not in the spec book or price list
+W2118,package_length,NULL,not found,"not in the spec book or price list; weight/cube rule: DL-written first, then master, then similar SKU/research (not implemented, held for Tom)"
+W2118,package_width,NULL,not found,"not in the spec book or price list; weight/cube rule: DL-written first, then master, then similar SKU/research (not implemented, held for Tom)"
+W2118,package_height,NULL,not found,"not in the spec book or price list; weight/cube rule: DL-written first, then master, then similar SKU/research (not implemented, held for Tom)"
+W2118,package_weight_lb,NULL,not found,"not in the spec book or price list; weight/cube rule: DL-written first, then master, then similar SKU/research (not implemented, held for Tom)"
+W2118,photo,NULL,none,"photo source order: master/reference image first (none exists for a new master), then DL's spec book image; not extracted or uploaded"
+W2118,category/subCategory/placement,Wall / Wall Cabinet / wall,classification (mine),no W2118 master (only the glass W2118GD)
+W2412,width_in,24.0,DL Specification Book v.11/14/23 p.6,
+W2412,height_in,12.0,DL Specification Book v.11/14/23 p.6,
+W2412,depth_in,12.0,DL Specification Book v.11/14/23 p.6,
+W2412,doors,2,DL Specification Book v.11/14/23 p.6,
+W2412,drawers,NULL,not found,not in any source: left NULL
+W2412,shelves,0,DL Specification Book v.11/14/23 p.6,
+W2412,door_sizes,NULL,not found,not in the spec book or price list
+W2412,drawer_sizes,NULL,not found,not in the spec book or price list
+W2412,construction,NULL,not found,not in the spec book or price list
+W2412,materials,NULL,not found,not in the spec book or price list
+W2412,hardware,NULL,not found,not in the spec book or price list
+W2412,finish,NULL,not found,not in the spec book or price list
+W2412,package_length,NULL,not found,"not in the spec book or price list; weight/cube rule: DL-written first, then master, then similar SKU/research (not implemented, held for Tom)"
+W2412,package_width,NULL,not found,"not in the spec book or price list; weight/cube rule: DL-written first, then master, then similar SKU/research (not implemented, held for Tom)"
+W2412,package_height,NULL,not found,"not in the spec book or price list; weight/cube rule: DL-written first, then master, then similar SKU/research (not implemented, held for Tom)"
+W2412,package_weight_lb,NULL,not found,"not in the spec book or price list; weight/cube rule: DL-written first, then master, then similar SKU/research (not implemented, held for Tom)"
+W2412,photo,NULL,none,"photo source order: master/reference image first (none exists for a new master), then DL's spec book image; not extracted or uploaded"
+W2412,category/subCategory/placement,Wall / Wall Bridge Cabinet / wall,classification (mine),no W2412 master (only the glass W2412GD)
+W2415,width_in,24.0,DL Specification Book v.11/14/23 p.6,
+W2415,height_in,15.0,DL Specification Book v.11/14/23 p.6,
+W2415,depth_in,12.0,DL Specification Book v.11/14/23 p.6,
+W2415,doors,2,DL Specification Book v.11/14/23 p.6,
+W2415,drawers,NULL,not found,not in any source: left NULL
+W2415,shelves,0,DL Specification Book v.11/14/23 p.6,
+W2415,door_sizes,NULL,not found,not in the spec book or price list
+W2415,drawer_sizes,NULL,not found,not in the spec book or price list
+W2415,construction,NULL,not found,not in the spec book or price list
+W2415,materials,NULL,not found,not in the spec book or price list
+W2415,hardware,NULL,not found,not in the spec book or price list
+W2415,finish,NULL,not found,not in the spec book or price list
+W2415,package_length,NULL,not found,"not in the spec book or price list; weight/cube rule: DL-written first, then master, then similar SKU/research (not implemented, held for Tom)"
+W2415,package_width,NULL,not found,"not in the spec book or price list; weight/cube rule: DL-written first, then master, then similar SKU/research (not implemented, held for Tom)"
+W2415,package_height,NULL,not found,"not in the spec book or price list; weight/cube rule: DL-written first, then master, then similar SKU/research (not implemented, held for Tom)"
+W2415,package_weight_lb,NULL,not found,"not in the spec book or price list; weight/cube rule: DL-written first, then master, then similar SKU/research (not implemented, held for Tom)"
+W2415,photo,NULL,none,"photo source order: master/reference image first (none exists for a new master), then DL's spec book image; not extracted or uploaded"
+W2415,category/subCategory/placement,Wall / Wall Bridge Cabinet / wall,classification (mine),no W2415 master (only the glass W2415GD)
+W2424,width_in,24.0,DL Specification Book v.11/14/23 p.6,
+W2424,height_in,24.0,DL Specification Book v.11/14/23 p.6,
+W2424,depth_in,12.0,DL Specification Book v.11/14/23 p.6,
+W2424,doors,2,DL Specification Book v.11/14/23 p.6,
+W2424,drawers,NULL,not found,not in any source: left NULL
+W2424,shelves,1,DL Specification Book v.11/14/23 p.6,
+W2424,door_sizes,NULL,not found,not in the spec book or price list
+W2424,drawer_sizes,NULL,not found,not in the spec book or price list
+W2424,construction,NULL,not found,not in the spec book or price list
+W2424,materials,NULL,not found,not in the spec book or price list
+W2424,hardware,NULL,not found,not in the spec book or price list
+W2424,finish,NULL,not found,not in the spec book or price list
+W2424,package_length,NULL,not found,"not in the spec book or price list; weight/cube rule: DL-written first, then master, then similar SKU/research (not implemented, held for Tom)"
+W2424,package_width,NULL,not found,"not in the spec book or price list; weight/cube rule: DL-written first, then master, then similar SKU/research (not implemented, held for Tom)"
+W2424,package_height,NULL,not found,"not in the spec book or price list; weight/cube rule: DL-written first, then master, then similar SKU/research (not implemented, held for Tom)"
+W2424,package_weight_lb,NULL,not found,"not in the spec book or price list; weight/cube rule: DL-written first, then master, then similar SKU/research (not implemented, held for Tom)"
+W2424,photo,NULL,none,"photo source order: master/reference image first (none exists for a new master), then DL's spec book image; not extracted or uploaded"
+W2424,category/subCategory/placement,Wall / Wall Bridge Cabinet / wall,classification (mine),no 24x24 wall master (bridge masters start at 30W)
+W2718,width_in,27.0,DL Specification Book v.11/14/23 p.6,
+W2718,height_in,18.0,DL Specification Book v.11/14/23 p.6,
+W2718,depth_in,12.0,DL Specification Book v.11/14/23 p.6,
+W2718,doors,2,DL Specification Book v.11/14/23 p.6,
+W2718,drawers,NULL,not found,not in any source: left NULL
+W2718,shelves,0,DL Specification Book v.11/14/23 p.6,
+W2718,door_sizes,NULL,not found,not in the spec book or price list
+W2718,drawer_sizes,NULL,not found,not in the spec book or price list
+W2718,construction,NULL,not found,not in the spec book or price list
+W2718,materials,NULL,not found,not in the spec book or price list
+W2718,hardware,NULL,not found,not in the spec book or price list
+W2718,finish,NULL,not found,not in the spec book or price list
+W2718,package_length,NULL,not found,"not in the spec book or price list; weight/cube rule: DL-written first, then master, then similar SKU/research (not implemented, held for Tom)"
+W2718,package_width,NULL,not found,"not in the spec book or price list; weight/cube rule: DL-written first, then master, then similar SKU/research (not implemented, held for Tom)"
+W2718,package_height,NULL,not found,"not in the spec book or price list; weight/cube rule: DL-written first, then master, then similar SKU/research (not implemented, held for Tom)"
+W2718,package_weight_lb,NULL,not found,"not in the spec book or price list; weight/cube rule: DL-written first, then master, then similar SKU/research (not implemented, held for Tom)"
+W2718,photo,NULL,none,"photo source order: master/reference image first (none exists for a new master), then DL's spec book image; not extracted or uploaded"
+W2718,category/subCategory/placement,Wall / Wall Bridge Cabinet / wall,classification (mine),no W2718 master (only the glass W2718GD)
+WDC241812,width_in,24.0,DL Specification Book v.11/14/23 p.6,
+WDC241812,height_in,18.0,DL Specification Book v.11/14/23 p.6,
+WDC241812,depth_in,12.0,DL Specification Book v.11/14/23 p.6,
+WDC241812,doors,1,DL Specification Book v.11/14/23 p.6,
+WDC241812,drawers,NULL,not found,not in any source: left NULL
+WDC241812,shelves,0,DL Specification Book v.11/14/23 p.6,
+WDC241812,door_sizes,NULL,not found,not in the spec book or price list
+WDC241812,drawer_sizes,NULL,not found,not in the spec book or price list
+WDC241812,construction,NULL,not found,not in the spec book or price list
+WDC241812,materials,NULL,not found,not in the spec book or price list
+WDC241812,hardware,NULL,not found,not in the spec book or price list
+WDC241812,finish,NULL,not found,not in the spec book or price list
+WDC241812,package_length,NULL,not found,"not in the spec book or price list; weight/cube rule: DL-written first, then master, then similar SKU/research (not implemented, held for Tom)"
+WDC241812,package_width,NULL,not found,"not in the spec book or price list; weight/cube rule: DL-written first, then master, then similar SKU/research (not implemented, held for Tom)"
+WDC241812,package_height,NULL,not found,"not in the spec book or price list; weight/cube rule: DL-written first, then master, then similar SKU/research (not implemented, held for Tom)"
+WDC241812,package_weight_lb,NULL,not found,"not in the spec book or price list; weight/cube rule: DL-written first, then master, then similar SKU/research (not implemented, held for Tom)"
+WDC241812,photo,NULL,none,"photo source order: master/reference image first (none exists for a new master), then DL's spec book image; not extracted or uploaded"
+WDC241812,category/subCategory/placement,Wall / Diagonal Corner Cabinet / wall,classification (mine),diagonal corner wall masters exist only at 30/36/42 high
+BBC33-9,width_in,33.0,DL Specification Book v.11/14/23 p.3,
+BBC33-9,height_in,34.5,DL Specification Book v.11/14/23 p.3,
+BBC33-9,depth_in,24.0,DL Specification Book v.11/14/23 p.3,
+BBC33-9,doors,1,DL Specification Book v.11/14/23 p.3,
+BBC33-9,drawers,1,DL Specification Book v.11/14/23 p.3,
+BBC33-9,shelves,1,DL Specification Book v.11/14/23 p.3,
+BBC33-9,door_sizes,NULL,not found,not in the spec book or price list
+BBC33-9,drawer_sizes,NULL,not found,not in the spec book or price list
+BBC33-9,construction,NULL,not found,not in the spec book or price list
+BBC33-9,materials,NULL,not found,not in the spec book or price list
+BBC33-9,hardware,NULL,not found,not in the spec book or price list
+BBC33-9,finish,NULL,not found,not in the spec book or price list
+BBC33-9,package_length,NULL,not found,"not in the spec book or price list; weight/cube rule: DL-written first, then master, then similar SKU/research (not implemented, held for Tom)"
+BBC33-9,package_width,NULL,not found,"not in the spec book or price list; weight/cube rule: DL-written first, then master, then similar SKU/research (not implemented, held for Tom)"
+BBC33-9,package_height,NULL,not found,"not in the spec book or price list; weight/cube rule: DL-written first, then master, then similar SKU/research (not implemented, held for Tom)"
+BBC33-9,package_weight_lb,NULL,not found,"not in the spec book or price list; weight/cube rule: DL-written first, then master, then similar SKU/research (not implemented, held for Tom)"
+BBC33-9,photo,NULL,none,"photo source order: master/reference image first (none exists for a new master), then DL's spec book image; not extracted or uploaded"
+BBC33-9,category/subCategory/placement,Base / Blind Corner Base / base,classification (mine),blind corner base masters start at BBC36; none at 33
+2DB33,width_in,33.0,DL Specification Book v.11/14/23 p.2,
+2DB33,height_in,34.5,DL Specification Book v.11/14/23 p.2,
+2DB33,depth_in,24.0,DL Specification Book v.11/14/23 p.2,
+2DB33,doors,0,DL Specification Book v.11/14/23 p.2,
+2DB33,drawers,2,DL Specification Book v.11/14/23 p.2,
+2DB33,shelves,0,DL Specification Book v.11/14/23 p.2,
+2DB33,door_sizes,NULL,not found,not in the spec book or price list
+2DB33,drawer_sizes,NULL,not found,not in the spec book or price list
+2DB33,construction,NULL,not found,not in the spec book or price list
+2DB33,materials,NULL,not found,not in the spec book or price list
+2DB33,hardware,NULL,not found,not in the spec book or price list
+2DB33,finish,NULL,not found,not in the spec book or price list
+2DB33,package_length,NULL,not found,"not in the spec book or price list; weight/cube rule: DL-written first, then master, then similar SKU/research (not implemented, held for Tom)"
+2DB33,package_width,NULL,not found,"not in the spec book or price list; weight/cube rule: DL-written first, then master, then similar SKU/research (not implemented, held for Tom)"
+2DB33,package_height,NULL,not found,"not in the spec book or price list; weight/cube rule: DL-written first, then master, then similar SKU/research (not implemented, held for Tom)"
+2DB33,package_weight_lb,NULL,not found,"not in the spec book or price list; weight/cube rule: DL-written first, then master, then similar SKU/research (not implemented, held for Tom)"
+2DB33,photo,NULL,none,"photo source order: master/reference image first (none exists for a new master), then DL's spec book image; not extracted or uploaded"
+2DB33,category/subCategory/placement,Base / Drawer Base / base,classification (mine),2-drawer base masters exist at 24/30/36 only
+BES09,width_in,9.0,DL Specification Book v.11/14/23 p.3,
+BES09,height_in,34.5,DL Specification Book v.11/14/23 p.3,
+BES09,depth_in,24.0,DL Specification Book v.11/14/23 p.3,
+BES09,doors,0,DL Specification Book v.11/14/23 p.3,
+BES09,drawers,0,DL Specification Book v.11/14/23 p.3,
+BES09,shelves,2,DL Specification Book v.11/14/23 p.3,
+BES09,door_sizes,NULL,not found,not in the spec book or price list
+BES09,drawer_sizes,NULL,not found,not in the spec book or price list
+BES09,construction,NULL,not found,not in the spec book or price list
+BES09,materials,NULL,not found,not in the spec book or price list
+BES09,hardware,NULL,not found,not in the spec book or price list
+BES09,finish,NULL,not found,not in the spec book or price list
+BES09,package_length,NULL,not found,"not in the spec book or price list; weight/cube rule: DL-written first, then master, then similar SKU/research (not implemented, held for Tom)"
+BES09,package_width,NULL,not found,"not in the spec book or price list; weight/cube rule: DL-written first, then master, then similar SKU/research (not implemented, held for Tom)"
+BES09,package_height,NULL,not found,"not in the spec book or price list; weight/cube rule: DL-written first, then master, then similar SKU/research (not implemented, held for Tom)"
+BES09,package_weight_lb,NULL,not found,"not in the spec book or price list; weight/cube rule: DL-written first, then master, then similar SKU/research (not implemented, held for Tom)"
+BES09,photo,NULL,none,"photo source order: master/reference image first (none exists for a new master), then DL's spec book image; not extracted or uploaded"
+BES09,category/subCategory/placement,Base / Base End Cabinet / base,classification (mine),"only BES12 (12in, 5 shelves, curved) exists; DL BES09 is 9in with 2 shelves"
+SP09,width_in,9.0,DL Specification Book v.11/14/23 p.3,
+SP09,height_in,34.5,DL Specification Book v.11/14/23 p.3,
+SP09,depth_in,24.0,DL Specification Book v.11/14/23 p.3,
+SP09,doors,0,DL Specification Book v.11/14/23 p.3,
+SP09,drawers,1,DL Specification Book v.11/14/23 p.3,
+SP09,shelves,3,DL Specification Book v.11/14/23 p.3,
+SP09,door_sizes,NULL,not found,not in the spec book or price list
+SP09,drawer_sizes,NULL,not found,not in the spec book or price list
+SP09,construction,NULL,not found,not in the spec book or price list
+SP09,materials,NULL,not found,not in the spec book or price list
+SP09,hardware,NULL,not found,not in the spec book or price list
+SP09,finish,NULL,not found,not in the spec book or price list
+SP09,package_length,NULL,not found,"not in the spec book or price list; weight/cube rule: DL-written first, then master, then similar SKU/research (not implemented, held for Tom)"
+SP09,package_width,NULL,not found,"not in the spec book or price list; weight/cube rule: DL-written first, then master, then similar SKU/research (not implemented, held for Tom)"
+SP09,package_height,NULL,not found,"not in the spec book or price list; weight/cube rule: DL-written first, then master, then similar SKU/research (not implemented, held for Tom)"
+SP09,package_weight_lb,NULL,not found,"not in the spec book or price list; weight/cube rule: DL-written first, then master, then similar SKU/research (not implemented, held for Tom)"
+SP09,photo,NULL,none,"photo source order: master/reference image first (none exists for a new master), then DL's spec book image; not extracted or uploaded"
+SP09,category/subCategory/placement,Base / Spice Base / base,classification (mine),"SPB9 (SK, '9in Spice Base / Pull-Out') is a possible duplicate, but its door/drawer/shelf counts are not in the master description, so construction cannot be confirmed. REVIEW for duplicate before publishing"
+CL156012,width_in,15.0,DL Specification Book v.11/14/23 p.10,
+CL156012,height_in,60.0,DL Specification Book v.11/14/23 p.10,
+CL156012,depth_in,12.0,DL Specification Book v.11/14/23 p.10,
+CL156012,doors,1,DL Specification Book v.11/14/23 p.10,
+CL156012,drawers,2,DL Specification Book v.11/14/23 p.10,
+CL156012,shelves,3,DL Specification Book v.11/14/23 p.10,
+CL156012,door_sizes,NULL,not found,not in the spec book or price list
+CL156012,drawer_sizes,NULL,not found,not in the spec book or price list
+CL156012,construction,NULL,not found,not in the spec book or price list
+CL156012,materials,NULL,not found,not in the spec book or price list
+CL156012,hardware,NULL,not found,not in the spec book or price list
+CL156012,finish,NULL,not found,not in the spec book or price list
+CL156012,package_length,NULL,not found,"not in the spec book or price list; weight/cube rule: DL-written first, then master, then similar SKU/research (not implemented, held for Tom)"
+CL156012,package_width,NULL,not found,"not in the spec book or price list; weight/cube rule: DL-written first, then master, then similar SKU/research (not implemented, held for Tom)"
+CL156012,package_height,NULL,not found,"not in the spec book or price list; weight/cube rule: DL-written first, then master, then similar SKU/research (not implemented, held for Tom)"
+CL156012,package_weight_lb,NULL,not found,"not in the spec book or price list; weight/cube rule: DL-written first, then master, then similar SKU/research (not implemented, held for Tom)"
+CL156012,photo,NULL,none,"photo source order: master/reference image first (none exists for a new master), then DL's spec book image; not extracted or uploaded"
+CL156012,category/subCategory/placement,Tall / Counter Linen Cabinet / tall,classification (mine),no linen cabinet master. Category 'Tall' is my classification (60in high)
+DSK2421,width_in,24.0,DL Specification Book v.11/14/23 p.17,
+DSK2421,height_in,7.5,DL Specification Book v.11/14/23 p.17,
+DSK2421,depth_in,21.0,DL Specification Book v.11/14/23 p.17,
+DSK2421,doors,NULL,not found,not in any source: left NULL
+DSK2421,drawers,NULL,not found,not in any source: left NULL
+DSK2421,shelves,NULL,not found,not in any source: left NULL
+DSK2421,door_sizes,NULL,not found,not in the spec book or price list
+DSK2421,drawer_sizes,NULL,not found,not in the spec book or price list
+DSK2421,construction,NULL,not found,not in the spec book or price list
+DSK2421,materials,NULL,not found,not in the spec book or price list
+DSK2421,hardware,NULL,not found,not in the spec book or price list
+DSK2421,finish,NULL,not found,not in the spec book or price list
+DSK2421,package_length,NULL,not found,"not in the spec book or price list; weight/cube rule: DL-written first, then master, then similar SKU/research (not implemented, held for Tom)"
+DSK2421,package_width,NULL,not found,"not in the spec book or price list; weight/cube rule: DL-written first, then master, then similar SKU/research (not implemented, held for Tom)"
+DSK2421,package_height,NULL,not found,"not in the spec book or price list; weight/cube rule: DL-written first, then master, then similar SKU/research (not implemented, held for Tom)"
+DSK2421,package_weight_lb,NULL,not found,"not in the spec book or price list; weight/cube rule: DL-written first, then master, then similar SKU/research (not implemented, held for Tom)"
+DSK2421,photo,NULL,none,"photo source order: master/reference image first (none exists for a new master), then DL's spec book image; not extracted or uploaded"
+DSK2421,category/subCategory/placement,Base / Knee Drawer / base,classification (mine),"knee drawer masters differ in size (DKD30 30x5-1/4, VKD36 36x7); none at 24 x 7-1/2 x 21"
+DSK3021,width_in,30.0,DL Specification Book v.11/14/23 p.17,
+DSK3021,height_in,7.5,DL Specification Book v.11/14/23 p.17,
+DSK3021,depth_in,21.0,DL Specification Book v.11/14/23 p.17,
+DSK3021,doors,NULL,not found,not in any source: left NULL
+DSK3021,drawers,NULL,not found,not in any source: left NULL
+DSK3021,shelves,NULL,not found,not in any source: left NULL
+DSK3021,door_sizes,NULL,not found,not in the spec book or price list
+DSK3021,drawer_sizes,NULL,not found,not in the spec book or price list
+DSK3021,construction,NULL,not found,not in the spec book or price list
+DSK3021,materials,NULL,not found,not in the spec book or price list
+DSK3021,hardware,NULL,not found,not in the spec book or price list
+DSK3021,finish,NULL,not found,not in the spec book or price list
+DSK3021,package_length,NULL,not found,"not in the spec book or price list; weight/cube rule: DL-written first, then master, then similar SKU/research (not implemented, held for Tom)"
+DSK3021,package_width,NULL,not found,"not in the spec book or price list; weight/cube rule: DL-written first, then master, then similar SKU/research (not implemented, held for Tom)"
+DSK3021,package_height,NULL,not found,"not in the spec book or price list; weight/cube rule: DL-written first, then master, then similar SKU/research (not implemented, held for Tom)"
+DSK3021,package_weight_lb,NULL,not found,"not in the spec book or price list; weight/cube rule: DL-written first, then master, then similar SKU/research (not implemented, held for Tom)"
+DSK3021,photo,NULL,none,"photo source order: master/reference image first (none exists for a new master), then DL's spec book image; not extracted or uploaded"
+DSK3021,category/subCategory/placement,Base / Knee Drawer / base,classification (mine),DKD30 is 30 x 5-1/4 x 21 (height differs); none at 30 x 7-1/2 x 21
+WEOS0930,width_in,9.0,DL Specification Book v.11/14/23 p.7,
+WEOS0930,height_in,30.0,DL Specification Book v.11/14/23 p.7,
+WEOS0930,depth_in,12.0,DL Specification Book v.11/14/23 p.7,
+WEOS0930,doors,0,DL Specification Book v.11/14/23 p.7,
+WEOS0930,drawers,NULL,not found,not in any source: left NULL
+WEOS0930,shelves,2,DL Specification Book v.11/14/23 p.7,
+WEOS0930,door_sizes,NULL,not found,not in the spec book or price list
+WEOS0930,drawer_sizes,NULL,not found,not in the spec book or price list
+WEOS0930,construction,NULL,not found,not in the spec book or price list
+WEOS0930,materials,NULL,not found,not in the spec book or price list
+WEOS0930,hardware,NULL,not found,not in the spec book or price list
+WEOS0930,finish,NULL,not found,not in the spec book or price list
+WEOS0930,package_length,NULL,not found,"not in the spec book or price list; weight/cube rule: DL-written first, then master, then similar SKU/research (not implemented, held for Tom)"
+WEOS0930,package_width,NULL,not found,"not in the spec book or price list; weight/cube rule: DL-written first, then master, then similar SKU/research (not implemented, held for Tom)"
+WEOS0930,package_height,NULL,not found,"not in the spec book or price list; weight/cube rule: DL-written first, then master, then similar SKU/research (not implemented, held for Tom)"
+WEOS0930,package_weight_lb,NULL,not found,"not in the spec book or price list; weight/cube rule: DL-written first, then master, then similar SKU/research (not implemented, held for Tom)"
+WEOS0930,photo,NULL,none,"photo source order: master/reference image first (none exists for a new master), then DL's spec book image; not extracted or uploaded"
+WEOS0930,category/subCategory/placement,Wall / Open Shelf / wall,classification (mine),open end shelf masters are 6in wide (OE630/636/642); DL is 9in
+WEOS0936,width_in,9.0,DL Specification Book v.11/14/23 p.7,
+WEOS0936,height_in,36.0,DL Specification Book v.11/14/23 p.7,
+WEOS0936,depth_in,12.0,DL Specification Book v.11/14/23 p.7,
+WEOS0936,doors,0,DL Specification Book v.11/14/23 p.7,
+WEOS0936,drawers,NULL,not found,not in any source: left NULL
+WEOS0936,shelves,2,DL Specification Book v.11/14/23 p.7,
+WEOS0936,door_sizes,NULL,not found,not in the spec book or price list
+WEOS0936,drawer_sizes,NULL,not found,not in the spec book or price list
+WEOS0936,construction,NULL,not found,not in the spec book or price list
+WEOS0936,materials,NULL,not found,not in the spec book or price list
+WEOS0936,hardware,NULL,not found,not in the spec book or price list
+WEOS0936,finish,NULL,not found,not in the spec book or price list
+WEOS0936,package_length,NULL,not found,"not in the spec book or price list; weight/cube rule: DL-written first, then master, then similar SKU/research (not implemented, held for Tom)"
+WEOS0936,package_width,NULL,not found,"not in the spec book or price list; weight/cube rule: DL-written first, then master, then similar SKU/research (not implemented, held for Tom)"
+WEOS0936,package_height,NULL,not found,"not in the spec book or price list; weight/cube rule: DL-written first, then master, then similar SKU/research (not implemented, held for Tom)"
+WEOS0936,package_weight_lb,NULL,not found,"not in the spec book or price list; weight/cube rule: DL-written first, then master, then similar SKU/research (not implemented, held for Tom)"
+WEOS0936,photo,NULL,none,"photo source order: master/reference image first (none exists for a new master), then DL's spec book image; not extracted or uploaded"
+WEOS0936,category/subCategory/placement,Wall / Open Shelf / wall,classification (mine),open end shelf masters are 6in wide (OE630/636/642); DL is 9in
+WEOS0942,width_in,9.0,DL Specification Book v.11/14/23 p.7,
+WEOS0942,height_in,42.0,DL Specification Book v.11/14/23 p.7,
+WEOS0942,depth_in,12.0,DL Specification Book v.11/14/23 p.7,
+WEOS0942,doors,0,DL Specification Book v.11/14/23 p.7,
+WEOS0942,drawers,NULL,not found,not in any source: left NULL
+WEOS0942,shelves,3,DL Specification Book v.11/14/23 p.7,
+WEOS0942,door_sizes,NULL,not found,not in the spec book or price list
+WEOS0942,drawer_sizes,NULL,not found,not in the spec book or price list
+WEOS0942,construction,NULL,not found,not in the spec book or price list
+WEOS0942,materials,NULL,not found,not in the spec book or price list
+WEOS0942,hardware,NULL,not found,not in the spec book or price list
+WEOS0942,finish,NULL,not found,not in the spec book or price list
+WEOS0942,package_length,NULL,not found,"not in the spec book or price list; weight/cube rule: DL-written first, then master, then similar SKU/research (not implemented, held for Tom)"
+WEOS0942,package_width,NULL,not found,"not in the spec book or price list; weight/cube rule: DL-written first, then master, then similar SKU/research (not implemented, held for Tom)"
+WEOS0942,package_height,NULL,not found,"not in the spec book or price list; weight/cube rule: DL-written first, then master, then similar SKU/research (not implemented, held for Tom)"
+WEOS0942,package_weight_lb,NULL,not found,"not in the spec book or price list; weight/cube rule: DL-written first, then master, then similar SKU/research (not implemented, held for Tom)"
+WEOS0942,photo,NULL,none,"photo source order: master/reference image first (none exists for a new master), then DL's spec book image; not extracted or uploaded"
+WEOS0942,category/subCategory/placement,Wall / Open Shelf / wall,classification (mine),open end shelf masters are 6in wide (OE630/636/642); DL is 9in
+RH36,width_in,36.0,DL Specification Book v.11/14/23 p.7,
+RH36,height_in,36.0,DL Specification Book v.11/14/23 p.7,
+RH36,depth_in,24.0,DL Specification Book v.11/14/23 p.7,
+RH36,doors,0,DL Specification Book v.11/14/23 p.7,
+RH36,drawers,NULL,not found,not in any source: left NULL
+RH36,shelves,0,DL Specification Book v.11/14/23 p.7,
+RH36,door_sizes,NULL,not found,not in the spec book or price list
+RH36,drawer_sizes,NULL,not found,not in the spec book or price list
+RH36,construction,NULL,not found,not in the spec book or price list
+RH36,materials,NULL,not found,not in the spec book or price list
+RH36,hardware,NULL,not found,not in the spec book or price list
+RH36,finish,NULL,not found,not in the spec book or price list
+RH36,package_length,NULL,not found,"not in the spec book or price list; weight/cube rule: DL-written first, then master, then similar SKU/research (not implemented, held for Tom)"
+RH36,package_width,NULL,not found,"not in the spec book or price list; weight/cube rule: DL-written first, then master, then similar SKU/research (not implemented, held for Tom)"
+RH36,package_height,NULL,not found,"not in the spec book or price list; weight/cube rule: DL-written first, then master, then similar SKU/research (not implemented, held for Tom)"
+RH36,package_weight_lb,NULL,not found,"not in the spec book or price list; weight/cube rule: DL-written first, then master, then similar SKU/research (not implemented, held for Tom)"
+RH36,photo,NULL,none,"photo source order: master/reference image first (none exists for a new master), then DL's spec book image; not extracted or uploaded"
+RH36,category/subCategory/placement,Wall / Range Hood Cover / wall,classification (mine),RHF36 (CS) is only a 'Range Hood Front' with no dimensions; DL RH36 is a 36 x 36 x 24 cover box

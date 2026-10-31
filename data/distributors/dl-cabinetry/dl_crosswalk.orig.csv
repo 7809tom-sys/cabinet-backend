@@ -1,0 +1,201 @@
+dlSku,masterCode,matchType,confidence,onSiteStyles,note
+"9"" DRAWER SLIDES",,none,,,no master/alias found
+FDB30,,none,,,"FDB type unconfirmed (possibly full-door base, B##FH?) - ask Rich"
+W1542,W1542,exact,high,"330013, 330014, 390001",normalized code equals master
+WDC243612,WDC2436,dimension-equivalent,high,,diagonal corner wall 24x{h}x12
+"12"" DRAWER SLIDES",,none,,,no master/alias found
+FDB33,,none,,,"FDB type unconfirmed (possibly full-door base, B##FH?) - ask Rich"
+W1818,,none,,,no master/alias found
+WDC244212,WDC2442,dimension-equivalent,high,,diagonal corner wall 24x{h}x12
+"15"" DRAWER SLIDES",,none,,,no master/alias found
+FDB36,,none,,,"FDB type unconfirmed (possibly full-door base, B##FH?) - ask Rich"
+W1830,W1830,exact,high,"330013, 330014, 390001",normalized code equals master
+WDCG243012,,none,,,no master/alias found
+"18"" DRAWER SLIDES",,none,,,no master/alias found
+FILLER 3X96,WF396,dimension-equivalent,medium,,3x96 filler
+W1836,W1836,exact,high,"330013, 330014, 390001",normalized code equals master
+WDCG243612,,none,,,no master/alias found
+"21"" DRAWER SLIDES",,none,,,no master/alias found
+FILLER 6X96,,none,,,no master/alias found
+W1842,W1842,exact,high,"330013, 330014, 390001",normalized code equals master
+WDCG244212,,none,,,no master/alias found
+2DB30,2DB30,exact,high,"330014, 390001",normalized code equals master
+FLAT PANEL 28X96,,none,,,no master/alias found
+W2118,,none,,,no master/alias found
+WDD30,,none,,,no master/alias found
+2DB33,,none,,,no 2DB33 master
+FSB36,FSB36,exact,high,"330013, 330014, 390001",normalized code equals master
+W2130,W2130,exact,high,"330013, 330014, 390001",normalized code equals master
+WDD36,,none,,,no master/alias found
+2DB36,2DB36,exact,high,"330014, 390001",normalized code equals master
+GH30,,none,,,no master/alias found
+W2136,W2136,exact,high,"330013, 330014, 390001",normalized code equals master
+WDD42,,none,,,no master/alias found
+ACM2.5,,none,,,no master/alias found
+ICM8,,none,,,no master/alias found
+W2142,W2142,exact,high,"330013, 330014, 390001",normalized code equals master
+WEOS0930,,none,,,no master/alias found
+ANGLEMOLDING,,none,,,no master/alias found
+LZS33,LSB33,dimension-equivalent,medium,"330013, 330014",lazy susan 33; LSB33/LS3312 same item per Tom (alias recs)
+W2412,,none,,,no master/alias found
+WEOS0936,,none,,,no master/alias found
+B12,B12,exact,high,"330013, 330014, 390001",normalized code equals master
+LZS3612,LS3612,dimension-equivalent,medium,,lazy susan 36
+W2415,,none,,,no master/alias found
+WEOS0942,,none,,,no master/alias found
+B15,B15,exact,high,"330013, 330014, 390001",normalized code equals master
+OVD338427,O338424,dimension-equivalent,medium,"330013, 330014, 390001",oven cabinet; DL depth digits 27 vs master 24 - confirm
+W2418,W2418,exact,high,390001,normalized code equals master
+WF3 30,,none,,,no master/alias found
+B18,B18,exact,high,"330013, 330014, 390001",normalized code equals master
+OVD339027,O339024,dimension-equivalent,medium,,oven cabinet; DL depth digits 27 vs master 24 - confirm
+W2424,,none,,,no master/alias found
+WF3 36,,none,,,no master/alias found
+B21,B21,exact,high,"330013, 330014, 390001",normalized code equals master
+OVD339627,O339624,dimension-equivalent,medium,"330013, 330014, 390001",oven cabinet; DL depth digits 27 vs master 24 - confirm
+W2430,W2430,exact,high,"330013, 330014, 390001",normalized code equals master
+WF3 42,WF342,exact,high,,normalized code equals master
+B24,B24,exact,high,"330013, 330014, 390001",normalized code equals master
+PAINT,,none,,,no master/alias found
+W2436,W2436,exact,high,"330013, 330014, 390001",normalized code equals master
+WF6 42,WF642,exact,high,,normalized code equals master
+B27,B27,exact,high,"330013, 330014, 390001",normalized code equals master
+QUARTER DOOR,,none,,,no master/alias found
+W2442,W2442,exact,high,"330013, 330014, 390001",normalized code equals master
+WG1230,,none,,,glass door insert/door - no master
+B30,B30,exact,high,"330013, 330014, 390001",normalized code equals master
+RH36,,none,,,no master/alias found
+W2718,,none,,,no master/alias found
+WG1236,,none,,,glass door insert/door - no master
+B33,B33,exact,high,"330013, 330014, 390001",normalized code equals master
+RRP27(1.5),,none,,,no master/alias found
+W2730,W2730,exact,high,"330013, 330014, 390001",normalized code equals master
+WG1242,,none,,,glass door insert/door - no master
+B36,B36,exact,high,"330013, 330014, 390001",normalized code equals master
+SAMPLE DOOR,Sample Door,exact,high,"330013, 330014",normalized code equals master
+W2736,W2736,exact,high,"330013, 330014, 390001",normalized code equals master
+WG1530,,none,,,glass door insert/door - no master
+B39,B39,exact,high,"330013, 330014",normalized code equals master
+SB30,SB30,exact,high,390001,normalized code equals master
+W2742,W2742,exact,high,"330013, 330014, 390001",normalized code equals master
+WG1536,,none,,,glass door insert/door - no master
+B42,B42,exact,high,"330013, 330014, 390001",normalized code equals master
+SB36,SB36,exact,high,"330013, 330014, 390001",normalized code equals master
+W3012,W3012,exact,high,"330013, 330014, 390001",normalized code equals master
+WG1542,,none,,,glass door insert/door - no master
+BASEMOLDING,,none,,,no master/alias found
+SCRIBEMOLDING,,none,,,no master/alias found
+W3015,W3015,exact,high,"330013, 330014, 390001",normalized code equals master
+WG1830,,none,,,glass door insert/door - no master
+BBC33-9,,none,,,no BBC33 master (BBC36+ only)
+SHOEMOLDING,,none,,,no master/alias found
+W3018,W3018,exact,high,"330013, 330014, 390001",normalized code equals master
+WG1836,,none,,,glass door insert/door - no master
+BDD24,,none,,,no master/alias found
+SIDE PANEL 36X96,,none,,,no master/alias found
+W3024,W3024,exact,high,"330013, 330014, 390001",normalized code equals master
+WG1842,,none,,,glass door insert/door - no master
+BES09,,none,,,no master/alias found
+SKIN PANEL 36X96,,none,,,no master/alias found
+W3030,W3030,exact,high,"330013, 330014, 390001",normalized code equals master
+WMC3018,,none,,,no master/alias found
+BF3,BF3,exact,high,,normalized code equals master
+SP09,,none,,,no master/alias found
+W3036,W3036,exact,high,"330013, 330014, 390001",normalized code equals master
+WP188427,U188424,dimension-equivalent,medium,"330013, 330014, 390001",DL WP=pantry; DL code depth 27 vs master 24 - confirm DL actual depth
+BF6,BF6,exact,high,330013,normalized code equals master
+SP2436,,none,,,no master/alias found
+W3042,W3042,exact,high,"330013, 330014, 390001",normalized code equals master
+WP189027,U189024,dimension-equivalent,medium,"330013, 330014, 390001",DL WP=pantry; DL code depth 27 vs master 24 - confirm DL actual depth
+BMC30,BMC30,exact,high,,normalized code equals master
+TK8,TK8(TKC),alias,high,"330013, 330014, 390001",Alias map: ACTIVE alias
+W3312,W3312,exact,high,"330013, 390001",normalized code equals master
+WP189627,U189624,dimension-equivalent,medium,"330013, 330014, 390001",DL WP=pantry; DL code depth 27 vs master 24 - confirm DL actual depth
+BWBKT18,BWB18,dimension-equivalent,low,390001,wastebasket base vs kit - confirm
+TLR8,,none,,,no master/alias found
+W3315,W3315,exact,high,"330013, 390001",normalized code equals master
+WP248427,U248424,dimension-equivalent,medium,"330013, 330014, 390001",DL WP=pantry; DL code depth 27 vs master 24 - confirm DL actual depth
+CCM8,,none,,,no master/alias found
+TOUCHUP KIT,,none,,,no master/alias found
+W3318,W3318,exact,high,"330013, 390001",normalized code equals master
+WP249027,U249024,dimension-equivalent,medium,"330013, 330014, 390001",DL WP=pantry; DL code depth 27 vs master 24 - confirm DL actual depth
+CL156012,,none,,,no master/alias found
+VAN24,V2421,dimension-equivalent,medium,,"vanity sink base; assumes 21"" depth"
+W3324,W3324,exact,high,"330013, 390001",normalized code equals master
+WP249627,U249624,dimension-equivalent,medium,"330013, 330014, 390001",DL WP=pantry; DL code depth 27 vs master 24 - confirm DL actual depth
+CORBEL 8X12,,none,,,no master/alias found
+VAN30,V3021,dimension-equivalent,medium,,"vanity sink base; assumes 21"" depth"
+W3330,W3330,exact,high,"330013, 330014, 390001",normalized code equals master
+WP308427,U308424,dimension-equivalent,medium,"330014, 390001",DL WP=pantry; DL code depth 27 vs master 24 - confirm DL actual depth
+DB12,3DB12,alias,high,"330013, 330014, 390001",Alias map: PARSE RULE (DB+width = 3-drawer)
+VAN36DL,V3621DL,dimension-equivalent,medium,"330013, 330014, 390001","vanity w/ drawers left/right; assumes 21"" depth"
+W3336,W3336,exact,high,"330013, 330014, 390001",normalized code equals master
+WP309027,U309024,dimension-equivalent,medium,"330014, 390001",DL WP=pantry; DL code depth 27 vs master 24 - confirm DL actual depth
+DB15,3DB15,alias,high,"330013, 330014, 390001",Alias map: PARSE RULE (DB+width = 3-drawer)
+VAN36DR,V3621DR,dimension-equivalent,medium,"330013, 330014, 390001","vanity w/ drawers left/right; assumes 21"" depth"
+W3342,W3342,exact,high,"330013, 330014, 390001",normalized code equals master
+WP309627,U309624,dimension-equivalent,medium,"330014, 390001",DL WP=pantry; DL code depth 27 vs master 24 - confirm DL actual depth
+DB18,3DB18,alias,high,"330013, 330014, 390001",Alias map: PARSE RULE (DB+width = 3-drawer)
+VAN48D-6,,none,,,"no matching 48"" vanity master confirmed"
+W3612,W3612,exact,high,"330013, 330014, 390001",normalized code equals master
+WRC3018,WRC3018,exact,high,390001,normalized code equals master
+DB21,3DB21,alias,high,"330013, 330014, 390001",Alias map: PARSE RULE (DB+width = 3-drawer)
+VDB12,VDB1221(3VDB12),dimension-equivalent,medium,,"vanity 3-drawer base; assumes 21"" depth"
+W361227,W361224,dimension-equivalent,medium,"330013, 330014, 390001","24""-deep refrigerator wall; DL depth digits 27 vs master 24 - confirm"
+"PULLOUT TRAY 18""",,none,,,no master/alias found
+DB24,3DB24,alias,high,"330013, 330014, 390001",Alias map: PARSE RULE (DB+width = 3-drawer)
+VDB15,VDB1521(3VDB15),dimension-equivalent,medium,,"vanity 3-drawer base; assumes 21"" depth"
+W3615,W3615,exact,high,"330013, 330014, 390001",normalized code equals master
+"PULLOUT TRAY 24""",,none,,,no master/alias found
+DB27,3DB27,alias,high,"330014, 390001",Alias map: PARSE RULE
+VDB18,VDB1821(3VDB18),dimension-equivalent,medium,,"vanity 3-drawer base; assumes 21"" depth"
+W361527,W361524,dimension-equivalent,medium,"330013, 330014, 390001","24""-deep refrigerator wall; DL depth digits 27 vs master 24 - confirm"
+"PULLOUT TRAY 30""",,none,,,no master/alias found
+DB30,3DB30,alias,high,"330013, 330014, 390001",Alias map: PARSE RULE (DB+width = 3-drawer)
+VDB24,VDB2421,dimension-equivalent,medium,,"vanity drawer base; assumes 21"" depth"
+W3618,W3618,exact,high,"330013, 330014, 390001",normalized code equals master
+"PULLOUT TRAY 36""",,none,,,no master/alias found
+DB33,3DB33,alias,high,"330014, 390001",Alias map: PARSE RULE
+VSB36,VS36,dimension-equivalent,medium,"330013, 330014, 390001",vanity sink base
+W361827,W361824,dimension-equivalent,medium,"330013, 330014, 390001","24""-deep refrigerator wall; DL depth digits 27 vs master 24 - confirm"
+PULLOUT TRAY BWBKT15,,none,,,no master/alias found
+DB36,3DB36,alias,high,"330013, 330014, 390001",Alias map: PARSE RULE (DB+width = 3-drawer)
+W0930,W0930,exact,high,"330013, 330014, 390001",normalized code equals master
+W3624,W3624,exact,high,"330013, 330014, 390001",normalized code equals master
+PULLOUT TRAY BWBKT18,,none,,,no master/alias found
+DLS 4X4X36,,none,,,no master/alias found
+W0936,W0936,exact,high,"330013, 330014, 390001",normalized code equals master
+W362427,W362424,dimension-equivalent,medium,"330013, 330014, 390001","24""-deep refrigerator wall; DL depth digits 27 vs master 24 - confirm"
+PULLOUT TRAY BWBKT21,,none,,,no master/alias found
+DSK2421,,none,,,no master/alias found
+W0942,W0942,exact,high,"330013, 330014, 390001",normalized code equals master
+W3630,W3630,exact,high,"330013, 330014, 390001",normalized code equals master
+SAMPLE DOOR PACK (2025),,none,,,no master/alias found
+DSK3021,,none,,,no master/alias found
+W1218,,none,,,no master/alias found
+W3636,W3636,exact,high,"330013, 330014, 390001",normalized code equals master
+TRASH CAN,,none,,,no master/alias found
+DWP3,,none,,,no master/alias found
+W1230,W1230,exact,high,"330013, 330014, 390001",normalized code equals master
+W3642,W3642,exact,high,"330013, 330014, 390001",normalized code equals master
+WN FS3012,,none,,,no master/alias found
+FDB09,,none,,,"FDB type unconfirmed (possibly full-door base, B##FH?) - ask Rich"
+W1236,W1236,exact,high,"330013, 330014, 390001",normalized code equals master
+WBC2730,WBC2730,exact,high,"330013, 330014, 390001",normalized code equals master
+WN FS3612,,none,,,no master/alias found
+FDB18,,none,,,"FDB type unconfirmed (possibly full-door base, B##FH?) - ask Rich"
+W1242,W1242,exact,high,"330013, 330014, 390001",normalized code equals master
+WBC2736,WBC2736,exact,high,"330013, 330014, 390001",normalized code equals master
+WN FS4812,,none,,,no master/alias found
+FDB21,,none,,,"FDB type unconfirmed (possibly full-door base, B##FH?) - ask Rich"
+W1518,,none,,,no master/alias found
+WBC2742,WBC2742,exact,high,"330013, 330014, 390001",normalized code equals master
+WO FS3012,,none,,,no master/alias found
+FDB24,,none,,,"FDB type unconfirmed (possibly full-door base, B##FH?) - ask Rich"
+W1530,W-15-30,exact,high,"330013, 330014, 390001",normalized code equals master
+WDC241812,,none,,,no master/alias found
+WO FS3612,,none,,,no master/alias found
+FDB27,,none,,,"FDB type unconfirmed (possibly full-door base, B##FH?) - ask Rich"
+W1536,W1536,exact,high,"330013, 330014, 390001",normalized code equals master
+WDC243012,WDC2430,dimension-equivalent,high,,diagonal corner wall 24x{h}x12
+WO FS4812,,none,,,no master/alias found
