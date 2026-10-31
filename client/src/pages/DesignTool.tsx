@@ -47,6 +47,8 @@ import { useDesignerImmersive, useTabletWorkspace } from "@/hooks/useTabletWorks
 import { usePersistFn } from "@/hooks/usePersistFn";
 import { trpc } from "@/lib/trpc";
 import { AdminPreviewBadge } from "@/components/design/AdminPreviewBadge";
+import CabinetConflictNotice from "@/components/design/CabinetConflictNotice";
+import { addConflictNotice, shouldShowCabinetConflictNotice } from "@/lib/cabinetConflictNotice";
 import {
   affiliateSlugForStoreScope,
   cartPathForStoreScope,
@@ -772,6 +774,10 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     /** Cabinet whose resolved color/finish should be copied onto this filler. */
     finishSourceUid: string;
   } | null>(null);
+  // Admin-only Cabinet Conflict notices, one per master code, dismissible and non-blocking.
+  const [conflictNotices, setConflictNotices] = useState<string[]>([]);
+  const conflictNoticeUserRef = useRef(user);
+  conflictNoticeUserRef.current = user;
   const [blindCornerPullPrompt, setBlindCornerPullPrompt] = useState<{
     cabinet: DesignCabinet;
     x?: number;
@@ -6049,6 +6055,10 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         });
         setMobilePanel(null);
         return;
+      }
+      // Published items in Cabinet Conflict stay usable; admins get a notice.
+      if (shouldShowCabinetConflictNotice(conflictNoticeUserRef.current as { role?: string | null } | null, c)) {
+        setConflictNotices((current) => addConflictNotice(current, c.masterCode));
       }
       // Debounce guard: block re-entry within 500 ms to prevent double-placement
       // caused by mobile touch events firing both touchend and click.
@@ -13236,6 +13246,13 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 
   return (
     <div className="flex flex-col h-full min-h-0">
+      {isAdmin && conflictNotices.length > 0 && (
+        <div className="pointer-events-none fixed bottom-4 right-4 z-50 flex flex-col gap-2">
+          {conflictNotices.map((code) => (
+            <CabinetConflictNotice key={code} masterCode={code} onDismiss={() => setConflictNotices((current) => current.filter((c) => c !== code))} />
+          ))}
+        </div>
+      )}
       {towerDialog && <MasterTracTowerPlanner
         key={towerDialog.editGroupId ?? "new"}
         initialConfig={towerDialog.config}

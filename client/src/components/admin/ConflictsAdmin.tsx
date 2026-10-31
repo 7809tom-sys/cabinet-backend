@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -307,6 +307,12 @@ function EditConflictDialog({
 export default function ConflictsAdmin() {
   const utils = trpc.useUtils();
   const { data, isLoading, error, refetch } = trpc.cabinets.conflicts.useQuery();
+  // Deep link from the Designer notice: /admin?tab=conflicts&item=<masterCode>
+  const focusCode = new URLSearchParams(typeof window === "undefined" ? "" : window.location.search).get("item");
+  useEffect(() => {
+    if (!focusCode) return;
+    document.getElementById(`conflict-item-${focusCode}`)?.scrollIntoView({ block: "center" });
+  }, [focusCode, (data as unknown[] | undefined)?.length]);
   const [editing, setEditing] = useState<ConflictItem | null>(null);
   const clear = trpc.cabinets.clearConflict.useMutation({
     onSuccess: (_result, vars) => {
@@ -363,7 +369,7 @@ export default function ConflictsAdmin() {
       ) : (
         <div className="grid gap-3">
           {items.map((c) => (
-            <Card key={c.id}>
+            <Card key={c.id} id={`conflict-item-${c.masterCode}`} className={focusCode === c.masterCode ? "ring-2 ring-amber-500" : undefined}>
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between gap-3">
                   <CardTitle className="text-base font-mono">{c.masterCode}</CardTitle>
