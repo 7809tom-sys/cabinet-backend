@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { skuVisibleToViewer } from "../lib/distributorPreview";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { eq, and, inArray, desc, like, sql, or, isNull, ne, gt } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
@@ -325,12 +326,7 @@ export const designRouter = router({
       // publication flag and never broadens any public catalog procedure.
       const skuConditions = [
         eq(distributorSkus.isAvailable, true),
-        adminAefPreview
-          ? or(
-              eq(distributorSkus.isPublished, true),
-              and(eq(distributorSkus.isPublished, false), eq(distributors.code, "AEF")),
-            )
-          : eq(distributorSkus.isPublished, true),
+        skuVisibleToViewer(adminAefPreview),
         sql`(COALESCE(${distributorSkus.listPrice}, 0) > 0 OR COALESCE(${distributorSkus.yourCost}, 0) > 0)`,
       ];
       if (input?.distributorId) {
@@ -982,12 +978,7 @@ export const designRouter = router({
         inArray(distributorSkus.cabinetId, input.cabinetIds),
         eq(distributorSkus.styleId, input.styleId),
         eq(distributorSkus.isAvailable, true),
-        adminAefPreview
-          ? or(
-              eq(distributorSkus.isPublished, true),
-              and(eq(distributorSkus.isPublished, false), eq(distributors.code, "AEF")),
-            )
-          : eq(distributorSkus.isPublished, true),
+        skuVisibleToViewer(adminAefPreview),
       ];
       // distributorId is optional now — door-style-first pricing resolves the
       // supply line internally. When omitted we take the cheapest contractor
@@ -1198,12 +1189,7 @@ export const designRouter = router({
         inArray(distributorSkus.cabinetId, candidateCabinetIds),
         inArray(distributorSkus.styleId, styleIds),
         eq(distributorSkus.isAvailable, true),
-        adminAefPreview
-          ? or(
-              eq(distributorSkus.isPublished, true),
-              and(eq(distributorSkus.isPublished, false), eq(distributors.code, "AEF")),
-            )
-          : eq(distributorSkus.isPublished, true),
+        skuVisibleToViewer(adminAefPreview),
       ];
       if (input.distributorId) {
         conditions.push(eq(distributorSkus.distributorId, input.distributorId));

@@ -1569,6 +1569,13 @@
       "when": 1794600000000,
       "tag": "0225_crm_email_log_distributor",
       "breakpoints": true
+    },
+    {
+      "idx": 225,
+      "version": "5",
+      "when": 1794700000000,
+      "tag": "0226_distributor_go_live_acceptance",
+      "breakpoints": true
     }
   ]
 }

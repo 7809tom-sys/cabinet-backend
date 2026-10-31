@@ -3,6 +3,7 @@ import { and, eq, inArray, or, sql } from "drizzle-orm";
 import * as XLSX from "xlsx";
 import { TRPCError } from "@trpc/server";
 import { adminProcedure, router } from "../_core/trpc";
+import { buildGoLiveTerms, GO_LIVE_TERMS_VERSION } from "../lib/distributorPreview";
 import { getDb } from "../db";
 import { distributors, cabinets, cabinetAliases, cabinetDistributorEligibility, distributorSkus, doorStyles, categoryAliases, shippingSettings } from "../../drizzle/schema";
 import {
@@ -149,6 +150,32 @@ async function buildStyleMap(
     if (s.distributorName) map.set(s.distributorName.toUpperCase(), entry);
   }
   return map;
+}
+
+async function loadGoLiveTerms(db: NonNullable<Awaited<ReturnType<typeof getDb>>>, distributorId: number) {
+  const [row] = await db.select().from(distributors).where(eq(distributors.id, distributorId)).limit(1);
+  if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Supplier not found." });
+  const [skuCount] = await db
+    .select({ n: sql<number>`COUNT(*)` })
+    .from(distributorSkus)
+    .where(and(eq(distributorSkus.distributorId, distributorId), eq(distributorSkus.isPublished, false), eq(distributorSkus.status, "pending")));
+  const [styleCount] = await db.select({ n: sql<number>`COUNT(*)` }).from(doorStyles).where(eq(doorStyles.distributorId, distributorId));
+  return {
+    ...buildGoLiveTerms({
+      code: row.code,
+      name: row.brandName?.trim() || row.name,
+      costMultiplier: row.costMultiplier,
+      baseMultiplier: row.baseMultiplier,
+      freightMultiplier: row.freightMultiplier,
+      retailPriceBasis: row.retailPriceBasis,
+      shippingRuleMode: row.shippingRuleMode,
+      warehouseZips: row.warehouseZips,
+      leadTimeDays: row.leadTimeDays,
+      pendingSkuCount: Number(skuCount?.n ?? 0),
+      doorStyleCount: Number(styleCount?.n ?? 0),
+    }),
+    isActive: row.isActive,
+  };
 }
 
 export const distributorImportRouter = router({
@@ -443,6 +470,9 @@ export const distributorImportRouter = router({
         pickupZip: distributors.pickupZip,
         pickupAddress: distributors.pickupAddress,
         pickupRadiusMiles: distributors.pickupRadiusMiles,
+        goLiveAcceptedAt: distributors.goLiveAcceptedAt,
+        goLiveAcceptedByUserId: distributors.goLiveAcceptedByUserId,
+        goLiveTermsVersion: distributors.goLiveTermsVersion,
       })
       .from(distributors)
       .orderBy(distributors.name);
@@ -656,8 +686,10 @@ export const distributorImportRouter = router({
     }),
 
   /**
-   * Toggle a cabinet line on or off. When isActive = false the line's SKUs are
-   * hidden from the storefront and the design tool; flip back to true to restore.
+   * Take a cabinet line offline, or bring a line that has already been through Go live back online.
+   * When isActive = false the line's SKUs are hidden from the storefront and the design tool for
+   * everyone except admins (admin preview). A supplier that has never been through Go live cannot be
+   * switched on here; it must go live through `goLive`, which records the terms acceptance.
    */
   setActive: adminProcedure
     .input(
@@ -669,11 +701,79 @@ export const distributorImportRouter = router({
     .mutation(async ({ input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "No database" });
+      if (input.isActive) {
+        const [row] = await db
+          .select({ isActive: distributors.isActive, goLiveAcceptedAt: distributors.goLiveAcceptedAt })
+          .from(distributors)
+          .where(eq(distributors.id, input.distributorId))
+          .limit(1);
+        if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Supplier not found." });
+        if (!row.isActive && !row.goLiveAcceptedAt) {
+          throw new TRPCError({
+            code: "PRECONDITION_FAILED",
+            message: "This supplier has not gone live yet. Use Go live so the supplier terms are accepted and its SKUs are published together.",
+          });
+        }
+      }
       await db
         .update(distributors)
         .set({ isActive: input.isActive })
         .where(eq(distributors.id, input.distributorId));
       return { id: input.distributorId, isActive: input.isActive };
+    }),
+
+  /** The terms an admin must accept to take a supplier live, built from its saved configuration. */
+  goLiveSummary: adminProcedure
+    .input(z.object({ distributorId: z.number().int().positive() }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "No database" });
+      return loadGoLiveTerms(db, input.distributorId);
+    }),
+
+  /**
+   * One-click Go live for ANY distributor: requires the terms checkbox, then in one transaction sets
+   * isActive = true, publishes the supplier's pending SKUs, activates its door styles, and records who
+   * accepted the terms, when, and exactly what was shown.
+   */
+  goLive: adminProcedure
+    .input(
+      z.object({
+        distributorId: z.number().int().positive(),
+        acceptedTerms: z.literal(true, { message: "Accept the supplier terms to go live." }),
+        termsVersion: z.string().min(1).max(32),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "No database" });
+      if (input.termsVersion !== GO_LIVE_TERMS_VERSION) {
+        throw new TRPCError({ code: "CONFLICT", message: "The terms changed. Reopen Go live and review them again." });
+      }
+      const terms = await loadGoLiveTerms(db, input.distributorId);
+      if (terms.isActive) throw new TRPCError({ code: "CONFLICT", message: "This supplier is already live." });
+      await db.transaction(async (tx) => {
+        await tx
+          .update(distributorSkus)
+          .set({ isPublished: true, status: "approved" })
+          .where(and(
+            eq(distributorSkus.distributorId, input.distributorId),
+            eq(distributorSkus.isPublished, false),
+            eq(distributorSkus.status, "pending"),
+          ));
+        await tx.update(doorStyles).set({ isActive: true }).where(eq(doorStyles.distributorId, input.distributorId));
+        await tx
+          .update(distributors)
+          .set({
+            isActive: true,
+            goLiveAcceptedByUserId: ctx.user.id,
+            goLiveAcceptedAt: new Date(),
+            goLiveTermsVersion: terms.version,
+            goLiveTermsSnapshot: { lines: terms.lines, warnings: terms.warnings, facts: terms.facts },
+          })
+          .where(eq(distributors.id, input.distributorId));
+      });
+      return { id: input.distributorId, isActive: true, publishedSkus: terms.facts.pendingSkuCount, activatedStyles: terms.facts.doorStyleCount };
     }),
 
   /** Door styles for a given distributor (used to map pricing rows to a style). */

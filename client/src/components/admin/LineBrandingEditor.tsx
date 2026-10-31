@@ -16,6 +16,8 @@ import { Spinner } from "@/components/ui/spinner";
 import { toast } from "sonner";
 import { Tag, Power } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
+import { GoLiveDialog } from "@/components/admin/GoLiveDialog";
+import { AdminPreviewBadge } from "@/components/design/AdminPreviewBadge";
 
 type DisplayMode = "neutral" | "branded" | "series";
 
@@ -41,6 +43,7 @@ export default function LineBrandingEditor() {
   const { data: dists, isLoading } = trpc.distributorAdmin.adminList.useQuery();
 
   const [selectedId, setSelectedId] = useState<string>("");
+  const [goLiveId, setGoLiveId] = useState<number | null>(null);
   const [mode, setMode] = useState<DisplayMode>("neutral");
   const [label, setLabel] = useState<string>("");
   const [initials, setInitials] = useState<string>("");
@@ -112,7 +115,7 @@ export default function LineBrandingEditor() {
           <div className="flex items-center gap-2 px-4 py-2 border-b bg-muted/30">
             <Power className="h-4 w-4 text-muted-foreground" />
             <span className="text-sm font-medium">Line status</span>
-            <span className="text-xs text-muted-foreground ml-1">— toggle a line off to hide all its SKUs from the storefront instantly</span>
+            <span className="text-xs text-muted-foreground ml-1">— toggle a line off to hide all its SKUs from the storefront instantly. A new offline line shows as admin preview until you Go live.</span>
           </div>
           {isLoading ? (
             <div className="flex items-center gap-2 text-sm text-muted-foreground px-4 py-3">
@@ -131,19 +134,34 @@ export default function LineBrandingEditor() {
                       <p className="text-xs text-muted-foreground">{d.code}</p>
                     </div>
                   </div>
-                  <Switch
-                    checked={d.isActive ?? true}
-                    disabled={setActive.isPending}
-                    onCheckedChange={(checked) =>
-                      setActive.mutate({ distributorId: d.id, isActive: checked })
-                    }
-                  />
+                  {!d.isActive && !d.goLiveAcceptedAt ? (
+                    <div className="flex items-center gap-2">
+                      <AdminPreviewBadge />
+                      <Button size="sm" data-testid={`go-live-${d.code}`} onClick={() => setGoLiveId(d.id)}>Go live</Button>
+                    </div>
+                  ) : (
+                    <Switch
+                      checked={d.isActive ?? true}
+                      disabled={setActive.isPending}
+                      onCheckedChange={(checked) =>
+                        setActive.mutate({ distributorId: d.id, isActive: checked })
+                      }
+                    />
+                  )}
                 </div>
               ))}
             </div>
           )}
         </div>
 
+        {goLiveId != null && (
+          <GoLiveDialog
+            distributorId={goLiveId}
+            label={(() => { const d = dists?.find((x) => x.id === goLiveId); return d ? currentPublicLabel(d) : "Supplier"; })()}
+            open
+            onOpenChange={(open) => { if (!open) setGoLiveId(null); }}
+          />
+        )}
         {isLoading ? (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Spinner className="h-4 w-4" /> Loading lines…
