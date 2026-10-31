@@ -192,6 +192,18 @@ export default function LineBrandingEditor() {
                     ({(selected.displayMode as string) ?? "neutral"})
                   </p>
                 )}
+                {selected && (
+                  <p className="text-xs text-muted-foreground" data-testid="distributor-website">
+                    Supplier website (read-only):{" "}
+                    {/^https?:\/\//i.test(selected.websiteUrl ?? "") ? (
+                      <a href={selected.websiteUrl ?? undefined} target="_blank" rel="noopener noreferrer" className="underline">
+                        {selected.websiteUrl}
+                      </a>
+                    ) : (
+                      "not set"
+                    )}
+                  </p>
+                )}
               </div>
 
               <div className="space-y-1.5">

@@ -487,6 +487,7 @@ export const distributorImportRouter = router({
         warehouseZips: distributors.warehouseZips,
         warehouseName: distributors.warehouseName,
         warehouseAddress: distributors.warehouseAddress,
+        websiteUrl: distributors.websiteUrl,
         shippingRuleMode: distributors.shippingRuleMode,
         shippingFlatFreightFeeCents: distributors.shippingFlatFreightFeeCents,
         shippingFreeFreightThresholdCents: distributors.shippingFreeFreightThresholdCents,
