@@ -12,7 +12,7 @@ describe("distributor import recalculates tier prices when it finishes", () => {
   it("importCommit recalculates before returning", () => {
     const b = body(dist, "importCommit: adminProcedure", "// ─── Quick-create helpers");
     expect(b).toContain("await recalculateStoredTierPrices()");
-    expect(b.indexOf("await recalculateStoredTierPrices()")).toBeLessThan(b.indexOf("return { created, updated, priced, skipped, recalculation }"));
+    expect(b.indexOf("await recalculateStoredTierPrices()")).toBeLessThan(b.indexOf("return { created, updated, priced, skipped, recalculation, designerEligibility }"));
   });
   it("importWithMapping recalculates on a real run only", () => {
     const b = body(dist, "importWithMapping: adminProcedure", "dryRun: input.dryRun ?? false,");
