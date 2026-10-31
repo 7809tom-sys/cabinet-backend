@@ -760,13 +760,14 @@ export const designRouter = router({
       //  - Clark & Sons 12" deep: W-(30|33|36)-(12|15|18|21|24)  e.g. W-36-12, W-36-18
       //  - Clark & Sons 24" deep: WR prefix (WR3315, WR3624 etc.) — always 24" deep
       //    Note: WRC% = wine rack wall cabinets — excluded
-      //  - Skyline 24" deep: 8-char W[WW][HH]24 e.g. W361224, W362424
-      //    (depth encoded as last 2 digits = 24; width 30/33/36; height 12/15/18/24)
+      //  - Skyline / USCD / AltaEuro 24" deep: W[WW][HH]24 e.g. W361224, W362424, W362324
+      //    (depth encoded as last 2 digits = 24; width 30/33/36; height 12/15/18/21/23/24)
+      //    Nominal 23 is the AltaEuro 22-5/8" refrigerator wall (W302324, W332324, W362324).
       //  - Skyline 12" deep: 4-char W[WW][HH] e.g. W3012, W3315, W3618, W3624
       //  - Skyline 12" deep glass-door: W[WW][HH]GD e.g. W3012GD, W3612GD (stacker, NOT over-fridge)
       //  - USCD 12" deep bridge: 4-char W[WW][HH] e.g. W3012, W3612 (same pattern as Skyline)
-      //  - USCD 24" deep fridge wall: 6-char W[WW][HH]24 e.g. W301224, W361824
-      //    (same pattern as Skyline 24" deep — already matched by the 8-char regex below)
+      //  - USCD / AltaEuro 24" deep fridge wall: W[WW][HH]24 e.g. W301224, W361824, W362324
+      //    (matched by the 24-deep regex below; height 23 is not added to the 4-digit wall pattern)
       const deepRows = await db
         .select(cols)
         .from(cabinets)
@@ -776,8 +777,10 @@ export const designRouter = router({
           sql`${cabinets.masterCode} REGEXP '^W-(30|33|36)-(12|15|18|21|24)$'`,
           // Clark & Sons 24" deep fridge cabs: WR prefix (not wine rack WRC)
           and(like(cabinets.masterCode, "WR%"), sql`${cabinets.masterCode} NOT LIKE 'WRC%'`),
-          // Skyline + USCD 24" deep: 6-8 char W[WW][HH]24 e.g. W361224, W362424, W301224
-          sql`${cabinets.masterCode} REGEXP '^W(30|33|36)(12|15|18|21|24)24$'`,
+          // 24" deep refrigerator walls, including AltaEuro 22-5/8" (nominal 23):
+          // W302324, W332324, W362324. Height 23 stays off the 4-digit pattern
+          // so the 13.5"-deep standard wall W3623 is not offered above a fridge.
+          sql`${cabinets.masterCode} REGEXP '^W(30|33|36)(12|15|18|21|23|24)24$'`,
           // Skyline + USCD 12" deep bridge: 4-char W[WW][HH] e.g. W3012, W3315, W3618, W3624
           sql`${cabinets.masterCode} REGEXP '^W(30|33|36)(12|15|18|24)$'`
         )));
