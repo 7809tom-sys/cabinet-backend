@@ -20,11 +20,11 @@ describe("DL unmatched masters SQL", () => {
   });
   it("creates masters hidden", () => {
     const inserts = code.match(/INSERT INTO cabinet_dealz\.cabinets/g) ?? [];
-    expect(inserts.length).toBe(17);
-    expect(code.match(/FALSE, FALSE, FALSE, FALSE, FALSE\n/g)?.length).toBe(17);
+    expect(inserts.length).toBe(20);
+    expect(code.match(/, FALSE, FALSE, FALSE, FALSE, (?:TRUE|FALSE), (?:NULL|'[^']*')\n/g)?.length).toBe(20);
   });
   it("guards every insert", () => {
-    expect((code.match(/NOT EXISTS/g) ?? []).length).toBeGreaterThanOrEqual(21);
+    expect((code.match(/NOT EXISTS/g) ?? []).length).toBeGreaterThanOrEqual(25);
   });
 });
 
@@ -44,23 +44,55 @@ describe("DL unmatched crosswalk", () => {
   });
 });
 
-describe("DL unmatched: Tom's decisions", () => {
+const codeOf = (x: string) => x.split("\n").filter((l) => !l.trim().startsWith("--")).join("\n");
+
+describe("DL unmatched: Tom's decisions (Oct 31)", () => {
   const xw = read("dl_crosswalk.csv");
   const sql = read("dl_unmatched_masters_tidb.sql");
-  it("maps glass doors to existing glass cabinets and leaves WG12xx unmapped", () => {
-    expect(xw).toMatch(/^WG1530,W1530GD,/m);
-    expect(xw).toMatch(/^WDCG243012,DCW2430GD,/m);
-    expect(xw).toMatch(/^WG1230,,accessory-report/m);
-    expect(sql).not.toMatch(/SELECT 'WG\d+', '[^']*', 'Glass/);
+  const rep = read("dl_unmatched_report.csv");
+  it("maps glass doors to existing glass cabinets, diagonal confirmed", () => {
+    expect(xw).toMatch(/^WG1530,W1530GD,nomenclature-equivalent,high,/m);
+    expect(xw).toMatch(/^WDCG243012,DCW2430GD,nomenclature-equivalent,high,.*Tom confirmed Oct 31/m);
   });
-  it("resolves SP09 and BWBKT18 as aliases of existing masters, no SP09 new master", () => {
+  it("prices glass as cabinet + door, never the door alone", () => {
+    expect(sql).toMatch(/SELECT 'WG1530' AS dlSku, 'W1530 \+ WG1530' AS distSku, 'W1530GD' AS masterCode, 123 AS listPrice \/\* W1530 88 \+ WG1530 35 \*\//);
+    expect(sql).toMatch(/'WG1530' AS dlSku, 'W1530 \+ WG1530' AS distSku, 'W1530GD' AS masterCode, 246 AS listPrice/);
+    expect(sql).not.toMatch(/'WG\d+' AS dlSku, '(WG\d+)' AS distSku/);
+    const g = read("dl_unmatched_glass_pricing.csv").trim().split("\n");
+    expect(g.length - 1).toBe(48);
+    for (const l of g.slice(1)) {
+      const c = l.split(",");
+      expect(Number(c[5]) + Number(c[6])).toBe(Number(c[7]));
+    }
+  });
+  it("creates hidden W12xxGD masters with WG alias", () => {
+    for (const c of ["W1230GD", "W1236GD", "W1242GD"]) {
+      expect(sql).toContain(`SELECT '${c}', `);
+    }
+    expect(sql).toMatch(/SELECT 'WG1230' AS alias, 'W1230GD' AS masterCode/);
+  });
+  it("aliases SP09, BWBKT18, 2DB33 onto existing masters with no new master", () => {
     expect(xw).toMatch(/^SP09,SPB9,alias,high,/m);
     expect(xw).toMatch(/^BWBKT18,BWB18,alias,high,/m);
-    expect(sql).not.toMatch(/INSERT INTO cabinet_dealz\.cabinets[^;]*'SP09'/);
-    expect(sql).toMatch(/SELECT 'SP09' AS alias, 'SPB9' AS masterCode/);
+    expect(xw).toMatch(/^2DB33,B33,alias,high,.*Tom confirmed Oct 31, common B33/m);
+    for (const c of ["SP09", "2DB33", "BWBKT18"]) expect(sql).not.toContain(`SELECT '${c}', `);
+    expect(sql).toMatch(/SELECT '2DB33' AS alias, 'B33' AS masterCode/);
   });
-  it("keeps the open questions excluded", () => {
-    for (const c of ["QUARTER DOOR", "SP2436"]) expect(xw).toMatch(new RegExp(`^${c},,skipped`, "m"));
-    expect(sql).not.toMatch(/QUARTER DOOR|SP2436|FLAT PANEL/);
+  it("RH36 is a hidden cabinet new master, not an RHF36 alias", () => {
+    expect(sql).toMatch(/SELECT 'RH36', .*FALSE, FALSE, FALSE, FALSE, FALSE, NULL\n/);
+    expect(xw).toMatch(/^RH36,RH36,new-master,/m);
+  });
+  it("SP2436 is report-only with the spec-book lookup, FLAT PANEL is a field-cut hidden panel", () => {
+    expect(xw).toMatch(/^SP2436,,accessory-report,.*NOT FOUND/m);
+    expect(codeOf(sql)).not.toMatch(/SP2436/);
+    expect(sql).toContain("Field cut — panel is cut to fit on site by installer.");
+    expect(sql).toMatch(/SELECT 'FLAT PANEL 28X96', .*FALSE, FALSE, FALSE, FALSE, TRUE, /);
+  });
+  it("QUARTER DOOR stays excluded and every report row has a source", () => {
+    expect(xw).toMatch(/^QUARTER DOOR,,skipped/m);
+    expect(codeOf(sql)).not.toMatch(/QUARTER DOOR/);
+    const rows = rep.trim().split("\n").slice(1);
+    expect(rows.length).toBe(90);
+    for (const l of rows) expect(l.trim().endsWith(",")).toBe(false);
   });
 });
