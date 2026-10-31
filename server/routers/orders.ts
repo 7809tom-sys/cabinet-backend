@@ -4,6 +4,7 @@ import { TRPCError } from "@trpc/server";
 import { publicProcedure, protectedProcedure, adminProcedure, router } from "../_core/trpc";
 import { ensureAffiliatePipelineDeal } from "../lib/crmPipelineAttach";
 import { resolvePresentation } from "../lib/presentation";
+import { assertNoPreviewSuppliers } from "../lib/distributorPreview";
 import { getDb, hasPositivePublishedCabinetPrice, notInConflict } from "../db";
 import {
   cabinets,
@@ -848,6 +849,11 @@ export const ordersRouter = router({
           tier: l.tier ?? input.tier,
           matched: l.matched,
         };
+      });
+      // Admin preview: nothing from an offline supplier can be ordered or quoted, by anyone (admins included).
+      await assertNoPreviewSuppliers(db, {
+        distributorIds: normalizedLines.map((line) => line.distributorId),
+        styleIds: [input.styleId, ...normalizedLines.map((line) => line.styleId)],
       });
       if (affiliatePricing) {
         const masterCodes = Array.from(new Set(
