@@ -1,7 +1,7 @@
 /**
  * Door rendering audit rules shared by the admin tRPC router.
  * Render versions are append-only. Accept, reject, and revert are events.
- * The current accepted render is the newest "accepted" or "reverted" event.
+ * The current accepted render is the newest "accepted" or "reverted" event, unless a later "revoked" event cleared it.
  */
 
 export const DOOR_RENDERING_AUDIT_STYLE_CAP = 40;
@@ -13,8 +13,16 @@ export type DoorRenderingAuditScope = (typeof DOOR_RENDERING_AUDIT_SCOPES)[numbe
 export const DOOR_RENDERING_SCORE_VERDICTS = ["flagged", "not_flagged", "no_baseline"] as const;
 export type DoorRenderingScoreVerdict = (typeof DOOR_RENDERING_SCORE_VERDICTS)[number];
 
-export const DOOR_RENDERING_DECISIONS = ["accepted", "rejected", "reverted"] as const;
+export const DOOR_RENDERING_DECISIONS = ["accepted", "rejected", "reverted", "revoked"] as const;
 export type DoorRenderingDecision = (typeof DOOR_RENDERING_DECISIONS)[number];
+
+/**
+ * Where an approval came from. There is one approval record per door style
+ * (the accepted version); the Designer, the audit and Featured Styles all read
+ * and write it, so this only labels who set it.
+ */
+export const DOOR_APPROVAL_SOURCES = ["audit", "designer", "featured"] as const;
+export type DoorApprovalSource = (typeof DOOR_APPROVAL_SOURCES)[number];
 
 export const DOOR_RENDERING_FLAG_STATUSES = [
   "none",
@@ -197,10 +205,11 @@ export function acceptedVersionIdForStyle(events: readonly DoorRenderingEventRef
   let winner: DoorRenderingEventRef | null = null;
   for (const event of events) {
     if (event.styleId !== styleId) continue;
-    if (event.action !== "accepted" && event.action !== "reverted") continue;
+    if (event.action !== "accepted" && event.action !== "reverted" && event.action !== "revoked") continue;
     if (!winner || event.id > winner.id) winner = event;
   }
-  return winner?.versionId ?? null;
+  // A revoke is the newest word: the style has no approval until one is made again.
+  return winner && winner.action !== "revoked" ? winner.versionId : null;
 }
 
 export function latestEventForVersion(
@@ -250,6 +259,13 @@ export function planVersionDecision(input: {
   }
   const previousAcceptedVersionId = acceptedVersionIdForStyle(input.events, version.styleId);
   const latestEvent = latestEventForVersion(input.events, version.id);
+
+  if (input.action === "revoked") {
+    if (previousAcceptedVersionId !== version.id) {
+      throw new DoorRenderingAuditError("Only the current approved render can be revoked.");
+    }
+    return { styleId: version.styleId, previousAcceptedVersionId, nextAcceptedVersionId: null };
+  }
 
   if (input.action === "rejected") {
     if (previousAcceptedVersionId === version.id) {

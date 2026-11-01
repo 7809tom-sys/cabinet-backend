@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  DOOR_APPROVAL_SOURCES,
   DOOR_RENDERING_AUDIT_STYLE_CAP,
+  acceptedVersionIdForStyle,
   DoorRenderingAuditError,
   liveFlagStatus,
   planVersionDecision,
@@ -182,5 +184,31 @@ describe("door rendering audit run selection", () => {
     ];
     const selected = selectStylesForRun({ styles, scope: "changed", renderingCommit: "aaa" });
     expect(selected.selected.map((row) => row.styleId)).toEqual([8, 3]);
+  });
+});
+
+describe("one shared door approval: revoke", () => {
+  const versions = [{ id: 1, styleId: 7, overall: 8 }, { id: 2, styleId: 7, overall: 9 }];
+  it("clears the approval and keeps every version", () => {
+    const events = [{ id: 1, styleId: 7, versionId: 1, action: "accepted" as const }];
+    expect(planVersionDecision({ versions, events, versionId: 1, action: "revoked" }))
+      .toEqual({ styleId: 7, previousAcceptedVersionId: 1, nextAcceptedVersionId: null });
+  });
+  it("only the current approved render can be revoked", () => {
+    const events = [{ id: 1, styleId: 7, versionId: 1, action: "accepted" as const }];
+    expect(() => planVersionDecision({ versions, events, versionId: 2, action: "revoked" })).toThrow(DoorRenderingAuditError);
+  });
+  it("a revoke is the newest word until a new approval, in any source", () => {
+    const events = [
+      { id: 1, styleId: 7, versionId: 1, action: "accepted" as const },
+      { id: 2, styleId: 7, versionId: 1, action: "revoked" as const },
+    ];
+    expect(acceptedVersionIdForStyle(events, 7)).toBeNull();
+    expect(acceptedVersionIdForStyle([...events, { id: 3, styleId: 7, versionId: 2, action: "accepted" as const }], 7)).toBe(2);
+  });
+  it("an approval made in the Designer is the approval the audit and Featured Styles read", () => {
+    const events = [{ id: 5, styleId: 7, versionId: 2, action: "accepted" as const }];
+    expect(acceptedVersionIdForStyle(events, 7)).toBe(2);
+    expect(DOOR_APPROVAL_SOURCES).toEqual(["audit", "designer", "featured"]);
   });
 });
