@@ -92,7 +92,16 @@ let _db: ReturnType<typeof drizzle> | null = null;
 export async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
     try {
-      const pool = createPool({ uri: process.env.DATABASE_URL });
+      const pool = createPool({
+        uri: process.env.DATABASE_URL,
+        // TiDB drops idle TCP sessions. Keepalive avoids a fresh handshake
+        // after a quiet period. The limit stays at mysql2's default of 10 so
+        // a deploy cannot open a connection storm.
+        enableKeepAlive: true,
+        keepAliveInitialDelay: 10_000,
+        connectionLimit: 10,
+        waitForConnections: true,
+      });
       installMysqlPoolFreeShippingGuard(pool);
       _db = drizzle(pool);
       await primeCabinetFreeShippingColumn(pool.promise());

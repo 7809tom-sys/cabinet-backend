@@ -3,6 +3,7 @@ import { initTRPC, TRPCError } from "@trpc/server";
 import superjson from "superjson";
 import type { TrpcContext } from "./context";
 import { loadLinkedCatalogLineIds } from "../lib/approvedVendorCatalog";
+import { invalidatePublicCatalogCache } from "../lib/publicCatalogCache";
 
 const t = initTRPC.context<TrpcContext>().create({
   transformer: superjson,
@@ -11,6 +12,17 @@ const t = initTRPC.context<TrpcContext>().create({
 export const router = t.router;
 export const mergeRouters = t.mergeRouters;
 export const publicProcedure = t.procedure;
+
+/**
+ * Catalog edits go through these procedures. Clearing the public catalog
+ * cache after a successful mutation makes the next shopper read see the
+ * write on this server without waiting for the TTL.
+ */
+export const clearPublicCatalogAfterMutation = t.middleware(async ({ type, next }) => {
+  const result = await next();
+  if (type === "mutation" && result.ok) invalidatePublicCatalogCache();
+  return result;
+});
 
 const requireUser = t.middleware(async opts => {
   const { ctx, next } = opts;
@@ -44,7 +56,7 @@ export const adminProcedure = t.procedure.use(
       },
     });
   }),
-);
+).use(clearPublicCatalogAfterMutation);
 
 // Distributor portal access: a user with role=distributor (scoped to their own
 // supply line) or an admin. The distributor's line id is exposed as
@@ -80,7 +92,7 @@ export const distributorProcedure = t.procedure.use(
       },
     });
   }),
-);
+).use(clearPublicCatalogAfterMutation);
 
 // Supplier profile access: every approved vendor contact is a distributor-role
 // account, but a newly approved supplier may not have a catalog/distributor line
@@ -114,7 +126,7 @@ export const supplierProfileProcedure = t.procedure.use(
       },
     });
   }),
-);
+).use(clearPublicCatalogAfterMutation);
 
 // Designer access: a user with role=designer or admin. Designers publish
 // availability and manage the consultations booked against their slots.

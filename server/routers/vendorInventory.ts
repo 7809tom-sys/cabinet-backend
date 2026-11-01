@@ -3,6 +3,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { adminProcedure, router, supplierProfileProcedure } from "../_core/trpc";
 import { getDb, getPricingSettings } from "../db";
+import { invalidatePublicCatalogCache } from "../lib/publicCatalogCache";
 import { notifyOwner } from "../_core/notification";
 import {
   cabinets,
@@ -558,5 +559,6 @@ export async function applyInventorySync(scope: VendorScope, rows: ParsedInvento
     await db.update(distributors).set({ inventoryLastSyncAt: new Date(), inventoryLastSyncSource: source }).where(eq(distributors.id, Number(scope.slice(5))));
   }
   await noteAdmin(db, scope, "inventory_sync", "Inventory API sync", `${classified.applicable.length} SKUs updated. ${classified.unknown.length} unknown SKUs were not created.`);
+  if (classified.applicable.length > 0) invalidatePublicCatalogCache();
   return classified;
 }

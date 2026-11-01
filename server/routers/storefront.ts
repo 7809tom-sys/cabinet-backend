@@ -2,6 +2,7 @@ import { z } from "zod";
 import { isWallWineRackCabinet } from "../../shared/wallWineRack";
 import { eq, and, sql, inArray, gte, lte, isNull, ne, or } from "drizzle-orm";
 import { publicProcedure, router } from "../_core/trpc";
+import { CATALOG_TAGS, servePublicCatalog } from "../lib/publicCatalogCache";
 import { getDb, notInConflict, getPricingSettings } from "../db";
 import { sellPriceForTier } from "@shared/margins";
 import { loadAffiliateStorefrontPricing } from "../lib/affiliateStorefrontPricing";
@@ -260,7 +261,14 @@ export const storefrontRouter = router({
         })
         .optional()
     )
-    .query(async ({ input }) => {
+    .query((opts) => servePublicCatalog({
+      procedure: "storefront.families",
+      ctx: opts.ctx,
+      input: opts.input ?? null,
+      tags: [CATALOG_TAGS.doorStyles, CATALOG_TAGS.cabinets],
+      fallback: [],
+      load: async () => {
+      const { input } = opts;
       const db = await getDb();
       if (!db) return [];
 
@@ -377,11 +385,18 @@ export const storefrontRouter = router({
         featuredDistributorIds,
         featuredStyleIds,
       );
-    }),
+      },
+    })),
 
   // The distinct door-style "types" (Shaker, Raised Panel, Slab, ...) available,
   // used as the top-level merchandising grouping on the storefront.
-  doorStyleTypes: publicProcedure.query(async () => {
+  doorStyleTypes: publicProcedure.query((opts) => servePublicCatalog({
+    procedure: "storefront.doorStyleTypes",
+    ctx: opts.ctx,
+    input: null,
+    tags: [CATALOG_TAGS.doorStyles],
+    fallback: [],
+    load: async () => {
     const db = await getDb();
     if (!db) return [];
     const rows = await db
@@ -396,7 +411,8 @@ export const storefrontRouter = router({
         )
       );
     return rows.map((r) => r.doorStyle).filter((v): v is string => Boolean(v));
-  }),
+    },
+  })),
 
   // Resolve one family by styleId (for re-hydrating a locked session).
   familyById: publicProcedure
