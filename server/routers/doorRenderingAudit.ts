@@ -10,7 +10,7 @@
  * Procedures (all adminProcedure):
  *   listStyles, startRun, runStatus, submitRender, rerunStyle,
  *   decideRender, revertToVersion, runHistory, styleVersions, abandonRun,
- *   approveDoor, revokeApproval, approvedDoors
+ *   approveDoor, approveRender, revokeApproval, approvedDoors
  *
  * One approval per door style: the accepted version. The audit's Accept, the
  * Designer's "Approve this door" and Featured Styles' "Approve" all write it
@@ -973,6 +973,25 @@ export const doorRenderingAuditRouter = router({
       }));
       const decision = await recordDecision(db, ctx.user.id, versionId, "accepted", optionalNote(input.note));
       return { ...decision, versionId, source: input.source, renderImageUrl, scores: scored.scores };
+    }),
+
+  /**
+   * The audit screen's Approve button. Same shared approval as approveDoor: it
+   * makes an existing scored version the approved render (an accept event).
+   */
+  approveRender: adminProcedure
+    .input(z.object({
+      versionId: z.number().int().positive(),
+      styleId: z.number().int().positive().optional(),
+      note: noteInput,
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = requireDb(await getDb());
+      const result = await recordDecision(db, ctx.user.id, input.versionId, "accepted", optionalNote(input.note));
+      if (input.styleId != null && input.styleId !== result.styleId) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "That render belongs to a different door style." });
+      }
+      return result;
     }),
 
   /** Withdraw the approval for one style. Every version and photo is kept. */
