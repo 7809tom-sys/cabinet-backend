@@ -48,6 +48,7 @@ import { changedLockableFields, HIDDEN_CONFLICT_STATUS, locksAfterResolve, omitI
 import { parsePriceAuditQuery } from "@shared/priceAuditLookup";
 import { filterStylesByAvailability } from "@shared/styleAvailability";
 import { groupRoomScenes } from "@shared/vendorRoomScenes";
+import { doorStyleOwnWarehouseZipWrite, withDoorStyleWarehouseCoverage } from "@shared/doorStyleWarehouseCoverage";
 import { resolveAffiliateAccess } from "../lib/affiliateAccess";
 import { canViewAffiliatePrivateCost } from "../lib/affiliatePrivateCost";
 import { normalizeCode } from "../../shared/cabinetCodeMatch";
@@ -522,6 +523,9 @@ export const doorStylesRouter = router({
         doorPanelType: doorStyles.doorPanelType,
         warehouseZip: doorStyles.warehouseZip,
         warehouseZips: doorStyles.warehouseZips,
+        // Vendor cabinet coverage, joined by door_styles.distributorId. Read-time
+        // only: an empty style list inherits this and is never copied onto the style.
+        distributorWarehouseZips: distributors.warehouseZips,
         shippingRate: doorStyles.shippingRate,
         flatFreightFeeCents: doorStyles.flatFreightFeeCents,
         doorSampleImageUrl: doorStyles.doorSampleImageUrl,
@@ -573,7 +577,7 @@ export const doorStylesRouter = router({
     }).from(doorStyleRoomSceneGenerations).where(inArray(doorStyleRoomSceneGenerations.styleId, ids));
     const jobsByStyle = new Map(jobs.map((job) => [job.styleId, job]));
     return rows.map((row) => ({
-      ...row,
+      ...withDoorStyleWarehouseCoverage(row),
       roomScenes: scenes.filter((scene) => scene.styleId === row.id),
       autoRoomScene: jobsByStyle.get(row.id) ?? null,
     }));
@@ -689,10 +693,8 @@ export const doorStylesRouter = router({
       if (fields.woodSpecies !== undefined) patch.woodSpecies = fields.woodSpecies?.trim() || null;
       if (fields.warehouseZip !== undefined) patch.warehouseZip = fields.warehouseZip?.trim() || null;
       if (fields.warehouseZips !== undefined) {
-        const normalizedOrigins = Array.from(new Set((fields.warehouseZips ?? []).map((zip) => zip.trim()).filter(Boolean)));
-        patch.warehouseZips = normalizedOrigins.length > 0 ? normalizedOrigins : null;
-        // Retain a primary legacy origin for existing integrations and saved data.
-        patch.warehouseZip = normalizedOrigins[0] ?? null;
+        // Empty stays null. Vendor coverage is inherited at read time and is never copied onto door_styles.
+        Object.assign(patch, doorStyleOwnWarehouseZipWrite(fields.warehouseZips));
       }
       if (fields.flatFreightFeeCents !== undefined) patch.flatFreightFeeCents = fields.flatFreightFeeCents;
       if (fields.doorSampleImageUrl !== undefined) patch.doorSampleImageUrl = fields.doorSampleImageUrl?.trim() || null;
