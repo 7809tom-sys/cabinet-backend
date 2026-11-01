@@ -8,6 +8,7 @@ import {
   timestamp,
   mysqlEnum,
   uniqueIndex,
+  index,
   json,
 } from "drizzle-orm/mysql-core";
 
@@ -64,7 +65,24 @@ export const pelicanProducts = mysqlTable("pelican_products", {
   // countertop overhang for this exact material. Null means not verified.
   unsupportedOverhangLimitIn: decimal("unsupportedOverhangLimitIn", { precision: 6, scale: 3 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-});
+}, (table) => ({
+  // Shopper category pages filter on these columns and then order by popularity.
+  // The SQL the owner runs is docs/sql/0243_public_catalog_lookup_indexes.tidb.sql.
+  categoryCatalogIdx: index("pelican_products_category_catalog_idx").on(
+    table.category,
+    table.isActive,
+    table.showInCatalog,
+    table.isPopular,
+    table.popularRank,
+  ),
+  categoryDesignerIdx: index("pelican_products_category_designer_idx").on(
+    table.category,
+    table.isActive,
+    table.showInDesigner,
+    table.isPopular,
+    table.popularRank,
+  ),
+}));
 
 export type PelicanProduct = typeof pelicanProducts.$inferSelect;
 export type InsertPelicanProduct = typeof pelicanProducts.$inferInsert;

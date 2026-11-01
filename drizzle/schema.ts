@@ -1189,6 +1189,12 @@ export const distributorSkus = mysqlTable("distributor_skus", {
   // Prevent duplicate SKU rows for the same cabinet+distributor+style combo.
   // Without this, re-importing a price list would create new rows instead of updating.
   uniqDistCabStyle: unique("dist_cab_style_uniq").on(t.distributorId, t.cabinetId, t.styleId),
+  // Public cabinet reads probe sellable rows by cabinet, and door-style lists
+  // probe them by style. The unique key above starts with distributorId, so it
+  // does not serve either lookup. Applied by hand in
+  // docs/sql/0243_public_catalog_lookup_indexes.tidb.sql.
+  cabinetSellableIdx: index("distributor_skus_cabinet_sellable_idx").on(t.cabinetId, t.isAvailable, t.isPublished),
+  styleSellableIdx: index("distributor_skus_style_sellable_idx").on(t.styleId, t.isAvailable, t.isPublished),
 }));
 
 export type DistributorSku = typeof distributorSkus.$inferSelect;

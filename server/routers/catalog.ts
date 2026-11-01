@@ -4,6 +4,7 @@ import { logCabinetConfigChanges, snapshotCabinetBeforeEdit } from "../lib/cabin
 import { eq, and, or, like, inArray, isNotNull, sql, desc, asc, ne, type SQL } from "drizzle-orm";
 import * as XLSX from "xlsx";
 import { publicProcedure, protectedProcedure, adminProcedure, router } from "../_core/trpc";
+import { CATALOG_TAGS, servePublicCatalog } from "../lib/publicCatalogCache";
 import { storagePut } from "../storage";
 import { TRPCError } from "@trpc/server";
 import { getDb, notInConflict, isCanonicalCabinetMaster, hasPositivePublishedCabinetPrice, getPricingSettings, updatePricingSettings, recalculateStoredTierPrices, getPlatformPricingSettings, updatePlatformPricingSettings } from "../db";
@@ -210,7 +211,9 @@ async function availableStyleIds(
 export const doorStylesRouter = router({
   list: publicProcedure
     .input(z.object({ distributorId: z.number().optional() }).optional())
-    .query(async ({ ctx, input }) => {
+    .query(async (opts) => {
+      const load = async () => {
+      const { ctx, input } = opts;
       const db = await getDb();
       if (!db) return [];
       // Explicit projection: include distributorId (needed for client-side warehouse
@@ -262,22 +265,24 @@ export const doorStylesRouter = router({
         cornerSwatchImageUrl: doorStyles.cornerSwatchImageUrl,
       };
       const viewerIsAdmin = canSeePreviewSuppliers(ctx.user);
-      const available = await availableStyleIds(db, viewerIsAdmin);
       // Admins also get the door styles of offline suppliers (admin preview); the join
       // supplies the supplier's live/offline state so each style can carry its own badge.
       const styleVisible = viewerIsAdmin
         ? or(eq(doorStyles.isActive, true), eq(distributors.isActive, false))
         : and(eq(doorStyles.isActive, true), eq(distributors.isActive, true));
-      const rows = await db
-        .select({ ...projection, distributorIsActive: distributors.isActive })
-        .from(doorStyles)
-        .leftJoin(distributors, eq(distributors.id, doorStyles.distributorId))
-        .where(
-          and(
-            input?.distributorId ? eq(doorStyles.distributorId, input.distributorId) : undefined,
-            styleVisible,
-          )
-        );
+      const [available, rows] = await Promise.all([
+        availableStyleIds(db, viewerIsAdmin),
+        db
+          .select({ ...projection, distributorIsActive: distributors.isActive })
+          .from(doorStyles)
+          .leftJoin(distributors, eq(distributors.id, doorStyles.distributorId))
+          .where(
+            and(
+              input?.distributorId ? eq(doorStyles.distributorId, input.distributorId) : undefined,
+              styleVisible,
+            )
+          ),
+      ]);
       // Hide active-but-empty styles from every public surface (storefront +
       // Design Tool picker). Admin back-office queries do not use this router.
       // SCL (Syncron Slim Cava Rosales 3) is source-confirmed in the U.S.
@@ -287,13 +292,30 @@ export const doorStylesRouter = router({
         ...style,
         isPreview: isPreviewSupplier({ isActive: distributorIsActive }),
       }));
+      };
+      // Admins see offline preview lines. Everyone else shares one public list.
+      if (canSeePreviewSuppliers(opts.ctx.user)) return load();
+      return servePublicCatalog({
+        procedure: "doorStyles.list",
+        ctx: opts.ctx,
+        input: opts.input ?? null,
+        tags: [CATALOG_TAGS.doorStyles],
+        fallback: [],
+        load,
+      });
     }),
 
   // Manufacturer specification references are intentionally separate from the
   // sellable style list. They educate shoppers about documented future or
   // price-pending finishes without making them selectable in Catalog, cart, or
   // the Designer before a positive published supplier source exists.
-  specificationReferences: publicProcedure.query(async () => {
+  specificationReferences: publicProcedure.query((opts) => servePublicCatalog({
+    procedure: "doorStyles.specificationReferences",
+    ctx: opts.ctx,
+    input: null,
+    tags: [CATALOG_TAGS.doorStyles],
+    fallback: [],
+    load: async () => {
     const db = await getDb();
     if (!db) return [];
     return db
@@ -333,7 +355,8 @@ export const doorStylesRouter = router({
         isNotNull(doorStyles.sourceSpecification),
       ))
       .orderBy(asc(doorStyles.doorStyle), asc(doorStyles.ourName));
-  }),
+    },
+  })),
 
   byId: publicProcedure
     .input(z.object({ id: z.number() }))
@@ -417,7 +440,13 @@ export const doorStylesRouter = router({
   // ── Featured door styles ────────────────────────────────────────────────────
   // Public scenes are centrally curated per Door Style and shared by every
   // storefront. Supplier/source information is deliberately never selected here.
-  featured: publicProcedure.query(async () => {
+  featured: publicProcedure.query((opts) => servePublicCatalog({
+    procedure: "doorStyles.featured",
+    ctx: opts.ctx,
+    input: null,
+    tags: [CATALOG_TAGS.doorStyles],
+    fallback: [],
+    load: async () => {
     const db = await getDb();
     if (!db) return [];
     const rows = await db
@@ -444,7 +473,8 @@ export const doorStylesRouter = router({
       ...scrubDoorStyle(row),
       roomScenes: scenes.filter((scene) => scene.styleId === row.id).slice(0, 6),
     }));
-  }),
+    },
+  })),
 
   /** Public named room scenes for one door style or one vendor line. Source notes stay private. */
   publicRoomScenes: publicProcedure
@@ -452,7 +482,14 @@ export const doorStylesRouter = router({
       distributorId: z.number().int().positive().optional(),
       styleId: z.number().int().positive().optional(),
     }).optional())
-    .query(async ({ input }) => {
+    .query((opts) => servePublicCatalog({
+      procedure: "doorStyles.publicRoomScenes",
+      ctx: opts.ctx,
+      input: opts.input ?? null,
+      tags: [CATALOG_TAGS.doorStyles],
+      fallback: [],
+      load: async () => {
+      const { input } = opts;
       const db = await getDb();
       if (!db || (input?.distributorId == null && input?.styleId == null)) return [];
       const rows = await db.select({
@@ -491,7 +528,8 @@ export const doorStylesRouter = router({
           photos: scene.photos.map((photo) => ({ id: photo.id, imageUrl: photo.imageUrl, isCover: Boolean(photo.isCover) })),
         })),
       }));
-    }),
+      },
+    })),
 
   // Admin: every style (active + inactive) with its featured flag/rank, for the manager UI.
   listForAdmin: adminProcedure.query(async () => {
@@ -1595,7 +1633,14 @@ export const cabinetsRouter = router({
         offset: z.number().min(0).default(0),
       }).optional()
     )
-    .query(async ({ input }) => {
+    .query((opts) => servePublicCatalog({
+      procedure: "cabinets.list",
+      ctx: opts.ctx,
+      input: opts.input ?? null,
+      tags: [CATALOG_TAGS.cabinets],
+      fallback: { items: [], total: 0 },
+      load: async () => {
+      const { input } = opts;
       const db = await getDb();
       if (!db) return { items: [], total: 0 };
 
@@ -1648,7 +1693,8 @@ export const cabinetsRouter = router({
         items: items.map(scrubCabinet),
         total: Number(countResult[0]?.count ?? 0),
       };
-    }),
+      },
+    })),
 
   // Style-scoped catalog list: only returns cabinets that have a published +
   // available SKU for the SELECTED door style. This makes the storefront
@@ -1668,7 +1714,14 @@ export const cabinetsRouter = router({
         affiliateSlug: z.string().trim().max(64).optional(),
       })
     )
-    .query(async ({ input }) => {
+    .query((opts) => servePublicCatalog({
+      procedure: "cabinets.listForStyle",
+      ctx: opts.ctx,
+      input: opts.input,
+      tags: [CATALOG_TAGS.cabinets, CATALOG_TAGS.doorStyles],
+      fallback: { items: [], total: 0, categoryCounts: {} as Record<string, number> },
+      load: async () => {
+      const { input } = opts;
       const db = await getDb();
       if (!db) return { items: [], total: 0, categoryCounts: {} as Record<string, number> };
 
@@ -1813,9 +1866,16 @@ export const cabinetsRouter = router({
         isWallWineRackCabinet(row) ? { ...row, category: "Wall", placementType: row.placementType || "wall" } : row
       ));
       return { items: page, total, categoryCounts };
-    }),
+      },
+    })),
 
-  categories: publicProcedure.query(async () => {
+  categories: publicProcedure.query((opts) => servePublicCatalog({
+    procedure: "cabinets.categories",
+    ctx: opts.ctx,
+    input: null,
+    tags: [CATALOG_TAGS.cabinets],
+    fallback: [],
+    load: async () => {
     const db = await getDb();
     if (!db) return [];
     const rows = await db
@@ -1823,11 +1883,19 @@ export const cabinetsRouter = router({
       .from(cabinets)
       .where(and(eq(cabinets.isActive, true), notInConflict()));
     return rows.map((r) => r.category).filter(Boolean);
-  }),
+    },
+  })),
 
   subCategories: publicProcedure
     .input(z.object({ category: z.string() }))
-    .query(async ({ input }) => {
+    .query((opts) => servePublicCatalog({
+      procedure: "cabinets.subCategories",
+      ctx: opts.ctx,
+      input: opts.input,
+      tags: [CATALOG_TAGS.cabinets],
+      fallback: [] as Array<string | null>,
+      load: async () => {
+      const { input } = opts;
       const db = await getDb();
       if (!db) return [];
       const rows = await db
@@ -1842,7 +1910,8 @@ export const cabinetsRouter = router({
           )
         );
       return rows.map((r) => r.subCategory).filter(Boolean);
-    }),
+      },
+    })),
 
   byId: publicProcedure
     .input(z.object({ id: z.number() }))

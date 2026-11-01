@@ -3,6 +3,7 @@ import { eq, and } from "drizzle-orm";
 import { getDb } from "../db";
 import { pageContent } from "../../drizzle/schema";
 import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
+import { CATALOG_TAGS, invalidatePublicCatalogCache, servePublicCatalog } from "../lib/publicCatalogCache";
 import { TRPCError } from "@trpc/server";
 
 export const pageContentRouter = router({
@@ -10,7 +11,13 @@ export const pageContentRouter = router({
    *  Used by LanguageContext to apply admin text edits globally.
    *  Returns { pageKey: { field: value } }
    */
-  getAll: publicProcedure.query(async () => {
+  getAll: publicProcedure.query((opts) => servePublicCatalog({
+    procedure: "pageContent.getAll",
+    ctx: opts.ctx,
+    input: null,
+    tags: [CATALOG_TAGS.pageContent],
+    fallback: {} as Record<string, Record<string, string>>,
+    load: async () => {
     const db = await getDb();
     if (!db) return {} as Record<string, Record<string, string>>;
     const rows = await db.select().from(pageContent);
@@ -20,12 +27,20 @@ export const pageContentRouter = router({
       map[row.pageKey][row.field] = row.value ?? "";
     }
     return map;
-  }),
+    },
+  })),
 
   /** Public: get all content for a single page */
   getPage: publicProcedure
     .input(z.object({ pageKey: z.string() }))
-    .query(async ({ input }) => {
+    .query((opts) => servePublicCatalog({
+      procedure: "pageContent.getPage",
+      ctx: opts.ctx,
+      input: opts.input,
+      tags: [CATALOG_TAGS.pageContent],
+      fallback: {} as Record<string, string>,
+      load: async () => {
+      const { input } = opts;
       const db = await getDb();
       if (!db) return {};
       const rows = await db
@@ -38,7 +53,8 @@ export const pageContentRouter = router({
         map[row.field] = row.value ?? "";
       }
       return map;
-    }),
+      },
+    })),
 
   /** Admin: upsert a single field value */
   upsertField: protectedProcedure
@@ -81,6 +97,7 @@ export const pageContentRouter = router({
           updatedBy: ctx.user.id,
         });
       }
+      invalidatePublicCatalogCache([CATALOG_TAGS.pageContent]);
       return { success: true };
     }),
 
@@ -106,6 +123,7 @@ export const pageContentRouter = router({
             eq(pageContent.field, input.field),
           ),
         );
+      invalidatePublicCatalogCache([CATALOG_TAGS.pageContent]);
       return { success: true };
     }),
 });

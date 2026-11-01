@@ -9,6 +9,7 @@ import { registerVendorInventorySync } from "../vendorInventoryHttp";
 import { registerStorageProxy } from "./storageProxy";
 import { registerSharedRoomPreviewRoutes } from "../sharedRoomPreview";
 import { appRouter } from "../routers";
+import { catalogServerTimingFor, publicCatalogResponseHeaders } from "../lib/publicCatalogCache";
 import { createContext } from "./context";
 import { serveStatic, setupVite, whiteLabelAffiliateHtml } from "./vite";
 import { registerSeoRoutes } from "../seo";
@@ -109,10 +110,23 @@ async function startServer() {
     createExpressMiddleware({
       router: appRouter,
       createContext,
-      // The designer prices hundreds of exact cabinet/style identities in one
-      // query. The client sends query batches by POST so proxy URL limits cannot
-      // return an HTML 414 page where tRPC expects JSON.
+      // httpBatchLink is accepted by this adapter (batching stays on). The
+      // client already sends those batches. Queries may also arrive as POST
+      // so a large designer batch is not cut off by a proxy URL limit.
       allowMethodOverride: true,
+      responseMeta({ ctx, paths, type, errors, eagerGeneration }) {
+        const headers = publicCatalogResponseHeaders({
+          method: ctx?.req?.method,
+          paths,
+          type,
+          errors,
+          eagerGeneration,
+          authorization: ctx?.req?.headers?.authorization,
+          testAccount: ctx?.req?.headers?.["x-cd-test-account"],
+          serverTiming: catalogServerTimingFor(ctx?.res),
+        });
+        return headers ? { headers } : {};
+      },
     })
   );
   // SEO: dynamic robots.txt + sitemap.xml (must be registered before the

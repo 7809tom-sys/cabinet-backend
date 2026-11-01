@@ -6,7 +6,9 @@ const clientSource = readFileSync(new URL("../client/src/main.tsx", import.meta.
 
 describe("large tRPC designer queries", () => {
   it("sends query batches by POST and allows POST queries at the Express adapter", () => {
+    expect(clientSource).toContain("httpBatchLink");
     expect(clientSource).toContain("methodOverride: TRPC_QUERY_METHOD_OVERRIDE");
     expect(serverSource).toContain("allowMethodOverride: true");
+    expect(serverSource).not.toContain("batching:");
   });
 });

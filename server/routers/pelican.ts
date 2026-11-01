@@ -7,6 +7,7 @@ import { UNAUTHED_ERR_MSG } from "@shared/const";
 import { hiddenNumericIds, loadAffiliateCatalogGate } from "../lib/affiliateCatalogGate";
 import { router, publicProcedure, adminProcedure, supplierProfileProcedure } from "../_core/trpc";
 import { getDb } from "../db";
+import { CATALOG_TAGS, servePublicCatalog } from "../lib/publicCatalogCache";
 import { storagePut } from "../storage";
 import { pelicanProducts, pelicanShippingProfiles } from "../../drizzle/pelicanSchema";
 import { distributors, pelicanCategoryMarkups, vendorLines } from "../../drizzle/schema";
@@ -392,11 +393,13 @@ function hasCatalogPriceOrQuoteReference() {
 export const pelicanRouter = router({
   categories: publicProcedure
     .input(z.object({ scope: z.enum(["designer", "catalog", "all", "admin"]).default("catalog") }).optional())
-    .query(async ({ input, ctx }) => {
-      const scope = input?.scope ?? "catalog";
+    .query(async (opts) => {
+      const scope = opts.input?.scope ?? "catalog";
       // Admin counts every stored row, including inactive and unpriced products,
-      // so Overview and My Catalog share one list. Shopper scopes stay public.
+      // so Overview and My Catalog share one list. Shopper scopes stay public
+      // and are the only scope stored in the public catalog cache.
       if (scope === "admin") {
+        const { ctx } = opts;
         if (!ctx.user) throw new TRPCError({ code: "UNAUTHORIZED", message: UNAUTHED_ERR_MSG });
         const db = await getDb();
         if (!db) return [] as { category: string; count: number }[];
@@ -412,33 +415,42 @@ export const pelicanRouter = router({
           .orderBy(desc(sql`count(*)`));
         return rows.map((r) => ({ category: r.category, count: Number(r.count) }));
       }
-      const db = await getDb();
-      if (!db) return [] as { category: string; count: number }[];
-      const conds = [
-        eq(pelicanProducts.isActive, true),
-        (scope === "catalog" ? hasCatalogPriceOrQuoteReference() : hasPriceData()) as any,
-      ];
-      if (scope === "designer") conds.push(eq(pelicanProducts.showInDesigner, true));
-      if (scope === "catalog") conds.push(eq(pelicanProducts.showInCatalog, true));
-      if (scope === "designer") {
-        const readyRows = await db
-          .select()
-          .from(pelicanProducts)
-          .where(and(...conds));
-        const counts = new Map<string, number>();
-        for (const row of readyRows) {
-          if (!isPelicanDesignerSelectable(row) || !isDesignerFlooringCard(row)) continue;
-          counts.set(row.category, (counts.get(row.category) ?? 0) + 1);
-        }
-        return Array.from(counts, ([category, count]) => ({ category, count })).sort((a, b) => b.count - a.count);
-      }
-      const rows = await db
-        .select({ category: pelicanProducts.category, count: sql<number>`count(*)` })
-        .from(pelicanProducts)
-        .where(and(...conds))
-        .groupBy(pelicanProducts.category)
-        .orderBy(desc(sql`count(*)`));
-      return rows.map((r) => ({ category: r.category, count: Number(r.count) }));
+      return servePublicCatalog({
+        procedure: "pelican.categories",
+        ctx: opts.ctx,
+        input: { scope },
+        tags: [CATALOG_TAGS.pelican],
+        fallback: [] as { category: string; count: number }[],
+        load: async () => {
+          const db = await getDb();
+          if (!db) return [] as { category: string; count: number }[];
+          const conds = [
+            eq(pelicanProducts.isActive, true),
+            (scope === "catalog" ? hasCatalogPriceOrQuoteReference() : hasPriceData()) as any,
+          ];
+          if (scope === "designer") conds.push(eq(pelicanProducts.showInDesigner, true));
+          if (scope === "catalog") conds.push(eq(pelicanProducts.showInCatalog, true));
+          if (scope === "designer") {
+            const readyRows = await db
+              .select()
+              .from(pelicanProducts)
+              .where(and(...conds));
+            const counts = new Map<string, number>();
+            for (const row of readyRows) {
+              if (!isPelicanDesignerSelectable(row) || !isDesignerFlooringCard(row)) continue;
+              counts.set(row.category, (counts.get(row.category) ?? 0) + 1);
+            }
+            return Array.from(counts, ([category, count]) => ({ category, count })).sort((a, b) => b.count - a.count);
+          }
+          const rows = await db
+            .select({ category: pelicanProducts.category, count: sql<number>`count(*)` })
+            .from(pelicanProducts)
+            .where(and(...conds))
+            .groupBy(pelicanProducts.category)
+            .orderBy(desc(sql`count(*)`));
+          return rows.map((r) => ({ category: r.category, count: Number(r.count) }));
+        },
+      });
     }),
   byCategory: publicProcedure
     .input(
@@ -452,14 +464,22 @@ export const pelicanRouter = router({
         offset: z.number().min(0).default(0),
       })
     )
-    .query(async ({ input }) => {
+    .query((opts) => servePublicCatalog({
+      procedure: "pelican.byCategory",
+      ctx: opts.ctx,
+      input: opts.input,
+      tags: [CATALOG_TAGS.pelican],
+      fallback: { suggested: [], items: [], total: 0, subCategories: [] as string[] },
+      load: async () => {
+      const { input } = opts;
       const db = await getDb();
       if (!db) return { suggested: [], items: [], total: 0, subCategories: [] as string[] };
-      const markupMap = await loadMarkupMap(db);
-      const affiliatePricing = await loadAffiliateStorefrontPricing(input.affiliateSlug);
-      const affiliateBps = (category: string) => affiliatePricing
-        ? resolveMarkupBps(affiliatePricing.markup, { categoryKey: category })
-        : undefined;
+      // Markup, affiliate pricing, and the product reads do not depend on each
+      // other. Running them together keeps a category page to one database
+      // round trip instead of five.
+      const markupPromise = loadMarkupMap(db);
+      const affiliatePricingPromise = loadAffiliateStorefrontPricing(input.affiliateSlug);
+      const gate = await loadAffiliateCatalogGate(db, input.affiliateSlug);
       const conds = [
         eq(pelicanProducts.category, input.category),
         eq(pelicanProducts.isActive, true),
@@ -468,7 +488,7 @@ export const pelicanRouter = router({
       if (input.scope === "designer") conds.push(eq(pelicanProducts.showInDesigner, true));
       if (input.scope === "catalog") conds.push(eq(pelicanProducts.showInCatalog, true));
       if (input.subCategory) conds.push(eq(pelicanProducts.subCategory, input.subCategory));
-      const hiddenSurfaces = hiddenNumericIds(await loadAffiliateCatalogGate(db, input.affiliateSlug), "surface");
+      const hiddenSurfaces = hiddenNumericIds(gate, "surface");
       if (hiddenSurfaces.length > 0) conds.push(notInArray(pelicanProducts.id, hiddenSurfaces));
       if (input.search) {
         const search = input.search.trim();
@@ -486,11 +506,18 @@ export const pelicanRouter = router({
       }
       const where = and(...conds);
       if (input.scope === "designer") {
-        const designerRows = await db
-          .select()
-          .from(pelicanProducts)
-          .where(where)
-          .orderBy(desc(pelicanProducts.isPopular), asc(pelicanProducts.popularRank), asc(pelicanProducts.name));
+        const [markupMap, affiliatePricing, designerRows] = await Promise.all([
+          markupPromise,
+          affiliatePricingPromise,
+          db
+            .select()
+            .from(pelicanProducts)
+            .where(where)
+            .orderBy(desc(pelicanProducts.isPopular), asc(pelicanProducts.popularRank), asc(pelicanProducts.name)),
+        ]);
+        const affiliateBps = (category: string) => affiliatePricing
+          ? resolveMarkupBps(affiliatePricing.markup, { categoryKey: category })
+          : undefined;
         const readyRows = designerRows.filter((row) => isPelicanDesignerSelectable(row) && isDesignerFlooringCard(row));
         const suggested = input.search || input.subCategory || input.offset > 0
           ? []
@@ -504,45 +531,61 @@ export const pelicanRouter = router({
           subCategories,
         };
       }
-      const suggestedRows =
-        input.search || input.subCategory || input.offset > 0
-          ? []
-          : await db
-              .select()
-              .from(pelicanProducts)
-              .where(and(where, eq(pelicanProducts.isPopular, true)))
-              .orderBy(asc(pelicanProducts.popularRank))
-              .limit(12);
-      const itemRows = await db
-        .select()
-        .from(pelicanProducts)
-        .where(where)
-        .orderBy(desc(pelicanProducts.isPopular), asc(pelicanProducts.popularRank), asc(pelicanProducts.name))
-        .limit(input.limit)
-        .offset(input.offset);
-      const [{ total }] = await db
-        .select({ total: sql<number>`count(*)` })
-        .from(pelicanProducts)
-        .where(where);
-      const subs = await db
-        .selectDistinct({ subCategory: pelicanProducts.subCategory })
-        .from(pelicanProducts)
-        .where(and(
-          eq(pelicanProducts.category, input.category),
-          eq(pelicanProducts.isActive, true),
-          hasPriceData() as any,
-          eq(pelicanProducts.showInCatalog, true),
-        ));
+      const suggestedQuery = input.search || input.subCategory || input.offset > 0
+        ? Promise.resolve([] as never[])
+        : db
+            .select()
+            .from(pelicanProducts)
+            .where(and(where, eq(pelicanProducts.isPopular, true)))
+            .orderBy(asc(pelicanProducts.popularRank))
+            .limit(12);
+      const [markupMap, affiliatePricing, suggestedRows, itemRows, counted, subs] = await Promise.all([
+        markupPromise,
+        affiliatePricingPromise,
+        suggestedQuery,
+        db
+          .select()
+          .from(pelicanProducts)
+          .where(where)
+          .orderBy(desc(pelicanProducts.isPopular), asc(pelicanProducts.popularRank), asc(pelicanProducts.name))
+          .limit(input.limit)
+          .offset(input.offset),
+        db
+          .select({ total: sql<number>`count(*)` })
+          .from(pelicanProducts)
+          .where(where),
+        db
+          .selectDistinct({ subCategory: pelicanProducts.subCategory })
+          .from(pelicanProducts)
+          .where(and(
+            eq(pelicanProducts.category, input.category),
+            eq(pelicanProducts.isActive, true),
+            hasPriceData() as any,
+            eq(pelicanProducts.showInCatalog, true),
+          )),
+      ]);
+      const affiliateBps = (category: string) => affiliatePricing
+        ? resolveMarkupBps(affiliatePricing.markup, { categoryKey: category })
+        : undefined;
+      const [{ total }] = counted;
       return {
         suggested: suggestedRows.map((r) => withDesignerRenderFlags(withPricing(r, markupMap, affiliateBps(r.category)))),
         items: itemRows.map((r) => withDesignerRenderFlags(withPricing(r, markupMap, affiliateBps(r.category)))),
         total: Number(total),
         subCategories: subs.map((s) => s.subCategory).filter(Boolean) as string[],
       };
-    }),
+      },
+    })),
   bySlug: publicProcedure
     .input(z.object({ slug: z.string(), affiliateSlug: z.string().trim().optional() }))
-    .query(async ({ input }) => {
+    .query((opts) => servePublicCatalog({
+      procedure: "pelican.bySlug",
+      ctx: opts.ctx,
+      input: opts.input,
+      tags: [CATALOG_TAGS.pelican],
+      fallback: null,
+      load: async () => {
+      const { input } = opts;
       const db = await getDb();
       if (!db) return null;
       const [row] = await db
@@ -556,20 +599,30 @@ export const pelicanRouter = router({
         ))
         .limit(1);
       if (!row) return null;
-      const hiddenSurfaces = hiddenNumericIds(await loadAffiliateCatalogGate(db, input.affiliateSlug), "surface");
-      if (hiddenSurfaces.includes(row.id)) return null;
-      const markupMap = await loadMarkupMap(db);
-      const affiliatePricing = await loadAffiliateStorefrontPricing(input.affiliateSlug);
+      const [gate, markupMap, affiliatePricing] = await Promise.all([
+        loadAffiliateCatalogGate(db, input.affiliateSlug),
+        loadMarkupMap(db),
+        loadAffiliateStorefrontPricing(input.affiliateSlug),
+      ]);
+      if (hiddenNumericIds(gate, "surface").includes(row.id)) return null;
       const priced = withPricing(row, markupMap, affiliatePricing
         ? resolveMarkupBps(affiliatePricing.markup, { categoryKey: row.category })
         : undefined);
       return priced;
-    }),
+      },
+    })),
   // Returns related products for "Complete this look" pairing (sink ↔ faucet).
   // For a faucet, returns matching sinks in the same category. For a sink, returns faucets.
   relatedProducts: publicProcedure
     .input(z.object({ slug: z.string(), affiliateSlug: z.string().trim().optional(), limit: z.number().min(1).max(12).default(4) }))
-    .query(async ({ input }) => {
+    .query((opts) => servePublicCatalog({
+      procedure: "pelican.relatedProducts",
+      ctx: opts.ctx,
+      input: opts.input,
+      tags: [CATALOG_TAGS.pelican],
+      fallback: [],
+      load: async () => {
+      const { input } = opts;
       const db = await getDb();
       if (!db) return [];
       const [row] = await db
@@ -583,30 +636,34 @@ export const pelicanRouter = router({
       if (row.subCategory === "Faucets") pairedSub = "Sinks";
       else if (row.subCategory === "Sinks") pairedSub = "Faucets";
       else return [];
-      const markupMap = await loadMarkupMap(db);
-      const affiliatePricing = await loadAffiliateStorefrontPricing(input.affiliateSlug);
-      const hiddenSurfaces = new Set(hiddenNumericIds(await loadAffiliateCatalogGate(db, input.affiliateSlug), "surface"));
-      const rows = await db
-        .select()
-        .from(pelicanProducts)
-        .where(
-          and(
-            eq(pelicanProducts.category, row.category),
-            eq(pelicanProducts.subCategory, pairedSub),
-            eq(pelicanProducts.isActive, true),
-            eq(pelicanProducts.showInCatalog, true),
-            hasPriceData() as any,
+      const [markupMap, affiliatePricing, gate, rows] = await Promise.all([
+        loadMarkupMap(db),
+        loadAffiliateStorefrontPricing(input.affiliateSlug),
+        loadAffiliateCatalogGate(db, input.affiliateSlug),
+        db
+          .select()
+          .from(pelicanProducts)
+          .where(
+            and(
+              eq(pelicanProducts.category, row.category),
+              eq(pelicanProducts.subCategory, pairedSub),
+              eq(pelicanProducts.isActive, true),
+              eq(pelicanProducts.showInCatalog, true),
+              hasPriceData() as any,
+            )
           )
-        )
-        .orderBy(desc(pelicanProducts.isPopular), asc(pelicanProducts.popularRank))
-        .limit(input.limit);
+          .orderBy(desc(pelicanProducts.isPopular), asc(pelicanProducts.popularRank))
+          .limit(input.limit),
+      ]);
+      const hiddenSurfaces = new Set(hiddenNumericIds(gate, "surface"));
       return rows
         .filter((r) => !hiddenSurfaces.has(r.id))
         .map((r) => withPricing(r, markupMap, affiliatePricing
           ? resolveMarkupBps(affiliatePricing.markup, { categoryKey: r.category })
           : undefined))
         .filter((r) => r.sellPrice && r.sellPrice > 0);
-    }),
+      },
+    })),
 
   adminList: supplierProfileProcedure
     .input(

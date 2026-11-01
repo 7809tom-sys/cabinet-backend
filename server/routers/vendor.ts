@@ -3,6 +3,7 @@ import { eq, desc, and, inArray } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
+import { invalidatePublicCatalogCache } from "../lib/publicCatalogCache";
 import { vendorApplications, users, distributors, distributorSkus, doorStyles } from "../../drizzle/schema";
 import { notifyOwner } from "../_core/notification";
 import bcrypt from "bcryptjs";
@@ -250,6 +251,7 @@ export const vendorRouter = router({
         }
       }
 
+      if (updated > 0) invalidatePublicCatalogCache();
       return { updated, notFound, total: input.rows.length, errors: errors.slice(0, 20) };
     }),
 });

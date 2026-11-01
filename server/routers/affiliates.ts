@@ -10,9 +10,11 @@ import {
   publicProcedure,
   protectedProcedure,
   adminProcedure,
+  clearPublicCatalogAfterMutation,
   router,
 } from "../_core/trpc";
 import { getDb } from "../db";
+import { invalidatePublicCatalogCache } from "../lib/publicCatalogCache";
 import { affiliates, affiliatePricingTiers, affiliateTestimonials, orderRequests, affiliateStyleBranding, affiliateDistributorSelections, affiliateFeaturedDistributorEvents, doorStyles, distributors, distributorSkus, affiliatePayouts, affiliateBannerSchedules, affiliatePromoDiscounts, designConsultations, designLeads, affiliateTeamMembers, affiliateHardwareCommissionSnapshots, users } from "../../drizzle/schema";
 import { resendConfigured, sendEmail } from "../email";
 import { buildSalesDemoInvite, deliverInviteThenGrant, SALES_DEMO_AFFILIATE_SLUG, SALES_DEMO_TEAM_ACCESS } from "../salesDemoInvite";
@@ -187,7 +189,7 @@ export type StorefrontAffiliate = ReturnType<typeof toPublicStorefront>;
 
 // partnerProcedure: a logged-in user. Affiliate ownership and team access are
 // resolved from the membership model. This lookup never writes affiliates.userId.
-const partnerProcedure = protectedProcedure;
+const partnerProcedure = protectedProcedure.use(clearPublicCatalogAfterMutation);
 
 async function resolveMyAffiliate(ctx: { user: { id: number; email: string | null; role: string } }) {
   const db = await getDb();
@@ -1924,7 +1926,9 @@ export const affiliatesRouter = router({
       const affiliateId = await assertCanEditStorefront(ctx, input.affiliateId);
       const vendor = parseCatalogVendorKey(input.vendorKey);
       if (!vendor) throw new TRPCError({ code: "BAD_REQUEST", message: "Unknown catalog." });
-      return setAffiliateProductVisibility(db, affiliateId, vendor.kind, input.productKeys, input.shown);
+      const result = await setAffiliateProductVisibility(db, affiliateId, vendor.kind, input.productKeys, input.shown);
+      invalidatePublicCatalogCache();
+      return result;
     }),
 
   setVendorCatalogVisibility: partnerProcedure
@@ -1937,7 +1941,9 @@ export const affiliatesRouter = router({
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
       const affiliateId = await assertCanEditStorefront(ctx, input.affiliateId);
-      return setAffiliateVendorVisibility(db, affiliateId, input.vendorKey, input.shown);
+      const result = await setAffiliateVendorVisibility(db, affiliateId, input.vendorKey, input.shown);
+      invalidatePublicCatalogCache();
+      return result;
     }),
 
   // ─── Partner: request AI Concierge service ($100/hr front-page editing) ───────
