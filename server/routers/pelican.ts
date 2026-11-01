@@ -238,6 +238,62 @@ function markupBpsFor(map: MarkupMap, category: string): number {
   return DEFAULT_MARKUP_BPS[category] ?? 0;
 }
 
+const PELICAN_SLUG_MAX = 160;
+const PELICAN_CODE_MAX = 191;
+
+/** URL slug from a product name. Empty when the name has no letters or digits. */
+function catalogSlugBase(name: string): string {
+  return name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, PELICAN_SLUG_MAX);
+}
+
+function normalizeCatalogName(name: string): string {
+  return name.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+/** First unused lowercase key, adding -2, -3, … when `base` is already taken. */
+function firstFreeKey(base: string, taken: ReadonlySet<string>, maxLength: number): string | null {
+  const root = base.toLowerCase().slice(0, maxLength);
+  if (!root) return null;
+  if (!taken.has(root)) return root;
+  for (let n = 2; n <= taken.size + 2; n += 1) {
+    const suffix = `-${n}`;
+    const room = maxLength - suffix.length;
+    if (room < 1) return null;
+    const candidate = `${root.slice(0, room)}${suffix}`;
+    if (!taken.has(candidate)) return candidate;
+  }
+  return null;
+}
+
+function decimalOrNull(value: number | null | undefined): string | null {
+  if (value == null) return null;
+  return value.toFixed(2);
+}
+
+function mysqlInsertId(result: unknown): number {
+  const header = Array.isArray(result) ? result[0] : result;
+  const insertId = (header as { insertId?: number } | null)?.insertId;
+  return Number(insertId ?? 0);
+}
+
+function isDuplicateEntry(error: unknown): boolean {
+  const seen = new Set<unknown>();
+  let current: unknown = error;
+  while (current && typeof current === "object" && !seen.has(current)) {
+    seen.add(current);
+    const record = current as { code?: unknown; errno?: unknown; message?: unknown; cause?: unknown };
+    if (record.code === "ER_DUP_ENTRY" || record.errno === 1062) return true;
+    if (typeof record.message === "string" && /duplicate entry/i.test(record.message)) return true;
+    current = record.cause;
+  }
+  return false;
+}
+
 /**
  * Resolve the verified source basis without letting a legacy zero placeholder
  * suppress a positive authorized list price. A positive landed cost wins; when
@@ -1010,6 +1066,151 @@ export const pelicanRouter = router({
         roomSceneImageUrl: writes.roomScene ? stored.url : existing.roomSceneImageUrl ?? null,
         width: prepared.width,
         height: prepared.height,
+      };
+    }),
+  /**
+   * Add one Pelican catalog row. Photos are uploaded afterward with
+   * uploadProductImage, which needs the new id.
+   *
+   * Auth is the same gate as uploadProductImage: an administrator, or the
+   * approved vendor who owns the Pelican catalog. Role `admin` is owner
+   * authority. The products table has no owner column, and this procedure
+   * does not assign one.
+   *
+   * Sell price is not stored. It is the positive list price marked up with
+   * the category markup (computeSellPrice), the same path the catalog uses.
+   * Category and subCategory are required because the portal fills them from
+   * the area the vendor is browsing.
+   */
+  createProduct: supplierProfileProcedure
+    .input(z.object({
+      category: StoredPelicanCategory,
+      subCategory: z.string().trim().min(1).max(128),
+      name: z.string().trim().min(1).max(255),
+      pelicanCode: z.string().trim().max(PELICAN_CODE_MAX).nullish(),
+      description: z.string().trim().max(10000).nullish(),
+      size: z.string().trim().max(128).nullish(),
+      listPrice: z.number().finite().nonnegative().max(99_999_999.99).nullish(),
+      msrp: z.number().finite().nonnegative().max(99_999_999.99).nullish(),
+      coverageSqFt: z.number().finite().positive().max(999_999.99).nullish(),
+      isActive: z.boolean().default(true),
+      showInCatalog: z.boolean().default(true),
+      showInDesigner: z.boolean().default(true),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Pelican catalog is unavailable." });
+      await requirePelicanVendor(db, ctx);
+
+      const category = input.category;
+      const name = input.name;
+      const identities = await db
+        .select({
+          name: pelicanProducts.name,
+          slug: pelicanProducts.slug,
+          category: pelicanProducts.category,
+          pelicanCode: pelicanProducts.pelicanCode,
+        })
+        .from(pelicanProducts);
+
+      const sameCategory = identities.filter((row) => row.category === category);
+      if (sameCategory.some((row) => normalizeCatalogName(row.name) === normalizeCatalogName(name))) {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: `A product named "${name}" already exists in ${category}. Edit that item instead of adding another.`,
+        });
+      }
+
+      const slugBase = catalogSlugBase(name);
+      if (!slugBase) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Product name needs a letter or number so a catalog link can be created.",
+        });
+      }
+      if (sameCategory.some((row) => row.slug.trim().toLowerCase() === slugBase)) {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: `A product in ${category} already uses the catalog link "${slugBase}". Choose a different name.`,
+        });
+      }
+
+      const slug = firstFreeKey(slugBase, new Set(identities.map((row) => row.slug.trim().toLowerCase())), PELICAN_SLUG_MAX);
+      if (!slug) {
+        throw new TRPCError({ code: "CONFLICT", message: "Could not create a unique catalog link for this name." });
+      }
+
+      const requestedCode = input.pelicanCode?.trim() ?? "";
+      const codeTaken = new Set(identities.map((row) => row.pelicanCode.trim().toLowerCase()));
+      let pelicanCode = requestedCode;
+      if (!pelicanCode) {
+        const generated = firstFreeKey(slugBase, codeTaken, PELICAN_CODE_MAX);
+        if (!generated) {
+          throw new TRPCError({ code: "CONFLICT", message: "Could not create a unique SKU for this product." });
+        }
+        pelicanCode = generated;
+      } else if (codeTaken.has(pelicanCode.toLowerCase())) {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: `A product with SKU "${pelicanCode}" already exists. Use a different SKU or edit that item.`,
+        });
+      }
+
+      const values = {
+        pelicanCode,
+        slug,
+        name,
+        description: input.description?.trim() ?? "",
+        category,
+        subCategory: input.subCategory,
+        size: input.size?.trim() ? input.size.trim() : null,
+        listPrice: decimalOrNull(input.listPrice),
+        msrp: decimalOrNull(input.msrp),
+        coverageSqFt: decimalOrNull(input.coverageSqFt),
+        isActive: input.isActive,
+        showInCatalog: input.showInCatalog,
+        showInDesigner: input.showInDesigner,
+      };
+
+      let id = 0;
+      try {
+        const inserted = await db.insert(pelicanProducts).values(values);
+        id = mysqlInsertId(inserted);
+      } catch (error) {
+        if (isDuplicateEntry(error)) {
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: "A product with this name, catalog link, or SKU already exists. Edit that item instead of adding another.",
+          });
+        }
+        throw error;
+      }
+      if (!Number.isInteger(id) || id <= 0) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Pelican product was not created." });
+      }
+
+      const markupMap = await loadMarkupMap(db);
+      const priced = withPricing(
+        { listPrice: values.listPrice, yourCost: null, retailPrice: null, category },
+        markupMap,
+      );
+      return {
+        id,
+        pelicanCode,
+        slug,
+        name,
+        description: values.description,
+        category,
+        subCategory: values.subCategory,
+        size: values.size,
+        listPrice: values.listPrice,
+        msrp: values.msrp,
+        coverageSqFt: values.coverageSqFt,
+        isActive: values.isActive,
+        showInCatalog: values.showInCatalog,
+        showInDesigner: values.showInDesigner,
+        sellPrice: priced.sellPrice,
+        markupBps: priced.markupBps,
       };
     }),
   updateProductDetails: adminProcedure
