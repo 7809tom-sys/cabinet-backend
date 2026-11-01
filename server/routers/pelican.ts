@@ -1,10 +1,13 @@
+import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { and, asc, desc, eq, gt, isNull, like, lte, not, notInArray, or, sql } from "drizzle-orm";
+import sharp from "sharp";
 import { UNAUTHED_ERR_MSG } from "@shared/const";
 import { hiddenNumericIds, loadAffiliateCatalogGate } from "../lib/affiliateCatalogGate";
 import { router, publicProcedure, adminProcedure, supplierProfileProcedure } from "../_core/trpc";
 import { getDb } from "../db";
+import { storagePut } from "../storage";
 import { pelicanProducts, pelicanShippingProfiles } from "../../drizzle/pelicanSchema";
 import { distributors, pelicanCategoryMarkups, vendorLines } from "../../drizzle/schema";
 import { normalizeCode } from "../../shared/cabinetCodeMatch";
@@ -15,6 +18,148 @@ import { loadAffiliateStorefrontPricing } from "../lib/affiliateStorefrontPricin
 import { resolveAffiliateRetail, resolveMarkupBps } from "../../shared/affiliateBranding";
 import { isAttachProductCategory, resolveAffiliateTierCost } from "../../shared/affiliatePricingTier";
 import { dollarsToCents } from "../lib/affiliateTierPricing";
+
+const PELICAN_PRODUCT_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
+const PELICAN_PRODUCT_IMAGE_MAX_BYTES = 10 * 1024 * 1024;
+/** Base64 is 4/3 of the decoded size, plus a short data-URL prefix. */
+const PELICAN_PRODUCT_IMAGE_MAX_BASE64_CHARS = 14_000_000;
+const PELICAN_PRODUCT_IMAGE_MAX_EDGE = 4096;
+/** Sharp's near-white distance. 12 sits in the requested 10–15 range. */
+const PELICAN_WHITE_TRIM_THRESHOLD = 12;
+/** Drop the trim when it would remove more than this fraction of either side. */
+const PELICAN_WHITE_TRIM_MAX_FRACTION = 0.4;
+const SHARP_FORMAT_FOR_CONTENT_TYPE = {
+  "image/jpeg": "jpeg",
+  "image/png": "png",
+  "image/webp": "webp",
+} as const;
+
+/**
+ * Catalog rows store either an absolute http(s) address or a first-party
+ * `/manus-storage/...` path. The Designer already renders the latter.
+ */
+function isStoredOrHttpImageReference(value: string): boolean {
+  if (value.startsWith("/manus-storage/")) {
+    const rest = value.slice("/manus-storage/".length);
+    return rest.length > 0 && !rest.includes("..") && !/[\s?#\\]/.test(rest);
+  }
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+function materialImageUrlOrThrow(value: string | null): string | null {
+  if (value == null || value.trim() === "") return null;
+  const trimmed = value.trim();
+  if (!isStoredOrHttpImageReference(trimmed)) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "Material image must be an http(s) URL or a stored /manus-storage/ path.",
+    });
+  }
+  return trimmed;
+}
+
+function decodePelicanProductImage(dataBase64: string): Buffer {
+  const comma = dataBase64.indexOf(",");
+  const raw = dataBase64.startsWith("data:") && comma !== -1 ? dataBase64.slice(comma + 1) : dataBase64;
+  const normalized = raw.replace(/\s/g, "").replace(/-/g, "+").replace(/_/g, "/");
+  if (!normalized || normalized.length % 4 === 1 || !/^[A-Za-z0-9+/]+={0,2}$/.test(normalized)) {
+    throw new TRPCError({ code: "BAD_REQUEST", message: "Image data must be base64." });
+  }
+  const bytes = Buffer.from(normalized, "base64");
+  if (bytes.length === 0) {
+    throw new TRPCError({ code: "BAD_REQUEST", message: "Image data is empty." });
+  }
+  if (bytes.length > PELICAN_PRODUCT_IMAGE_MAX_BYTES) {
+    throw new TRPCError({ code: "BAD_REQUEST", message: "Image must be 10 MB or smaller." });
+  }
+  return bytes;
+}
+
+/** `target` wins when present. Otherwise the original boolean flags apply. */
+function pelicanProductImageWrites(input: {
+  target?: "catalog" | "designer" | "both";
+  useAsDesignerPhoto: boolean;
+  alsoSetCatalogImage: boolean;
+}): { designer: boolean; catalog: boolean } {
+  if (input.target === "catalog") return { designer: false, catalog: true };
+  if (input.target === "designer") return { designer: true, catalog: false };
+  if (input.target === "both") return { designer: true, catalog: true };
+  return { designer: input.useAsDesignerPhoto, catalog: input.alsoSetCatalogImage };
+}
+
+/**
+ * Crop a uniform white or near-white frame. A failed trim, or one that would
+ * remove more than 40% of either dimension, keeps the untrimmed pixels.
+ * This is local sharp processing of the uploaded file, not image generation.
+ */
+async function withoutExcessiveWhiteFrame(bytes: Buffer, width: number, height: number): Promise<Buffer> {
+  if (width < 1 || height < 1) return bytes;
+  try {
+    const trimmed = await sharp(bytes, { failOn: "none", animated: false, limitInputPixels: 100_000_000 })
+      .trim({ background: "#ffffff", threshold: PELICAN_WHITE_TRIM_THRESHOLD })
+      .toBuffer({ resolveWithObject: true });
+    const nextWidth = trimmed.info.width;
+    const nextHeight = trimmed.info.height;
+    if (nextWidth < 1 || nextHeight < 1) return bytes;
+    const removedWidth = (width - nextWidth) / width;
+    const removedHeight = (height - nextHeight) / height;
+    if (removedWidth > PELICAN_WHITE_TRIM_MAX_FRACTION || removedHeight > PELICAN_WHITE_TRIM_MAX_FRACTION) return bytes;
+    return trimmed.data;
+  } catch {
+    return bytes;
+  }
+}
+
+async function toPelicanProductWebp(
+  bytes: Buffer,
+  contentType: (typeof PELICAN_PRODUCT_IMAGE_TYPES)[number],
+): Promise<{ bytes: Buffer; width: number; height: number }> {
+  const sharpOptions = { failOn: "none" as const, animated: false, limitInputPixels: 100_000_000 };
+  const unreadable = () => new TRPCError({
+    code: "BAD_REQUEST" as const,
+    message: "Image could not be read. Upload a JPEG, PNG, or WebP file.",
+  });
+  const meta = await sharp(bytes, sharpOptions).metadata().catch(() => null);
+  if (!meta) throw unreadable();
+  if (meta.format !== SHARP_FORMAT_FOR_CONTENT_TYPE[contentType]) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "Image contents do not match the declared file type. Upload a JPEG, PNG, or WebP file.",
+    });
+  }
+  let oriented: Buffer;
+  try {
+    oriented = await sharp(bytes, sharpOptions).rotate().toBuffer();
+  } catch {
+    throw unreadable();
+  }
+  const orientedMeta = await sharp(oriented, sharpOptions).metadata();
+  const orientedWidth = orientedMeta.width ?? 0;
+  const orientedHeight = orientedMeta.height ?? 0;
+  if (orientedWidth < 1 || orientedHeight < 1) throw unreadable();
+  const framed = await withoutExcessiveWhiteFrame(oriented, orientedWidth, orientedHeight);
+  try {
+    // fit "inside" never pads. WebP keeps an alpha channel when the source has one.
+    const output = await sharp(framed, sharpOptions)
+      .resize({
+        width: PELICAN_PRODUCT_IMAGE_MAX_EDGE,
+        height: PELICAN_PRODUCT_IMAGE_MAX_EDGE,
+        fit: "inside",
+        withoutEnlargement: true,
+      })
+      .webp({ quality: 85, alphaQuality: 100 })
+      .toBuffer({ resolveWithObject: true });
+    return { bytes: output.data, width: output.info.width, height: output.info.height };
+  } catch (error) {
+    if (error instanceof TRPCError) throw error;
+    throw unreadable();
+  }
+}
 
 /**
  * Any stored pelican_products.category. The value is trimmed and capped at the
@@ -746,6 +891,7 @@ export const pelicanRouter = router({
       name: z.string().trim().min(1).max(255),
       description: z.string().trim().max(10000),
       imageUrl: z.string().trim().url().max(512).nullable(),
+      materialImageUrl: z.string().trim().max(512).nullable().optional(),
       yourCost: z.number().nonnegative().nullable(),
       retailPrice: z.number().nonnegative().nullable(),
     }))
@@ -762,6 +908,9 @@ export const pelicanRouter = router({
         yourCost: input.yourCost == null ? null : String(input.yourCost),
         retailPrice: input.retailPrice == null ? null : String(input.retailPrice),
       };
+      if (input.materialImageUrl !== undefined) {
+        patch.materialImageUrl = materialImageUrlOrThrow(input.materialImageUrl);
+      }
       if (positiveAuthorizedSurfaceBase({ listPrice: existing.listPrice, yourCost: input.yourCost == null ? null : String(input.yourCost) }) == null) {
         patch.isActive = false;
         patch.showInCatalog = false;
@@ -770,6 +919,63 @@ export const pelicanRouter = router({
       }
       await db.update(pelicanProducts).set(patch).where(eq(pelicanProducts.id, input.id));
       return { success: true } as const;
+    }),
+  /**
+   * Store a photo the vendor uploaded. This does not generate or fetch an
+   * image. Each call writes a new object key so the long-lived storage cache
+   * cannot keep serving the previous file.
+   *
+   * Catalog and Designer photos are separate files. Pass `target` to write
+   * one or both columns. When `target` is omitted, `useAsDesignerPhoto` and
+   * `alsoSetCatalogImage` still apply and both default to true.
+   * A uniform near-white frame is cropped before either target is saved.
+   */
+  uploadProductImage: supplierProfileProcedure
+    .input(z.object({
+      id: z.number().int().positive(),
+      dataBase64: z.string().min(1).max(PELICAN_PRODUCT_IMAGE_MAX_BASE64_CHARS),
+      contentType: z.enum(PELICAN_PRODUCT_IMAGE_TYPES),
+      target: z.enum(["catalog", "designer", "both"]).optional(),
+      useAsDesignerPhoto: z.boolean().default(true),
+      alsoSetCatalogImage: z.boolean().default(true),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Pelican catalog is unavailable." });
+      await requirePelicanVendor(db, ctx);
+      const [existing] = await db
+        .select({
+          id: pelicanProducts.id,
+          imageUrl: pelicanProducts.imageUrl,
+          materialImageUrl: pelicanProducts.materialImageUrl,
+        })
+        .from(pelicanProducts)
+        .where(eq(pelicanProducts.id, input.id))
+        .limit(1);
+      if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "Pelican product not found." });
+
+      const writes = pelicanProductImageWrites(input);
+      const decoded = decodePelicanProductImage(input.dataBase64);
+      const prepared = await toPelicanProductWebp(decoded, input.contentType);
+      const key = `pelican/products/${input.id}/${Date.now()}-${randomUUID().replace(/-/g, "").slice(0, 8)}.webp`;
+      const stored = await storagePut(key, prepared.bytes, "image/webp");
+      if (stored.url.length > 512) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Stored image address exceeds the catalog column length." });
+      }
+
+      const patch: { materialImageUrl?: string; imageUrl?: string } = {};
+      if (writes.designer) patch.materialImageUrl = stored.url;
+      if (writes.catalog) patch.imageUrl = stored.url;
+      if (Object.keys(patch).length > 0) {
+        await db.update(pelicanProducts).set(patch).where(eq(pelicanProducts.id, input.id));
+      }
+      return {
+        url: stored.url,
+        materialImageUrl: writes.designer ? stored.url : existing.materialImageUrl ?? null,
+        imageUrl: writes.catalog ? stored.url : existing.imageUrl ?? null,
+        width: prepared.width,
+        height: prepared.height,
+      };
     }),
   updateProductDetails: adminProcedure
     .input(z.object({
