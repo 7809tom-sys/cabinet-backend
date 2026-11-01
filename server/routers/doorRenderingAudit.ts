@@ -9,12 +9,18 @@
  *
  * Procedures (all adminProcedure):
  *   listStyles, startRun, runStatus, submitRender, rerunStyle,
- *   decideRender, revertToVersion, runHistory, styleVersions, abandonRun
+ *   decideRender, revertToVersion, runHistory, styleVersions, abandonRun,
+ *   approveDoor, revokeApproval, approvedDoors
+ *
+ * One approval per door style: the accepted version. The audit's Accept, the
+ * Designer's "Approve this door" and Featured Styles' "Approve" all write it
+ * (approveDoor / decideRender) and every place reads it (approvedDoors).
  */
 import { TRPCError } from "@trpc/server";
 import { and, asc, count as countRows, desc, eq, inArray, max } from "drizzle-orm";
 import { z } from "zod";
 import { doorAuditFingerprintForStyle } from "../../shared/doorRenderIdentity";
+import { DOOR_APPROVAL_SOURCES } from "../../shared/doorRenderingAudit";
 import {
   distributors,
   doorRenderingAuditResults,
@@ -113,6 +119,7 @@ const styleColumns = {
   renderHex: doorStyles.renderHex,
   doorShape: doorStyles.doorShape,
   doorSampleImageUrl: doorStyles.doorSampleImageUrl,
+  drawerSampleImageUrl: doorStyles.drawerSampleImageUrl,
   doorSampleVerified: doorStyles.doorSampleVerified,
   cornerSwatchImageUrl: doorStyles.cornerSwatchImageUrl,
   railWidth: doorStyles.railWidth,
@@ -146,6 +153,7 @@ type StyleRow = {
   renderHex: string | null;
   doorShape: string | null;
   doorSampleImageUrl: string | null;
+  drawerSampleImageUrl: string | null;
   doorSampleVerified: boolean;
   cornerSwatchImageUrl: string | null;
   railWidth: string | null;
@@ -236,6 +244,10 @@ function versionSummary(
     scoreDelta: row.scoreDelta,
     verdict: row.verdict,
     notes: row.notes,
+    source: row.source,
+    renderHex: row.renderHex,
+    approvedDoorImageUrl: row.approvedDoorImageUrl,
+    approvedDrawerImageUrl: row.approvedDrawerImageUrl,
     createdAt: row.createdAt,
     isCurrentAccepted,
   };
@@ -268,7 +280,7 @@ async function loadVersionIndex(db: Database) {
       action: doorRenderingVersionEvents.action,
     })
     .from(doorRenderingVersionEvents)
-    .where(inArray(doorRenderingVersionEvents.action, ["accepted", "reverted"])))
+    .where(inArray(doorRenderingVersionEvents.action, ["accepted", "reverted", "revoked"])))
     .map((row) => ({
       id: Number(row.id),
       styleId: Number(row.styleId),
@@ -721,7 +733,7 @@ export const doorRenderingAuditRouter = router({
             .from(doorRenderingVersionEvents)
             .where(and(
               eq(doorRenderingVersionEvents.styleId, input.styleId),
-              inArray(doorRenderingVersionEvents.action, ["accepted", "reverted"]),
+              inArray(doorRenderingVersionEvents.action, ["accepted", "reverted", "revoked"]),
             )),
           input.styleId,
         );
@@ -870,6 +882,149 @@ export const doorRenderingAuditRouter = router({
           ...versionSummary(row, row.id === acceptedVersionId),
           events: events.filter((event) => event.versionId === row.id),
         })),
+      };
+    }),
+
+  /**
+   * Approve a door from the Designer or Featured Styles. Writes the one shared
+   * approval: a new version (scored like any audit render) plus an accept event.
+   * Designer sends the locked-capture render. Featured Styles sends its door and
+   * drawer photos, and the door photo is the reference image. Older versions stay.
+   */
+  approveDoor: adminProcedure
+    .input(z.object({
+      styleId: z.number().int().positive(),
+      source: z.enum(["designer", "featured"] satisfies Exclude<(typeof DOOR_APPROVAL_SOURCES)[number], "audit">[]),
+      imageBase64: z.string().min(32).max(12_000_000).optional(),
+      contentType: z.enum(["image/png", "image/jpeg", "image/webp"]).default("image/png"),
+      doorImageUrl: z.string().trim().max(512).optional(),
+      drawerImageUrl: z.string().trim().max(512).optional(),
+      renderHex: z.string().trim().regex(/^#?[0-9a-fA-F]{6}$/).optional(),
+      renderingCommit: renderingCommitInput,
+      note: noteInput,
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = requireDb(await getDb());
+      const [style] = await db.select(styleColumns).from(doorStyles)
+        .innerJoin(distributors, eq(distributors.id, doorStyles.distributorId))
+        .where(eq(doorStyles.id, input.styleId)).limit(1);
+      if (!style) throw new TRPCError({ code: "NOT_FOUND", message: "That door style was not found." });
+      const samplePhotoUrl = style.doorSampleImageUrl?.trim();
+      if (!samplePhotoUrl) throw new TRPCError({ code: "BAD_REQUEST", message: "This style has no door sample photo to approve against." });
+
+      let renderImageUrl: string;
+      let renderImageKey: string | null = null;
+      let scoreInput: string;
+      let doorImageUrl: string | null = null;
+      let drawerImageUrl: string | null = null;
+      if (input.source === "designer") {
+        if (!input.imageBase64) throw new TRPCError({ code: "BAD_REQUEST", message: "The Designer approval needs the captured render." });
+        let image;
+        try {
+          image = decodeRenderUpload(input.imageBase64, input.contentType);
+        } catch (error) {
+          throw asAuditError(error);
+        }
+        const stored = await storagePut(doorRenderStorageKey(input.styleId, Date.now(), image.extension), image.bytes, image.contentType);
+        renderImageUrl = stored.url;
+        renderImageKey = stored.key;
+        scoreInput = `data:${image.contentType};base64,${image.bytes.toString("base64")}`;
+      } else {
+        doorImageUrl = (input.doorImageUrl ?? samplePhotoUrl).trim();
+        drawerImageUrl = (input.drawerImageUrl ?? style.drawerSampleImageUrl ?? "").trim() || null;
+        if (!doorImageUrl) throw new TRPCError({ code: "BAD_REQUEST", message: "Featured Styles needs a door photo to approve." });
+        renderImageUrl = doorImageUrl;
+        scoreInput = doorImageUrl;
+      }
+
+      let scored;
+      try {
+        scored = await scoreDoorRenderPair({ sampleImage: samplePhotoUrl, renderImage: scoreInput });
+      } catch (error) {
+        console.error("[door-rendering-audit]", error);
+        throw asAuditError(error);
+      }
+      const events = await db.select().from(doorRenderingVersionEvents).where(eq(doorRenderingVersionEvents.styleId, input.styleId));
+      const acceptedId = acceptedVersionIdForStyle(events, input.styleId);
+      const [accepted] = acceptedId == null
+        ? []
+        : await db.select().from(doorRenderingVersions).where(eq(doorRenderingVersions.id, acceptedId)).limit(1);
+      const verdict = verdictForOverall(scored.scores.overall, accepted?.overallScore ?? null);
+      const versionId = insertIdOf(await db.insert(doorRenderingVersions).values({
+        styleId: input.styleId,
+        runId: null,
+        renderingCommit: normalizeRenderingCommit(input.renderingCommit),
+        samplePhotoUrl,
+        renderImageUrl,
+        renderImageKey,
+        woodGrainScore: scored.scores.woodGrain,
+        colorScore: scored.scores.color,
+        textureSheenScore: scored.scores.textureSheen,
+        profileEdgesScore: scored.scores.profileEdges,
+        overallScore: scored.scores.overall,
+        acceptedOverallScore: accepted?.overallScore ?? null,
+        scoreDelta: verdict.scoreDelta,
+        verdict: verdict.verdict,
+        notes: scored.notes || null,
+        source: input.source,
+        renderHex: input.renderHex ? `#${input.renderHex.replace(/^#/, "").toLowerCase()}` : style.renderHex ?? null,
+        approvedDoorImageUrl: doorImageUrl,
+        approvedDrawerImageUrl: drawerImageUrl,
+      }));
+      const decision = await recordDecision(db, ctx.user.id, versionId, "accepted", optionalNote(input.note));
+      return { ...decision, versionId, source: input.source, renderImageUrl, scores: scored.scores };
+    }),
+
+  /** Withdraw the approval for one style. Every version and photo is kept. */
+  revokeApproval: adminProcedure
+    .input(z.object({ styleId: z.number().int().positive(), note: noteInput }))
+    .mutation(async ({ ctx, input }) => {
+      const db = requireDb(await getDb());
+      const events = await db.select().from(doorRenderingVersionEvents).where(eq(doorRenderingVersionEvents.styleId, input.styleId));
+      const acceptedId = acceptedVersionIdForStyle(events, input.styleId);
+      if (acceptedId == null) throw new TRPCError({ code: "BAD_REQUEST", message: "This door style has no approval to revoke." });
+      return recordDecision(db, ctx.user.id, acceptedId, "revoked", optionalNote(input.note));
+    }),
+
+  /** The one approval per door style that the Designer, the audit and Featured Styles all read. */
+  approvedDoors: adminProcedure
+    .input(z.object({ styleIds: z.array(z.number().int().positive()).max(500).optional() }).optional())
+    .query(async ({ input }) => {
+      const db = requireDb(await getDb());
+      const events = await db
+        .select()
+        .from(doorRenderingVersionEvents)
+        .where(inArray(doorRenderingVersionEvents.action, ["accepted", "reverted", "revoked"]));
+      const styleIds = Array.from(new Set(events.map((event) => event.styleId)))
+        .filter((id) => !input?.styleIds || input.styleIds.includes(id));
+      const approvedByStyle = new Map<number, number>();
+      for (const styleId of styleIds) {
+        const versionId = acceptedVersionIdForStyle(events, styleId);
+        if (versionId != null) approvedByStyle.set(styleId, versionId);
+      }
+      const versionIds = Array.from(approvedByStyle.values());
+      const versions = versionIds.length
+        ? await db.select().from(doorRenderingVersions).where(inArray(doorRenderingVersions.id, versionIds))
+        : [];
+      const versionById = new Map(versions.map((row) => [row.id, row]));
+      return {
+        approvals: Array.from(approvedByStyle.entries()).flatMap(([styleId, versionId]) => {
+          const row = versionById.get(versionId);
+          if (!row) return [];
+          const event = events.filter((e) => e.versionId === versionId && e.action !== "revoked").sort((a, b) => b.id - a.id)[0];
+          return [{
+            styleId,
+            versionId,
+            source: row.source,
+            renderImageUrl: row.renderImageUrl,
+            renderHex: row.renderHex,
+            approvedDoorImageUrl: row.approvedDoorImageUrl,
+            approvedDrawerImageUrl: row.approvedDrawerImageUrl,
+            overallScore: row.overallScore,
+            approvedAt: event?.createdAt ?? row.createdAt,
+            approvedByUserId: event?.actorUserId ?? null,
+          }];
+        }),
       };
     }),
 

@@ -683,6 +683,13 @@ export const doorRenderingVersions = mysqlTable("door_rendering_versions", {
   scoreDelta: int("scoreDelta"),
   verdict: mysqlEnum("verdict", ["flagged", "not_flagged", "no_baseline"]).notNull(),
   notes: varchar("notes", { length: 512 }),
+  /** Where this render came from: the audit run, the Designer's Approve action, or Featured Styles. */
+  source: mysqlEnum("source", ["audit", "designer", "featured"]).default("audit").notNull(),
+  /** Render color the approval was made with (checked by the color gate). */
+  renderHex: varchar("renderHex", { length: 16 }),
+  /** Door and drawer photos approved with this render (Featured Styles source). */
+  approvedDoorImageUrl: varchar("approvedDoorImageUrl", { length: 512 }),
+  approvedDrawerImageUrl: varchar("approvedDrawerImageUrl", { length: 512 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 }, (table) => [
   index("door_rendering_versions_style_created_idx").on(table.styleId, table.createdAt),
@@ -696,7 +703,7 @@ export const doorRenderingVersionEvents = mysqlTable("door_rendering_version_eve
   id: int("id").autoincrement().primaryKey(),
   styleId: int("styleId").notNull(),
   versionId: int("versionId").notNull(),
-  action: mysqlEnum("action", ["accepted", "rejected", "reverted"]).notNull(),
+  action: mysqlEnum("action", ["accepted", "rejected", "reverted", "revoked"]).notNull(),
   actorUserId: int("actorUserId").notNull(),
   note: varchar("note", { length: 512 }),
   previousAcceptedVersionId: int("previousAcceptedVersionId"),
