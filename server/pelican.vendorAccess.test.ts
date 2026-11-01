@@ -6,7 +6,7 @@ describe("Pelican vendor access", () => {
   const source = readFileSync(resolve(process.cwd(), "server/routers/pelican.ts"), "utf8");
 
   it("uses the supplier-profile procedure for vendor catalog and selling controls", () => {
-    for (const procedure of ["adminList", "setPopular", "setVisibility", "setPricing", "updateProduct", "setCoverage", "setUnsupportedOverhangLimit", "setMaterialImage"]) {
+    for (const procedure of ["adminList", "setPopular", "setVisibility", "setPricing", "updateProduct", "uploadProductImage", "setCoverage", "setUnsupportedOverhangLimit", "setMaterialImage"]) {
       expect(source).toContain(`${procedure}: supplierProfileProcedure`);
     }
   });
