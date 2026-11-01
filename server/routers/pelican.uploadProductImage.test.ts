@@ -1,4 +1,5 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
 import { getTableName } from "drizzle-orm";
 import sharp from "sharp";
 
@@ -8,7 +9,19 @@ const { getDbMock, storagePutMock, state } = vi.hoisted(() => ({
   state: {
     vendor: { sourceKey: "pelican" as string | null, isApproved: true, linkedDistributorIds: null as number[] | null },
     distributors: [{ id: 9, code: "PEL", isActive: true }],
-    product: null as null | { id: number; imageUrl: string | null; materialImageUrl: string | null; listPrice: string | null },
+    product: null as null | {
+      id: number;
+      imageUrl: string | null;
+      materialImageUrl: string | null;
+      roomSceneImageUrl: string | null;
+      listPrice: string | null;
+      category?: string;
+      name?: string;
+      description?: string;
+      slug?: string;
+      isActive?: boolean;
+      showInCatalog?: boolean;
+    },
     updates: [] as Array<{ table: string; patch: Record<string, unknown> }>,
     uploads: [] as Array<{ key: string; data: Buffer; contentType: string; url: string }>,
   },
@@ -28,6 +41,8 @@ import { appRouter } from "../routers";
 
 const ORIGINAL_CATALOG = "https://cdn.example/catalog-lifestyle.jpg";
 const ORIGINAL_DESIGNER = "/manus-storage/pelican/products/42/original-swatch.webp";
+const ORIGINAL_ROOM = "/manus-storage/pelican/products/42/original-room.webp";
+const UPLOADED_CATALOG = "/manus-storage/pelican/products/42/1730000000000-abcd1234.webp";
 
 function ctx(user: Record<string, unknown> | null) {
   return { user, req: { protocol: "https", headers: {} }, res: { clearCookie() {} } } as never;
@@ -58,7 +73,10 @@ function rowsFor(table: unknown): unknown[] {
 function query(rows: unknown[]) {
   const builder = {
     where() { return builder; },
-    limit: async () => rows,
+    orderBy() { return builder; },
+    groupBy() { return builder; },
+    offset() { return builder; },
+    limit() { return builder; },
     then(resolve: (value: unknown[]) => unknown, reject?: (reason: unknown) => unknown) {
       return Promise.resolve(rows).then(resolve, reject);
     },
@@ -103,7 +121,7 @@ beforeAll(async () => {
 beforeEach(() => {
   state.vendor = { sourceKey: "pelican", isApproved: true, linkedDistributorIds: null };
   state.distributors = [{ id: 9, code: "PEL", isActive: true }];
-  state.product = { id: 42, imageUrl: ORIGINAL_CATALOG, materialImageUrl: ORIGINAL_DESIGNER, listPrice: "20.00" };
+  state.product = { id: 42, imageUrl: ORIGINAL_CATALOG, materialImageUrl: ORIGINAL_DESIGNER, roomSceneImageUrl: ORIGINAL_ROOM, listPrice: "20.00" };
   state.updates = [];
   state.uploads = [];
   storagePutMock.mockReset();
@@ -115,6 +133,11 @@ beforeEach(() => {
   getDbMock.mockReset();
   getDbMock.mockResolvedValue({
     select: () => ({
+      from(table: unknown) {
+        return query(rowsFor(table));
+      },
+    }),
+    selectDistinct: () => ({
       from(table: unknown) {
         return query(rowsFor(table));
       },
@@ -423,5 +446,189 @@ describe("pelican.updateProduct materialImageUrl", () => {
     await expect(caller().pelican.updateProduct({ ...base, materialImageUrl: "https://cdn.example/swatch.jpg" }))
       .rejects.toMatchObject({ code: "FORBIDDEN" });
     expect(state.updates).toHaveLength(0);
+  });
+});
+
+describe("pelican.updateProduct imageUrl", () => {
+  const base = {
+    id: 42,
+    name: "Calacatta",
+    description: "Quartz slab",
+    yourCost: 12,
+    retailPrice: 40,
+  };
+
+  it("keeps an uploaded catalog photo when imageUrl is omitted", async () => {
+    state.product = { ...state.product!, imageUrl: UPLOADED_CATALOG };
+    await caller().pelican.updateProduct({ ...base, name: "Calacatta Oro" });
+    expect(state.updates[0].patch).not.toHaveProperty("imageUrl");
+    expect(state.updates[0].patch).toMatchObject({ name: "Calacatta Oro" });
+    expect(state.product?.imageUrl).toBe(UPLOADED_CATALOG);
+  });
+
+  it("saves a stored /manus-storage path", async () => {
+    const stored = "/manus-storage/pelican/products/42/vendor.webp";
+    await caller().pelican.updateProduct({ ...base, imageUrl: stored });
+    expect(state.updates[0].patch.imageUrl).toBe(stored);
+    expect(state.product?.imageUrl).toBe(stored);
+  });
+
+  it("updates the catalog photo from an http URL", async () => {
+    state.product = { ...state.product!, imageUrl: UPLOADED_CATALOG };
+    await caller().pelican.updateProduct({ ...base, imageUrl: "https://cdn.example/new-catalog.jpg" });
+    expect(state.updates[0].patch.imageUrl).toBe("https://cdn.example/new-catalog.jpg");
+    expect(state.product?.imageUrl).toBe("https://cdn.example/new-catalog.jpg");
+  });
+
+  it("rejects an invalid image string and leaves the upload in place", async () => {
+    state.product = { ...state.product!, imageUrl: UPLOADED_CATALOG };
+    await expect(caller().pelican.updateProduct({ ...base, imageUrl: "not a url" }))
+      .rejects.toMatchObject({ code: "BAD_REQUEST" });
+    expect(state.updates).toHaveLength(0);
+    expect(state.product?.imageUrl).toBe(UPLOADED_CATALOG);
+  });
+
+  it("clears the catalog photo with null, matching materialImageUrl", async () => {
+    state.product = { ...state.product!, imageUrl: UPLOADED_CATALOG };
+    await caller().pelican.updateProduct({ ...base, imageUrl: null });
+    expect(state.updates[0].patch.imageUrl).toBeNull();
+    expect(state.product?.imageUrl).toBeNull();
+  });
+});
+
+describe("pelican room scene photo", () => {
+  const base = {
+    id: 42,
+    name: "Calacatta",
+    description: "Quartz slab",
+    yourCost: 12,
+    retailPrice: 40,
+  };
+
+  it("writes only roomSceneImageUrl when target is roomScene", async () => {
+    const result = await caller().pelican.uploadProductImage({
+      id: 42,
+      dataBase64: png,
+      contentType: "image/png",
+      target: "roomScene",
+      useAsDesignerPhoto: true,
+      alsoSetCatalogImage: true,
+    });
+    expect(result.url).toMatch(/^\/manus-storage\/pelican\/products\/42\/.+\.webp$/);
+    expect(result.roomSceneImageUrl).toBe(result.url);
+    expect(result.imageUrl).toBe(ORIGINAL_CATALOG);
+    expect(result.materialImageUrl).toBe(ORIGINAL_DESIGNER);
+    expect(state.uploads[0].contentType).toBe("image/webp");
+    expect((await sharp(state.uploads[0].data).metadata()).format).toBe("webp");
+    expect(state.updates[0].patch).toEqual({ roomSceneImageUrl: result.url });
+    expect(state.product?.imageUrl).toBe(ORIGINAL_CATALOG);
+    expect(state.product?.materialImageUrl).toBe(ORIGINAL_DESIGNER);
+  });
+
+  it("crops a room-scene photo with the same white-frame pipeline", async () => {
+    const framed = await pngFromRgba(100, 80, (x, y) => {
+      const innerX = x - 10;
+      const innerY = y - 10;
+      const inside = innerX >= 0 && innerY >= 0 && innerX < 80 && innerY < 60;
+      if (!inside) return [255, 255, 255, 255];
+      return [180, 30, 30, 255];
+    });
+    const result = await caller().pelican.uploadProductImage({
+      id: 42,
+      dataBase64: framed.toString("base64"),
+      contentType: "image/png",
+      target: "roomScene",
+    });
+    expect(result).toMatchObject({ width: 80, height: 60, roomSceneImageUrl: result.url });
+    expect(state.updates[0].patch).toEqual({ roomSceneImageUrl: result.url });
+    expect(state.product?.imageUrl).toBe(ORIGINAL_CATALOG);
+    expect(state.product?.materialImageUrl).toBe(ORIGINAL_DESIGNER);
+  });
+
+  it("leaves the room scene unchanged when imageUrl is omitted and when target is not roomScene", async () => {
+    await caller().pelican.updateProduct(base);
+    expect(state.updates[0].patch).not.toHaveProperty("roomSceneImageUrl");
+    expect(state.product?.roomSceneImageUrl).toBe(ORIGINAL_ROOM);
+
+    state.updates = [];
+    await caller().pelican.uploadProductImage({ id: 42, dataBase64: png, contentType: "image/png", target: "catalog" });
+    expect(state.updates[0].patch).toEqual({ imageUrl: state.uploads[0].url });
+    expect(state.product?.roomSceneImageUrl).toBe(ORIGINAL_ROOM);
+  });
+
+  it("saves an http URL or a /manus-storage path and clears with null", async () => {
+    await caller().pelican.updateProduct({
+      ...base,
+      roomSceneImageUrl: "https://cdn.example/room.jpg",
+    });
+    expect(state.updates[0].patch.roomSceneImageUrl).toBe("https://cdn.example/room.jpg");
+
+    state.updates = [];
+    const stored = "/manus-storage/pelican/products/42/room-scene.webp";
+    await caller().pelican.updateProduct({ ...base, roomSceneImageUrl: stored });
+    expect(state.updates[0].patch.roomSceneImageUrl).toBe(stored);
+    expect(state.product?.imageUrl).toBe(ORIGINAL_CATALOG);
+
+    state.updates = [];
+    await caller().pelican.updateProduct({ ...base, roomSceneImageUrl: null });
+    expect(state.updates[0].patch.roomSceneImageUrl).toBeNull();
+    expect(state.product?.roomSceneImageUrl).toBeNull();
+  });
+
+  it("rejects an invalid room-scene string without writing", async () => {
+    await expect(caller().pelican.updateProduct({ ...base, roomSceneImageUrl: "javascript:alert(1)" }))
+      .rejects.toMatchObject({ code: "BAD_REQUEST" });
+    expect(state.updates).toHaveLength(0);
+    expect(state.product?.roomSceneImageUrl).toBe(ORIGINAL_ROOM);
+  });
+
+  it("returns roomSceneImageUrl from the vendor list and the product pages", async () => {
+    state.product = {
+      ...state.product!,
+      category: "Quartz Slabs (Countertops)",
+      name: "Calacatta",
+      description: "Quartz slab",
+      slug: "calacatta",
+      isActive: true,
+      showInCatalog: true,
+    };
+    const list = await caller().pelican.adminList({ limit: 10, offset: 0 });
+    expect(list.items[0]?.roomSceneImageUrl).toBe(ORIGINAL_ROOM);
+    const detail = await caller(null).pelican.bySlug({ slug: "calacatta" });
+    expect(detail?.roomSceneImageUrl).toBe(ORIGINAL_ROOM);
+    const page = await caller(null).pelican.byCategory({ category: "Quartz Slabs (Countertops)", scope: "catalog", limit: 10, offset: 0 });
+    expect(page.items[0]?.roomSceneImageUrl).toBe(ORIGINAL_ROOM);
+  });
+
+  it("keeps the same Pelican vendor gate for a room-scene upload", async () => {
+    state.vendor = { sourceKey: "acme", isApproved: true, linkedDistributorIds: null };
+    state.distributors = [{ id: 9, code: "ACME", isActive: true }];
+    await expect(caller().pelican.uploadProductImage({ id: 42, dataBase64: png, contentType: "image/png", target: "roomScene" }))
+      .rejects.toMatchObject({ code: "FORBIDDEN" });
+    expect(state.uploads).toHaveLength(0);
+    expect(state.updates).toHaveLength(0);
+  });
+});
+
+describe("pelican roomSceneImageUrl column", () => {
+  const schema = readFileSync(new URL("../../drizzle/pelicanSchema.ts", import.meta.url), "utf8");
+  const sql = readFileSync(new URL("../../docs/sql/0242_pelican_room_scene_image.tidb.sql", import.meta.url), "utf8");
+
+  it("is a nullable varchar(512) on pelican_products, not a door-style column", () => {
+    expect(schema).toContain('roomSceneImageUrl: varchar("roomSceneImageUrl", { length: 512 }),');
+    expect(schema).not.toContain('roomSceneImageUrl: varchar("roomSceneImageUrl", { length: 512 }).notNull()');
+  });
+
+  it("has a by-hand TiDB file: one statement per numbered block, then COMMIT and SELECT 'COMMITTED'", () => {
+    expect(sql).toContain("ALTER TABLE cabinet_dealz.pelican_products ADD COLUMN IF NOT EXISTS roomSceneImageUrl VARCHAR(512) NULL;");
+    const blocks = sql.split(/^-- \d+\n/m).slice(1);
+    expect(blocks).toHaveLength(3);
+    for (const block of blocks) {
+      const statements = block.split("\n").filter((line) => !line.startsWith("--")).join("\n").split(";").map((part) => part.trim()).filter(Boolean);
+      expect(statements).toHaveLength(1);
+    }
+    expect(sql).toContain("COMMIT;");
+    expect(sql).toContain("SELECT 'COMMITTED';");
+    expect(sql).not.toMatch(/\bDROP\b|\bDELETE\b|\bTRUNCATE\b/i);
   });
 });

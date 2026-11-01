@@ -51,16 +51,25 @@ function isStoredOrHttpImageReference(value: string): boolean {
   }
 }
 
-function materialImageUrlOrThrow(value: string | null): string | null {
+/**
+ * `null` and a blank string clear the stored photo. Anything else must be an
+ * http(s) URL or a `/manus-storage/...` path. Callers omit the field entirely
+ * when the stored value should stay unchanged.
+ */
+function storedImageReferenceOrThrow(value: string | null, label: string): string | null {
   if (value == null || value.trim() === "") return null;
   const trimmed = value.trim();
   if (!isStoredOrHttpImageReference(trimmed)) {
     throw new TRPCError({
       code: "BAD_REQUEST",
-      message: "Material image must be an http(s) URL or a stored /manus-storage/ path.",
+      message: `${label} must be an http(s) URL or a stored /manus-storage/ path.`,
     });
   }
   return trimmed;
+}
+
+function materialImageUrlOrThrow(value: string | null): string | null {
+  return storedImageReferenceOrThrow(value, "Material image");
 }
 
 function decodePelicanProductImage(dataBase64: string): Buffer {
@@ -80,16 +89,20 @@ function decodePelicanProductImage(dataBase64: string): Buffer {
   return bytes;
 }
 
-/** `target` wins when present. Otherwise the original boolean flags apply. */
+/**
+ * `target` wins when present. Otherwise the original boolean flags apply.
+ * `roomScene` writes only the room-scene column.
+ */
 function pelicanProductImageWrites(input: {
-  target?: "catalog" | "designer" | "both";
+  target?: "catalog" | "designer" | "both" | "roomScene";
   useAsDesignerPhoto: boolean;
   alsoSetCatalogImage: boolean;
-}): { designer: boolean; catalog: boolean } {
-  if (input.target === "catalog") return { designer: false, catalog: true };
-  if (input.target === "designer") return { designer: true, catalog: false };
-  if (input.target === "both") return { designer: true, catalog: true };
-  return { designer: input.useAsDesignerPhoto, catalog: input.alsoSetCatalogImage };
+}): { designer: boolean; catalog: boolean; roomScene: boolean } {
+  if (input.target === "catalog") return { designer: false, catalog: true, roomScene: false };
+  if (input.target === "designer") return { designer: true, catalog: false, roomScene: false };
+  if (input.target === "both") return { designer: true, catalog: true, roomScene: false };
+  if (input.target === "roomScene") return { designer: false, catalog: false, roomScene: true };
+  return { designer: input.useAsDesignerPhoto, catalog: input.alsoSetCatalogImage, roomScene: false };
 }
 
 /**
@@ -890,8 +903,20 @@ export const pelicanRouter = router({
       id: z.number().int().positive(),
       name: z.string().trim().min(1).max(255),
       description: z.string().trim().max(10000),
-      imageUrl: z.string().trim().url().max(512).nullable(),
+      /**
+       * Catalog photo. Omit it to leave the stored imageUrl unchanged, including
+       * a relative `/manus-storage/...` path written by uploadProductImage.
+       * `null` (or a blank string) clears it. A value must be an http(s) URL or
+       * a `/manus-storage/...` path, the same rules as materialImageUrl.
+       */
+      imageUrl: z.string().trim().max(512).nullable().optional(),
       materialImageUrl: z.string().trim().max(512).nullable().optional(),
+      /**
+       * Room-scene photo. Omit it to leave the stored roomSceneImageUrl unchanged.
+       * `null` (or a blank string) clears it. A value must be an http(s) URL or
+       * a `/manus-storage/...` path, the same rules as materialImageUrl.
+       */
+      roomSceneImageUrl: z.string().trim().max(512).nullable().optional(),
       yourCost: z.number().nonnegative().nullable(),
       retailPrice: z.number().nonnegative().nullable(),
     }))
@@ -904,12 +929,17 @@ export const pelicanRouter = router({
       const patch: Record<string, string | boolean | null> = {
         name: input.name,
         description: input.description,
-        imageUrl: input.imageUrl,
         yourCost: input.yourCost == null ? null : String(input.yourCost),
         retailPrice: input.retailPrice == null ? null : String(input.retailPrice),
       };
+      if (input.imageUrl !== undefined) {
+        patch.imageUrl = storedImageReferenceOrThrow(input.imageUrl, "Catalog image");
+      }
       if (input.materialImageUrl !== undefined) {
         patch.materialImageUrl = materialImageUrlOrThrow(input.materialImageUrl);
+      }
+      if (input.roomSceneImageUrl !== undefined) {
+        patch.roomSceneImageUrl = storedImageReferenceOrThrow(input.roomSceneImageUrl, "Room scene image");
       }
       if (positiveAuthorizedSurfaceBase({ listPrice: existing.listPrice, yourCost: input.yourCost == null ? null : String(input.yourCost) }) == null) {
         patch.isActive = false;
@@ -925,17 +955,19 @@ export const pelicanRouter = router({
    * image. Each call writes a new object key so the long-lived storage cache
    * cannot keep serving the previous file.
    *
-   * Catalog and Designer photos are separate files. Pass `target` to write
-   * one or both columns. When `target` is omitted, `useAsDesignerPhoto` and
-   * `alsoSetCatalogImage` still apply and both default to true.
-   * A uniform near-white frame is cropped before either target is saved.
+   * Catalog, Designer, and room-scene photos are separate files. Pass `target`
+   * to write one column, or both catalog and Designer columns. `roomScene`
+   * writes only roomSceneImageUrl and never imageUrl or materialImageUrl.
+   * When `target` is omitted, `useAsDesignerPhoto` and `alsoSetCatalogImage`
+   * still apply and both default to true; the room scene stays unchanged.
+   * A uniform near-white frame is cropped before the chosen target is saved.
    */
   uploadProductImage: supplierProfileProcedure
     .input(z.object({
       id: z.number().int().positive(),
       dataBase64: z.string().min(1).max(PELICAN_PRODUCT_IMAGE_MAX_BASE64_CHARS),
       contentType: z.enum(PELICAN_PRODUCT_IMAGE_TYPES),
-      target: z.enum(["catalog", "designer", "both"]).optional(),
+      target: z.enum(["catalog", "designer", "both", "roomScene"]).optional(),
       useAsDesignerPhoto: z.boolean().default(true),
       alsoSetCatalogImage: z.boolean().default(true),
     }))
@@ -948,6 +980,7 @@ export const pelicanRouter = router({
           id: pelicanProducts.id,
           imageUrl: pelicanProducts.imageUrl,
           materialImageUrl: pelicanProducts.materialImageUrl,
+          roomSceneImageUrl: pelicanProducts.roomSceneImageUrl,
         })
         .from(pelicanProducts)
         .where(eq(pelicanProducts.id, input.id))
@@ -963,9 +996,10 @@ export const pelicanRouter = router({
         throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Stored image address exceeds the catalog column length." });
       }
 
-      const patch: { materialImageUrl?: string; imageUrl?: string } = {};
+      const patch: { materialImageUrl?: string; imageUrl?: string; roomSceneImageUrl?: string } = {};
       if (writes.designer) patch.materialImageUrl = stored.url;
       if (writes.catalog) patch.imageUrl = stored.url;
+      if (writes.roomScene) patch.roomSceneImageUrl = stored.url;
       if (Object.keys(patch).length > 0) {
         await db.update(pelicanProducts).set(patch).where(eq(pelicanProducts.id, input.id));
       }
@@ -973,6 +1007,7 @@ export const pelicanRouter = router({
         url: stored.url,
         materialImageUrl: writes.designer ? stored.url : existing.materialImageUrl ?? null,
         imageUrl: writes.catalog ? stored.url : existing.imageUrl ?? null,
+        roomSceneImageUrl: writes.roomScene ? stored.url : existing.roomSceneImageUrl ?? null,
         width: prepared.width,
         height: prepared.height,
       };
