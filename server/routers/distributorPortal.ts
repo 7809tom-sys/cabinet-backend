@@ -50,6 +50,7 @@ import {
   shippingRuleCanQuote,
   type DistributorShippingRuleMode,
 } from "@shared/distributorShipping";
+import { doorStyleOwnWarehouseZipWrite, withDoorStyleWarehouseCoverage } from "@shared/doorStyleWarehouseCoverage";
 import { approvedVendorLinkedDistributorIds, approvedVendorMatchesDistributor, resolveVendorCatalogLineId } from "../lib/approvedVendorAccess";
 import { designerCabinetReadinessBySku } from "../lib/designerCabinetReadiness";
 
@@ -778,7 +779,9 @@ export const distributorPortalRouter = router({
 	          drawerFrontType: doorStyles.drawerFrontType,
 	          grainDirection: doorStyles.grainDirection,
 	          finishSheen: doorStyles.finishSheen,
+	          warehouseZip: doorStyles.warehouseZip,
 	          warehouseZips: doorStyles.warehouseZips,
+	          distributorWarehouseZips: distributors.warehouseZips,
 	          flatFreightFeeCents: doorStyles.flatFreightFeeCents,
 	          railWidth: doorStyles.railWidth,
 	          stileWidth: doorStyles.stileWidth,
@@ -789,6 +792,7 @@ export const distributorPortalRouter = router({
 	          isActive: doorStyles.isActive,
 	        })
 	        .from(doorStyles)
+	        .leftJoin(distributors, eq(doorStyles.distributorId, distributors.id))
 	        .where(and(eq(doorStyles.distributorId, lineId), inArray(doorStyles.id, styleIds)))
 	        .orderBy(doorStyles.featuredRank, doorStyles.ourName),
 	      db
@@ -861,7 +865,8 @@ export const distributorPortalRouter = router({
 	    const autoJobsByStyle = new Map(autoJobs.map((job) => [job.styleId, job]));
     return {
 	      categories,
-	      styles: styles.map((style) => {
+	      styles: styles.map((rawStyle) => {
+	        const style = withDoorStyleWarehouseCoverage(rawStyle);
 	        const allCatalog = catalogByStyle.get(style.id) ?? [];
 	        const matchingCatalog = matchingByStyle.get(style.id) ?? [];
 	        const matchingCabinets = Array.from(new Map(matchingCatalog.map((row) => [row.cabinetId, row])).values())
@@ -1049,9 +1054,8 @@ export const distributorPortalRouter = router({
 	    if (fields.finish !== undefined) patch.finish = fields.finish?.trim() || null;
 	    if (fields.woodSpecies !== undefined) patch.woodSpecies = fields.woodSpecies?.trim() || null;
 	    if (fields.warehouseZips !== undefined) {
-	      const origins = Array.from(new Set((fields.warehouseZips ?? []).map((zip) => zip.trim()).filter(Boolean)));
-	      patch.warehouseZips = origins.length > 0 ? origins : null;
-	      patch.warehouseZip = origins[0] ?? null;
+	      // Empty stays null. Vendor coverage is inherited at read time and is never copied onto door_styles.
+	      Object.assign(patch, doorStyleOwnWarehouseZipWrite(fields.warehouseZips));
 	    }
 	    if (fields.flatFreightFeeCents !== undefined) patch.flatFreightFeeCents = fields.flatFreightFeeCents;
 	    if (fields.doorSampleImageUrl !== undefined) patch.doorSampleImageUrl = fields.doorSampleImageUrl?.trim() || null;
