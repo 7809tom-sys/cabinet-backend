@@ -17,6 +17,7 @@ import {
 } from "../../drizzle/schema";
 import { canDeleteCustomerDesign, canEditCustomerProject, normalizeEmail } from "@shared/customerDirectory";
 import { planRevert, snapshotDesign } from "@shared/designAssist";
+import { resolveRequestStoreScope, type ResolvedHostScope } from "../lib/affiliateHostScope";
 
 const projectStatus = z.enum(["planning", "active", "quoted", "completed", "archived"]);
 
@@ -165,9 +166,13 @@ export const customerAccountRouter = router({
     }))
     .mutation(async ({ ctx, input }) => {
       const db = await requireDb();
-      const [design] = await db.select({ id: kitchenDesigns.id, userId: kitchenDesigns.userId }).from(kitchenDesigns).where(eq(kitchenDesigns.id, input.designId)).limit(1);
+      const hostScope = await resolveRequestStoreScope(ctx.req);
+      const [design] = await db.select({ id: kitchenDesigns.id, userId: kitchenDesigns.userId, affiliateId: kitchenDesigns.affiliateId }).from(kitchenDesigns).where(eq(kitchenDesigns.id, input.designId)).limit(1);
       if (!design || !canDeleteCustomerDesign(ctx.user.id, design.userId)) {
         throw new TRPCError({ code: "NOT_FOUND", message: "Design not found." });
+      }
+      if (hostScope.pinned && design.affiliateId !== hostScope.affiliateId) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Design not found in this store." });
       }
       if (input.projectId != null) await ownedProject(db, ctx.user.id, input.projectId);
       await db.delete(customerProjectDesigns).where(eq(customerProjectDesigns.kitchenDesignId, input.designId));
@@ -251,9 +256,13 @@ export const customerAccountRouter = router({
     .input(z.object({ designId: z.number().int().positive() }))
     .mutation(async ({ ctx, input }) => {
       const db = await requireDb();
+      const hostScope = await resolveRequestStoreScope(ctx.req);
       const [design] = await db.select().from(kitchenDesigns).where(eq(kitchenDesigns.id, input.designId)).limit(1);
       if (!design || !canDeleteCustomerDesign(ctx.user.id, design.userId)) {
         throw new TRPCError({ code: "NOT_FOUND", message: "Design not found." });
+      }
+      if (hostScope.pinned && design.affiliateId !== hostScope.affiliateId) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Design not found in this store." });
       }
       const [revision] = await db.select().from(kitchenDesignRevisions).where(eq(kitchenDesignRevisions.kitchenDesignId, design.id)).orderBy(desc(kitchenDesignRevisions.revisionNumber)).limit(1);
       if (!revision) throw new TRPCError({ code: "BAD_REQUEST", message: "This design has no earlier version to restore." });
