@@ -62,6 +62,7 @@ import { resolveCanonicalCatalogSources } from "../lib/canonicalCatalogSources";
 import { isWallWineRackCabinet } from "../../shared/wallWineRack";
 import { designerCabinetReadinessBySku } from "../lib/designerCabinetReadiness";
 import { buildDoorProfilePatch } from "../lib/doorProfileAccess";
+import { analyzeSwatchBuffer, fetchSwatchBuffer, swatchBufferFromDataUrl } from "../lib/analyzeSwatchImage";
 import { recomputeDesignerEligibility } from "../lib/designerEligibilityRecompute";
 import { hasConfirmedLandedCostRule, landedCostFromList, landedCostMultiplier } from "../lib/distributorCostMultiplier";
 import { loadCodeEquivalenceGroups } from "../lib/codeEquivalenceLoader";
@@ -232,6 +233,9 @@ export const doorStylesRouter = router({
         finish: doorStyles.finish,
         color: doorStyles.color,
         renderHex: doorStyles.renderHex,
+        finishCategory: doorStyles.finishCategory,
+        grainLightHex: doorStyles.grainLightHex,
+        grainDarkHex: doorStyles.grainDarkHex,
         doorShape: doorStyles.doorShape,
         boxConstruction: doorStyles.boxConstruction,
         drawerConstruction: doorStyles.drawerConstruction,
@@ -331,6 +335,9 @@ export const doorStylesRouter = router({
         finish: doorStyles.finish,
         color: doorStyles.color,
         renderHex: doorStyles.renderHex,
+        finishCategory: doorStyles.finishCategory,
+        grainLightHex: doorStyles.grainLightHex,
+        grainDarkHex: doorStyles.grainDarkHex,
         doorShape: doorStyles.doorShape,
         doorSampleImageUrl: doorStyles.doorSampleImageUrl,
         roomSceneImageUrl: doorStyles.roomSceneImageUrl,
@@ -553,6 +560,9 @@ export const doorStylesRouter = router({
         finish: doorStyles.finish,
         color: doorStyles.color,
         renderHex: doorStyles.renderHex,
+        finishCategory: doorStyles.finishCategory,
+        grainLightHex: doorStyles.grainLightHex,
+        grainDarkHex: doorStyles.grainDarkHex,
         doorShape: doorStyles.doorShape,
         boxConstruction: doorStyles.boxConstruction,
         drawerConstruction: doorStyles.drawerConstruction,
@@ -678,6 +688,27 @@ export const doorStylesRouter = router({
       return { ok: true };
     }),
 
+  // Read a swatch and return the door's own hex, grain range, and paint or stain.
+  // Nothing is written. Saving happens only when the admin approves it in the editor.
+  analyzeSwatch: adminProcedure
+    .input(z.object({
+      imageDataUrl: z.string().max(8_000_000).optional(),
+      imageUrl: z.string().max(512).optional(),
+    }).refine((value) => Boolean(value.imageDataUrl || value.imageUrl), "Provide a swatch image."))
+    .mutation(async ({ input }) => {
+      const buffer = input.imageDataUrl
+        ? swatchBufferFromDataUrl(input.imageDataUrl)
+        : await fetchSwatchBuffer(input.imageUrl ?? "");
+      if (!buffer) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "That swatch image could not be read." });
+      }
+      const color = await analyzeSwatchBuffer(buffer);
+      if (!color) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "No door face was found in that swatch." });
+      }
+      return color;
+    }),
+
   // Admin: quick-edit key fields of a door style (from the featured list editor).
   adminUpdateDoorStyle: adminProcedure
     .input(
@@ -702,6 +733,9 @@ export const doorStylesRouter = router({
         centerRailWidth: z.number().min(0).max(99).nullable().optional(),
         panelConstruction: z.enum(["raised", "flat", "slab", "glass"]).nullable().optional(),
         renderHex: z.string().regex(/^#[0-9a-fA-F]{6}$/).nullable().optional(),
+        finishCategory: z.enum(["paint", "stain"]).nullable().optional(),
+        grainLightHex: z.string().regex(/^#[0-9a-fA-F]{6}$/).nullable().optional(),
+        grainDarkHex: z.string().regex(/^#[0-9a-fA-F]{6}$/).nullable().optional(),
         doorShape: z.enum(["raised", "recessed-shaker", "slab", "glass"]).nullable().optional(),
         bevelWidth: z.number().min(0).max(12).nullable().optional(),
         bevelDepth: z.number().min(0).max(4).nullable().optional(),
@@ -743,6 +777,9 @@ export const doorStylesRouter = router({
       // Door profile fields go through the shared builder (also used by the Vendor Portal).
       Object.assign(patch, buildDoorProfilePatch(fields));
       if (fields.renderHex !== undefined) patch.renderHex = fields.renderHex?.trim().toLowerCase() || null;
+      if (fields.finishCategory !== undefined) patch.finishCategory = fields.finishCategory;
+      if (fields.grainLightHex !== undefined) patch.grainLightHex = fields.grainLightHex?.trim().toLowerCase() || null;
+      if (fields.grainDarkHex !== undefined) patch.grainDarkHex = fields.grainDarkHex?.trim().toLowerCase() || null;
       if (fields.doorShape !== undefined) patch.doorShape = fields.doorShape;
       if (fields.profileDescription !== undefined) patch.profileDescription = fields.profileDescription?.trim() || null;
       if (fields.cornerSwatchImageUrl !== undefined) patch.cornerSwatchImageUrl = fields.cornerSwatchImageUrl?.trim() || null;
@@ -1141,6 +1178,9 @@ export const doorStylesRouter = router({
           doorStyle: doorStyles.doorStyle,
           color: doorStyles.color,
         renderHex: doorStyles.renderHex,
+        finishCategory: doorStyles.finishCategory,
+        grainLightHex: doorStyles.grainLightHex,
+        grainDarkHex: doorStyles.grainDarkHex,
         doorShape: doorStyles.doorShape,
           finish: doorStyles.finish,
           woodSpecies: doorStyles.woodSpecies,
@@ -4499,6 +4539,9 @@ export const pricingRouter = router({
           finish: doorStyles.finish,
           color: doorStyles.color,
         renderHex: doorStyles.renderHex,
+        finishCategory: doorStyles.finishCategory,
+        grainLightHex: doorStyles.grainLightHex,
+        grainDarkHex: doorStyles.grainDarkHex,
         doorShape: doorStyles.doorShape,
           doorSampleImageUrl: doorStyles.doorSampleImageUrl,
           roomSceneImageUrl: doorStyles.roomSceneImageUrl,
@@ -5552,6 +5595,9 @@ export const pricingRouter = router({
           finish: doorStyles.finish,
           color: doorStyles.color,
         renderHex: doorStyles.renderHex,
+        finishCategory: doorStyles.finishCategory,
+        grainLightHex: doorStyles.grainLightHex,
+        grainDarkHex: doorStyles.grainDarkHex,
         doorShape: doorStyles.doorShape,
           boxConstruction: doorStyles.boxConstruction,
           drawerConstruction: doorStyles.drawerConstruction,

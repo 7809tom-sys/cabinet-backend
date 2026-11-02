@@ -2923,6 +2923,8 @@ describe("interactive 3D room scene helpers", () => {
     expect(sceneCabinetColor({ ...baseScene, materials: { ...baseScene.materials!, cabinet: { ...baseScene.materials!.cabinet, color: "Sage", finish: "Painted" } } })).toBe("#78826b");
     expect(sceneCabinetColor({ ...baseScene, materials: { ...baseScene.materials!, cabinet: { ...baseScene.materials!.cabinet, color: "Aero Sage (Preston)", finish: "Matching" } } })).toBe("#4f5549");
     expect(sceneCabinetColor({ ...baseScene, materials: { ...baseScene.materials!, cabinet: { ...baseScene.materials!.cabinet, color: "Designer Natural", finish: "Natural Maple" } } })).toBe("#d1ba8f");
+    expect(sceneCabinetColor({ ...baseScene, materials: { ...baseScene.materials!, cabinet: { ...baseScene.materials!.cabinet, color: "Stone Gray", finish: "Painted" } } })).toBe("#8d8f92");
+    expect(sceneCabinetColor({ ...baseScene, materials: { ...baseScene.materials!, cabinet: { ...baseScene.materials!.cabinet, color: "Stone Gray", finish: "Painted" } } })).not.toBe("#244338");
   });
 
   it("constrains adjustable 3D wall height from one inch through ten feet", () => {

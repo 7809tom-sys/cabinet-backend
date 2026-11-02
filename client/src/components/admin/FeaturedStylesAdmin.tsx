@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import DoorPhotoCorrectButton from "./DoorPhotoCorrectButton";
+import DoorSwatchTintPanel from "./DoorSwatchTintPanel";
 import { MediaPicker } from "./MediaPicker";
 import { designerFrameCompliance } from "@/lib/doorFrameMetrics";
 import {
@@ -40,6 +41,10 @@ interface AdminStyle {
   featuredLabel: string | null;
   doorStyle: string | null;
   color: string | null;
+  renderHex?: string | null;
+  finishCategory?: "paint" | "stain" | null;
+  grainLightHex?: string | null;
+  grainDarkHex?: string | null;
   finish: string | null;
   woodSpecies: string | null;
   thumbnailImageUrl: string | null;
@@ -313,6 +318,10 @@ function EditDialog({ style, open, onClose, onSaved }: EditDialogProps) {
   const [ourName, setOurName] = useState(style.ourName);
   const [doorStyle, setDoorStyle] = useState(style.doorStyle ?? "");
   const [color, setColor] = useState(style.color ?? "");
+  const [renderHex, setRenderHex] = useState(style.renderHex ?? "");
+  const [finishCategory, setFinishCategory] = useState<"paint" | "stain" | "">(style.finishCategory ?? "");
+  const [grainLightHex, setGrainLightHex] = useState(style.grainLightHex ?? "");
+  const [grainDarkHex, setGrainDarkHex] = useState(style.grainDarkHex ?? "");
   const [finish, setFinish] = useState(style.finish ?? "");
   const [woodSpecies, setWoodSpecies] = useState(style.woodSpecies ?? "");
   const [warehouseZips, setWarehouseZips] = useState(() => originZipList(style));
@@ -337,6 +346,10 @@ function EditDialog({ style, open, onClose, onSaved }: EditDialogProps) {
     setOurName(s.ourName);
     setDoorStyle(s.doorStyle ?? "");
     setColor(s.color ?? "");
+    setRenderHex(s.renderHex ?? "");
+    setFinishCategory(s.finishCategory ?? "");
+    setGrainLightHex(s.grainLightHex ?? "");
+    setGrainDarkHex(s.grainDarkHex ?? "");
     setFinish(s.finish ?? "");
     setWoodSpecies(s.woodSpecies ?? "");
     setWarehouseZips(originZipList(s));
@@ -423,6 +436,10 @@ function EditDialog({ style, open, onClose, onSaved }: EditDialogProps) {
       ourName: ourName.trim(),
       doorStyle: doorStyle.trim() || null,
       color: color.trim() || null,
+      renderHex: /^#[0-9a-f]{6}$/i.test(renderHex.trim()) ? renderHex.trim().toLowerCase() : null,
+      finishCategory: finishCategory || null,
+      grainLightHex: /^#[0-9a-f]{6}$/i.test(grainLightHex.trim()) ? grainLightHex.trim().toLowerCase() : null,
+      grainDarkHex: /^#[0-9a-f]{6}$/i.test(grainDarkHex.trim()) ? grainDarkHex.trim().toLowerCase() : null,
       finish: finish.trim() || null,
       woodSpecies: woodSpecies.trim() || null,
       warehouseZips: warehouseZips.length > 0 ? warehouseZips : null,
@@ -724,6 +741,16 @@ function EditDialog({ style, open, onClose, onSaved }: EditDialogProps) {
                 value={doorSampleImageUrl}
                 onChange={setDoorSampleImageUrl}
                 slot="door-sample"
+              />
+              <DoorSwatchTintPanel
+                styleName={ourName}
+                woodSpecies={woodSpecies}
+                onApply={(swatch) => {
+                  setRenderHex(swatch.hex);
+                  setFinishCategory(swatch.finishCategory);
+                  setGrainLightHex(swatch.lightHex);
+                  setGrainDarkHex(swatch.darkHex);
+                }}
               />
               <ImageField
                 label="Drawer Sample Photo"
