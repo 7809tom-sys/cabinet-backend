@@ -277,7 +277,10 @@ export default function Cart() {
                     ) : null}
                   </div>
                   <p className="mt-0.5 text-sm text-foreground leading-snug">{item.name}</p>
-                  <p className="text-xs text-muted-foreground">{item.styleLabel}</p>
+                  <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                    {item.finishHex ? <span className="inline-block h-3 w-3 rounded-full border border-black/15" style={{ backgroundColor: item.finishHex }} aria-hidden /> : null}
+                    {item.styleLabel}
+                  </p>
                   {fillerDimensions && (
                     <dl data-testid="cart-filler-stock-and-cut" className="mt-2 grid grid-cols-2 gap-x-3 rounded-md border border-amber-200 bg-amber-50/70 px-2 py-1.5 text-xs text-amber-950">
                       <div><dt className="uppercase tracking-wide text-[10px] font-semibold text-amber-800">Purchased stock</dt><dd className="font-semibold">{fillerDimensions.stock} wide</dd></div>

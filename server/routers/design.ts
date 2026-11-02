@@ -31,6 +31,7 @@ import { ENV } from "../_core/env";
 import { priceLadder } from "../../shared/pricing";
 import { resolveCanonicalCatalogSources } from "../lib/canonicalCatalogSources";
 import { isWallWineRackCabinet } from "../../shared/wallWineRack";
+import { isDesignerUtilityOrOvenBox } from "../../shared/designerEligibility";
 import { applyDistributorCabinetConfig, parseDistributorCabinetConfig } from "../lib/distributorCabinetConfig";
 import {
   AEF_PRINTED_GEOMETRY_MARKER,
@@ -498,6 +499,7 @@ export const designRouter = router({
       const isAccessory = (r: { masterCode?: string | null; category: string | null; placementType: string | null; description?: string | null; subCategory?: string | null }) => {
         // Wine racks stay on the Wall picker. Auto-Design still skips them as straight uppers.
         if (isWallWineRackCabinet(r)) return false;
+        if (isDesignerUtilityOrOvenBox(r)) return false;
         const pt = (r.placementType || "").toLowerCase();
         const cat = (r.category || "").toLowerCase();
         const sub = (r.subCategory || "").toLowerCase();
@@ -589,7 +591,7 @@ export const designRouter = router({
           placement = p;
         } else if (p.includes("wall")) {
           placement = "wall";
-        } else if (p.includes("tall") || p.includes("pantry") || p.includes("oven") || p.includes("utility")) {
+        } else if (p.includes("tall") || p.includes("pantry") || p.includes("oven") || p.includes("utility") || isDesignerUtilityOrOvenBox(r)) {
           placement = "tall";
         } else {
           // ada base, vanity, sink base, corner base, etc. → floor (base)
@@ -1544,7 +1546,7 @@ export const designRouter = router({
       // below only for trim-price resolution; public catalog views still emit
       // the canonical master. Retain TK-8 for legacy source rows.
       // Keep this list in sync with the client resolver in lib/trimCart.ts.
-      const TRIM_CODES = ["TK-8", "TK8(TKC)", "TKC", "LRM-8", "BAM", "SM-8", "BF-3", "BFF-3", "WFF-3-42", "VA-48", "LCM8"];
+      const TRIM_CODES = ["TK-8", "TK8(TKC)", "TKC", "LRM-8", "BAM", "SM-8", "SM8", "BF-3", "BFF-3", "WFF-3-42", "VA-48", "VA48", "LCM8", "CM8", "ACM8", "ROPE", "DMTIS", "SCR"];
       // Trim items may be stored with a specific styleId OR with no styleId
       // (style-agnostic). Accept both: rows that match one of the requested
       // styleIds, or rows where styleId is NULL (applies to any style).
@@ -1757,7 +1759,16 @@ export const designRouter = router({
           batten: z.boolean().optional(),
           lightRail: z.boolean().optional(),
           valance: z.boolean().optional(),
+          rope: z.boolean().optional(),
+          dentil: z.boolean().optional(),
+          scribe: z.boolean().optional(),
           qty: z.record(z.string(), z.number()).optional(),
+          orderedAccessories: z.array(z.object({
+            masterCode: z.string(),
+            name: z.string(),
+            cabinetId: z.number().nullable().optional(),
+            qty: z.number(),
+          })).optional(),
         }).optional(),
         // Master Project grouping (all optional / backward-compatible).
         projectName: z.string().max(255).optional(),
@@ -1892,7 +1903,16 @@ export const designRouter = router({
         batten: z.boolean().optional(),
         lightRail: z.boolean().optional(),
         valance: z.boolean().optional(),
+        rope: z.boolean().optional(),
+        dentil: z.boolean().optional(),
+        scribe: z.boolean().optional(),
         qty: z.record(z.string(), z.number()).optional(),
+        orderedAccessories: z.array(z.object({
+          masterCode: z.string(),
+          name: z.string(),
+          cabinetId: z.number().nullable().optional(),
+          qty: z.number(),
+        })).optional(),
       }).optional(),
       roomType: z.string().max(32).optional(),
     }))
