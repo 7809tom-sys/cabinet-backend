@@ -31,6 +31,7 @@ import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { normalizeCode } from "@shared/cabinetCodeMatch";
 import { doorEdgeProfileStrips, normalizeInsideEdgeProfile } from "@shared/doorProfiles";
+import { doorInstanceFinish, doorInstanceVariation } from "@shared/doorInstanceFinish";
 import { AEF_PRINTED_GEOMETRY_MARKER } from "@shared/aefFramelessGeometry";
 import { toast } from "sonner";
 import { pantryDrawerFrontLayout } from "@/lib/pantryDrawerLayout";
@@ -73,22 +74,16 @@ export const THREE_D_PRODUCTION_HDRI_URL = "/manus-storage/photo_studio_01_1k_5f
 export function threeDCabinetGrainTransform(
   placementUid: string | null | undefined,
   doorSampleUrl: string | null | undefined,
-): { offsetX: number; offsetY: number } {
-  const source = `${placementUid?.trim() || "legacy-cabinet"}|${doorSampleUrl?.trim() || "curated-grain"}`;
-  let hash = 2166136261;
-  for (let index = 0; index < source.length; index += 1) {
-    hash ^= source.charCodeAt(index);
-    hash = Math.imul(hash, 16777619);
-  }
-  const primary = hash >>> 0;
-  const secondary = Math.imul(primary ^ 0x9e3779b9, 2246822519) >>> 0;
-  // Keep both values away from an exact wrap seam. Hickory needs stronger
-  // horizontal variation and only a modest vertical shift to retain its grain
-  // direction and recognizable character.
-  return {
-    offsetX: 0.035 + (primary / 0xffffffff) * 0.93,
-    offsetY: 0.015 + (secondary / 0xffffffff) * 0.31,
-  };
+  position?: string | null,
+  pieceIndex?: number,
+) {
+  // Finish only. Rail, stile, and slab geometry are not part of this result.
+  return doorInstanceVariation({
+    placementUid,
+    position,
+    pieceIndex,
+    sampleUrl: doorSampleUrl,
+  }, true);
 }
 
 /** Room wall meshes are Designer context only. They must never become part of
@@ -3047,6 +3042,9 @@ export function sceneCabinetColor(scene: InteractiveRoomScene) {
   if (/(aero sage|aston green)/.test(source)) return "#4f5549";
   if (/(black|charcoal|obsidian|graphite)/.test(source)) return "#34363a";
   if (/(navy|blue|ocean)/.test(source)) return "#435b77";
+  // Gray is checked before green. "Stone Gray" must stay gray, not fall through
+  // to a green or a brand swatch.
+  if (/(gr[ae]y|greige|slate|stone|pebble)/.test(source)) return "#8d8f92";
   if (/(green|sage|forest)/.test(source)) return "#78826b";
   if (/(walnut|espresso|brown|mocha)/.test(source)) return "#75523e";
   // Calibrated from the owner-supplied Designer Natural door, drawer, full-door,
@@ -4383,10 +4381,12 @@ export function addCabinet(
 	    // A door-sample photo often includes rails, stiles, and studio background.
 	    // The renderer already builds the saved door profile physically, so use only
 	    // the uninterrupted center finish grain as its material map.
-	    doorTexture.repeat.set(usesCuratedCabinetGrain ? 1 : 0.42, usesCuratedCabinetGrain ? 1 : 0.42);
 	    const grainTransform = usesCuratedCabinetGrain
-	      ? threeDCabinetGrainTransform(sku.placementUid, doorSampleUrl)
+	      ? threeDCabinetGrainTransform(sku.placementUid, doorSampleUrl, transform ? `${transform.x},${transform.z}` : null)
 	      : null;
+	    doorTexture.repeat.set(grainTransform?.scale ?? (usesCuratedCabinetGrain ? 1 : 0.42), grainTransform?.scale ?? (usesCuratedCabinetGrain ? 1 : 0.42));
+	    doorTexture.center.set(0.5, 0.5);
+	    doorTexture.rotation = grainTransform?.rotation ?? 0;
 	    doorTexture.offset.set(grainTransform?.offsetX ?? 0.29, grainTransform?.offsetY ?? 0.29);
 	    doorTexture.userData = {
 	      ...doorTexture.userData,
@@ -4398,11 +4398,23 @@ export function addCabinet(
   // The active catalog sample is applied to actual door and drawer faces.
   // Shaker rails and stiles remain physical meshes over those faces, preserving
   // the selected Door Style's recessed-panel construction in the 3D Designer.
-  const faceColor = threeDFaceMaterialColor(color, Boolean(doorTexture));
-	  const doorFinishSurface = threeDDoorFinishSurfaceProfile(doorProfile?.finishSheen, Boolean(doorTexture));
+  const instanceFinish = doorInstanceFinish({
+    placementUid: sku.placementUid,
+    position: transform ? `${transform.x},${transform.z}` : null,
+    sampleUrl: doorSampleUrl,
+  }, {
+    ourName: doorProfile?.doorStyle,
+    color,
+    renderHex: /^#[0-9a-f]{6}$/i.test(color) ? color : null,
+    detectedHex: /^#[0-9a-f]{6}$/i.test(color) ? color : null,
+  });
+  const showWoodGrain = instanceFinish.usesGrain && Boolean(doorTexture);
+  const faceColor = showWoodGrain ? instanceFinish.grainTintHex : instanceFinish.solidHex;
+  const faceMap = showWoodGrain ? doorTexture : null;
+	  const doorFinishSurface = threeDDoorFinishSurfaceProfile(doorProfile?.finishSheen, Boolean(faceMap));
 	  const faceMaterial = new THREE.MeshPhysicalMaterial({
 	    color: faceColor,
-	    map: doorTexture,
+	    map: faceMap,
 	    ...doorFinishSurface,
 	  });
   const structuralFinish = threeDStructuralFinish(color, Boolean(doorTexture));
@@ -4429,7 +4441,7 @@ export function addCabinet(
   if (doorTexture?.image) {
     applyStructuralFinish(color, doorTexture);
   }
-	  const trimMaterial = new THREE.MeshPhysicalMaterial({ color: faceColor, map: doorTexture, ...doorFinishSurface });
+	  const trimMaterial = new THREE.MeshPhysicalMaterial({ color: faceColor, map: faceMap, ...doorFinishSurface });
 	  // A per-host Door Style sample can fail to load. Faces and their physical
 	  // rails must then fall back together to the chosen style color instead of
 	  // leaving the rails with an unresolved (black) texture map.
@@ -4825,7 +4837,7 @@ export function addCabinet(
       sourceCatalogConstruction: "RHF sloped double door + lower fascia",
       noGenericRectangularWallDoors: true,
     };
-    const fasciaMaterial = new THREE.MeshPhysicalMaterial({ color: faceColor, map: doorTexture, ...threeDPhysicalSurfaceProfile("cabinet", Boolean(doorTexture)) });
+    const fasciaMaterial = new THREE.MeshPhysicalMaterial({ color: faceColor, map: faceMap, ...threeDPhysicalSurfaceProfile("cabinet", Boolean(faceMap)) });
     textureMaterials.push(fasciaMaterial);
     const fascia = new THREE.Mesh(new THREE.BoxGeometry(hoodFront.width - 0.06, hoodFront.fasciaHeight, 0.06), fasciaMaterial);
     fascia.position.set(0, -bodyHeight / 2 + hoodFront.fasciaHeight / 2, 0.006);
@@ -4856,7 +4868,7 @@ export function addCabinet(
       const rail = threeDShakerRailThickness(hoodFront.doorWidth, hoodFront.doorHeight, doorProfile?.railWidth);
       const stile = threeDShakerRailThickness(hoodFront.doorWidth, hoodFront.doorHeight, doorProfile?.stileWidth);
       if (rail && stile && threeDUsesPhysicalShakerRails(profileKind, Boolean(doorTexture))) {
-        const frameMaterial = new THREE.MeshPhysicalMaterial({ color: faceColor, map: doorTexture, ...threeDPhysicalSurfaceProfile("cabinet", Boolean(doorTexture)) });
+        const frameMaterial = new THREE.MeshPhysicalMaterial({ color: faceColor, map: faceMap, ...threeDPhysicalSurfaceProfile("cabinet", Boolean(faceMap)) });
         textureMaterials.push(frameMaterial);
         for (const [frameWidth, frameHeight, x, y] of [
           [hoodFront.doorWidth - 0.035, rail, 0, hoodFront.doorHeight / 2 - rail / 2],
@@ -5770,7 +5782,7 @@ export function addCabinet(
     recess.position.z = 0.018;
     recess.userData = { specialtyProfile: "face-pattern", pattern: specialty.pattern };
     frontGroup.add(recess);
-    const barMaterial = new THREE.MeshStandardMaterial({ color: faceColor, map: doorTexture, roughness: 0.42 });
+    const barMaterial = new THREE.MeshStandardMaterial({ color: faceColor, map: faceMap, roughness: 0.42 });
     const barCount = specialty.pattern === "slats" ? 5 : 4;
     for (let index = 0; index < barCount; index++) {
       const bar = new THREE.Mesh(new THREE.BoxGeometry(0.055, bodyHeight - 0.14, 0.058), barMaterial);

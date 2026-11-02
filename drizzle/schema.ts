@@ -421,8 +421,13 @@ export const doorStyles = mysqlTable("door_styles", {
   woodSpecies: varchar("woodSpecies", { length: 64 }),
   finish: varchar("finish", { length: 128 }),
   color: varchar("color", { length: 64 }),
-  // Approved render color and the color-gate reference. Wins over the name fallback when set.
+  // The door's own render color. Wins over the name fallback. Not snapped to a brand palette.
   renderHex: varchar("renderHex", { length: 7 }),
+  // paint = opaque tint on painted grain. stain = translucent tint over wood grain.
+  // Null until a swatch reading is saved. Hickory still renders on real wood grain.
+  finishCategory: varchar("finishCategory", { length: 16 }),
+  grainLightHex: varchar("grainLightHex", { length: 7 }),
+  grainDarkHex: varchar("grainDarkHex", { length: 7 }),
   // raised | recessed-shaker | slab | glass. Null keeps distributor parsing.
   doorShape: varchar("doorShape", { length: 32 }),
   boxConstruction: varchar("boxConstruction", { length: 128 }),
