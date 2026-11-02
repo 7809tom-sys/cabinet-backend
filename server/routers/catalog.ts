@@ -50,6 +50,7 @@ import { parsePriceAuditQuery } from "@shared/priceAuditLookup";
 import { filterStylesByAvailability } from "@shared/styleAvailability";
 import { groupRoomScenes } from "@shared/vendorRoomScenes";
 import { doorStyleOwnWarehouseZipWrite, withDoorStyleWarehouseCoverage } from "@shared/doorStyleWarehouseCoverage";
+import { recordDoorStyleSaveVersion } from "../lib/featuredDoorStyleVersion";
 import { resolveAffiliateAccess } from "../lib/affiliateAccess";
 import { canViewAffiliatePrivateCost } from "../lib/affiliatePrivateCost";
 import { normalizeCode } from "../../shared/cabinetCodeMatch";
@@ -717,7 +718,7 @@ export const doorStylesRouter = router({
         isActive: z.boolean().optional(),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
       const { id, ...fields } = input;
@@ -751,6 +752,7 @@ export const doorStylesRouter = router({
           doorSampleImageUrl: doorStyles.doorSampleImageUrl,
           drawerSampleImageUrl: doorStyles.drawerSampleImageUrl,
           thumbnailImageUrl: doorStyles.thumbnailImageUrl,
+          renderHex: doorStyles.renderHex,
         })
         .from(doorStyles)
         .where(eq(doorStyles.id, id))
@@ -798,6 +800,19 @@ export const doorStylesRouter = router({
       ) {
         scheduleDoorStyleRoomSceneGeneration(id);
         scheduleDoorModelAudit(id);
+      }
+      const previousStyle = currentImages[0];
+      if (previousStyle && ctx.user?.id) {
+        await recordDoorStyleSaveVersion(db, {
+          styleId: id,
+          actorUserId: ctx.user.id,
+          patch,
+          previous: {
+            doorSampleImageUrl: previousStyle.doorSampleImageUrl,
+            drawerSampleImageUrl: previousStyle.drawerSampleImageUrl,
+            renderHex: previousStyle.renderHex,
+          },
+        });
       }
       return { ok: true };
     }),
