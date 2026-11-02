@@ -53,6 +53,7 @@ import {
   scoreDoorRenderPair,
 } from "../lib/doorRenderingAuditScore";
 import { storagePut } from "../storage";
+import { databaseErrorDetail, ensureDoorRenderingApprovalColumns } from "../lib/doorRenderingApprovalSchema";
 import { doorModelAuditRouter } from "./doorModelAudit";
 
 type Database = NonNullable<Awaited<ReturnType<typeof getDb>>>;
@@ -263,6 +264,7 @@ async function loadActiveStyles(db: Database): Promise<StyleRow[]> {
 }
 
 async function loadVersionIndex(db: Database) {
+  await ensureDoorRenderingApprovalColumns(db);
   const aggregates = await db
     .select({
       styleId: doorRenderingVersions.styleId,
@@ -684,6 +686,7 @@ export const doorRenderingAuditRouter = router({
     }))
     .mutation(async ({ input }) => {
       const db = requireDb(await getDb());
+      await ensureDoorRenderingApprovalColumns(db);
       let image;
       try {
         image = decodeRenderUpload(input.imageBase64, input.contentType);
@@ -838,6 +841,7 @@ export const doorRenderingAuditRouter = router({
     .input(z.object({ styleId: z.number().int().positive() }))
     .query(async ({ input }) => {
       const db = requireDb(await getDb());
+      await ensureDoorRenderingApprovalColumns(db);
       const [anyStyle] = await db
         .select(styleColumns)
         .from(doorStyles)
@@ -905,6 +909,7 @@ export const doorRenderingAuditRouter = router({
     }))
     .mutation(async ({ ctx, input }) => {
       const db = requireDb(await getDb());
+      await ensureDoorRenderingApprovalColumns(db);
       const [style] = await db.select(styleColumns).from(doorStyles)
         .innerJoin(distributors, eq(distributors.id, doorStyles.distributorId))
         .where(eq(doorStyles.id, input.styleId)).limit(1);
@@ -950,27 +955,37 @@ export const doorRenderingAuditRouter = router({
         ? []
         : await db.select().from(doorRenderingVersions).where(eq(doorRenderingVersions.id, acceptedId)).limit(1);
       const verdict = verdictForOverall(scored.scores.overall, accepted?.overallScore ?? null);
-      const versionId = insertIdOf(await db.insert(doorRenderingVersions).values({
-        styleId: input.styleId,
-        runId: null,
-        renderingCommit: normalizeRenderingCommit(input.renderingCommit),
-        samplePhotoUrl,
-        renderImageUrl,
-        renderImageKey,
-        woodGrainScore: scored.scores.woodGrain,
-        colorScore: scored.scores.color,
-        textureSheenScore: scored.scores.textureSheen,
-        profileEdgesScore: scored.scores.profileEdges,
-        overallScore: scored.scores.overall,
-        acceptedOverallScore: accepted?.overallScore ?? null,
-        scoreDelta: verdict.scoreDelta,
-        verdict: verdict.verdict,
-        notes: scored.notes || null,
-        source: input.source,
-        renderHex: input.renderHex ? `#${input.renderHex.replace(/^#/, "").toLowerCase()}` : style.renderHex ?? null,
-        approvedDoorImageUrl: doorImageUrl,
-        approvedDrawerImageUrl: drawerImageUrl,
-      }));
+      let versionId: number;
+      try {
+        versionId = insertIdOf(await db.insert(doorRenderingVersions).values({
+          styleId: input.styleId,
+          runId: null,
+          renderingCommit: normalizeRenderingCommit(input.renderingCommit),
+          samplePhotoUrl,
+          renderImageUrl,
+          renderImageKey,
+          woodGrainScore: scored.scores.woodGrain,
+          colorScore: scored.scores.color,
+          textureSheenScore: scored.scores.textureSheen,
+          profileEdgesScore: scored.scores.profileEdges,
+          overallScore: scored.scores.overall,
+          acceptedOverallScore: accepted?.overallScore ?? null,
+          scoreDelta: verdict.scoreDelta,
+          verdict: verdict.verdict,
+          notes: scored.notes || null,
+          source: input.source,
+          renderHex: input.renderHex ? `#${input.renderHex.replace(/^#/, "").toLowerCase()}` : style.renderHex ?? null,
+          approvedDoorImageUrl: doorImageUrl,
+          approvedDrawerImageUrl: drawerImageUrl,
+        }));
+      } catch (error) {
+        const detail = databaseErrorDetail(error);
+        console.error("[door-rendering-audit] version insert failed:", detail);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: `The door style version was not recorded. ${detail}`,
+        });
+      }
       const decision = await recordDecision(db, ctx.user.id, versionId, "accepted", optionalNote(input.note));
       return { ...decision, versionId, source: input.source, renderImageUrl, scores: scored.scores };
     }),
@@ -1010,6 +1025,7 @@ export const doorRenderingAuditRouter = router({
     .input(z.object({ styleIds: z.array(z.number().int().positive()).max(500).optional() }).optional())
     .query(async ({ input }) => {
       const db = requireDb(await getDb());
+      await ensureDoorRenderingApprovalColumns(db);
       const events = await db
         .select()
         .from(doorRenderingVersionEvents)
