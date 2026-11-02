@@ -25,13 +25,16 @@ const platform = {
 const affiliateSettings = {
   affiliateId: 7,
   provider: "gmail",
+  contactEmail: "store@gmail.com",
   smtpHost: "smtp.gmail.com",
   smtpPort: 587,
+  smtpSecure: false,
   smtpUser: "store@gmail.com",
   smtpPass: "affiliate-secret",
   smtpFrom: "store@gmail.com",
   fromName: "Reaves Way",
   replyTo: "hello@reaves.test",
+  invoiceCopyEmail: "",
   signatureHtml: "<p>Thanks</p>",
   enabled: true,
 };
@@ -42,7 +45,7 @@ const resend = {
 };
 
 describe("CRM outbound mail", () => {
-  it("uses the shared Resend sender and the affiliate reply-to", () => {
+  it("sends an affiliate's customer mail from that affiliate's own address", () => {
     const plan = resolveCrmOutbound({
       dealAffiliateId: 7,
       storeName: "Reaves Way Cabinet Shop",
@@ -54,9 +57,64 @@ describe("CRM outbound mail", () => {
     expect(plan.ok).toBe(true);
     if (!plan.ok) return;
     expect(plan.channel).toBe("affiliate");
+    // The affiliate's own mailbox is the sender, not the platform address.
+    expect(plan.from).toBe("store@gmail.com");
+    expect(plan.replyTo).toBe("hello@reaves.test");
+    expect(plan.affiliateId).toBe(7);
+  });
+
+  it("uses the affiliate's own mailbox even when the platform Resend sender is unset", () => {
+    const plan = resolveCrmOutbound({
+      dealAffiliateId: 7,
+      storeName: "Reaves Way Cabinet Shop",
+      publicEmail: null,
+      affiliate: affiliateSettings,
+      platform: null,
+      resendReady: false,
+      resendFrom: undefined,
+    });
+    expect(plan.ok).toBe(true);
+    if (!plan.ok) return;
+    expect(plan.channel).toBe("affiliate");
+    expect(plan.from).toBe("store@gmail.com");
+  });
+
+  it("falls back to the platform sender when the affiliate sender is switched off", () => {
+    const plan = resolveCrmOutbound({
+      dealAffiliateId: 7,
+      storeName: "Reaves Way Cabinet Shop",
+      publicEmail: "public@reaves.test",
+      affiliate: { ...affiliateSettings, enabled: false },
+      platform,
+      ...resend,
+    });
+    expect(plan.ok).toBe(true);
+    if (!plan.ok) return;
+    expect(plan.channel).toBe("platform_fallback");
     expect(plan.from).toBe(resend.resendFrom);
     expect(plan.replyTo).toBe("hello@reaves.test");
-    expect(plan).not.toHaveProperty("smtp");
+  });
+
+  it("falls back to the platform sender when the affiliate row is incomplete", () => {
+    for (const broken of [
+      { smtpHost: "" },
+      { smtpUser: "" },
+      { smtpPass: "" },
+      { contactEmail: "not-an-email", smtpFrom: "", smtpUser: "" },
+    ]) {
+      const plan = resolveCrmOutbound({
+        dealAffiliateId: 7,
+        storeName: "Shop",
+        publicEmail: null,
+        affiliate: { ...affiliateSettings, ...broken },
+        platform,
+        ...resend,
+      });
+      expect(plan.ok).toBe(true);
+      if (!plan.ok) continue;
+      expect(plan.channel).toBe("platform_fallback");
+      expect(plan.from).toBe(resend.resendFrom);
+    }
   });
 
   it("uses the public address as reply-to when the affiliate mailbox is not connected", () => {

@@ -1,6 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { affiliateEmailSettings, affiliates } from "../../drizzle/schema";
 
+// The encryption envelope is keyed by the server secret, so set it before any
+// module import. Tests never touch a real mailbox or database.
+vi.hoisted(() => {
+  process.env.JWT_SECRET ||= "test-only-encryption-key-for-affiliate-sender";
+  process.env.CABINETDEALZ_ADMIN_EMAIL ||= "admin@cabinetdealz.test";
+});
+
 const { getDbMock, accessMock } = vi.hoisted(() => ({
   getDbMock: vi.fn(),
   accessMock: vi.fn(),

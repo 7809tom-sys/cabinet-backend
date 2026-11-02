@@ -1,4 +1,12 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+// The encryption envelope is keyed by the server secret. This sets it before
+// any module is imported so the envelope can round-trip in a test process.
+// No real secret, database, or mailbox is involved.
+vi.hoisted(() => {
+  process.env.JWT_SECRET ||= "test-only-encryption-key-for-email-settings";
+});
+
 import {
   decryptEmailSettingsPassword,
   encryptEmailSettingsPassword,
