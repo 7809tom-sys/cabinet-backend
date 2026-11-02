@@ -70,7 +70,9 @@ describe("CRM email connection isolation", () => {
   });
 
   beforeEach(() => {
-    accessMock.mockResolvedValue({ affiliateId: 7, accessCrm: true });
+    // Outbound email is owner-only: a hired team member cannot change the
+    // store's sending identity even with CRM access.
+    accessMock.mockResolvedValue({ affiliateId: 7, isOwner: true, accessCrm: true });
     getDbMock.mockResolvedValue(dbFor([{
       affiliateId: 7,
       provider: "gmail",

@@ -15,10 +15,14 @@ import {
   users,
 } from "../../drizzle/schema";
 import { encryptEmailSettingsPassword } from "../lib/emailSettingsCrypto";
-import { resolveAffiliateAccess } from "../lib/affiliateAccess";
-import { platformInvoiceCopyAddress, sendAffiliateTestEmail, isPlatformSenderConfigured } from "../lib/affiliateSender";
-import { isUsableSenderEmail, resolveSmtpSecure } from "@shared/affiliateSender";
-import { getOwnedDeal, resolveScope, scopeWhere, type CrmScope } from "./crm";import {
+import {
+  loadSenderSetupForCrm,
+  runSenderTest,
+  resolveSenderTargetAffiliateId,
+  saveSenderSettings,
+} from "../lib/affiliateSenderSettings";
+import { getOwnedDeal, resolveScope, scopeWhere, type CrmScope } from "./crm";
+import {
   CRM_EMAIL_PROVIDERS,
   crmMailboxVisible,
   toPublicAffiliateEmailSettings,
@@ -33,60 +37,6 @@ function mailboxScope(scope: CrmScope): CrmMailboxScope {
 
 function ownedAffiliateId(scope: CrmScope): number | null {
   return scope.kind === "affiliate" ? scope.affiliateId : null;
-}
-
-/**
- * Which affiliate's sender settings this caller may read or write.
- *
- * A platform admin may act on any store but must name it: the caller sends an
- * affiliate id, never a slug, and the row is re-read here. An affiliate owner
- * (or a team member whose invitation grants CRM access) may act only on the
- * store they resolve to. Nobody can act on a store the server did not resolve,
- * so a client-supplied slug or id can never reach another store's mailbox.
- */
-async function resolveSenderTargetAffiliateId(
-  ctx: { user: { id: number; email: string | null; role: string } },
-  requestedAffiliateId?: number,
-): Promise<number> {
-  if (ctx.user.role === "admin") {
-    if (requestedAffiliateId == null) {
-      throw new TRPCError({
-        code: "BAD_REQUEST",
-        message: "Choose which affiliate store's email settings to open.",
-      });
-    }
-    const db = await getDb();
-    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
-    const [row] = await db
-      .select({ id: affiliates.id })
-      .from(affiliates)
-      .where(eq(affiliates.id, requestedAffiliateId))
-      .limit(1);
-    if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Affiliate not found." });
-    return row.id;
-  }
-  const db = await getDb();
-  if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
-  const access = await resolveAffiliateAccess(db, {
-    id: ctx.user.id,
-    email: ctx.user.email,
-  });
-  if (!access) {
-    throw new TRPCError({ code: "FORBIDDEN", message: "No affiliate account is linked to your login." });
-  }
-  if (!access.isOwner) {
-    throw new TRPCError({
-      code: "FORBIDDEN",
-      message: "Only the affiliate owner or a platform admin can manage outbound email.",
-    });
-  }
-  if (requestedAffiliateId != null && requestedAffiliateId !== access.affiliateId) {
-    throw new TRPCError({
-      code: "FORBIDDEN",
-      message: "You can only manage your own store's outbound email.",
-    });
-  }
-  return access.affiliateId;
 }
 
 const senderSettingsInput = z.object({
@@ -106,23 +56,6 @@ const senderSettingsInput = z.object({
   enabled: z.boolean(),
 });
 
-function optionalEmail(value: string, field: string): string {
-  const email = value.trim();
-  if (!email) return "";
-  if (!isUsableSenderEmail(email)) {
-    throw new TRPCError({ code: "BAD_REQUEST", message: `${field} is not a valid email address.` });
-  }
-  return email;
-}
-
-function requireEmail(value: string, field: string): string {
-  const email = value.trim();
-  if (!isUsableSenderEmail(email)) {
-    throw new TRPCError({ code: "BAD_REQUEST", message: `${field} is not a valid email address.` });
-  }
-  return email;
-}
-
 const templateInput = z.object({
   id: z.number().int().optional(),
   name: z.string().min(1).max(128),
@@ -138,125 +71,25 @@ export const crmEmailRouter = router({
   emailSetup: router({
     get: protectedProcedure
       .input(z.object({ affiliateId: z.number().int().positive().optional() }).optional())
-      .query(async ({ ctx, input }) => {
-        const db = await getDb();
-        const target = await resolveSenderTargetAffiliateId(ctx, input?.affiliateId);
-        const platformCopy = platformInvoiceCopyAddress();
-        if (!db) {
-          return {
-            mode: "affiliate" as const,
-            affiliateId: target,
-            settings: null,
-            invoiceCopyDefault: platformCopy,
-            platformFallbackAvailable: isPlatformSenderConfigured(),
-          };
-        }
-        const [row] = await db
-          .select()
-          .from(affiliateEmailSettings)
-          .where(eq(affiliateEmailSettings.affiliateId, target))
-          .limit(1);
-        return {
-          mode: "affiliate" as const,
-          affiliateId: target,
-          settings: row ? toPublicAffiliateEmailSettings(row) : null,
-          invoiceCopyDefault: platformCopy,
-          platformFallbackAvailable: isPlatformSenderConfigured(),
-        };
-      }),
+      .query(async ({ ctx, input }) => loadSenderSetupForCrm(ctx, input?.affiliateId)),
 
     save: protectedProcedure.input(senderSettingsInput).mutation(async ({ ctx, input }) => {
-      const db = await getDb();
-      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
-      const affiliateId = await resolveSenderTargetAffiliateId(ctx, input.affiliateId);
-      const [existing] = await db
-        .select()
-        .from(affiliateEmailSettings)
-        .where(eq(affiliateEmailSettings.affiliateId, affiliateId))
-        .limit(1);
-      const contactEmail = requireEmail(input.contactEmail, "Contact email");
-      const invoiceCopyEmail = optionalEmail(input.invoiceCopyEmail, "Invoice copy address");
-      // A blank password keeps the saved one so the affiliate can change the
-      // host or port without re-typing their app password.
-      const smtpPass = input.smtpPass && input.smtpPass.trim()
-        ? encryptEmailSettingsPassword(input.smtpPass)
-        : existing?.smtpPass ?? "";
-      if (input.enabled) {
-        if (!input.smtpHost.trim()) {
-          throw new TRPCError({ code: "BAD_REQUEST", message: "SMTP host is required to enable the affiliate sender." });
-        }
-        if (!input.smtpUser.trim()) {
-          throw new TRPCError({ code: "BAD_REQUEST", message: "SMTP username is required to enable the affiliate sender." });
-        }
-        if (!smtpPass.trim()) {
-          throw new TRPCError({ code: "BAD_REQUEST", message: "SMTP password is required to enable the affiliate sender." });
-        }
-      }
-      const values = {
-        affiliateId,
-        provider: input.provider,
-        contactEmail,
-        smtpHost: input.smtpHost.trim(),
-        smtpPort: input.smtpPort,
-        smtpSecure: resolveSmtpSecure(input.smtpPort, input.smtpSecure),
-        smtpUser: input.smtpUser.trim(),
-        smtpPass,
-        smtpFrom: input.smtpFrom.trim(),
-        fromName: input.fromName.trim(),
-        replyTo: optionalEmail(input.replyTo, "Reply-to address"),
-        invoiceCopyEmail,
-        signatureHtml: input.signatureHtml,
-        enabled: input.enabled,
-      };
-      if (existing) {
-        await db.update(affiliateEmailSettings).set(values).where(eq(affiliateEmailSettings.id, existing.id));
-      } else {
-        await db.insert(affiliateEmailSettings).values(values);
-      }
+      const saved = await saveSenderSettings(ctx, input);
       return {
         ok: true,
-        affiliateId,
-        hasPassword: smtpPass.trim().length > 0,
-        configured: input.enabled
-          && Boolean(values.smtpHost && values.smtpUser && smtpPass)
-          && isUsableSenderEmail(contactEmail),
+        affiliateId: saved.affiliateId,
+        hasPassword: saved.hasPassword,
+        configured: saved.configured,
       };
     }),
 
     // Verifies the saved mailbox handshake and sends one test to the
     // affiliate's own contact address. The address is never client-supplied, so
-    // this cannot be used to send mail to arbitrary recipients. The exact
-    // provider error is returned so a wrong app password or host is visible.
+    // this cannot relay mail to arbitrary recipients. The provider's exact error
+    // is returned so a wrong app password or host is visible.
     sendTest: protectedProcedure
       .input(z.object({ affiliateId: z.number().int().positive().optional() }).optional())
-      .mutation(async ({ ctx, input }) => {
-        const db = await getDb();
-        if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
-        const affiliateId = await resolveSenderTargetAffiliateId(ctx, input?.affiliateId);
-        const [row] = await db
-          .select()
-          .from(affiliateEmailSettings)
-          .where(eq(affiliateEmailSettings.affiliateId, affiliateId))
-          .limit(1);
-        const to = (row?.contactEmail || row?.smtpFrom || row?.smtpUser || "").trim();
-        if (!isUsableSenderEmail(to)) {
-          throw new TRPCError({
-            code: "PRECONDITION_FAILED",
-            message: "Save a valid contact email for this affiliate before sending a test message.",
-          });
-        }
-        const result = await sendAffiliateTestEmail(db, affiliateId, to);
-        if (!row) return result;
-        await db
-          .update(affiliateEmailSettings)
-          .set({
-            lastTestedAt: new Date(),
-            lastTestOk: result.ok,
-            lastTestError: result.ok ? null : result.error.slice(0, 1000),
-          })
-          .where(eq(affiliateEmailSettings.id, row.id));
-        return result;
-      }),
+      .mutation(async ({ ctx, input }) => runSenderTest(ctx, input?.affiliateId)),
 
     connections: adminProcedure.query(async () => {
       const db = await getDb();
