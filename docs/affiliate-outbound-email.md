@@ -12,7 +12,14 @@ not change distributor purchase-order mail, which stays on the platform sender.
 
 Settings are on the affiliate's `affiliate_email_settings` row (one row per
 affiliate, `affiliateId` is the key). Added by
-`drizzle/0229_affiliate_outbound_sender.sql`:
+`drizzle/0231_affiliate_outbound_sender.sql`:
+
+> **Merge order:** this migration must land **after** cabinet-backend PR 73,
+> which adds `0229_countertop_quote_affiliate` and
+> `0230_affiliate_custom_domain` at journal `idx` 228 and 229. This file takes
+> `idx` 230, so the journal keeps one increasing sequence and no migration
+> number or `idx` collides. The two migrations touch different tables, so the
+> SQL itself is order-independent.
 
 | Column | Purpose |
 | --- | --- |
@@ -44,6 +51,33 @@ All are under `crm.emailSetup` and the affiliate is resolved **server-side**:
   `{ ok: false, error }` with the exact SMTP failure (e.g. `EAUTH: Invalid
   login: 535 5.7.8 ...`). The recipient is never client-supplied.
 - `connections` — admin-only status list across stores; no passwords.
+
+### Frontend contract aliases
+
+The affiliate dashboard (cabinet-frontend PR 232) calls a different vocabulary:
+`affiliateEmailSettings.get / update / sendTest`. These are aliases of the same
+implementation — both routers delegate to
+`server/lib/affiliateSenderSettings.ts`, so authorization and password handling
+cannot drift between them. Field mapping:
+
+| Dashboard | Stored column |
+| --- | --- |
+| `email` | `contactEmail` |
+| `provider` | `provider` (`yahoo`/`gmail`/`outlook`/`custom`) |
+| `smtpHost`, `smtpPort` | `smtpHost`, `smtpPort` |
+| `secure` | `smtpSecure` |
+| `username` | `smtpUser` |
+| `appPassword` (write-only) | `smtpPass` (encrypted) |
+| `hasAppPassword` | `smtpPass` non-empty |
+
+`update` writes only those identity fields and preserves the CRM extras
+(`fromName`, `replyTo`, `signatureHtml`, `invoiceCopyEmail`) from the existing
+row, so a save from the simpler dashboard cannot erase them. `get` also returns
+`configured`, `canEdit`, `lastTestedAt`, and `lastTestOk`. `sendTest` returns
+`{ ok, to, error }`, with `to` empty on failure and `error` carrying the
+provider's exact text. The dashboard's fixed invoice-copy note ("built into
+invoicing and cannot be turned off") is accurate: the copy is always added and
+the stored address defaults to the Cabinet Dealz admin address.
 
 Scoping rules: a platform admin may act on any store but must name it by id. An
 affiliate owner may act only on the store the server resolves for their login.
@@ -86,6 +120,8 @@ any store that has not configured its own mailbox.
 
 ## Verification
 
-`server/routers/affiliateSender.test.ts` and
-`server/lib/crmOutboundAffiliate.test.ts` run with nodemailer stubbed and an
-in-memory database: no SMTP server, no database, no mailbox is contacted.
+`server/routers/affiliateSender.test.ts`,
+`server/lib/crmOutboundAffiliate.test.ts`, and
+`server/routers/affiliateEmailSettingsContract.test.ts` run with nodemailer
+stubbed and an in-memory database: no SMTP server, no database, no mailbox is
+contacted.

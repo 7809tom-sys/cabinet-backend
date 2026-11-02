@@ -1,6 +1,10 @@
--- Migration 0229. Journal idx 228, when 1795000000000, immediately after
--- 0228_designer_offer_all. Additive only: extends affiliate_email_settings so
--- each affiliate can send customer mail from its own mailbox.
+-- Migration 0231. Journal idx 230, when 1795200000000. It follows
+-- 0229_countertop_quote_affiliate and 0230_affiliate_custom_domain from
+-- cabinet-backend PR 73, which take journal idx 228 and 229, so this file and
+-- its journal entry must land AFTER that PR to keep a single ordered journal.
+-- Additive only: extends affiliate_email_settings so each affiliate can send
+-- customer mail from its own mailbox. Nothing here touches countertop_quotes or
+-- affiliates.customDomain, so the two migrations are independent.
 --
 -- contactEmail      the affiliate's own customer-facing address; also the
 --                   default recipient of the "send test email" check.
