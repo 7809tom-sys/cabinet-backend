@@ -1590,6 +1590,13 @@
       "when": 1794900000000,
       "tag": "0228_designer_offer_all",
       "breakpoints": true
+    },
+    {
+      "idx": 228,
+      "version": "5",
+      "when": 1795000000000,
+      "tag": "0229_affiliate_outbound_sender",
+      "breakpoints": true
     }
   ]
 }
