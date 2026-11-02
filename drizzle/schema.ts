@@ -2538,8 +2538,21 @@ export const affiliateEmailSettings = mysqlTable("affiliate_email_settings", {
   replyTo: varchar("replyTo", { length: 320 }).default("").notNull(),
   signatureHtml: text("signatureHtml").notNull().default(""),
   enabled: boolean("enabled").default(false).notNull(),
+  // ─── Per-affiliate outbound sender ─────────────────────────────────────────
+  // The affiliate is a separate business entity, so customer mail must leave
+  // from its own mailbox when this sender is configured and enabled. smtpSecure
+  // is stored instead of being inferred from the port: 465 is implicit TLS and
+  // 587 is STARTTLS for Yahoo (smtp.mail.yahoo.com), but custom hosts may differ.
+  // contactEmail is the affiliate address shown to the customer and is also the
+  // recipient of the "send test email" check. invoiceCopyEmail is where the
+  // platform owner receives a copy of every invoice; the Cabinet Dealz admin
+  // address is applied by the server when this is blank.
+  contactEmail: varchar("contactEmail", { length: 320 }).default("").notNull(),
+  smtpSecure: boolean("smtpSecure").default(false).notNull(),
+  invoiceCopyEmail: varchar("invoiceCopyEmail", { length: 320 }).default("").notNull(),
   lastTestedAt: timestamp("lastTestedAt"),
   lastTestOk: boolean("lastTestOk"),
+  lastTestError: varchar("lastTestError", { length: 1000 }),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 }, (t) => ({
   affiliateUnique: uniqueIndex("affiliate_email_settings_affiliate_uidx").on(t.affiliateId),

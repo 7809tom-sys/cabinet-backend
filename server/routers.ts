@@ -36,6 +36,7 @@ import { affiliatesRouter } from "./routers/affiliates";
 import { storefrontRouter } from "./routers/storefront";
 import { crmRouter } from "./routers/crm";
 import { crmEmailRouter } from "./routers/crmEmail";
+import { affiliateEmailSettingsRouter } from "./routers/affiliateEmailSettings";
 import { locationRouter } from "./routers/location";
 import { distributorImportRouter } from "./routers/distributors";
 import { distributorPortalRouter } from "./routers/distributorPortal";
@@ -188,6 +189,9 @@ export const appRouter = router({
   affiliates: affiliatesRouter,
   storefront: storefrontRouter,
   crm: mergeRouters(crmRouter, crmEmailRouter),
+  // Frontend dashboard contract (cabinet-frontend PR 232). Same authorization
+  // and same stored row as crm.emailSetup.*, with the dashboard's field names.
+  affiliateEmailSettings: affiliateEmailSettingsRouter,
   location: locationRouter,
   distributorAdmin: distributorImportRouter,
   distributorPortal: distributorPortalRouter,

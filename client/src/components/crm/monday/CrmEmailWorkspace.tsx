@@ -42,13 +42,17 @@ export type EmailConnectionRow = {
   storeName: string;
   publicEmail: string;
   connected: boolean;
+  configured: boolean;
   provider: string | null;
   fromName: string;
+  contactEmail: string;
   replyTo: string;
   smtpUser: string;
+  invoiceCopyEmail: string;
   enabled: boolean;
   hasPassword: boolean;
   lastTestOk: boolean | null;
+  lastTestError: string | null;
 };
 
 export type EmailPrefill = {
@@ -65,26 +69,32 @@ export type EmailPrefill = {
 
 type SetupDraft = {
   provider: CrmEmailProvider;
+  contactEmail: string;
   smtpHost: string;
   smtpPort: number;
+  smtpSecure: boolean;
   smtpUser: string;
   smtpPass: string;
   smtpFrom: string;
   fromName: string;
   replyTo: string;
+  invoiceCopyEmail: string;
   signatureHtml: string;
   enabled: boolean;
 };
 
 const emptySetup = (): SetupDraft => ({
   provider: "gmail",
+  contactEmail: "",
   smtpHost: CRM_SMTP_PRESETS.gmail.host,
   smtpPort: CRM_SMTP_PRESETS.gmail.port,
+  smtpSecure: false,
   smtpUser: "",
   smtpPass: "",
   smtpFrom: "",
   fromName: "",
   replyTo: "",
+  invoiceCopyEmail: "",
   signatureHtml: "",
   enabled: true,
 });
@@ -97,6 +107,7 @@ export function CrmEmailWorkspaceView({
   settings,
   connections,
   prefill,
+  invoiceCopyDefault = "",
   setupInitiallyOpen = false,
   onSend,
   onSaveDraft,
@@ -113,12 +124,14 @@ export function CrmEmailWorkspaceView({
   settings: PublicAffiliateEmailSettings | null;
   connections: EmailConnectionRow[];
   prefill: EmailPrefill | null;
+  /** Cabinet Dealz address used when the store leaves its copy field blank. */
+  invoiceCopyDefault?: string;
   setupInitiallyOpen?: boolean;
   onSend: (input: { dealId: number; to: string; subject: string; body: string; html: string; draftId?: number }) => Promise<void>;
   onSaveDraft: (input: { id?: number; dealId: number | null; toEmail: string; subject: string; bodyHtml: string }) => Promise<void>;
   onDeleteDraft: (id: number) => Promise<void>;
   onSaveSetup: (input: SetupDraft) => Promise<void>;
-  onTestSetup: (input: SetupDraft & { to: string }) => Promise<void>;
+  onTestSetup: () => Promise<void>;
   onSaveTemplate: (input: { id?: number; name: string; subject: string; bodyHtml: string }) => Promise<void>;
   onDeleteTemplate: (id: number) => Promise<void>;
 }) {
@@ -132,7 +145,6 @@ export function CrmEmailWorkspaceView({
   const [to, setTo] = useState("");
   const [subject, setSubject] = useState("");
   const [setup, setSetup] = useState<SetupDraft>(emptySetup);
-  const [testTo, setTestTo] = useState("");
   const [templateName, setTemplateName] = useState("");
   const [editingTemplateId, setEditingTemplateId] = useState<number | undefined>();
   const editorRef = useRef<HTMLDivElement>(null);
@@ -142,12 +154,15 @@ export function CrmEmailWorkspaceView({
     setSetup((current) => ({
       ...current,
       provider: (CRM_SMTP_PRESETS[settings.provider as CrmEmailProvider] ? settings.provider : "custom") as CrmEmailProvider,
+      contactEmail: settings.contactEmail,
       smtpHost: settings.smtpHost,
       smtpPort: settings.smtpPort,
+      smtpSecure: settings.smtpSecure,
       smtpUser: settings.smtpUser,
       smtpFrom: settings.smtpFrom,
       fromName: settings.fromName,
       replyTo: settings.replyTo,
+      invoiceCopyEmail: settings.invoiceCopyEmail,
       signatureHtml: settings.signatureHtml,
       enabled: settings.enabled,
       smtpPass: "",
@@ -204,8 +219,8 @@ export function CrmEmailWorkspaceView({
             <span className="block text-sm font-semibold text-[#1a2b4a]">Email setup</span>
             <span className="text-xs text-slate-500">
               {audience === "affiliate"
-                ? "CRM mail is sent through Resend. The address below is used as reply-to."
-                : "CRM mail is sent through Resend. Reply-to uses each store's saved address."}
+                ? "Customer quotes, invoices, design links, and follow-ups leave from your own address. Cabinet Dealz receives a copy of every invoice."
+                : "Each store's own mailbox carries its customer mail. Reply-to uses each store's saved address."}
             </span>
           </span>
           <span className="text-xs text-[#c9a227]">{setupOpen ? "Hide" : "Show"}</span>
@@ -218,33 +233,79 @@ export function CrmEmailWorkspaceView({
                   <select className="mt-1 w-full rounded-md border px-2 py-2 text-sm" value={setup.provider} onChange={(event) => {
                     const provider = event.target.value as CrmEmailProvider;
                     const preset = CRM_SMTP_PRESETS[provider];
-                    setSetup((current) => ({ ...current, provider, smtpHost: preset.host || current.smtpHost, smtpPort: preset.port }));
+                    setSetup((current) => ({
+                      ...current,
+                      provider,
+                      smtpHost: preset.host || current.smtpHost,
+                      smtpPort: preset.port,
+                      smtpSecure: preset.port === 465,
+                    }));
                   }}>
                     {Object.entries(CRM_SMTP_PRESETS).map(([key, preset]) => <option key={key} value={key}>{preset.label}</option>)}
                   </select>
                 </label>
                 <p className="text-xs text-slate-500 md:col-span-2">{CRM_SMTP_PRESETS[setup.provider].hint}</p>
+                <Field label="Contact email (your own address)">
+                  <Input value={setup.contactEmail} onChange={(event) => setSetup({ ...setup, contactEmail: event.target.value })} autoComplete="off" />
+                </Field>
                 <Field label="SMTP host"><Input value={setup.smtpHost} onChange={(event) => setSetup({ ...setup, smtpHost: event.target.value })} /></Field>
                 <Field label="Port"><Input type="number" value={setup.smtpPort} onChange={(event) => setSetup({ ...setup, smtpPort: Number(event.target.value) })} /></Field>
-                <Field label="Username"><Input value={setup.smtpUser} onChange={(event) => setSetup({ ...setup, smtpUser: event.target.value })} autoComplete="off" /></Field>
-                <Field label={settings?.hasPassword ? "Password (leave blank to keep saved)" : "Password"}>
+                <label className="flex items-center gap-2 text-xs font-medium text-slate-600">
+                  <input
+                    type="checkbox"
+                    checked={setup.smtpSecure}
+                    onChange={(event) => {
+                      const smtpSecure = event.target.checked;
+                      // Yahoo publishes SSL on 465 and STARTTLS on 587; keep the
+                      // port and the TLS toggle from disagreeing.
+                      setSetup({
+                        ...setup,
+                        smtpSecure,
+                        smtpPort: setup.provider === "yahoo" ? (smtpSecure ? 465 : 587) : setup.smtpPort,
+                      });
+                    }}
+                  />
+                  Use SSL (465). Leave off for STARTTLS (587).
+                </label>
+                <Field label="Username (full email address)">
+                  <Input value={setup.smtpUser} onChange={(event) => setSetup({ ...setup, smtpUser: event.target.value })} autoComplete="off" />
+                </Field>
+                <Field label={settings?.hasPassword ? "Password / app password (blank keeps saved)" : "Password / app password"}>
                   <Input type="password" value={setup.smtpPass} onChange={(event) => setSetup({ ...setup, smtpPass: event.target.value })} autoComplete="new-password" />
                 </Field>
                 <Field label="From address"><Input value={setup.smtpFrom} onChange={(event) => setSetup({ ...setup, smtpFrom: event.target.value })} /></Field>
                 <Field label="From name"><Input value={setup.fromName} onChange={(event) => setSetup({ ...setup, fromName: event.target.value })} /></Field>
                 <Field label="Reply-to"><Input value={setup.replyTo} onChange={(event) => setSetup({ ...setup, replyTo: event.target.value })} /></Field>
+                <Field label="Invoice copy for Cabinet Dealz">
+                  <Input value={setup.invoiceCopyEmail} placeholder={invoiceCopyDefault || "Cabinet Dealz admin address"} onChange={(event) => setSetup({ ...setup, invoiceCopyEmail: event.target.value })} />
+                </Field>
                 <label className="flex items-center gap-2 text-sm md:col-span-2">
                   <input type="checkbox" checked={setup.enabled} onChange={(event) => setSetup({ ...setup, enabled: event.target.checked })} />
-                  Save this mailbox address for reply-to
+                  Send customer email from this mailbox (off keeps the Cabinet Dealz sender)
                 </label>
                 <label className="text-xs font-medium text-slate-600 md:col-span-2">Signature
                   <textarea className="mt-1 min-h-20 w-full rounded-md border px-2 py-2 text-sm" value={setup.signatureHtml} onChange={(event) => setSetup({ ...setup, signatureHtml: event.target.value })} />
                 </label>
-                <div className="flex flex-wrap gap-2 md:col-span-2">
+                <div className="flex flex-wrap items-center gap-2 md:col-span-2">
                   <Button type="button" onClick={() => onSaveSetup(setup)}>Save connection</Button>
-                  <Input className="max-w-xs" placeholder="Send test to" value={testTo} onChange={(event) => setTestTo(event.target.value)} />
-                  <Button type="button" variant="outline" onClick={() => onTestSetup({ ...setup, to: testTo })}>Send test</Button>
+                  <Button type="button" variant="outline" onClick={() => onTestSetup()}>Send test to my address</Button>
+                  <span className="text-xs text-slate-500">
+                    The test goes to {setup.contactEmail || "your saved contact address"}.
+                  </span>
                 </div>
+                {settings?.lastTestOk === false && settings.lastTestError && (
+                  <p className="text-xs text-red-600 md:col-span-2">Last test failed: {settings.lastTestError}</p>
+                )}
+                {settings?.lastTestOk === true && (
+                  <p className="text-xs text-emerald-700 md:col-span-2">
+                    Last test passed for {settings.contactEmail || settings.smtpUser}.
+                  </p>
+                )}
+                <p className="text-xs text-slate-500 md:col-span-2">
+                  {settings?.configured
+                    ? `Customer mail is currently sent from ${settings.contactEmail || settings.smtpUser}.`
+                    : "While this is off or incomplete, customer mail keeps using the Cabinet Dealz sender."}
+                </p>
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -256,16 +317,16 @@ export function CrmEmailWorkspaceView({
                     {connections.map((row) => (
                       <tr key={row.affiliateId} className="border-t">
                         <td className="py-2 font-medium">{row.storeName}</td>
-                        <td>{row.connected ? "Connected" : "Platform fallback"}</td>
+                        <td>{row.configured ? "Own sender" : "Platform fallback"}</td>
                         <td>{row.provider ?? "—"}</td>
-                        <td>{row.smtpUser || "—"}</td>
+                        <td>{row.contactEmail || row.smtpUser || "—"}</td>
                         <td>{row.replyTo || row.publicEmail}</td>
-                        <td>{row.lastTestOk == null ? "—" : row.lastTestOk ? "OK" : "Failed"}</td>
+                        <td title={row.lastTestError ?? undefined}>{row.lastTestOk == null ? "—" : row.lastTestOk ? "OK" : "Failed"}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
-                <p className="mt-2 text-xs text-slate-500">Sending uses Resend. A saved reply-to or mailbox address is where customer replies go. Stored passwords are not shown.</p>
+                <p className="mt-2 text-xs text-slate-500">A store with its own enabled mailbox sends customer mail from that address. Stored passwords are never shown.</p>
               </div>
             )}
           </div>
@@ -424,22 +485,28 @@ export function CrmEmailWorkspace({
   audience,
   showConnections = false,
   prefill,
+  affiliateId,
 }: {
   audience: "affiliate" | "admin";
   showConnections?: boolean;
   prefill: EmailPrefill | null;
+  /** The store whose own mailbox is being edited. The server re-resolves it. */
+  affiliateId?: number;
 }) {
   const utils = trpc.useUtils();
   const contacts = trpc.crm.emailContacts.useQuery();
   const mailbox = trpc.crm.emailMailbox.list.useQuery();
   const templates = trpc.crm.emailTemplates.list.useQuery();
-  const setup = trpc.crm.emailSetup.get.useQuery(undefined, { enabled: audience === "affiliate" });
+  const setup = trpc.crm.emailSetup.get.useQuery(
+    affiliateId != null ? { affiliateId } : undefined,
+    { enabled: audience === "affiliate" || affiliateId != null },
+  );
   const connections = trpc.crm.emailSetup.connections.useQuery(undefined, { enabled: showConnections });
   const send = trpc.crm.sendEmail.useMutation();
   const saveDraft = trpc.crm.emailDrafts.save.useMutation();
   const deleteDraft = trpc.crm.emailDrafts.remove.useMutation();
   const saveSetup = trpc.crm.emailSetup.save.useMutation();
-  const testSetup = trpc.crm.emailSetup.testSend.useMutation();
+  const testSetup = trpc.crm.emailSetup.sendTest.useMutation();
   const saveTemplate = trpc.crm.emailTemplates.save.useMutation();
   const deleteTemplate = trpc.crm.emailTemplates.remove.useMutation();
 
@@ -461,6 +528,7 @@ export function CrmEmailWorkspace({
       settings={setup.data?.settings ?? null}
       connections={(connections.data ?? []) as EmailConnectionRow[]}
       prefill={prefill}
+      invoiceCopyDefault={setup.data?.invoiceCopyDefault ?? ""}
       onSend={async (input) => {
         await send.mutateAsync(input);
         toast.success("Email sent");
@@ -477,13 +545,18 @@ export function CrmEmailWorkspace({
         await refresh();
       }}
       onSaveSetup={async (input) => {
-        await saveSetup.mutateAsync(input);
+        await saveSetup.mutateAsync({ ...input, ...(affiliateId != null ? { affiliateId } : {}) });
         toast.success("Email connection saved");
         await utils.crm.emailSetup.get.invalidate();
       }}
-      onTestSetup={async (input) => {
-        await testSetup.mutateAsync(input);
-        toast.success("Test email sent");
+      onTestSetup={async () => {
+        const result = await testSetup.mutateAsync(affiliateId != null ? { affiliateId } : undefined);
+        if (result.ok) {
+          toast.success(`Test email sent from ${result.from ?? "your mailbox"} to ${result.to ?? "your address"}`);
+        } else {
+          toast.error(result.error);
+        }
+        await utils.crm.emailSetup.get.invalidate();
       }}
       onSaveTemplate={async (input) => {
         await saveTemplate.mutateAsync(input);

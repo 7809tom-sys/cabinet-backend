@@ -181,19 +181,33 @@ describe("Resend email transport", () => {
 });
 
 describe("CRM delivery through Resend", () => {
+  /** A house resolution: no affiliate row, so the shared platform sender carries mail. */
+  function platformPlan(overrides: Partial<{ channel: "affiliate" | "platform_fallback" | "platform"; from: string; replyTo: string; signatureHtml: string }> = {}) {
+    return {
+      plan: {
+        ok: true as const,
+        channel: "platform" as const,
+        from: env.ORDER_EMAIL_FROM,
+        signatureHtml: "",
+        affiliateId: null,
+        ...overrides,
+      },
+      record: null,
+    };
+  }
+
   it("sends the invoice PDF with the affiliate reply-to and logs success", async () => {
     vi.stubEnv("RESEND_API_KEY", env.RESEND_API_KEY);
     vi.stubEnv("ORDER_EMAIL_FROM", env.ORDER_EMAIL_FROM);
     const fetchImpl = vi.fn(async () => new Response(JSON.stringify({ id: "email_pdf" }), { status: 200 }));
     vi.stubGlobal("fetch", fetchImpl);
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
-    await deliverCrmMessage({
-      ok: true,
+    await deliverCrmMessage(platformPlan({
       channel: "affiliate",
       from: env.ORDER_EMAIL_FROM,
       replyTo: "hello@shop.test",
       signatureHtml: "<p>Thanks</p>",
-    }, {
+    }), {
       to: "customer@example.com",
       subject: "Invoice",
       text: "Attached",
@@ -219,12 +233,7 @@ describe("CRM delivery through Resend", () => {
     const fetchImpl = vi.fn();
     vi.stubGlobal("fetch", fetchImpl);
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
-    const sent = await deliverCrmMessage({
-      ok: true,
-      channel: "platform",
-      from: "Cabinet Dealz",
-      signatureHtml: "",
-    }, {
+    const sent = await deliverCrmMessage(platformPlan({ from: "Cabinet Dealz" }), {
       to: "customer@example.com",
       subject: "Invoice",
       text: "Attached",
@@ -244,12 +253,7 @@ describe("CRM delivery through Resend", () => {
     const fetchImpl = vi.fn();
     vi.stubGlobal("fetch", fetchImpl);
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
-    await expect(deliverCrmMessage({
-      ok: true,
-      channel: "platform",
-      from: "Cabinet Dealz",
-      signatureHtml: "",
-    }, {
+    await expect(deliverCrmMessage(platformPlan({ from: "Cabinet Dealz" }), {
       to: "customer@example.com",
       subject: "Invoice",
       text: "Attached",

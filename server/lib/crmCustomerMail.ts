@@ -57,10 +57,21 @@ export async function sendCrmDealEmail(
     activityBody: string;
     logBody?: string;
     distributorId?: number | null;
+    /** Invoices copy Cabinet Dealz so the platform owner sees every one. */
+    invoice?: boolean;
+    /**
+     * Supplier mail (distributor POs) is not customer mail and stays on the
+     * platform sender even when the affiliate has its own mailbox.
+     */
+    platformSender?: boolean;
   },
-): Promise<{ from: string; transport: "resend" | "smtp" }> {
-  const plan = await loadCrmOutboundPlan(db, input.affiliateId);
-  const sent = await deliverCrmMessage(plan, {
+): Promise<{ from: string; transport: "resend" | "smtp" | "affiliate_smtp"; invoiceCopyTo: string | null }> {
+  const resolution = await loadCrmOutboundPlan(db, input.affiliateId);
+  // Supplier mail keeps the platform identity even for an affiliate deal.
+  if (input.platformSender && resolution.plan.ok && resolution.plan.channel !== "platform") {
+    resolution.plan = { ...resolution.plan, channel: "platform" };
+  }
+  const sent = await deliverCrmMessage(resolution, {
     to: input.to,
     cc: input.cc,
     bcc: input.bcc,
@@ -69,6 +80,9 @@ export async function sendCrmDealEmail(
     html: input.html,
     replyTo: input.replyTo,
     attachments: input.attachments,
+    affiliateId: input.affiliateId,
+    invoice: input.invoice,
+    platformSender: input.platformSender,
   });
   await insertCrmEmailLog(db, {
     dealId: input.dealId,
@@ -87,7 +101,7 @@ export async function sendCrmDealEmail(
     body: input.activityBody,
   });
   await db.update(crmDeals).set({ updatedAt: new Date() }).where(eq(crmDeals.id, input.dealId));
-  return { from: sent.from, transport: sent.transport };
+  return { from: sent.from, transport: sent.transport, invoiceCopyTo: sent.invoiceCopyTo };
 }
 
 /** Find or create the contact's deal, then send and log. */
@@ -95,7 +109,7 @@ export async function sendCrmCustomerEmail(
   db: Database,
   draft: PipelineDealDraft,
   message: Omit<Parameters<typeof sendCrmDealEmail>[1], "dealId" | "affiliateId">,
-): Promise<{ dealId: number; from: string; transport: "resend" | "smtp" }> {
+): Promise<{ dealId: number; from: string; transport: "resend" | "smtp" | "affiliate_smtp" }> {
   const deal = await ensureAffiliatePipelineDeal(db, draft);
   const sent = await sendCrmDealEmail(db, {
     ...message,

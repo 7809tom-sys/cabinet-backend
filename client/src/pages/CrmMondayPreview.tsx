@@ -33,8 +33,8 @@ const mailbox: MailboxRow[] = [
   { kind: "draft", id: 2, dealId: 1, toEmail: "rivera@example.com", subject: "Following up on Rivera kitchen remodel", body: "<p>Hi J. Rivera,</p>", at: "2026-10-26T11:00:00", title: "Rivera kitchen remodel", stage: "new", contactName: "J. Rivera" },
 ];
 const connections: EmailConnectionRow[] = [
-  { affiliateId: 7, storeName: "Reaves Way Cabinet Shop", publicEmail: "hello@reavesway.example", connected: true, provider: "gmail", fromName: "Reaves Way", replyTo: "hello@reavesway.example", smtpUser: "hello@reavesway.example", enabled: true, hasPassword: true, lastTestOk: true },
-  { affiliateId: 8, storeName: "Harbor Cabinets", publicEmail: "sales@harbor.example", connected: false, provider: null, fromName: "", replyTo: "sales@harbor.example", smtpUser: "", enabled: false, hasPassword: false, lastTestOk: null },
+  { affiliateId: 7, storeName: "Reaves Way Cabinet Shop", publicEmail: "hello@reavesway.example", connected: true, configured: true, provider: "gmail", fromName: "Reaves Way", contactEmail: "hello@reavesway.example", replyTo: "hello@reavesway.example", smtpUser: "hello@reavesway.example", invoiceCopyEmail: "", enabled: true, hasPassword: true, lastTestOk: true, lastTestError: null },
+  { affiliateId: 8, storeName: "Harbor Cabinets", publicEmail: "sales@harbor.example", connected: false, configured: false, provider: null, fromName: "", contactEmail: "", replyTo: "sales@harbor.example", smtpUser: "", invoiceCopyEmail: "", enabled: false, hasPassword: false, lastTestOk: null, lastTestError: null },
 ];
 
 export default function CrmMondayPreview() {

@@ -15,6 +15,12 @@ import {
   users,
 } from "../../drizzle/schema";
 import { encryptEmailSettingsPassword } from "../lib/emailSettingsCrypto";
+import {
+  loadSenderSetupForCrm,
+  runSenderTest,
+  resolveSenderTargetAffiliateId,
+  saveSenderSettings,
+} from "../lib/affiliateSenderSettings";
 import { getOwnedDeal, resolveScope, scopeWhere, type CrmScope } from "./crm";
 import {
   CRM_EMAIL_PROVIDERS,
@@ -22,7 +28,6 @@ import {
   toPublicAffiliateEmailSettings,
   type CrmMailboxScope,
 } from "@shared/crmMailbox";
-import { deliverCrmMessage } from "../lib/crmOutboundMail";
 
 function mailboxScope(scope: CrmScope): CrmMailboxScope {
   if (scope.kind === "house") return { kind: "house" };
@@ -34,6 +39,23 @@ function ownedAffiliateId(scope: CrmScope): number | null {
   return scope.kind === "affiliate" ? scope.affiliateId : null;
 }
 
+const senderSettingsInput = z.object({
+  affiliateId: z.number().int().positive().optional(),
+  provider: z.enum(CRM_EMAIL_PROVIDERS),
+  contactEmail: z.string().trim().max(320),
+  smtpHost: z.string().trim().max(255),
+  smtpPort: z.number().int().min(1).max(65535),
+  smtpSecure: z.boolean(),
+  smtpUser: z.string().trim().max(255),
+  smtpPass: z.string().max(2000).optional(),
+  smtpFrom: z.string().trim().max(320),
+  fromName: z.string().max(256),
+  replyTo: z.string().trim().max(320),
+  invoiceCopyEmail: z.string().trim().max(320),
+  signatureHtml: z.string().max(20000),
+  enabled: z.boolean(),
+});
+
 const templateInput = z.object({
   id: z.number().int().optional(),
   name: z.string().min(1).max(128),
@@ -42,105 +64,32 @@ const templateInput = z.object({
 });
 
 export const crmEmailRouter = router({
+  // Per-affiliate outbound sender. Each affiliate is a separate entity, so its
+  // customer mail leaves from its own mailbox when that mailbox is configured
+  // and enabled. Settings live on the affiliate's email-settings row and the
+  // SMTP password is write-only: the client only ever learns hasPassword.
   emailSetup: router({
-    get: protectedProcedure.query(async ({ ctx }) => {
-      const db = await getDb();
-      const scope = await resolveScope(ctx);
-      if (!db || scope.kind !== "affiliate") {
-        return { mode: scope.kind === "affiliate" ? "affiliate" as const : "platform" as const, settings: null };
-      }
-      const [row] = await db.select().from(affiliateEmailSettings).where(eq(affiliateEmailSettings.affiliateId, scope.affiliateId)).limit(1);
+    get: protectedProcedure
+      .input(z.object({ affiliateId: z.number().int().positive().optional() }).optional())
+      .query(async ({ ctx, input }) => loadSenderSetupForCrm(ctx, input?.affiliateId)),
+
+    save: protectedProcedure.input(senderSettingsInput).mutation(async ({ ctx, input }) => {
+      const saved = await saveSenderSettings(ctx, input);
       return {
-        mode: "affiliate" as const,
-        settings: row ? toPublicAffiliateEmailSettings(row) : null,
+        ok: true,
+        affiliateId: saved.affiliateId,
+        hasPassword: saved.hasPassword,
+        configured: saved.configured,
       };
     }),
 
-    save: protectedProcedure.input(z.object({
-      provider: z.enum(CRM_EMAIL_PROVIDERS),
-      smtpHost: z.string().max(255),
-      smtpPort: z.number().int().min(1).max(65535),
-      smtpUser: z.string().max(255),
-      smtpPass: z.string().max(2000).optional(),
-      smtpFrom: z.string().max(320),
-      fromName: z.string().max(256),
-      replyTo: z.string().max(320),
-      signatureHtml: z.string().max(20000),
-      enabled: z.boolean(),
-    })).mutation(async ({ ctx, input }) => {
-      const db = await getDb();
-      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
-      const scope = await resolveScope(ctx);
-      if (scope.kind !== "affiliate") {
-        throw new TRPCError({ code: "FORBIDDEN", message: "Connect email from your own affiliate CRM." });
-      }
-      const [existing] = await db.select().from(affiliateEmailSettings).where(eq(affiliateEmailSettings.affiliateId, scope.affiliateId)).limit(1);
-      const smtpPass = input.smtpPass && input.smtpPass.trim()
-        ? encryptEmailSettingsPassword(input.smtpPass)
-        : existing?.smtpPass ?? "";
-      const values = {
-        affiliateId: scope.affiliateId,
-        provider: input.provider,
-        smtpHost: input.smtpHost.trim(),
-        smtpPort: input.smtpPort,
-        smtpUser: input.smtpUser.trim(),
-        smtpPass,
-        smtpFrom: input.smtpFrom.trim(),
-        fromName: input.fromName.trim(),
-        replyTo: input.replyTo.trim(),
-        signatureHtml: input.signatureHtml,
-        enabled: input.enabled,
-      };
-      if (existing) {
-        await db.update(affiliateEmailSettings).set(values).where(eq(affiliateEmailSettings.id, existing.id));
-      } else {
-        await db.insert(affiliateEmailSettings).values(values);
-      }
-      return { ok: true, hasPassword: smtpPass.trim().length > 0 };
-    }),
-
-    testSend: protectedProcedure.input(z.object({
-      to: z.string().email(),
-      provider: z.enum(CRM_EMAIL_PROVIDERS),
-      smtpHost: z.string().max(255).optional().default(""),
-      smtpPort: z.number().int().min(1).max(65535).optional().default(587),
-      smtpUser: z.string().max(255).optional().default(""),
-      smtpPass: z.string().max(2000).optional(),
-      smtpFrom: z.string().max(320).optional(),
-      fromName: z.string().max(256).optional(),
-    })).mutation(async ({ ctx, input }) => {
-      const db = await getDb();
-      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
-      const scope = await resolveScope(ctx);
-      if (scope.kind !== "affiliate") {
-        throw new TRPCError({ code: "FORBIDDEN", message: "Test email from your own affiliate CRM." });
-      }
-      const [existing] = await db.select().from(affiliateEmailSettings).where(eq(affiliateEmailSettings.affiliateId, scope.affiliateId)).limit(1);
-      const replyTo = (input.smtpFrom || input.smtpUser).trim();
-      try {
-        await deliverCrmMessage({
-          ok: true,
-          channel: "affiliate",
-          from: process.env.ORDER_EMAIL_FROM?.trim() || "Cabinet Dealz",
-          replyTo,
-          signatureHtml: existing?.signatureHtml ?? "",
-        }, {
-          to: input.to,
-          subject: "Cabinet Dealz CRM test",
-          text: "This is a test from your CRM email setup. No customer message was sent.",
-          html: "<p>This is a test from your CRM email setup. No customer message was sent.</p>",
-        });
-        if (existing) {
-          await db.update(affiliateEmailSettings).set({ lastTestedAt: new Date(), lastTestOk: true, provider: input.provider }).where(eq(affiliateEmailSettings.id, existing.id));
-        }
-        return { ok: true };
-      } catch (error) {
-        if (existing) {
-          await db.update(affiliateEmailSettings).set({ lastTestedAt: new Date(), lastTestOk: false }).where(eq(affiliateEmailSettings.id, existing.id));
-        }
-        throw error;
-      }
-    }),
+    // Verifies the saved mailbox handshake and sends one test to the
+    // affiliate's own contact address. The address is never client-supplied, so
+    // this cannot relay mail to arbitrary recipients. The provider's exact error
+    // is returned so a wrong app password or host is visible.
+    sendTest: protectedProcedure
+      .input(z.object({ affiliateId: z.number().int().positive().optional() }).optional())
+      .mutation(async ({ ctx, input }) => runSenderTest(ctx, input?.affiliateId)),
 
     connections: adminProcedure.query(async () => {
       const db = await getDb();
@@ -163,14 +112,18 @@ export const crmEmailRouter = router({
           storeName: store.storeName,
           publicEmail: store.publicEmail || store.email,
           connected: pub?.connected ?? false,
+          configured: pub?.configured ?? false,
           provider: pub?.provider ?? null,
           fromName: pub?.fromName ?? "",
+          contactEmail: pub?.contactEmail ?? "",
           replyTo: pub?.replyTo || store.publicEmail || "",
           smtpUser: pub?.smtpUser ?? "",
+          invoiceCopyEmail: pub?.invoiceCopyEmail || "",
           enabled: pub?.enabled ?? false,
           hasPassword: pub?.hasPassword ?? false,
           lastTestedAt: pub?.lastTestedAt ?? null,
           lastTestOk: pub?.lastTestOk ?? null,
+          lastTestError: pub?.lastTestError ?? null,
         };
       });
     }),

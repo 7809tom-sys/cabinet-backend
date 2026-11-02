@@ -14,6 +14,22 @@ export interface EmailAttachment {
   contentType?: string;
 }
 
+/**
+ * One affiliate's own mailbox. Customer mail for that affiliate is delivered
+ * through this transport instead of the shared platform sender, so the message
+ * really comes from the affiliate's address rather than only claiming to.
+ */
+export interface AffiliateSmtpSender {
+  host: string;
+  port: number;
+  /** true = implicit TLS (465), false = STARTTLS upgrade (587). */
+  secure: boolean;
+  user: string;
+  pass: string;
+  from: string;
+  fromName?: string;
+}
+
 export interface SendEmailOptions {
   to: string;
   cc?: string | string[];
@@ -23,6 +39,10 @@ export interface SendEmailOptions {
   html?: string;
   replyTo?: string;
   attachments?: EmailAttachment[];
+  /** When set, this mailbox carries the message and the platform sender is not used. */
+  sender?: AffiliateSmtpSender | null;
+  /** Explicit From header. Ignored by the Resend path, which uses ORDER_EMAIL_FROM. */
+  from?: string;
 }
 
 export interface SendEmailResult {
@@ -30,9 +50,11 @@ export interface SendEmailResult {
   messageId?: string;
   error?: string;
   notConfigured?: boolean;
-  transport?: "resend" | "smtp";
+  transport?: EmailTransport;
   from?: string;
 }
+
+export type EmailTransport = "resend" | "smtp" | "affiliate_smtp";
 
 export interface EmailSettingsRow {
   smtpHost: string;
@@ -168,7 +190,7 @@ async function sendViaSmtp(config: SmtpConfig, opts: SendEmailOptions): Promise<
     auth: { user: config.user, pass: config.pass },
   });
   const info = await transport.sendMail({
-    from: config.from,
+    from: opts.from || config.from,
     to: opts.to,
     cc: opts.cc,
     bcc: opts.bcc,
@@ -178,7 +200,84 @@ async function sendViaSmtp(config: SmtpConfig, opts: SendEmailOptions): Promise<
     replyTo: opts.replyTo,
     attachments: opts.attachments,
   });
-  return { success: true, messageId: info.messageId, transport: "smtp", from: config.from };
+  return { success: true, messageId: info.messageId, transport: "smtp", from: opts.from || config.from };
+}
+
+/** Human-readable provider failure, with the code nodemailer attaches. */
+export function smtpErrorMessage(error: unknown): string {
+  if (!(error instanceof Error)) return String(error);
+  const code = (error as { code?: unknown }).code;
+  const response = (error as { response?: unknown }).response;
+  const detail = typeof response === "string" && response.trim() ? `: ${response.trim()}` : "";
+  return code ? `${String(code)}: ${error.message}${detail}` : `${error.message}${detail}`;
+}
+
+function affiliateFromHeader(sender: AffiliateSmtpSender): string {
+  const name = (sender.fromName ?? "").replace(/[\r\n"<>,;]/g, "").trim();
+  const address = (sender.from ?? "").trim();
+  return name ? `"${name}" <${address}>` : address;
+}
+
+/**
+ * Deliver through the affiliate's own mailbox. Any connection or authentication
+ * problem is returned verbatim so the affiliate can fix it; a bad mailbox never
+ * silently sends as Cabinet Dealz.
+ */
+export async function sendViaAffiliateSmtp(
+  sender: AffiliateSmtpSender,
+  opts: SendEmailOptions,
+): Promise<SendEmailResult> {
+  const from = affiliateFromHeader(sender);
+  try {
+    const transport = nodemailer.createTransport({
+      host: sender.host.trim(),
+      port: sender.port,
+      secure: sender.secure,
+      auth: { user: sender.user, pass: sender.pass },
+    });
+    const info = await transport.sendMail({
+      from: opts.from || from,
+      to: opts.to,
+      cc: opts.cc,
+      bcc: opts.bcc,
+      subject: opts.subject,
+      text: opts.text,
+      html: opts.html,
+      replyTo: opts.replyTo ?? from,
+      attachments: opts.attachments,
+    });
+    return { success: true, messageId: info.messageId, transport: "affiliate_smtp", from: opts.from || from };
+  } catch (error) {
+    const message = smtpErrorMessage(error);
+    console.error(`${ORDER_EMAIL_LOG} Affiliate SMTP failed for ${opts.to}: ${message}`);
+    return { success: false, error: message, transport: "affiliate_smtp", from };
+  }
+}
+
+/**
+ * Verify the mailbox handshake without sending anything. The caller gets the
+ * provider's exact error so a mistyped host, port, or app password is obvious.
+ */
+export async function verifyAffiliateSmtp(sender: AffiliateSmtpSender): Promise<{ ok: true } | { ok: false; error: string }> {
+  let transport: ReturnType<typeof nodemailer.createTransport> | null = null;
+  try {
+    transport = nodemailer.createTransport({
+      host: sender.host.trim(),
+      port: sender.port,
+      secure: sender.secure,
+      auth: { user: sender.user, pass: sender.pass },
+    });
+    await transport.verify();
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: smtpErrorMessage(error) };
+  } finally {
+    try {
+      transport?.close();
+    } catch {
+      // A failed handshake can leave the socket in a closed state already.
+    }
+  }
 }
 
 async function loadSavedEmailSettings(): Promise<EmailSettingsRow | null> {
@@ -215,6 +314,12 @@ export async function sendEmail(
   env: NodeJS.ProcessEnv = process.env,
   settings?: EmailSettingsRow | null,
 ): Promise<SendEmailResult> {
+  // A configured affiliate sender carries its own entity's customer mail. The
+  // shared platform sender is only the fallback.
+  if (opts.sender) {
+    return sendViaAffiliateSmtp(opts.sender, opts);
+  }
+
   if (resendConfigured(env)) {
     const result = await sendViaResend(opts, env);
     if (result.success) {

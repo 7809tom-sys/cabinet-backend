@@ -398,7 +398,12 @@ export function CrmBoard({ lang = "en", affiliateId }: { lang?: Lang; affiliateI
           onPatch={(id, patch) => inlineUpdate.mutate({ id, ...patch })}
         />
       ) : crmView === "email" ? (
-        <CrmEmailWorkspace audience={boardScope === "affiliate" ? "affiliate" : "admin"} showConnections={isMasterView} prefill={emailPrefill} />
+        <CrmEmailWorkspace
+          audience={boardScope === "affiliate" ? "affiliate" : "admin"}
+          showConnections={isMasterView}
+          affiliateId={boardScope === "affiliate" ? masterAffiliateId ?? affiliateId ?? undefined : undefined}
+          prefill={emailPrefill}
+        />
       ) : (
         <CrmStageBoard
           deals={viewDeals}

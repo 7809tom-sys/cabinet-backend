@@ -110,7 +110,8 @@ async function loadCrmOutbound(
   db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
   dealAffiliateId: number | null,
 ) {
-  return loadCrmOutboundPlan(db, dealAffiliateId);
+  const resolution = await loadCrmOutboundPlan(db, dealAffiliateId);
+  return resolution.plan;
 }
 
 async function notifyCrmHelpTeam(
@@ -1097,7 +1098,6 @@ export const crmRouter = router({
         replyTo: plan.replyTo ?? null,
       };
     }),
-
   // ── Send an email to a deal contact ─────────────────────────────────────────
   // Customer compose, follow-ups, and design links use this path. Delivery is
   // Resend when configured and SMTP otherwise. Every send is logged on the deal.
@@ -1227,6 +1227,7 @@ export const crmRouter = router({
         sentByName: ctx.user.email ?? String(ctx.user.id),
         activityBody: `Branded invoice PDF ${invoiceNumber} sent to ${to}${linkedDesignName ? ` · Linked design: ${linkedDesignName}` : ""}.`,
         logBody: `Branded invoice PDF ${invoiceNumber} attached.`,
+        invoice: true,
       });
       // Persist the address only after the message is accepted. A blocked or
       // rejected send must leave a blank lead email unchanged, and a usable
@@ -1359,6 +1360,9 @@ export const crmRouter = router({
         activityBody: `Distributor email sent to ${distributor.name} (${to}) — ${input.subject}`,
         logBody,
         distributorId: distributor.id,
+        // The distributor is a supplier, not the affiliate's customer, so this
+        // stays on the platform sender.
+        platformSender: true,
       });
       return { ok: true, sentTo: to, distributorName: distributor.name };
     }),

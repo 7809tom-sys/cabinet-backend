@@ -1604,6 +1604,13 @@
       "when": 1795100000000,
       "tag": "0230_affiliate_custom_domain",
       "breakpoints": true
+    },
+    {
+      "idx": 230,
+      "version": "5",
+      "when": 1795200000000,
+      "tag": "0231_affiliate_outbound_sender",
+      "breakpoints": true
     }
   ]
 }

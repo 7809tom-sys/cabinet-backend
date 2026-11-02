@@ -267,6 +267,9 @@ async function sendWithConfiguredMail(db: Database, order: typeof orderRequests.
       html: message.html ?? "",
       sentByName: "Order receipt",
       activityBody: `Paid-order receipt emailed to ${customer}.`,
+      // A customer invoice/receipt also goes to Cabinet Dealz, even when the
+      // affiliate's own mailbox carried the message.
+      invoice: true,
     });
     return { success: true, transport: sent.transport, from: sent.from };
   } catch (error) {
