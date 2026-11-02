@@ -111,7 +111,11 @@ interface Props {
     batten?: boolean;
     lightRail?: boolean;
     valance?: boolean;
+    rope?: boolean;
+    dentil?: boolean;
+    scribe?: boolean;
     qty?: Partial<Record<string, number>>;
+    orderedAccessories?: Array<{ masterCode: string; name: string; cabinetId: number | null; qty: number }>;
   } | null;
   // Contact email for the designer (from the email gate / signed-in user). Used
   // to associate the saved plan with the correct CRM contact.
@@ -168,6 +172,10 @@ interface Props {
       batten?: boolean;
       lightRail?: boolean;
       valance?: boolean;
+      rope?: boolean;
+      dentil?: boolean;
+      scribe?: boolean;
+      orderedAccessories?: Array<{ masterCode: string; name: string; cabinetId: number | null; qty: number }>;
     } | null;
   }) => void;
 }

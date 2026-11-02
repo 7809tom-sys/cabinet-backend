@@ -898,11 +898,11 @@ export const cabinets = mysqlTable("cabinets", {
   // showIn2020: included in 2020 Design export files (default true).
   showInCatalog: boolean("showInCatalog").default(true).notNull(),
   showInDesigner: boolean("showInDesigner").default(true).notNull(),
-  // Admin mark for the 3D Designer product list. False by default so a new
-  // row stays out of the Designer until an admin turns it on. The migration
-  // backfills existing rows that already have a published price and can be
-  // rendered or placed.
-  designerEligible: boolean("designerEligible").default(false).notNull(),
+  // Every catalog item is offered in the 3D Designer: placeable pieces render,
+  // interior trays attach to a matching cabinet, and the rest are ordered onto
+  // the quote. Price, publication, and the separate showInDesigner switch still
+  // decide whether a row is actually listed.
+  designerEligible: boolean("designerEligible").default(true).notNull(),
   showIn2020: boolean("showIn2020").default(true).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   configuredAt: timestamp("configuredAt"),
@@ -1521,7 +1521,11 @@ export const kitchenDesigns = mysqlTable("kitchen_designs", {
     batten?: boolean;
     lightRail?: boolean;
     valance?: boolean;
-    qty?: Partial<Record<"crown" | "toeKick" | "batten" | "lightRail" | "valance", number>>;
+    rope?: boolean;
+    dentil?: boolean;
+    scribe?: boolean;
+    qty?: Partial<Record<"crown" | "toeKick" | "batten" | "lightRail" | "valance" | "rope" | "dentil" | "scribe", number>>;
+    orderedAccessories?: Array<{ masterCode: string; name: string; cabinetId?: number | null; qty: number }>;
   }>(),
   thumbnailUrl: varchar("thumbnailUrl", { length: 512 }),
   // Assisted edits keep the customer's design id. "suggested" is a designer copy

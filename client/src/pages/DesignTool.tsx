@@ -293,7 +293,9 @@ const noSelectedPelicanIds: ReadonlySet<number> = new Set<number>();
 
 import { buildSurfaceCartLines } from "@/lib/surfaceCartLines";
 import { surfaceRole, formatPrice } from "@/lib/pelican";
-import { buildRollOutLines, normalizedRollOutTrayQty, rollOutTrayCartItems, type TrayOptionForStyle, type TrayPlaced } from "@/lib/rollOutTrayMatch";
+import { attachRolloutToHost, buildRollOutLines, normalizedRollOutTrayQty, rollOutTrayCartItems, type TrayOptionForStyle, type TrayPlaced } from "@/lib/rollOutTrayMatch";
+import { designerPaletteAction } from "@shared/designerEligibility";
+import { isFinishMatchedAccessory, styleFinishSearchText } from "@shared/styleFinishColor";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSeo } from "@/hooks/useSeo";
 import { useWhiteLabelHead } from "@/hooks/useWhiteLabelHead";
@@ -1111,14 +1113,24 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   const [batten, setBatten] = useState(false);
   const [lightRail, setLightRail] = useState(false);
   const [valance, setValance] = useState(false);
+  const [rope, setRope] = useState(false);
+  const [dentil, setDentil] = useState(false);
+  const [scribe, setScribe] = useState(false);
   // Which trims the user has explicitly set (so auto-apply leaves them alone).
-  const trimOverride = useRef<{ crown: boolean; toeKick: boolean; batten: boolean; lightRail: boolean; valance: boolean }>({
-    crown: false, toeKick: false, batten: false, lightRail: false, valance: false,
+  const trimOverride = useRef<{ crown: boolean; toeKick: boolean; batten: boolean; lightRail: boolean; valance: boolean; rope: boolean; dentil: boolean; scribe: boolean }>({
+    crown: false, toeKick: false, batten: false, lightRail: false, valance: false, rope: false, dentil: false, scribe: false,
   });
   // Manual piece-count overrides per trim. undefined = use the auto-calculated
   // stick count; a number = the user explicitly set how many sticks to order.
-  type TrimKind = "crown" | "toeKick" | "batten" | "lightRail" | "valance";
+  type TrimKind = "crown" | "toeKick" | "batten" | "lightRail" | "valance" | "rope" | "dentil" | "scribe";
   const [trimQtyOverride, setTrimQtyOverride] = useState<Partial<Record<TrimKind, number>>>({});
+  const [orderedAccessories, setOrderedAccessories] = useState<Array<{ masterCode: string; name: string; cabinetId: number | null; qty: number }>>([]);
+  // Crown follows wall and tall runs unless the customer turned it off.
+  useEffect(() => {
+    if (trimOverride.current.crown) return;
+    if (placed.some((item) => item.placement === "wall" || item.placement === "tall")) setCrown(true);
+  }, [placed]);
+  const applyCatalogChoiceRef = useRef<(item: DesignCabinet) => boolean>(() => false);
   // Countertop tool: measures base + island runs; not auto-priced (quote request).
   const [countertop, setCountertop] = useState(false);
   // Countertop material: when set, a visible slab is drawn over base cabinets.
@@ -1906,7 +1918,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   const [towerDialog, setTowerDialog] = useState<{ config: MasterTracTowerConfig; wall: WallSide; startIn: number; editGroupId: string | null } | null>(null);
   const towerCommitInProgressRef = useRef(false);
   const [paletteType, setPaletteType] = useState<HeightFilterPaletteType>("base");
-  const [catalogCollapseRequest, setCatalogCollapseRequest] = useState<HeightFilterPaletteType | null>("base");
+  const [catalogCollapseRequest, setCatalogCollapseRequest] = useState<HeightFilterPaletteType | null>(null);
   const [paletteHeightByType, setPaletteHeightByType] = useState<Partial<Record<HeightFilterPaletteType, number | null>>>({});
   const [furniture, setFurniture] = useState<PlacedFurniture[]>([]);
   useEffect(() => {
@@ -2156,22 +2168,28 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   }, [showPeninsulaCornerSnapFeedback]);
   // D-pad nudge step size: 1" (normal) or 0.25" (fine)
   const [nudgeStep, setNudgeStep] = useState<1 | 0.25>(1);
-  // Accordion: which palette group headers the user has explicitly collapsed.
-  // Keyed by `${paletteType}:${groupLabel}` so collapse state is per-tab. By
-  // The small kitchen catalog stays open by default. For MasterTrac, keep
-  // the placeable boards visible and collapse order-only categories until
-  // opened; searching still expands all matching categories.
-  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => new Set(
-    closetPaletteByCategory()
-      .filter((g) => !["Panels (Hang)", "Panels (Floor)", "Shelves"].includes(g.category))
-      .map((g) => `closetparts:${g.category}`),
-  ));
+  // Catalog sections start closed. Opening one is remembered for this browser
+  // session. Search and a height filter still reveal matching items.
+  const CATALOG_OPEN_GROUPS_KEY = "designer-catalog-open-groups";
+  const [openCatalogGroups, setOpenCatalogGroups] = useState<Set<string>>(() => {
+    if (typeof window === "undefined") return new Set();
+    try {
+      const raw = window.sessionStorage.getItem(CATALOG_OPEN_GROUPS_KEY);
+      const parsed = raw ? JSON.parse(raw) : [];
+      return new Set(Array.isArray(parsed) ? parsed.filter((key) => typeof key === "string") : []);
+    } catch {
+      return new Set();
+    }
+  });
+  useEffect(() => {
+    window.sessionStorage.setItem(CATALOG_OPEN_GROUPS_KEY, JSON.stringify(Array.from(openCatalogGroups)));
+  }, [openCatalogGroups]);
   const selectCatalogPaletteTab = useCallback((tab: HeightFilterPaletteType) => {
     setPaletteType(tab);
     if (COLLAPSIBLE_CATALOG_TABS.has(tab)) setCatalogCollapseRequest(tab);
   }, []);
   const toggleGroup = useCallback((key: string) => {
-    setCollapsedGroups((prev) => {
+    setOpenCatalogGroups((prev) => {
       const next = new Set(prev);
       if (next.has(key)) next.delete(key);
       else next.add(key);
@@ -2250,8 +2268,8 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     selectedStyleId: styleId ?? null,
     selectedDistributorId: lockedDistributorId ?? null,
     roomType: roomType ?? null,
-    trimSettings: { crown, toeKick, batten, lightRail, valance, qty: trimQtyOverride },
-  }), [room, openings, sinks, potFillers, island, furniture, ponyWalls, placed, selectedSurfaces, threeDPresentationForSave, styleId, lockedDistributorId, roomType, crown, toeKick, batten, lightRail, valance, trimQtyOverride]);
+    trimSettings: { crown, toeKick, batten, lightRail, valance, rope, dentil, scribe, qty: trimQtyOverride, orderedAccessories },
+  }), [room, openings, sinks, potFillers, island, furniture, ponyWalls, placed, selectedSurfaces, threeDPresentationForSave, styleId, lockedDistributorId, roomType, crown, toeKick, batten, lightRail, valance, rope, dentil, scribe, trimQtyOverride, orderedAccessories]);
   const isCurrentPlanSaved = useMemo(() => {
     if (!savedDesign || currentSavedDesignId == null) return false;
     return currentSavedPlanPayload === JSON.stringify({
@@ -3796,9 +3814,9 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     if (catalogCollapseRequest !== paletteType || !COLLAPSIBLE_CATALOG_TABS.has(paletteType)) return;
     const groupKeys = groupedPalette.map((group) => `${paletteType}:${group.label}`);
     if (groupKeys.length === 0) return;
-    setCollapsedGroups((current) => {
+    setOpenCatalogGroups((current) => {
       const next = new Set(current);
-      groupKeys.forEach((key) => next.add(key));
+      groupKeys.forEach((key) => next.delete(key));
       return next;
     });
     setCatalogCollapseRequest(null);
@@ -4239,9 +4257,9 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   }, [affiliateStyleName, doorStyles, styleId]);
   const activeFinish = useMemo(() => {
     const s = doorStyles?.find((d) => d.id === styleId) as
-      | { ourName?: string | null; color?: string | null; finish?: string | null; woodSpecies?: string | null }
+      | { ourName?: string | null; aliasName?: string | null; color?: string | null; finish?: string | null; woodSpecies?: string | null; renderHex?: string | null }
       | undefined;
-    return finishColors(s?.ourName, s?.color, s?.finish, s?.woodSpecies);
+    return finishColors(s?.renderHex, styleFinishSearchText(s));
   }, [doorStyles, styleId]);
   const active3DDoorSampleUrl = useMemo(() => {
 	    const s = doorStyles?.find((d) => d.id === styleId) as { ourName?: string | null; aliasName?: string | null; doorSampleImageUrl?: string | null; thumbnailImageUrl?: string | null } | undefined;
@@ -4312,7 +4330,11 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         batten?: boolean;
         lightRail?: boolean;
         valance?: boolean;
-        qty?: Partial<Record<"crown" | "toeKick" | "batten" | "lightRail" | "valance", number>>;
+        rope?: boolean;
+        dentil?: boolean;
+        scribe?: boolean;
+        qty?: Partial<Record<TrimKind, number>>;
+        orderedAccessories?: Array<{ masterCode: string; name: string; cabinetId: number | null; qty: number }>;
       } | null;
     }) => {
 	    historyRebaseRequestedRef.current = true;
@@ -4391,26 +4413,34 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       applySurfaceRenderMaterials(surfaces);
       const savedTrim = d.trimSettings;
       if (savedTrim) {
-        trimOverride.current = { crown: true, toeKick: true, batten: true, lightRail: true, valance: true };
+        trimOverride.current = { crown: true, toeKick: true, batten: true, lightRail: true, valance: true, rope: true, dentil: true, scribe: true };
         setCrown(savedTrim.crown === true);
         setToeKick(savedTrim.toeKick !== false);
         setBatten(savedTrim.batten === true);
         setLightRail(savedTrim.lightRail === true);
         setValance(savedTrim.valance === true);
+        setRope(savedTrim.rope === true);
+        setDentil(savedTrim.dentil === true);
+        setScribe(savedTrim.scribe === true);
+        setOrderedAccessories(Array.isArray(savedTrim.orderedAccessories) ? savedTrim.orderedAccessories : []);
         const qty = savedTrim.qty ?? {};
         const clean: Partial<Record<TrimKind, number>> = {};
-        for (const kind of ["crown", "toeKick", "batten", "lightRail", "valance"] as const) {
+        for (const kind of ["crown", "toeKick", "batten", "lightRail", "valance", "rope", "dentil", "scribe"] as const) {
           const value = qty[kind];
           if (typeof value === "number" && Number.isFinite(value)) clean[kind] = Math.max(0, Math.min(99, value));
         }
         setTrimQtyOverride(clean);
       } else {
-        trimOverride.current = { crown: false, toeKick: false, batten: false, lightRail: false, valance: false };
+        trimOverride.current = { crown: false, toeKick: false, batten: false, lightRail: false, valance: false, rope: false, dentil: false, scribe: false };
         setCrown(false);
         setToeKick(true);
         setBatten(false);
         setLightRail(false);
         setValance(false);
+        setRope(false);
+        setDentil(false);
+        setScribe(false);
+        setOrderedAccessories([]);
         setTrimQtyOverride({});
       }
       setSelectedUid(null);
@@ -4729,8 +4759,8 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   const finishById = useMemo(() => {
     const m = new Map<number, ReturnType<typeof finishColors>>();
     doorStyles?.forEach((d) => {
-      const s = d as { id: number; ourName?: string | null; color?: string | null; finish?: string | null; woodSpecies?: string | null };
-      m.set(s.id, finishColors(s.ourName, s.color, s.finish, s.woodSpecies));
+      const s = d as { id: number; ourName?: string | null; aliasName?: string | null; color?: string | null; finish?: string | null; woodSpecies?: string | null; renderHex?: string | null };
+      m.set(s.id, finishColors(s.renderHex, styleFinishSearchText(s)));
     });
     return m;
   }, [doorStyles]);
@@ -4926,8 +4956,11 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       batten: pick("batten", battenOrder?.pieces),
       lightRail: pick("lightRail", lightRailOrder?.pieces),
       valance: pick("valance", valanceOrder.length > 0 ? valanceOrder.length : null),
+      rope: pick("rope", crownOrder?.pieces),
+      dentil: pick("dentil", crownOrder?.pieces),
+      scribe: pick("scribe", placed.some((item) => item.placement === "base" || item.placement === "wall" || item.placement === "tall") ? 1 : 0),
     };
-  }, [trimQtyOverride, crownOrder, toeKickOrder, battenOrder, lightRailOrder, valanceOrder]);
+  }, [trimQtyOverride, crownOrder, toeKickOrder, battenOrder, lightRailOrder, valanceOrder, placed]);
 
   // Active trims + their (effective) piece counts, in the shape the cart helper consumes.
   const activeTrims = useMemo<ActiveTrim[]>(() => {
@@ -4937,8 +4970,11 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     if (batten && effectiveTrimPieces.batten > 0) list.push({ kind: "batten", pieces: effectiveTrimPieces.batten });
     if (lightRail && effectiveTrimPieces.lightRail > 0) list.push({ kind: "lightRail", pieces: effectiveTrimPieces.lightRail });
     if (valance && effectiveTrimPieces.valance > 0) list.push({ kind: "valance", pieces: effectiveTrimPieces.valance });
+    if (rope && crown && effectiveTrimPieces.rope > 0) list.push({ kind: "rope", pieces: effectiveTrimPieces.rope });
+    if (dentil && crown && effectiveTrimPieces.dentil > 0) list.push({ kind: "dentil", pieces: effectiveTrimPieces.dentil });
+    if (scribe && effectiveTrimPieces.scribe > 0) list.push({ kind: "scribe", pieces: effectiveTrimPieces.scribe });
     return list;
-  }, [crown, toeKick, batten, lightRail, valance, effectiveTrimPieces]);
+  }, [crown, toeKick, batten, lightRail, valance, rope, dentil, scribe, effectiveTrimPieces]);
 
   // Priced trim cart lines (styleId-scoped). Trims without a buyable SKU for the
   // selected style are omitted rather than receiving an invented price.
@@ -5021,8 +5057,23 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
           ].filter(Boolean).join(" · "),
         }]
       : [];
-    return mergeDesignCartLines([...cabinetCartLines, ...aefWindowEndPanelCartLines, ...pricedTrimLines, ...surfaceCartLines, ...hardwareLines]);
-  }, [activeTrims, aefWindowEndPanelCartLines, cabinetCartLines, catalogHardwareSelection?.finish, hasSelectedPricedHardware, hwSchedule, lockedDistributorId, selectedPricedHardware, surfaceCartLines, styleId, tier]);
+    const orderedLines: CartItem[] = styleId == null ? [] : orderedAccessories.map((line) => {
+      const matched = isFinishMatchedAccessory(line);
+      return {
+        masterCode: line.masterCode,
+        name: matched && activeStyleName ? `${line.name} — ${activeStyleName}` : line.name,
+        styleId,
+        styleLabel: activeStyleName ?? "",
+        distributorId: lockedDistributorId ?? null,
+        tier: DESIGN_TIER_TO_SHARED[tier],
+        unitPrice: line.cabinetId != null ? (priceMap.get(`${line.cabinetId}:${styleId}`) ?? null) : null,
+        qty: line.qty,
+        category: "Ordered accessory",
+        finishHex: matched ? activeFinish.face : null,
+      };
+    });
+    return mergeDesignCartLines([...cabinetCartLines, ...aefWindowEndPanelCartLines, ...pricedTrimLines, ...surfaceCartLines, ...hardwareLines, ...orderedLines]);
+  }, [activeStyleName, activeTrims, aefWindowEndPanelCartLines, cabinetCartLines, catalogHardwareSelection?.finish, hasSelectedPricedHardware, hwSchedule, lockedDistributorId, orderedAccessories, priceMap, selectedPricedHardware, surfaceCartLines, styleId, tier]);
 
   // The designer total, cart, checkout, and 3D order drawer now share the same
   // complete price-locked line basis. Keep unpriced placed cabinets as pending
@@ -5909,6 +5960,12 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         out.push({ label: "ARCHED VALANCE", detail: `${vp.code} (${vp.width}"W) — ${vp.wall} wall` });
       }
     }
+    if (rope && crown && crownOrder && crownOrder.pieces > 0)
+      out.push({ label: "ROPE MOLDING", detail: `${crownOrder.pieces} pc @ ${crownOrder.stickFeet}ft — crown groove` });
+    if (dentil && crown && !rope && crownOrder && crownOrder.pieces > 0)
+      out.push({ label: "DENTIL MOLDING", detail: `${crownOrder.pieces} pc @ ${crownOrder.stickFeet}ft — crown groove` });
+    if (scribe && effectiveTrimPieces.scribe > 0)
+      out.push({ label: "SCRIBE MOLDING", detail: `${effectiveTrimPieces.scribe} pc along cabinet-to-wall gaps` });
     if (countertop && counter && counter.squareFeet > 0) {
       const mat = countertopMaterial(countertopMaterialId);
       const ep = edgeProfile(edgeProfileId);
@@ -5949,7 +6006,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       }
     }
     return out;
-  }, [crown, crownOrder, toeKick, toeKickOrder, batten, battenOrder, lightRail, lightRailOrder, valance, valanceOrder, countertop, counter, countertopMaterialId, edgeProfileId, sinks, hwSchedule, activeStyle, activeStyleName]);
+  }, [crown, crownOrder, toeKick, toeKickOrder, batten, battenOrder, lightRail, lightRailOrder, valance, valanceOrder, rope, dentil, scribe, effectiveTrimPieces.scribe, countertop, counter, countertopMaterialId, edgeProfileId, sinks, hwSchedule, activeStyle, activeStyleName]);
 
   const materialsListSupplements = useMemo<MaterialsListSupplement[]>(() => {
     const out: MaterialsListSupplement[] = [];
@@ -5962,6 +6019,9 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       batten: "Batten molding",
       lightRail: "Light rail molding",
       valance: "Arched valance",
+      rope: "Rope molding",
+      dentil: "Dentil molding",
+      scribe: "Scribe molding",
     };
     for (const trim of activeTrims) {
       const priced = trimPriceForKind(trim.kind, trimPriceByCode);
@@ -6033,8 +6093,47 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     return fit;
   }, [openings, room]);
 
+  applyCatalogChoiceRef.current = (item) => {
+    const action = designerPaletteAction(item);
+    if (action.type === "place") return false;
+    if (action.type === "enable-trim") {
+      if (action.kind === "crown") { trimOverride.current.crown = true; setCrown(true); }
+      if (action.kind === "rope") { trimOverride.current.rope = true; trimOverride.current.dentil = false; trimOverride.current.crown = true; setRope(true); setDentil(false); setCrown(true); }
+      if (action.kind === "dentil") { trimOverride.current.dentil = true; trimOverride.current.rope = false; trimOverride.current.crown = true; setDentil(true); setRope(false); setCrown(true); }
+      if (action.kind === "scribe") { trimOverride.current.scribe = true; setScribe(true); }
+      if (action.kind === "valance") { trimOverride.current.valance = true; setValance(true); }
+      if (action.kind === "toeKick") { trimOverride.current.toeKick = true; setToeKick(true); }
+      if (action.kind === "lightRail") { trimOverride.current.lightRail = true; setLightRail(true); }
+      if (action.kind === "batten") { trimOverride.current.batten = true; setBatten(true); }
+      toast.success(`${item.displayMasterCode ?? item.masterCode} is on the design and will be on the quote.`);
+      return true;
+    }
+    if (action.type === "attach-rollout") {
+      const result = attachRolloutToHost(placedRef.current, {
+        width: action.width,
+        styleId,
+        distributorId: lockedDistributorId,
+        selectedUid,
+      });
+      if (!result.ok) {
+        toast.error(result.reason);
+        return true;
+      }
+      setPlaced(result.placed);
+      toast.success(`${item.masterCode} installed in ${result.hostCode} (${result.qty}).`);
+      return true;
+    }
+    setOrderedAccessories((current) => {
+      const existing = current.find((line) => line.masterCode === item.masterCode);
+      if (existing) return current.map((line) => line.masterCode === item.masterCode ? { ...line, qty: line.qty + 1 } : line);
+      return [...current, { masterCode: item.masterCode, name: item.description || item.masterCode, cabinetId: item.id, qty: 1 }];
+    });
+    toast.success(`${item.displayMasterCode ?? item.masterCode} added to the order. It is not drawn in the room.`);
+    return true;
+  };
   const addCabinet = useCallback(
     (c: DesignCabinet, x?: number, y?: number, forceAccessory = false, rotation = 0, strictDropTarget = false, targetCabinetUid?: string | null, targetIslandFace?: IslandFace | null, forceBackDepthAdjustment = false, resolvedWallTarget?: { wallId: WallSide; wallOffset: number; peninsulaSide?: PeninsulaCabinetSide }, blindPullOverride?: number, attachedFillerChoice?: AttachedFillerChoice) => {
+      if (applyCatalogChoiceRef.current(c)) return;
       // A configured blind base's pull is an installation choice, not a hidden default.
       // Ask before committing the BBC or its mandatory linked filler;
       // Cancel therefore leaves the plan exactly as it was.
@@ -11936,6 +12035,10 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     batten,
     lightRail,
     valance,
+    rope,
+    dentil,
+    scribe,
+    orderedAccessories,
     trimManualOverride: { ...trimOverride.current },
     trimQtyOverride,
     countertop,
@@ -12071,10 +12174,17 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
           if (wasManuallyChosen("batten")) trimOverride.current.batten = true;
           if ("lightRail" in d) trimOverride.current.lightRail = true;
           if (wasManuallyChosen("valance")) trimOverride.current.valance = true;
+          if (wasManuallyChosen("rope")) trimOverride.current.rope = true;
+          if (wasManuallyChosen("dentil")) trimOverride.current.dentil = true;
+          if (wasManuallyChosen("scribe")) trimOverride.current.scribe = true;
           setCrown(wasManuallyChosen("crown") && d.crown === true);
           setToeKick(!!d.toeKick);
           setBatten(wasManuallyChosen("batten") && d.batten === true);
           setLightRail(!!d.lightRail);
+          setRope(wasManuallyChosen("rope") && d.rope === true);
+          setDentil(wasManuallyChosen("dentil") && d.dentil === true && !(wasManuallyChosen("rope") && d.rope === true));
+          setScribe(wasManuallyChosen("scribe") && d.scribe === true);
+          setOrderedAccessories(Array.isArray(d.orderedAccessories) ? d.orderedAccessories : []);
           // The only persisted arched valance that returns is one whose switch
           // was explicitly chosen. This clears old automatic VA-48 invoice rows
           // from a restored plan without touching intentional valance designs.
@@ -12241,7 +12351,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     if (!draftRestoredRef.current) return;
     const t = setTimeout(writeDraft, 400);
     return () => clearTimeout(t);
-  }, [room, placed, openings, island, styleId, tier, crown, toeKick, batten, lightRail, valance, trimQtyOverride, countertop, countertopMaterialId, edgeProfileId, backsplashMaterialId, backsplashEnabled, backsplashHeightMode, countertopBacksplashHeightIn, flooringMaterialId, flooringPattern, selectedSurfaces, cabinetsLocked, sinks, potFillers, roomType, activeWall, layoutLocked, lockedWalls, lockedDistributorId, mixedWarehouseOverride, hardwareStyleId, catalogHardwareSelection, wallCabHeight, annotations, writeDraft]);
+  }, [room, placed, openings, island, styleId, tier, crown, toeKick, batten, lightRail, valance, rope, dentil, scribe, orderedAccessories, trimQtyOverride, countertop, countertopMaterialId, edgeProfileId, backsplashMaterialId, backsplashEnabled, backsplashHeightMode, countertopBacksplashHeightIn, flooringMaterialId, flooringPattern, selectedSurfaces, cabinetsLocked, sinks, potFillers, roomType, activeWall, layoutLocked, lockedWalls, lockedDistributorId, mixedWarehouseOverride, hardwareStyleId, catalogHardwareSelection, wallCabHeight, annotations, writeDraft]);
 
   // Immediate save when the tab is hidden/backgrounded or about to unload —
   // this is what catches an incoming phone call or an OS tab eviction.
@@ -12398,6 +12508,8 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     setPonyWalls([]);
     setSelectedPonyWallUid(null);
     setCrown(false); setToeKick(false); setBatten(false); setLightRail(false); setCountertop(false); setValance(false);
+    setRope(false); setDentil(false); setScribe(false); setOrderedAccessories([]);
+    trimOverride.current = { crown: false, toeKick: false, batten: false, lightRail: false, valance: false, rope: false, dentil: false, scribe: false };
     setBacksplashMaterialId(null);
     setFlooringMaterialId(null);
     setFlooringPattern("random-stagger");
@@ -12798,8 +12910,12 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     setLightRail(false);
     setCountertop(false);
     setValance(false);
+    setRope(false);
+    setDentil(false);
+    setScribe(false);
+    setOrderedAccessories([]);
     setTrimQtyOverride({});
-    trimOverride.current = { crown: false, toeKick: false, batten: false, lightRail: false, valance: false };
+    trimOverride.current = { crown: false, toeKick: false, batten: false, lightRail: false, valance: false, rope: false, dentil: false, scribe: false };
     setCountertopMaterialId(DEFAULT_COUNTERTOP_MATERIAL_ID);
     setEdgeProfileId(DEFAULT_EDGE_PROFILE_ID);
     setHardwareStyleId(DEFAULT_DESIGNER_HARDWARE_STYLE_ID);
@@ -12811,7 +12927,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     setCabinetsLocked(false);
     setLayoutLocked(false);
     setLockedWalls(new Set());
-    setCollapsedGroups(new Set());
+    setOpenCatalogGroups(new Set());
     setCatalogCollapseRequest(COLLAPSIBLE_CATALOG_TABS.has(paletteType) ? paletteType : null);
     setCollapsedSheet(new Set());
     setTouchedSheet(new Set());
@@ -13086,6 +13202,10 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	      placed={deferredCountertopGeometry.threeDPlaced}
 	      onGeometryRendered={() => setPaintedCountertopGeometry(deferredCountertopGeometry)}
 	      crown={crown}
+	      valance={valance}
+	      ropeMolding={rope}
+	      dentilMolding={dentil}
+	      scribe={scribe}
 	      toeKick={toeKick}
 	      catalogDropWall={activeWall}
 		      islandFocusRequest={islandCameraFocusRequest}
@@ -14716,7 +14836,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
             extraLines={extraLines}
             buildRows={buildRows}
             roomType={roomType}
-            trimSettings={{ crown, toeKick, batten, lightRail, valance, qty: trimQtyOverride }}
+            trimSettings={{ crown, toeKick, batten, lightRail, valance, rope, dentil, scribe, qty: trimQtyOverride, orderedAccessories }}
             contactEmail={verifiedEmail}
             contactName={verifiedName}
             contactPhone={verifiedPhone}
@@ -16230,7 +16350,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                 const groupKey = `${paletteType}:${group.label}`;
                 const groupId = `catalog-group-${groupKey.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}`;
                 const searching = normalizePaletteSearch(paletteSearch).length > 0;
-                const open = searching || selectedPaletteHeight != null || !collapsedGroups.has(groupKey);
+                const open = searching || selectedPaletteHeight != null || openCatalogGroups.has(groupKey);
                 return (
                 <div key={group.label} className="space-y-1.5">
                   <button
@@ -16298,6 +16418,32 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                     // rail, roll-out trays, hinges, pulls) is no longer offered
                     // as an add-on sale in the design tool and is hidden here.
                     if (paletteType === "accessory" || paletteType === "panel") {
+                      const catalogAction = designerPaletteAction(c);
+                      if (catalogAction.type !== "place") {
+                        const label = catalogAction.type === "attach-rollout"
+                          ? `Add inside a ${catalogAction.width}" cabinet`
+                          : catalogAction.type === "enable-trim"
+                            ? "Add to the room and quote"
+                            : "Add to the order";
+                        return (
+                          <button
+                            type="button"
+                            key={c.masterCode}
+                            onClick={() => addCabinet(c)}
+                            className="mb-1 flex w-full items-center gap-2 rounded-lg border border-border p-2 text-left hover:border-primary/50"
+                          >
+                            {isFinishMatchedAccessory(c) ? (
+                              <span className="h-9 w-9 shrink-0 rounded-md border border-black/10" style={{ backgroundColor: activeFinish.face }} title={activeStyleName ?? "Selected finish"} />
+                            ) : null}
+                            <div className="min-w-0 flex-1">
+                              <div className="font-mono text-xs font-semibold">{c.displayMasterCode ?? c.masterCode}</div>
+                              <div className="truncate text-[10px] text-muted-foreground">{c.description}</div>
+                              <div className="text-[9px] font-medium text-primary/70">{label}</div>
+                            </div>
+                            <Plus className="h-3.5 w-3.5 shrink-0" />
+                          </button>
+                        );
+                      }
                       if (!isPlaceableAccessory(c)) return null;
                       return (
                         <div
@@ -20798,6 +20944,10 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                 scene={resolvedInteractive3dScene}
                 placed={threeDPlaced}
                 crown={crown}
+                valance={valance}
+                ropeMolding={rope}
+                dentilMolding={dentil}
+                scribe={scribe}
                 toeKick={toeKick}
                 catalogDropWall={activeWall}
                 islandFocusRequest={islandCameraFocusRequest}

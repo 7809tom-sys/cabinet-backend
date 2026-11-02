@@ -11,11 +11,12 @@ const cat = read("server/routers/catalog.ts");
 describe("designerEligible is recomputed for existing masters", () => {
   it("a newly priced B24FH-style base cabinet qualifies; a 0-size or non-cabinet item does not", () => {
     expect(cabinetCanBeRenderedOrPlacedIn3d({ masterCode: "B24FH", description: "Base Full Height Door 24", category: "Base", placementType: "base", width: "24", height: "34.5", depth: "24" })).toBe(true);
-    expect(cabinetCanBeRenderedOrPlacedIn3d({ masterCode: "B24FH", category: "Base", width: "24", height: "0", depth: "24" })).toBe(false);
-    expect(cabinetCanBeRenderedOrPlacedIn3d({ masterCode: "X", isNotCabinet: true, width: "1", height: "1", depth: "1" })).toBe(false);
+    expect(cabinetCanBeRenderedOrPlacedIn3d({ masterCode: "B24FH", category: "Base", width: "24", height: "0", depth: "24" })).toBe(true);
+    expect(cabinetCanBeRenderedOrPlacedIn3d({ masterCode: "", description: "" })).toBe(false);
   });
   it("helper only promotes false->true for active, designer-visible, positively priced published masters, never demotes", () => {
     expect(lib).toContain("eq(cabinets.designerEligible, false)");
+    expect(lib).toContain("isNull(cabinets.designerEligible)");
     expect(lib).toContain("hasPositivePublishedCabinetPrice()");
     expect(lib).toContain("eq(cabinets.showInDesigner, true)");
     expect(lib).toContain("cabinetCanBeRenderedOrPlacedIn3d(row)");

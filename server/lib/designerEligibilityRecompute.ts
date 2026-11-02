@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull, or } from "drizzle-orm";
 import { getDb, hasPositivePublishedCabinetPrice } from "../db";
 import { cabinets } from "../../drizzle/schema";
 import { cabinetCanBeRenderedOrPlacedIn3d } from "../../shared/designerEligibility";
@@ -11,9 +11,10 @@ export type DesignerEligibilityRecompute = { checked: number; promoted: number; 
  * Designer without a separate manual edit.
  *
  * Same rule as shared/designerEligibility.ts: positive published supplier price
- * AND the Designer can render or place the cabinet. It only PROMOTES false -> true
- * for active, designer-visible masters; it never demotes, so an admin's manual
- * choice is not undone. Call it after an import, a publish, or a price edit.
+ * AND the Designer can offer the cabinet (render it, attach it, or order it).
+ * It PROMOTES both false and unset (NULL) flags to true for active,
+ * designer-visible masters. It never demotes. Call it after an import, a
+ * publish, or a price edit.
  */
 export async function recomputeDesignerEligibility(
   options: { cabinetIds?: readonly number[] } = {},
@@ -35,7 +36,7 @@ export async function recomputeDesignerEligibility(
     })
     .from(cabinets)
     .where(and(
-      eq(cabinets.designerEligible, false),
+      or(eq(cabinets.designerEligible, false), isNull(cabinets.designerEligible)),
       eq(cabinets.isActive, true),
       eq(cabinets.showInDesigner, true),
       hasPositivePublishedCabinetPrice(),
@@ -43,7 +44,10 @@ export async function recomputeDesignerEligibility(
   const only = options.cabinetIds ? new Set(options.cabinetIds) : null;
   const eligible = rows.filter((row) => (!only || only.has(row.id)) && cabinetCanBeRenderedOrPlacedIn3d(row));
   for (const row of eligible) {
-    await db.update(cabinets).set({ designerEligible: true }).where(and(eq(cabinets.id, row.id), eq(cabinets.designerEligible, false)));
+    await db.update(cabinets).set({ designerEligible: true }).where(and(
+      eq(cabinets.id, row.id),
+      or(eq(cabinets.designerEligible, false), isNull(cabinets.designerEligible)),
+    ));
   }
   return { checked: rows.length, promoted: eligible.length, masterCodes: eligible.map((r) => r.masterCode) };
 }
