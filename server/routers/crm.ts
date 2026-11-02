@@ -40,6 +40,7 @@ import {
 } from "@shared/salesPrograms";
 import { resolveAffiliateAccess } from "../lib/affiliateAccess";
 import { listAccessibleAffiliateIds } from "../lib/affiliateSiteScope";
+import { resolveRequestStoreScope, type ResolvedHostScope } from "../lib/affiliateHostScope";
 import { contractorRecordUserId } from "../lib/contractorRecordScope";
 import { loadAffiliatePricingById } from "../lib/affiliateStorefrontPricing";
 import { sumPlacedAffiliateSale } from "../lib/affiliateTierPricing";
@@ -713,18 +714,24 @@ export const crmRouter = router({
 	  .query(async ({ ctx, input }) => {
 	    const db = await getDb();
 	    if (!db) return [];
-	    const scope = await resolveScope(ctx, {
-	      contractorUserId: input?.contractorUserId,
-	      adminAll: ctx.user.role === "admin" && input?.contractorUserId == null,
-	    });
+	    // The storefront this request arrived on wins over any client scope.
+	    // Without that, a house or contractor scope left `conditions` empty and
+	    // this query returned every store's saved designs.
+	    const hostScope = await resolveRequestStoreScope(ctx.req);
+	    const scope = hostScope.pinned
+	      ? ({ kind: "affiliate", affiliateId: hostScope.affiliateId! } as CrmScope)
+	      : await resolveScope(ctx, {
+	          contractorUserId: input?.contractorUserId,
+	          adminAll: ctx.user.role === "admin" && input?.contractorUserId == null,
+	        });
 	    const deal = input?.dealId != null ? (await getOwnedDeal(ctx, input.dealId, { contractorUserId: input?.contractorUserId })).deal : null;
+	    // A deal names its own store. Otherwise read the caller's scope; the
+	    // house scope reads house designs only, never "no condition at all".
 	    const targetAffiliateId = deal
 	      ? deal.affiliateId
 	      : scope.kind === "affiliate" ? scope.affiliateId
-	      : scope.kind === "contractor" ? null
-	      : undefined;
-	    const conditions = [];
-	    if (targetAffiliateId !== undefined) conditions.push(designAffiliateWhere(targetAffiliateId));
+	      : null;
+	    const conditions = [designAffiliateWhere(targetAffiliateId)];
 	    if (scope.kind === "contractor") conditions.push(eq(kitchenDesigns.userId, scope.userId));
 	    const rows = await db
 	      .select({
@@ -734,7 +741,7 @@ export const crmRouter = router({
 	        updatedAt: kitchenDesigns.updatedAt,
 	      })
 	      .from(kitchenDesigns)
-	      .where(conditions.length ? and(...conditions) : undefined)
+	      .where(and(...conditions))
 	      .orderBy(desc(kitchenDesigns.updatedAt));
 	    const affiliateIds = Array.from(new Set(rows.map((design) => design.affiliateId).filter((id): id is number => id != null)));
 	    const affiliateRows = affiliateIds.length === 0 ? [] : await db

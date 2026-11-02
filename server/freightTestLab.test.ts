@@ -88,7 +88,7 @@ describe("Operations Freight Test Lab", () => {
     const source = require("node:fs").readFileSync(require("node:path").resolve(process.cwd(), "server/routers/freight.ts"), "utf8");
     expect(source).toContain("adminListSimulationDesigns: adminProcedure");
     expect(source).toContain("adminSimulateSavedDesignFreight: adminProcedure");
-    expect(source).toContain("savedDesignFreightInput(input.designId)");
+    expect(source).toContain("savedDesignFreightInput(input.designId, hostScope)");
     expect(source).toContain("allowMissingStyleOriginFallback: true");
     expect(source).toContain("forceCarrierQuote: true");
     expect(source).toContain('savedSpeedshipClass ?? "175"');

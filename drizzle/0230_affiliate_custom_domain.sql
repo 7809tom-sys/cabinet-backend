@@ -1,0 +1,27 @@
+-- Migration 0230. Journal idx 229, when 1795100000000.
+-- affiliates.customDomain
+--
+-- Custom-domain mapping plan for affiliate storefronts.
+--
+-- Before this column a custom host (for example reaveswaycabinets.com) had no
+-- server-side meaning: the API resolved every design from the client-supplied
+-- affiliateSlug, so the same host could open any store's saved plans. With the
+-- mapping in place `resolveRequestStoreScope` treats a request on this host as
+-- exactly this affiliate and refuses a client slug that names another store.
+--
+-- Ops plan (per affiliate, no code change required):
+--   1. Confirm the affiliate owns the domain (DNS TXT or registrar check).
+--   2. Add the host to the Vercel project; Vercel issues the certificate.
+--   3. `UPDATE affiliates SET customDomain = '<host>' WHERE slug = '<slug>';`
+--   4. CNAME the apex/www to the Vercel target from the dashboard.
+-- The column is unique so two stores can never claim one host, and nullable so
+-- unmapped stores keep the canonical /store/:slug route and their
+-- <slug>.cabinetdealz.com subdomain.
+--
+-- The server treats a missing column as "no custom domain mapped" (see
+-- server/lib/affiliateHostScope.ts), so this migration is safe to deploy after
+-- the application code.
+--
+-- Railway start (`pnpm start` / railway.json) does not run drizzle migrations.
+ALTER TABLE `affiliates` ADD `customDomain` varchar(255);--> statement-breakpoint
+ALTER TABLE `affiliates` ADD CONSTRAINT `affiliates_customDomain_unique` UNIQUE (`customDomain`);

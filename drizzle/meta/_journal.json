@@ -1592,6 +1592,20 @@
       "breakpoints": true
     },
     {
+      "idx": 228,
+      "version": "5",
+      "when": 1795000000000,
+      "tag": "0229_countertop_quote_affiliate",
+      "breakpoints": true
+    },
+    {
+      "idx": 229,
+      "version": "5",
+      "when": 1795100000000,
+      "tag": "0230_affiliate_custom_domain",
+      "breakpoints": true
+    },
+    {
       "idx": 230,
       "version": "5",
       "when": 1795200000000,

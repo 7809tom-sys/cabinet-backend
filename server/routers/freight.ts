@@ -1,8 +1,9 @@
 import { z } from "zod";
-import { and, asc, desc, eq, inArray, like, or } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, like, or } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { publicProcedure, adminProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
+import { resolveRequestStoreScope, type RequestStoreScope } from "../lib/affiliateHostScope";
 import {
   shippingSettings,
   freightZones,
@@ -1571,11 +1572,21 @@ function positiveInteger(value: unknown): number | null {
 }
 
 /**
+ * Store condition for a saved-design read. A pinned host always names exactly
+ * one store; the house (owner) store is `affiliateId IS NULL` and is never
+ * treated as "every store".
+ */
+function designScopeWhere(affiliateId: number | null, houseOnly: boolean) {
+  if (affiliateId != null) return eq(kitchenDesigns.affiliateId, affiliateId);
+  return houseOnly ? isNull(kitchenDesigns.affiliateId) : undefined;
+}
+
+/**
  * Convert a saved Designer plan into the same verified catalog lines used by
  * customer freight. Appliances and stale/missing catalog selections are kept
  * out of the carrier request instead of being assigned an invented package.
  */
-async function savedDesignFreightInput(designId: number) {
+async function savedDesignFreightInput(designId: number, hostScope?: RequestStoreScope) {
   const db = await getDb();
   if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
 
@@ -1583,6 +1594,7 @@ async function savedDesignFreightInput(designId: number) {
     .select({
       id: kitchenDesigns.id,
       name: kitchenDesigns.name,
+      affiliateId: kitchenDesigns.affiliateId,
       placedCabinets: kitchenDesigns.placedCabinets,
       selectedStyleId: kitchenDesigns.selectedStyleId,
       selectedDistributorId: kitchenDesigns.selectedDistributorId,
@@ -1593,6 +1605,9 @@ async function savedDesignFreightInput(designId: number) {
     .limit(1);
   const design = designs[0];
   if (!design) throw new TRPCError({ code: "NOT_FOUND", message: "Saved design not found." });
+  if (hostScope?.pinned && design.affiliateId !== hostScope.affiliateId) {
+    throw new TRPCError({ code: "NOT_FOUND", message: "Saved design not found in this store." });
+  }
 
   const defaultStyleId = positiveInteger(design.selectedStyleId);
   const defaultDistributorId = positiveInteger(design.selectedDistributorId);
@@ -2448,19 +2463,29 @@ export const freightRouter = router({
     }),
 
   // ─── Admin: choose a saved design for a test-only freight simulation ─────────
-  adminListSimulationDesigns: adminProcedure.query(async () => {
+  // A freight test reads a saved plan, so it obeys the same store boundary as
+  // the designer. On a storefront hostname only that store's plans are listed;
+  // on the platform hosts the admin narrows by affiliateId or the house store.
+  adminListSimulationDesigns: adminProcedure
+    .input(z.object({ affiliateId: z.number().int().positive().optional(), house: z.boolean().optional() }).optional())
+    .query(async ({ ctx, input }) => {
     const db = await getDb();
     if (!db) return [];
+    const hostScope = await resolveRequestStoreScope(ctx.req);
+    const affiliateId = hostScope.pinned ? hostScope.affiliateId : (input?.affiliateId ?? null);
+    const houseOnly = !hostScope.pinned && (input?.house === true || input?.affiliateId == null);
     const rows = await db
       .select({
         id: kitchenDesigns.id,
         name: kitchenDesigns.name,
+        affiliateId: kitchenDesigns.affiliateId,
         placedCabinets: kitchenDesigns.placedCabinets,
         selectedStyleId: kitchenDesigns.selectedStyleId,
         selectedDistributorId: kitchenDesigns.selectedDistributorId,
         updatedAt: kitchenDesigns.updatedAt,
       })
       .from(kitchenDesigns)
+      .where(designScopeWhere(affiliateId, houseOnly))
       .orderBy(desc(kitchenDesigns.updatedAt))
       .limit(100);
     return rows
@@ -2497,8 +2522,9 @@ export const freightRouter = router({
       accessorials: accessorialsSchema,
       mode: z.enum(["pallet_preview", "saved_configuration"]),
     }))
-    .mutation(async ({ input }) => {
-      const plan = await savedDesignFreightInput(input.designId);
+    .mutation(async ({ input, ctx }) => {
+      const hostScope = await resolveRequestStoreScope(ctx.req);
+      const plan = await savedDesignFreightInput(input.designId, hostScope);
       const simulation = await simulateFreight({
         destinationZip: input.destinationZip,
         items: plan.items,

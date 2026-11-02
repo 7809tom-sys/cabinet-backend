@@ -1663,6 +1663,10 @@ export const subscribers = mysqlTable("subscribers", {
 export const countertopQuotes = mysqlTable("countertop_quotes", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId"), // null for anonymous/email-only requests
+  // Storefront the request was submitted from. Null is the Cabinet Dealz house
+  // store, exactly like kitchen_designs.affiliateId, so an affiliate's countertop
+  // requests never appear in another store's admin list.
+  affiliateId: int("affiliateId"),
   contactName: varchar("contactName", { length: 256 }),
   contactEmail: varchar("contactEmail", { length: 320 }).notNull(),
   contactPhone: varchar("contactPhone", { length: 32 }),
@@ -1678,7 +1682,9 @@ export const countertopQuotes = mysqlTable("countertop_quotes", {
   quotedPrice: decimal("quotedPrice", { precision: 10, scale: 2 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
-});
+}, (table) => ({
+  affiliateIdx: index("countertop_quotes_affiliate_idx").on(table.affiliateId),
+}));
 
 export type CountertopQuote = typeof countertopQuotes.$inferSelect;
 export type InsertCountertopQuote = typeof countertopQuotes.$inferInsert;
@@ -2162,6 +2168,11 @@ export const affiliates = mysqlTable("affiliates", {
   hidePlatformBranding: boolean("hidePlatformBranding").default(false).notNull(),
   sectionLabelsJson: text("sectionLabelsJson"),
   storefrontEnabled: boolean("storefrontEnabled").default(true).notNull(),
+  // Optional custom domain (e.g. reaveswaycabinets.com) that resolves to this
+  // storefront. The server treats a request on this host as this affiliate, so
+  // it can never be routed into another store's designs. Nullable: most stores
+  // only use the canonical /store/:slug route or their CabinetDealz subdomain.
+  customDomain: varchar("customDomain", { length: 255 }).unique(),
   // Storefront layout template variant
   template: mysqlEnum("template", AFFILIATE_STOREFRONT_TEMPLATE_IDS).default("classic").notNull(),
   // White-label markup: default % (bps) this affiliate adds on top of their

@@ -4,6 +4,7 @@ import { TRPCError } from "@trpc/server";
 import { protectedProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
 import { resolveAffiliateAccess } from "../lib/affiliateAccess";
+import { resolveRequestStoreScope, type RequestStoreScope } from "../lib/affiliateHostScope";
 import {
   affiliates,
   crmActivities,
@@ -51,11 +52,20 @@ function nextSnapshot(input: z.infer<z.ZodObject<typeof designFields>>): DesignS
   });
 }
 
-async function loadAssistTarget(user: { id: number; email: string | null; role: string; name?: string | null }, designId: number) {
+async function loadAssistTarget(
+  user: { id: number; email: string | null; role: string; name?: string | null },
+  designId: number,
+  hostScope: RequestStoreScope,
+) {
   const db = await getDb();
   if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
   const [design] = await db.select().from(kitchenDesigns).where(eq(kitchenDesigns.id, designId)).limit(1);
   if (!design) throw new TRPCError({ code: "NOT_FOUND", message: "Design not found." });
+  // Assisted editing is a store-scoped read, so a design that belongs to another
+  // storefront is not found here even for the storefront's own administrator.
+  if (hostScope.pinned && design.affiliateId !== hostScope.affiliateId) {
+    throw new TRPCError({ code: "NOT_FOUND", message: "Design not found in this store." });
+  }
   const access = user.role === "admin" ? null : await resolveAffiliateAccess(db, user);
   const decision = decideAssistAccess({ role: user.role, access, designAffiliateId: design.affiliateId });
   if (!decision.ok) throw new TRPCError({ code: "FORBIDDEN", message: decision.message });
@@ -115,7 +125,8 @@ export const designAssistRouter = router({
   saveRevision: protectedProcedure
     .input(z.object({ designId: z.number().int().positive(), ...designFields }))
     .mutation(async ({ ctx, input }) => {
-      const { db, design, storeName } = await loadAssistTarget(ctx.user, input.designId);
+      const hostScope = await resolveRequestStoreScope(ctx.req);
+      const { db, design, storeName } = await loadAssistTarget(ctx.user, input.designId, hostScope);
       const plan = planAssistedRevision(snapshotDesign(design), nextSnapshot(input), storeName);
       if (plan.mode !== "revision" || plan.deletesDesign || !plan.preservesPrevious) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Assisted save must keep the previous version." });
@@ -157,7 +168,8 @@ export const designAssistRouter = router({
   suggestCopy: protectedProcedure
     .input(z.object({ designId: z.number().int().positive(), ...designFields }))
     .mutation(async ({ ctx, input }) => {
-      const { db, design, storeName } = await loadAssistTarget(ctx.user, input.designId);
+      const hostScope = await resolveRequestStoreScope(ctx.req);
+      const { db, design, storeName } = await loadAssistTarget(ctx.user, input.designId, hostScope);
       const plan = planSuggestedCopy(snapshotDesign(design), nextSnapshot(input), design.id);
       if (plan.mode !== "suggestion" || plan.updatesOriginal || plan.deletesDesign) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "A suggestion must leave the customer's design unchanged." });
