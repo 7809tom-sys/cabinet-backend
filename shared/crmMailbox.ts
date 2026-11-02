@@ -5,6 +5,7 @@
 
 import type { CrmPriority, CrmStage } from "./crm";
 import { isClosedStage, isWonRevenueStage } from "./crm";
+import { affiliateSenderFromAddress, affiliateSenderReady, isUsableSenderEmail, resolveSmtpSecure } from "./affiliateSender";
 
 export const CRM_EMAIL_PROVIDERS = ["gmail", "outlook", "yahoo", "custom"] as const;
 export type CrmEmailProvider = (typeof CRM_EMAIL_PROVIDERS)[number];
@@ -76,15 +77,22 @@ export type StoredAffiliateEmailSettings = {
   provider: string;
   smtpHost: string;
   smtpPort: number;
-  smtpUser: string;
   smtpPass: string;
   smtpFrom: string;
   fromName: string;
   replyTo: string;
   signatureHtml: string;
   enabled: boolean;
+  /** Implicit TLS (465) instead of STARTTLS (587). Defaults to the port rule. */
+  smtpSecure?: boolean | null;
+  /** The affiliate's own customer-facing address, also the test-email target. */
+  contactEmail?: string | null;
+  /** Where Cabinet Dealz receives a copy of every invoice. Blank uses the platform default. */
+  invoiceCopyEmail?: string | null;
+  smtpUser: string;
   lastTestedAt?: Date | string | null;
   lastTestOk?: boolean | null;
+  lastTestError?: string | null;
 };
 
 export type PublicAffiliateEmailSettings = {
@@ -92,38 +100,56 @@ export type PublicAffiliateEmailSettings = {
   provider: string;
   smtpHost: string;
   smtpPort: number;
+  smtpSecure: boolean;
   smtpUser: string;
   smtpFrom: string;
   fromName: string;
   replyTo: string;
+  contactEmail: string;
+  invoiceCopyEmail: string;
   signatureHtml: string;
   enabled: boolean;
+  /** The stored app password exists. The password itself is never returned. */
   hasPassword: boolean;
+  configured: boolean;
   lastTestedAt: Date | string | null;
   lastTestOk: boolean | null;
+  lastTestError: string | null;
   connected: boolean;
 };
 
 export function affiliateSmtpReady(settings: Pick<StoredAffiliateEmailSettings, "enabled" | "smtpHost" | "smtpUser" | "smtpPass"> | null | undefined): boolean {
-  return !!(settings && settings.enabled && settings.smtpHost.trim() && settings.smtpUser.trim() && settings.smtpPass);
+  return !!(
+    settings
+    && settings.enabled
+    && (settings.smtpHost ?? "").trim()
+    && (settings.smtpUser ?? "").trim()
+    && settings.smtpPass
+  );
 }
 
 /** Client-safe view. The stored password is reduced to a boolean and dropped. */
 export function toPublicAffiliateEmailSettings(row: StoredAffiliateEmailSettings): PublicAffiliateEmailSettings {
+  const fromAddress = affiliateSenderFromAddress(row);
   return {
     affiliateId: row.affiliateId,
     provider: row.provider,
-    smtpHost: row.smtpHost,
+    smtpHost: row.smtpHost ?? "",
     smtpPort: row.smtpPort,
-    smtpUser: row.smtpUser,
-    smtpFrom: row.smtpFrom,
-    fromName: row.fromName,
-    replyTo: row.replyTo,
-    signatureHtml: row.signatureHtml,
+    smtpSecure: resolveSmtpSecure(row.smtpPort, row.smtpSecure),
+    smtpUser: row.smtpUser ?? "",
+    smtpFrom: row.smtpFrom ?? "",
+    fromName: row.fromName ?? "",
+    replyTo: row.replyTo ?? "",
+    contactEmail: row.contactEmail ?? "",
+    invoiceCopyEmail: row.invoiceCopyEmail ?? "",
+    signatureHtml: row.signatureHtml ?? "",
     enabled: row.enabled,
-    hasPassword: row.smtpPass.trim().length > 0,
+    hasPassword: (row.smtpPass ?? "").trim().length > 0,
+    configured: affiliateSenderReady(row) && isUsableSenderEmail(fromAddress),
     lastTestedAt: row.lastTestedAt ?? null,
     lastTestOk: row.lastTestOk ?? null,
+    lastTestError: row.lastTestError ?? null,
     connected: affiliateSmtpReady(row),
   };
 }
@@ -148,25 +174,36 @@ export type CrmOutboundPlan =
   | { ok: false; reason: "not_configured" | "disabled" }
   | {
       ok: true;
+      /**
+       * affiliate          : the affiliate's own mailbox is the transport.
+       * platform_fallback  : an affiliate deal whose mailbox is unusable or off,
+       *                      delivered by the platform sender with its reply-to.
+       * platform           : house mail, delivered by the platform sender.
+       */
       channel: "affiliate" | "platform_fallback" | "platform";
       from: string;
       replyTo?: string;
       signatureHtml: string;
+      /** The deal's affiliate, so delivery reads exactly the row this plan used. */
+      affiliateId: number | null;
     };
 
 function affiliateReplyAddress(input: {
   publicEmail?: string;
   affiliate: StoredAffiliateEmailSettings | null;
 }): string | undefined {
-  const mailbox = (input.affiliate?.smtpFrom || input.affiliate?.smtpUser || "").trim();
-  return input.affiliate?.replyTo.trim() || input.publicEmail || mailbox || undefined;
+  const mailbox = affiliateSenderFromAddress(input.affiliate);
+  const configured = (input.affiliate?.replyTo ?? "").trim();
+  return configured || input.publicEmail || mailbox || undefined;
 }
 
 /**
  * Choose the identity for one CRM send.
- * Delivery is always the shared Resend sender. An affiliate deal puts the
- * affiliate or public address in reply-to. Saved SMTP rows do not make a
- * send ready and are not used as the transport.
+ *
+ * An affiliate deal whose mailbox is saved and enabled sends FROM that address
+ * through the affiliate's SMTP server. Every other case keeps the shared sender
+ * so a half-configured mailbox never blocks a customer's quote or invoice. The
+ * reply-to stays the affiliate's own address either way.
  */
 export function resolveCrmOutbound(input: {
   dealAffiliateId: number | null;
@@ -178,22 +215,30 @@ export function resolveCrmOutbound(input: {
   resendFrom?: string;
 }): CrmOutboundPlan {
   const from = input.resendFrom?.trim() ?? "";
-  if (!input.resendReady || !from) return { ok: false, reason: "not_configured" };
-  const publicEmail = input.publicEmail?.trim() || undefined;
+  const affiliateSender = affiliateSenderReady(input.affiliate)
+    ? affiliateSenderFromAddress(input.affiliate)
+    : "";
   if (input.dealAffiliateId != null) {
+    const affiliateUsable = isUsableSenderEmail(affiliateSender);
+    // An affiliate mailbox is its own delivery path, so it does not depend on
+    // the platform Resend configuration being present.
+    if (!affiliateUsable && (!input.resendReady || !from)) return { ok: false, reason: "not_configured" };
     return {
       ok: true,
-      channel: affiliateSmtpReady(input.affiliate) ? "affiliate" : "platform_fallback",
-      from,
-      replyTo: affiliateReplyAddress({ publicEmail, affiliate: input.affiliate }),
+      channel: affiliateUsable ? "affiliate" : "platform_fallback",
+      from: affiliateUsable ? affiliateSender : from,
+      replyTo: affiliateReplyAddress({ publicEmail: input.publicEmail?.trim() || undefined, affiliate: input.affiliate }),
       signatureHtml: input.affiliate?.signatureHtml ?? "",
+      affiliateId: input.dealAffiliateId,
     };
   }
+  if (!input.resendReady || !from) return { ok: false, reason: "not_configured" };
   return {
     ok: true,
     channel: "platform",
     from,
     signatureHtml: "",
+    affiliateId: null,
   };
 }
 
