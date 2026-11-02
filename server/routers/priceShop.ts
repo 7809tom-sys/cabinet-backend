@@ -18,6 +18,7 @@ import { resolveStorefrontTier, visiblePricesForViewer } from "../../shared/pric
 import { sellPriceForTier } from "@shared/margins";
 import { TRPCError } from "@trpc/server";
 import { resolveAffiliateAccess } from "../lib/affiliateAccess";
+import { resolveRequestStoreScope } from "../lib/affiliateHostScope";
 import { storagePut } from "../storage";
 import { bundlePricePairs, bundleSurfaceIds, calculateCurrentBundlePrice, publishedBundlePrice, type BundlePriceCandidate, type BundleSnapshotLike } from "../lib/bundleDealPricing";
 import { decidePackageAccess, planKitchenPackageCopy, resolvePackagePrice, type PackageLineItem } from "@shared/kitchenPackage";
@@ -839,8 +840,15 @@ export const priceShopRouter = router({
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      // Price a saved plan only inside the store this request arrived on. The
+      // admin branch below is otherwise store-blind, exactly like the Designer
+      // assist branch that leaked across affiliates.
+      const hostScope = await resolveRequestStoreScope(ctx.req);
       const [design] = await db.select().from(kitchenDesigns).where(eq(kitchenDesigns.id, input.designId)).limit(1);
       if (!design) throw new TRPCError({ code: "NOT_FOUND", message: "Design not found." });
+      if (hostScope.pinned && design.affiliateId !== hostScope.affiliateId) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Design not found in this store." });
+      }
       const access = ctx.user.role === "admin" ? null : await resolveAffiliateAccess(db, ctx.user);
       const assist = decideAssistAccess({ role: ctx.user.role, access, designAffiliateId: design.affiliateId });
       const ownDesign = design.userId === ctx.user.id && access && (access.isOwner || access.accessDesigner) && access.affiliateId === design.affiliateId;

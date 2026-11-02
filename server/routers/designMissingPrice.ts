@@ -5,6 +5,7 @@ import { getDb, getPricingSettings } from "../db";
 import { cabinets, designMissingPriceEvents, distributorSkus, distributors, cabinetCodeEquivalences, affiliates } from "../../drizzle/schema";
 import { sellPriceForTier } from "@shared/margins";
 import { loadCodeEquivalenceGroups } from "../lib/codeEquivalenceLoader";
+import { resolveRequestStoreScope, type ResolvedHostScope } from "../lib/affiliateHostScope";
 import { nomenclatureFamilyFor, rankFamilyAlternatives, type FamilyCandidate, type FamilySource } from "../../shared/nomenclatureFamily";
 
 const tierEnum = z.enum(["homeowner", "contractor", "wholesale"]);
@@ -61,11 +62,23 @@ export const designMissingPriceRouter = router({
     .input(z.object({
       includeResolved: z.boolean().default(false),
       limit: z.number().int().min(1).max(500).default(200),
+      /** Optional narrowing on the platform hosts. A pinned host always wins. */
+      storeScope: z.string().trim().min(1).max(160).optional(),
     }).optional())
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) return { rows: [], openCount: 0 };
       const includeResolved = input?.includeResolved ?? false;
+      // Price flags are written per store. On an affiliate hostname only that
+      // store's flags are listed, so a storefront admin never reads another
+      // store's catalog gaps.
+      const hostScope = await resolveRequestStoreScope(ctx.req);
+      const openWhere = isNull(designMissingPriceEvents.resolvedAt);
+      const scopeWhere = hostScope.pinned
+        ? eq(designMissingPriceEvents.storeScope, hostScope.slug!)
+        : input?.storeScope
+          ? eq(designMissingPriceEvents.storeScope, input.storeScope)
+          : undefined;
       const rows = await db
         .select({
           id: designMissingPriceEvents.id,
@@ -86,13 +99,16 @@ export const designMissingPriceRouter = router({
         })
         .from(designMissingPriceEvents)
         .leftJoin(distributors, eq(distributors.id, designMissingPriceEvents.distributorId))
-        .where(includeResolved ? undefined : isNull(designMissingPriceEvents.resolvedAt))
+        .where(and(
+          ...(includeResolved ? [] : [openWhere]),
+          ...(scopeWhere ? [scopeWhere] : []),
+        ))
         .orderBy(desc(designMissingPriceEvents.lastSeenAt))
         .limit(input?.limit ?? 200);
       const [openCountRow] = await db
         .select({ n: sql<number>`COUNT(*)` })
         .from(designMissingPriceEvents)
-        .where(isNull(designMissingPriceEvents.resolvedAt));
+        .where(and(openWhere, ...(scopeWhere ? [scopeWhere] : [])));
       return { rows, openCount: Number(openCountRow?.n ?? 0) };
     }),
 

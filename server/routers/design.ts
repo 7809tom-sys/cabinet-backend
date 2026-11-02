@@ -27,6 +27,12 @@ import { selectExactCartPriceRows } from "../lib/cartPriceSelection";
 import { canonicalizeDesignPriceItems, normalizedDesignPriceCode, verifiedLegacyDesignPriceAliases } from "../lib/designPriceAliases";
 import { loadCodeEquivalenceGroups } from "../lib/codeEquivalenceLoader";
 import { normalizedEquivalenceCode } from "../../shared/codeEquivalence";
+import {
+  assertClientStoreScope,
+  resolveRequestStoreScope,
+  type HostAffiliateRow,
+  type ResolvedHostScope,
+} from "../lib/affiliateHostScope";
 import { ENV } from "../_core/env";
 import { priceLadder } from "../../shared/pricing";
 import { resolveCanonicalCatalogSources } from "../lib/canonicalCatalogSources";
@@ -78,6 +84,14 @@ const designStoreScopeInput = z.string().trim().min(1).max(255).default("owner")
 
 function designAffiliateScopeCondition(affiliateId: number | null) {
   return affiliateId == null ? isNull(kitchenDesigns.affiliateId) : eq(kitchenDesigns.affiliateId, affiliateId);
+}
+
+/**
+ * Countertop quote rows for the request's store. A pinned affiliate hostname
+ * narrows to that store; on the platform hosts an admin keeps every store.
+ */
+function countertopScopeCondition(scope: ResolvedHostScope) {
+  return scope.pinned ? eq(countertopQuotes.affiliateId, scope.affiliateId!) : undefined;
 }
 
 function sameDesignScope(left: number | null, right: number | null): boolean {
@@ -1781,8 +1795,17 @@ export const designRouter = router({
       if (!db) throw new Error("Database not available");
 
       const userId = ctx.user.id;
-      const affiliate = await resolveAffiliateDesignOwner(db, input.affiliateSlug);
-      const originAffiliate = await resolveAffiliateDesignOwner(db, input.originScope ?? input.affiliateSlug);
+      // The Host/Origin header decides the store. A client slug may only
+      // restate it, never redirect the write to a different storefront.
+      const hostScope = await resolveRequestStoreScope(ctx.req);
+      assertClientStoreScope(hostScope, input.affiliateSlug);
+      assertClientStoreScope(hostScope, input.originScope);
+      const affiliate: HostAffiliateRow | null = hostScope.pinned
+        ? hostScope.row
+        : await resolveAffiliateDesignOwner(db, input.affiliateSlug);
+      const originAffiliate: HostAffiliateRow | null = hostScope.pinned
+        ? affiliate
+        : await resolveAffiliateDesignOwner(db, input.originScope ?? input.affiliateSlug);
       const affiliateId = affiliate?.id ?? null;
       const originAffiliateId = originAffiliate?.id ?? null;
       if (!sameDesignScope(affiliateId, originAffiliateId)) {
@@ -1920,8 +1943,15 @@ export const designRouter = router({
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
 
-      const affiliate = await resolveAffiliateDesignOwner(db, input.affiliateSlug);
-      const originAffiliate = await resolveAffiliateDesignOwner(db, input.originScope ?? input.affiliateSlug);
+      const hostScope = await resolveRequestStoreScope(ctx.req);
+      assertClientStoreScope(hostScope, input.affiliateSlug);
+      assertClientStoreScope(hostScope, input.originScope);
+      const affiliate: HostAffiliateRow | null = hostScope.pinned
+        ? hostScope.row
+        : await resolveAffiliateDesignOwner(db, input.affiliateSlug);
+      const originAffiliate: HostAffiliateRow | null = hostScope.pinned
+        ? affiliate
+        : await resolveAffiliateDesignOwner(db, input.originScope ?? input.affiliateSlug);
       const affiliateId = affiliate?.id ?? null;
       const originAffiliateId = originAffiliate?.id ?? null;
       if (!sameDesignScope(affiliateId, originAffiliateId)) {
@@ -1965,7 +1995,11 @@ export const designRouter = router({
     .mutation(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
-      const affiliate = await resolveAffiliateDesignOwner(db, input.affiliateSlug);
+      const hostScope = await resolveRequestStoreScope(ctx.req);
+      assertClientStoreScope(hostScope, input.affiliateSlug);
+      const affiliate: HostAffiliateRow | null = hostScope.pinned
+        ? hostScope.row
+        : await resolveAffiliateDesignOwner(db, input.affiliateSlug);
       const affiliateId = affiliate?.id ?? null;
       await requireAffiliateDesignerAccess(db, ctx, affiliateId);
       const rows = await db
@@ -1987,7 +2021,11 @@ export const designRouter = router({
     .query(async ({ ctx, input }) => {
     const db = await getDb();
     if (!db) return [];
-    const affiliate = await resolveAffiliateDesignOwner(db, input?.affiliateSlug ?? "owner");
+    const hostScope = await resolveRequestStoreScope(ctx.req);
+    assertClientStoreScope(hostScope, input?.affiliateSlug);
+    const affiliate = hostScope.pinned
+      ? hostScope.row
+      : await resolveAffiliateDesignOwner(db, input?.affiliateSlug ?? "owner");
     await requireAffiliateDesignerAccess(db, ctx, affiliate?.id ?? null);
     return db
       .select()
@@ -2006,7 +2044,11 @@ export const designRouter = router({
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available." });
-      const affiliate = await resolveAffiliateDesignOwner(db, input.affiliateSlug, true);
+      const hostScope = await resolveRequestStoreScope(ctx.req);
+      assertClientStoreScope(hostScope, input.affiliateSlug);
+      const affiliate: HostAffiliateRow | null = hostScope.pinned
+        ? hostScope.row
+        : await resolveAffiliateDesignOwner(db, input.affiliateSlug, true);
       const affiliateId = affiliate?.id ?? null;
       await requireAffiliateDesignerAccess(db, ctx, affiliateId);
       const ownership = and(
@@ -2045,16 +2087,24 @@ export const designRouter = router({
     .query(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) return null;
+      // The host decides the store for every branch below, including assist.
+      const hostScope = await resolveRequestStoreScope(ctx.req);
+      assertClientStoreScope(hostScope, input.affiliateSlug);
       if (input.assist) {
         const [design] = await db.select().from(kitchenDesigns).where(eq(kitchenDesigns.id, input.id)).limit(1);
         if (!design) return null;
+        // Assisted editing is still a store-scoped read. An admin opening a
+        // customer's design from another storefront must not see it.
+        if (hostScope.pinned && design.affiliateId !== hostScope.affiliateId) return null;
         if (design.userId === ctx.user.id) return design;
         const access = ctx.user.role === "admin" ? null : await resolveAffiliateAccess(db, ctx.user);
         const decision = decideAssistAccess({ role: ctx.user.role, access, designAffiliateId: design.affiliateId });
         if (!decision.ok) return null;
         return design;
       }
-	  const affiliate = await resolveAffiliateDesignOwner(db, input.affiliateSlug, input.crmDealId != null);
+	  const affiliate: HostAffiliateRow | null = hostScope.pinned
+	    ? hostScope.row
+	    : await resolveAffiliateDesignOwner(db, input.affiliateSlug, input.crmDealId != null);
 	  if (input.crmDealId != null) {
 	    const [deal] = await db.select({ id: crmDeals.id, affiliateId: crmDeals.affiliateId, ownerUserId: crmDeals.ownerUserId })
 	      .from(crmDeals)
@@ -2104,7 +2154,11 @@ export const designRouter = router({
     .mutation(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
-      const affiliate = await resolveAffiliateDesignOwner(db, input.affiliateSlug);
+      const hostScope = await resolveRequestStoreScope(ctx.req);
+      assertClientStoreScope(hostScope, input.affiliateSlug);
+      const affiliate: HostAffiliateRow | null = hostScope.pinned
+        ? hostScope.row
+        : await resolveAffiliateDesignOwner(db, input.affiliateSlug);
       const affiliateId = affiliate?.id ?? null;
       await requireAffiliateDesignerAccess(db, ctx, affiliateId);
 
@@ -2390,7 +2444,11 @@ export const designRouter = router({
     .query(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) return { projectName: input.projectName, rooms: [], grandTotal: 0, roomCount: 0 };
-      const affiliate = await resolveAffiliateDesignOwner(db, input.affiliateSlug);
+      const hostScope = await resolveRequestStoreScope(ctx.req);
+      assertClientStoreScope(hostScope, input.affiliateSlug);
+      const affiliate: HostAffiliateRow | null = hostScope.pinned
+        ? hostScope.row
+        : await resolveAffiliateDesignOwner(db, input.affiliateSlug);
       await requireAffiliateDesignerAccess(db, ctx, affiliate?.id ?? null);
 
       const designs = await db
@@ -2530,7 +2588,11 @@ export const designRouter = router({
   myProjects: protectedProcedure.input(z.object({ affiliateSlug: designStoreScopeInput }).optional()).query(async ({ ctx, input }) => {
     const db = await getDb();
     if (!db) return [];
-	  const affiliate = await resolveAffiliateDesignOwner(db, input?.affiliateSlug ?? "owner");
+	  const hostScope = await resolveRequestStoreScope(ctx.req);
+	  assertClientStoreScope(hostScope, input?.affiliateSlug);
+	  const affiliate: HostAffiliateRow | null = hostScope.pinned
+	    ? hostScope.row
+	    : await resolveAffiliateDesignOwner(db, input?.affiliateSlug ?? "owner");
 	  const affiliateId = affiliate?.id ?? null;
 	  await requireAffiliateDesignerAccess(db, ctx, affiliateId);
     const rows = await db
@@ -2576,9 +2638,12 @@ export const designRouter = router({
     .mutation(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      // Stamp the store the shopper actually submitted from, decided by the host.
+      const hostScope = await resolveRequestStoreScope(ctx.req);
 
       const result = await db.insert(countertopQuotes).values({
         userId: ctx.user?.id ?? null,
+        affiliateId: hostScope.pinned ? hostScope.affiliateId : null,
         contactName: input.contactName ?? null,
         contactEmail: input.contactEmail,
         contactPhone: input.contactPhone ?? null,
@@ -2852,7 +2917,13 @@ Return an empty actions array ONLY if the user asked a pure question with no wal
     if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN" });
     const db = await getDb();
     if (!db) return [];
-    return db.select().from(countertopQuotes).orderBy(desc(countertopQuotes.createdAt));
+    const hostScope = await resolveRequestStoreScope(ctx.req);
+    const rows = await db
+      .select()
+      .from(countertopQuotes)
+      .where(countertopScopeCondition(hostScope))
+      .orderBy(desc(countertopQuotes.createdAt));
+    return rows;
   }),
 
   updateCountertopQuote: protectedProcedure
@@ -2867,11 +2938,18 @@ Return an empty actions array ONLY if the user asked a pure question with no wal
       if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN" });
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      const hostScope = await resolveRequestStoreScope(ctx.req);
       const patch: Record<string, unknown> = {};
       if (input.status) patch.status = input.status;
       if (input.quotedPrice !== undefined) patch.quotedPrice = String(input.quotedPrice);
       if (Object.keys(patch).length > 0) {
-        await db.update(countertopQuotes).set(patch).where(eq(countertopQuotes.id, input.id));
+        const updated = await db
+          .update(countertopQuotes)
+          .set(patch)
+          .where(and(eq(countertopQuotes.id, input.id), countertopScopeCondition(hostScope)));
+        if (hostScope.pinned && Number((updated as unknown as [{ affectedRows?: number }])[0]?.affectedRows ?? 0) === 0) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Countertop quote not found in this store." });
+        }
       }
       return { id: input.id };
     }),

@@ -1,5 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
-import { fetchTrpcJson, isHtmlApiFallback, isTrpcRequest, TRPC_HTML_RETRY_DELAYS_MS, TRPC_QUERY_METHOD_OVERRIDE } from "./trpcTransport";
+import {
+  fetchTrpcJson,
+  isHtmlApiFallback,
+  isTrpcRequest,
+  storefrontHostHeader,
+  TRPC_HTML_RETRY_DELAYS_MS,
+  TRPC_QUERY_METHOD_OVERRIDE,
+  TRPC_STOREFRONT_HOST_HEADER,
+} from "./trpcTransport";
 
 describe("tRPC transport", () => {
   it("uses POST for query batches so large cabinet-price payloads stay out of the URL", () => {
@@ -11,6 +19,13 @@ describe("tRPC transport", () => {
     expect(isTrpcRequest("/catalog")).toBe(false);
     expect(isHtmlApiFallback(new Response("<!doctype html>", { headers: { "content-type": "text/html" } }))).toBe(true);
     expect(isHtmlApiFallback(new Response("{}", { headers: { "content-type": "application/json" } }))).toBe(false);
+  });
+
+  it("reports the page's own host so a stripped Origin does not reset the store", () => {
+    expect(storefrontHostHeader("Store-A.cabinetdealz.com")).toEqual({
+      [TRPC_STOREFRONT_HOST_HEADER]: "store-a.cabinetdealz.com",
+    });
+    expect(storefrontHostHeader("")).toEqual({});
   });
 
   it("retries transient HTML fallbacks through a short server restart and retains JSON credentials", async () => {

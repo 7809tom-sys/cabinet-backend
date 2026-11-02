@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { randomBytes } from "crypto";
-import { and, eq, gt, gte, desc, asc, inArray } from "drizzle-orm";
+import { and, eq, gt, gte, desc, asc, inArray, isNull } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import {
   publicProcedure,
@@ -19,6 +19,7 @@ import {
   affiliates,
 } from "../../drizzle/schema";
 import { affiliateSlugFromHostCandidates } from "../lib/affiliateSubdomain";
+import { resolveRequestStoreScope, type ResolvedHostScope } from "../lib/affiliateHostScope";
 import {
   CONSULTATION_AFFILIATE_SLUG_COOKIE,
   CONSULTATION_REFERRAL_COOKIE,
@@ -466,13 +467,21 @@ export const consultationsRouter = router({
     }),
 
   // ── Logged-in customer: my own saved designs (to attach when booking) ───────
+  // Scoped to the storefront the request arrived on, so a booking on one
+  // affiliate's store can never attach another store's saved plan.
   myDesigns: protectedProcedure.query(async ({ ctx }) => {
     const db = await getDb();
     if (!db) return [] as Array<{ id: number; name: string }>;
+    const hostScope = await resolveRequestStoreScope(ctx.req);
     const rows = await db
       .select({ id: kitchenDesigns.id, name: kitchenDesigns.name })
       .from(kitchenDesigns)
-      .where(eq(kitchenDesigns.userId, ctx.user.id))
+      .where(and(
+        eq(kitchenDesigns.userId, ctx.user.id),
+        hostScope.pinned
+          ? eq(kitchenDesigns.affiliateId, hostScope.affiliateId!)
+          : isNull(kitchenDesigns.affiliateId),
+      ))
       .orderBy(desc(kitchenDesigns.updatedAt))
       .limit(50);
     return rows;
