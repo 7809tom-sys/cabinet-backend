@@ -54,6 +54,7 @@ import {
 } from "../lib/doorRenderingAuditScore";
 import { storagePut } from "../storage";
 import { databaseErrorDetail, ensureDoorRenderingApprovalColumns } from "../lib/doorRenderingApprovalSchema";
+import { writeAcceptedAppearanceToStyle } from "../lib/acceptedDoorAppearance";
 import { doorModelAuditRouter } from "./doorModelAudit";
 
 type Database = NonNullable<Awaited<ReturnType<typeof getDb>>>;
@@ -497,6 +498,40 @@ async function createRun(
   };
 }
 
+/**
+ * PRIORITY: write the accepted run onto its door style.
+ *
+ * An approved render becomes the kitchen's color. `writeAcceptedAppearanceToStyle`
+ * reads the color out of the accepted render image itself — never from a swatch,
+ * a paint match, or the catalog hex — and writes it with the approved image onto
+ * `door_styles`, which is what the Designer and the kitchen read.
+ *
+ * A revocation clears the approval marker and the image so the style's own saved
+ * `color` takes over, and a revert re-points at the version it reverted to.
+ *
+ * Only the columns this feature owns are touched. Prices, catalog flags, and the
+ * sample photos are never written here. A failure is logged, never thrown: the
+ * version row and its event are already stored, so an approval is never lost.
+ */
+async function syncAcceptedAppearanceToStyle(
+  db: Database,
+  styleId: number,
+  accepted: typeof doorRenderingVersions.$inferSelect | null,
+  withdrawn: typeof doorRenderingVersions.$inferSelect | null = null,
+): Promise<void> {
+  await ensureDoorRenderingApprovalColumns(db);
+  const { appearance, applied } = await writeAcceptedAppearanceToStyle(db, styleId, accepted, {
+    withdrawnVersion: withdrawn,
+  });
+  if (applied && accepted && appearance.colorSource !== "render-image") {
+    // The style still carries an accepted render, but its color could not be read
+    // from the image. The operator can re-run the style to get a readable render.
+    console.warn(
+      `[door-rendering-audit] accepted version ${accepted.id} for style ${styleId} has no readable render color (${appearance.colorSource}).`,
+    );
+  }
+}
+
 async function recordDecision(
   db: Database,
   actorUserId: number,
@@ -533,6 +568,21 @@ async function recordDecision(
   const accepted = plan.nextAcceptedVersionId == null
     ? null
     : versionRows.find((row) => row.id === plan.nextAcceptedVersionId) ?? null;
+  // PRIORITY: an accepted render becomes the style's color. `recordDecision` is the
+  // one path every acceptance, revocation, and revert goes through, so the door
+  // style writeback happens here and nowhere else. A kitchen reads these columns,
+  // so an approval reaches every kitchen on the next read with no manual step.
+  //
+  // Only a decision that moves the approval writes: accept and revert point at a
+  // different version, and a revoke clears it. A reject leaves the accepted version
+  // where it was, so there is nothing to rewrite and no render to re-measure.
+  if (plan.previousAcceptedVersionId !== plan.nextAcceptedVersionId) {
+    // On a revoke nothing replaces the approval, so the version being withdrawn is
+    // passed along: its color is cleared only if this writeback is what set it.
+    await syncAcceptedAppearanceToStyle(
+      db, plan.styleId, accepted, action === "revoked" ? version : null,
+    );
+  }
   const priorLatestEvent = latestEventForVersion(eventRows, latest.id);
   const latestEventAction = versionId === latest.id ? action : priorLatestEvent?.action ?? null;
   const flagStatus = liveFlagStatus({

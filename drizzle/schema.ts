@@ -422,7 +422,18 @@ export const doorStyles = mysqlTable("door_styles", {
   finish: varchar("finish", { length: 128 }),
   color: varchar("color", { length: 64 }),
   // The door's own render color. Wins over the name fallback. Not snapped to a brand palette.
+  // PRIORITY: this is also the latest ACCEPTED door-rendering run's color. Accepting a
+  // run writes it here, so an approved render becomes every kitchen's color; a revoke
+  // clears it and a revert re-points it, and the style's saved `color` takes over.
   renderHex: varchar("renderHex", { length: 7 }),
+  // The latest ACCEPTED run's approved door image, used as the kitchen's face texture.
+  // Written with renderHex above and cleared on revoke. Added by hand in
+  // docs/sql/0245_door_style_accepted_run.tidb.sql (frontend repo).
+  approvedReferenceImageUrl: varchar("approvedReferenceImageUrl", { length: 512 }),
+  // Which door_rendering_versions row is accepted. Non-null is the signal that the
+  // two columns above may drive a kitchen.
+  approvedVersionId: int("approvedVersionId"),
+  approvedAt: timestamp("approvedAt"),
   // paint = opaque tint on painted grain. stain = translucent tint over wood grain.
   // Null until a swatch reading is saved. Hickory still renders on real wood grain.
   finishCategory: varchar("finishCategory", { length: 16 }),

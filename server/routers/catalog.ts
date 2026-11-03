@@ -51,6 +51,8 @@ import { filterStylesByAvailability } from "@shared/styleAvailability";
 import { groupRoomScenes } from "@shared/vendorRoomScenes";
 import { doorStyleOwnWarehouseZipWrite, withDoorStyleWarehouseCoverage } from "@shared/doorStyleWarehouseCoverage";
 import { recordDoorStyleSaveVersion } from "../lib/featuredDoorStyleVersion";
+import { emptyAcceptedAppearance } from "../lib/acceptedDoorAppearance";
+import { loadAcceptedAppearances } from "../lib/acceptedDoorAppearanceRead";
 import { resolveAffiliateAccess } from "../lib/affiliateAccess";
 import { canViewAffiliatePrivateCost } from "../lib/affiliatePrivateCost";
 import { normalizeCode } from "../../shared/cabinetCodeMatch";
@@ -211,6 +213,47 @@ async function availableStyleIds(
 }
 
 export const doorStylesRouter = router({
+  /**
+   * PRIORITY: the accepted appearance of a door style.
+   *
+   * Owner rule: any approved render becomes the kitchen's color.
+   *
+   * Accepting a door-rendering run writes that run's image and its color onto
+   * `door_styles` (`writeAcceptedAppearanceToStyle`, called from `recordDecision`
+   * in `doorRenderingAudit.ts`). This is the read the Designer and the kitchen use
+   * to see them. It is PUBLIC on purpose: a shopper's Designer is not an admin, and
+   * the same approved appearance must reach every kitchen.
+   *
+   * The accepted render IMAGE is the source of truth. Its color is read out of the
+   * image; a swatch, a paint match, and the style's catalog hex are never the
+   * answer. See `server/lib/acceptedDoorAppearance.ts`.
+   *
+   * Deliberately uncached beyond the normal query, so approving a new run reaches
+   * every kitchen on the next read with no cache to clear and no manual step. A
+   * saved design stores a style id rather than a snapshot, so it follows a new
+   * acceptance too.
+   *
+   * Only an accepted run counts as approved. A `renderHex` typed into the style
+   * editor without accepting a run never drives a kitchen. When the 0245 columns do
+   * not exist yet (the migration is applied by hand) this falls back to the audit
+   * history in `door_rendering_versions` / `door_rendering_version_events` and
+   * derives the same answer, so the endpoint never 500s and never regresses to the
+   * catalog color for a style that does have an approved render.
+   */
+  acceptedAppearance: publicProcedure
+    .input(z.object({
+      styleId: z.number().int().positive().optional(),
+      styleIds: z.array(z.number().int().positive()).max(300).optional(),
+    }).refine(
+      (value) => value.styleId != null || (value.styleIds?.length ?? 0) > 0,
+      { message: "Pass styleId or styleIds." },
+    ))
+    .query(async ({ input }) => {
+      const ids = Array.from(new Set(input.styleId != null ? [input.styleId] : input.styleIds!));
+      const list = await loadAcceptedAppearances(await getDb(), ids);
+      return input.styleId != null ? list[0] ?? emptyAcceptedAppearance(input.styleId) : list;
+    }),
+
   list: publicProcedure
     .input(z.object({ distributorId: z.number().optional() }).optional())
     .query(async (opts) => {
@@ -232,7 +275,14 @@ export const doorStylesRouter = router({
         woodSpecies: doorStyles.woodSpecies,
         finish: doorStyles.finish,
         color: doorStyles.color,
+        // PRIORITY: renderHex is the latest ACCEPTED run's color once a run is
+        // approved, and approvedReferenceImageUrl is that run's door image. The
+        // Designer reads both, so an approval reaches every kitchen on the next
+        // list read. approvedVersionId is non-null only when a run is accepted.
         renderHex: doorStyles.renderHex,
+        approvedReferenceImageUrl: doorStyles.approvedReferenceImageUrl,
+        approvedVersionId: doorStyles.approvedVersionId,
+        approvedAt: doorStyles.approvedAt,
         finishCategory: doorStyles.finishCategory,
         grainLightHex: doorStyles.grainLightHex,
         grainDarkHex: doorStyles.grainDarkHex,
