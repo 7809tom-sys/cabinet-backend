@@ -181,7 +181,7 @@ import {
 } from "@/lib/hardware";
 import { CabinetHandlesControl, DEFAULT_DESIGNER_HARDWARE_STYLE_ID } from "@/components/design/CabinetHandlesControl";
 import { HardwareCatalogPicker } from "@/components/design/HardwareCatalogPicker";
-import { isPanelPaletteItem } from "./designToolPanels";
+import { isPanelPaletteItem, panelPaletteFamily, PANEL_FAMILY_LABEL } from "./designToolPanels";
 import { normalizePaletteSearch, matchesPaletteSearch } from "@/lib/paletteSearch";
 import { adjacentDishwasherCenterIn, anchorAlongStartIn, autoBuildStraightBaseCatalog, buildFourAnchorWallGuides, canRunFourAnchorAutoBuild, isAutoBuildStraightSinkBaseCandidate, makeFourAnchorSixWallTrainingRoom, pickFourAnchorSinkBase, planFourAnchorAutoBuild, subtractAnchorRunReservations, wallLabelToEngineWallId, type FourAnchorInputs, type FourAnchorOriginCorner, type FourAnchorRunDirection } from "@/lib/fourAnchorAutoBuild";
 import { fourAnchorSinkWindow, windowOverlapsReservation } from "@/lib/fourAnchorSinkWindow";
@@ -3615,10 +3615,10 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         if (paletteType === "vanity") return isBathroomVanityCabinet(c);
         // Panels are the source-backed physical panel/skin subset of Accessories.
         if (paletteType === "panel") return isPanelPaletteItem(c);
-        // The "Accessories & Trim" tab returns its own server-filtered list
-        // (crown/light-rail molding, fillers, end panels, roll-out trays, etc.),
-        // so every item passes through here unchanged.
-        if (paletteType === "accessory") return true;
+        // The "Accessories & Trim" tab carries BOM lines and non-panel
+        // placeables. Panels have their own tab, so they are excluded here to
+        // keep one item on exactly one surface.
+        if (paletteType === "accessory") return !isPanelPaletteItem(c);
         // Plain "Base" excludes corner bases (own tab) AND vanities (own Vanity
         // tab in bathroom mode) so they don't duplicate across tabs.
         if (paletteType === "base") return !isCornerBase(c) && !isVanity(c);
@@ -3668,7 +3668,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       if (paletteType === "wall" || paletteType === "wallht") return !isCornerWall(c);
       if (paletteType === "vanity") return isBathroomVanityCabinet(c);
       if (paletteType === "panel") return isPanelPaletteItem(c);
-      if (paletteType === "accessory") return true;
+      if (paletteType === "accessory") return !isPanelPaletteItem(c);
       if (paletteType === "base") return !isCornerBase(c) && !isVanity(c);
       return true;
     }).length;
@@ -3705,14 +3705,18 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     }
     // The Accessories & Trim tab groups by product subCategory (Trim & Molding,
     // Decorative End Panels, Roll-Out Trays, Skin Panels, …) rather than by
-    // height, which is meaningless for loose trim/hardware.
+    // height, which is meaningless for loose trim/hardware. The Panels tab
+    // groups by the server's panel family so a base/basement (BP) or
+    // dishwasher (DWR) panel always lands in a named section.
     if (paletteType === "accessory" || paletteType === "panel") {
       const bySub = new Map<string, DesignCabinet[]>();
       // Build accordion sections only from items that can be put on the 2D plan.
       // Previously headings used all catalog add-ons while their bodies silently
       // filtered non-placeable lines, producing rows that opened to a blank area.
-      for (const c of heightFilteredPalette.filter(isPlaceableAccessory)) {
-        const label = (c.subCategory || "Other").trim() || "Other";
+      for (const c of heightFilteredPalette.filter((item) => paletteType === "panel" ? isPanelPaletteItem(item) : isPlaceableAccessory(item))) {
+        const label = paletteType === "panel"
+          ? PANEL_FAMILY_LABEL[panelPaletteFamily(c) ?? "panel"]
+          : (c.subCategory || "Other").trim() || "Other";
         const arr = bySub.get(label);
         if (arr) arr.push(c);
         else bySub.set(label, [c]);
