@@ -11,7 +11,7 @@
  * `reference: "3d-render"`.
  */
 import { buildPhotorealPrompt, type PhotorealPromptInput } from "../../shared/photorealPrompt";
-import { buildDoorStyleRoomScenePrompt } from "../../shared/doorStyleRoomSceneGeneration";
+import { buildDoorStyleRoomScenePrompt, type RoomScenePromptStyle } from "../../shared/doorStyleRoomSceneGeneration";
 import { generateImage, type GenerateImageOptions, type GenerateImageResponse } from "../_core/imageGeneration";
 
 /** Staging is allowed. Cabinetry and the rest of the designed kitchen are not. */
@@ -94,12 +94,7 @@ export function surfacePreviewKitchenPrompt(input: {
 }
 
 /** Server prompt for an automatic door-style room scene. */
-export function doorStyleRoomScenePrompt(style: {
-  ourName: string;
-  doorStyle?: string | null;
-  finish?: string | null;
-  color?: string | null;
-}): string {
+export function doorStyleRoomScenePrompt(style: RoomScenePromptStyle): string {
   return finalizeRoomScenePrompt(buildDoorStyleRoomScenePrompt(style), {
     reference: "verified-door-and-drawer",
   });

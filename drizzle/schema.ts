@@ -608,6 +608,9 @@ export const doorStyleRoomSceneGenerations = mysqlTable("door_style_room_scene_g
   sceneId: int("sceneId"),
   imageUrl: varchar("imageUrl", { length: 512 }),
   errorMessage: varchar("errorMessage", { length: 512 }),
+  // The exact prompt sent to the image model, kept for audit so a wrong scene
+  // can be traced back to what the model was told.
+  prompt: text("prompt"),
   attemptCount: int("attemptCount").notNull().default(0),
   startedAt: timestamp("startedAt"),
   completedAt: timestamp("completedAt"),
