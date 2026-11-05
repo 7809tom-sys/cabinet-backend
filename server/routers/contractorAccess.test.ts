@@ -38,16 +38,117 @@ function caller(user: { id: number; role: string; email: string | null } | null)
   } as never);
 }
 
-function chain(rows: unknown[]) {
-  const promise = Promise.resolve(rows);
-  const builder: Record<string, unknown> = {
-    leftJoin: () => builder,
-    where: () => builder,
-    orderBy: () => builder,
-    limit: (count: number) => Promise.resolve(rows.slice(0, count)),
-    then: (resolve: (value: unknown[]) => unknown, reject: (reason: unknown) => unknown) => promise.then(resolve, reject),
+type SqlNode = { queryChunks: unknown[] };
+
+function isSqlNode(node: unknown): node is SqlNode {
+  return !!node && typeof node === "object" && Array.isArray((node as SqlNode).queryChunks);
+}
+
+function isParamNode(node: unknown): node is { value: unknown } {
+  return isSqlNode(node) === false
+    && !!node
+    && typeof node === "object"
+    && (node as { constructor?: { name?: string } }).constructor?.name === "Param";
+}
+
+function isColumnNode(node: unknown): node is { name: string } {
+  return !!node
+    && typeof node === "object"
+    && typeof (node as { name?: unknown }).name === "string"
+    && !isSqlNode(node)
+    && !isParamNode(node);
+}
+
+/**
+ * Drizzle trees are not plain strings, so flatten the SQL/column/param nodes
+ * into a token list and interpret the handful of comparisons the router emits.
+ * Anything this does not understand counts as matched, which keeps the fake
+ * database permissive instead of silently returning the wrong rows.
+ */
+function flatten(node: unknown, out: unknown[] = []): unknown[] {
+  if (node == null) return out;
+  if (Array.isArray(node)) {
+    for (const item of node) flatten(item, out);
+    return out;
+  }
+  if (typeof node === "object") {
+    const name = (node as { constructor?: { name?: string } }).constructor?.name;
+    if (name === "StringChunk") {
+      const raw = (node as { value?: unknown }).value;
+      out.push(Array.isArray(raw) ? raw.join("") : String(raw ?? ""));
+      return out;
+    }
+    if (isParamNode(node) || isColumnNode(node)) {
+      out.push(node);
+      return out;
+    }
+    if (isSqlNode(node)) {
+      for (const chunk of node.queryChunks) flatten(chunk, out);
+      return out;
+    }
+  }
+  return out;
+}
+
+function matchesCondition(condition: unknown, row: Record<string, unknown>): boolean {
+  if (condition == null) return true;
+  const list = flatten(condition).filter((token) => !(typeof token === "string" && token.trim() === ""));
+  let index = 0;
+
+  const isNoise = (token: unknown) => typeof token === "string"
+    && !token.startsWith(" and ")
+    && !token.startsWith(" or ")
+    && token.trim() !== ")"
+    && token.trim() !== "(";
+
+  const readComparison = (): boolean => {
+    if (list[index] === "(") {
+      index += 1;
+      const inner = readOr();
+      if (list[index] === ")") index += 1;
+      return inner;
+    }
+    // Skip raw-SQL wrappers such as `lower(` that wrap a plain column.
+    while (isNoise(list[index])) index += 1;
+    const column = list[index];
+    if (!isColumnNode(column)) {
+      index += 1;
+      return true;
+    }
+    index += 1;
+    const operatorToken = list[index];
+    if (typeof operatorToken !== "string") return true;
+    const operator = operatorToken.trim().toLowerCase();
+    index += 1;
+    if (operator === "is null") return (row[column.name] ?? null) === null;
+    if (operator === "is not null") return (row[column.name] ?? null) !== null;
+    while (isNoise(list[index])) index += 1;
+    const param = list[index];
+    index += 1;
+    const expected = isParamNode(param) ? param.value : param;
+    if (operator.includes("=")) return (row[column.name] ?? null) === (expected ?? null);
+    return true;
   };
-  return builder;
+
+  const readAnd = (): boolean => {
+    let value = readComparison();
+    while (list[index] === " and ") {
+      index += 1;
+      value = readComparison() && value;
+    }
+    return value;
+  };
+
+  const readOr = (): boolean => {
+    let value = readAnd();
+    while (list[index] === " or ") {
+      index += 1;
+      value = readAnd() || value;
+    }
+    return value;
+  };
+
+  return readOr();
 }
 
 describe("contractorAccess", () => {
@@ -66,12 +167,29 @@ describe("contractorAccess", () => {
     getDbMock.mockReset();
     getDbMock.mockResolvedValue({
       select: () => ({
-        from: (table: unknown) => chain(
-          table === users ? userRows
+        from: (table: unknown) => {
+          const rows: unknown[] = table === users ? userRows
             : table === affiliates ? affiliateRows
               : table === affiliateTeamMembers ? []
-                : requestRows,
-        ),
+                : requestRows;
+          // affiliateTeamMembers has no rows in these tests, so every scope
+          // lookup resolves through the owned-store (userId/email) join only.
+          const filter = (condition: unknown) => {
+            if (!condition) return rows;
+            if (table === affiliateTeamMembers) return [];
+            return rows.filter((row) => matchesCondition(condition, row as Record<string, unknown>));
+          };
+          const builder = (condition?: unknown): Record<string, unknown> => ({
+            leftJoin: () => builder(condition),
+            where: (where: unknown) => builder(where),
+            orderBy: () => builder(condition),
+            limit: async (count: number) => filter(condition).slice(0, count),
+            then: (resolve: (value: unknown[]) => unknown, reject: (reason: unknown) => unknown) => (
+              Promise.resolve(filter(condition)).then(resolve, reject)
+            ),
+          });
+          return builder();
+        },
       }),
       insert: (table: unknown) => ({
         values: async (values: Record<string, unknown>) => {
@@ -98,11 +216,18 @@ describe("contractorAccess", () => {
       }),
       update: (table: unknown) => ({
         set: (set: Record<string, unknown>) => ({
-          where: async () => {
+          where: async (condition: unknown) => {
+            const target = table === users
+              ? (userRows as unknown as Record<string, unknown>[])
+              : (requestRows as unknown as Record<string, unknown>[]);
+            const matched = target.filter((row) => matchesCondition(condition, row));
+            if (matched.length === 0) return { affectedRows: 0 };
             updates.push({
               table: table === users ? "users" : "requests",
               set,
             });
+            for (const row of matched) Object.assign(row, set);
+            return { affectedRows: matched.length };
           },
         }),
       }),
@@ -151,6 +276,7 @@ describe("contractorAccess", () => {
     expect(requestRows[0]).toMatchObject({
       userId: 8,
       submittedByUserId: 9,
+      affiliateId: 70,
       contractorName: "Pat Contractor",
       contractorEmail: "pat@shop.test",
       businessName: "Pat Kitchens",
@@ -210,50 +336,125 @@ describe("contractorAccess", () => {
     expect(requestRows).toHaveLength(0);
   });
 
-  it("prevents a second pending row across self-service and affiliate submit", async () => {
+  it("returns the affiliate's own pending row for the same contractor instead of inserting", async () => {
+    userRows.push({ id: 8, role: "user", email: "pat@shop.test", emailLower: "pat@shop.test" });
     requestRows.push({
       id: 50,
-      userId: 99,
-      submittedByUserId: null,
-      contractorName: null,
-      contractorEmail: "other@shop.test",
-      businessName: "Other",
-      phone: "555-0000",
+      userId: 8,
+      submittedByUserId: 9,
+      contractorName: "Pat Contractor",
+      contractorEmail: "pat@shop.test",
+      businessName: "Pat Kitchens",
+      phone: "555-0100",
       licenseNumber: null,
       status: "pending",
+      affiliateId: 70,
       reviewedByUserId: null,
       reviewedAt: null,
       createdAt: new Date("2026-01-01"),
     });
-    userRows.push({ id: 8, role: "user", email: "pat@shop.test", emailLower: "pat@shop.test" });
-    const customer = caller({ id: 8, role: "user", email: "pat@shop.test" });
-    const affiliate = caller({ id: 9, role: "affiliate", email: "ada@shop.test" });
-
-    const self = await customer.submit(application);
-    expect(self).toEqual({ id: 1, status: "pending" });
-    const fromAffiliate = await affiliate.submitForContractor({
-      contractorName: "Pat Contractor",
+    const affiliate = caller({ id: 9, role: "partner", email: "ada@shop.test" });
+    const again = await affiliate.submitForContractor({
+      contractorName: "Pat Contractor Again",
       contractorEmail: "PAT@shop.test",
       ...application,
     });
-    expect(fromAffiliate).toEqual({ id: 1, status: "pending", duplicate: true });
-    expect(requestRows.filter((row) => row.contractorEmail === "pat@shop.test" || row.userId === 8)).toHaveLength(1);
+    expect(again).toEqual({ id: 50, status: "pending", duplicate: true });
+    expect(requestRows).toHaveLength(1);
+    expect(updates).toEqual([]);
 
-    requestRows.length = 0;
-    nextId = 1;
+    const listed = await affiliate.myAffiliateRequests();
+    expect(listed.map((row) => row.id)).toEqual([50]);
+  });
+
+  it("adopts an orphan pending row with no store and no submitter so it lands in the affiliate list", async () => {
+    userRows.push({ id: 8, role: "user", email: "pat@shop.test", emailLower: "pat@shop.test" });
+    requestRows.push({
+      id: 61,
+      userId: 8,
+      submittedByUserId: null,
+      contractorName: "Pat Contractor",
+      contractorEmail: "pat@shop.test",
+      businessName: "Pat Kitchens",
+      phone: "555-0100",
+      licenseNumber: null,
+      status: "pending",
+      affiliateId: null,
+      reviewedByUserId: null,
+      reviewedAt: null,
+      createdAt: new Date("2026-01-02"),
+    });
+    const affiliate = caller({ id: 9, role: "partner", email: "ada@shop.test" });
+
+    expect(await affiliate.myAffiliateRequests()).toEqual([]);
+
+    const adopted = await affiliate.submitForContractor({
+      contractorName: "Pat Contractor",
+      contractorEmail: "pat@shop.test",
+      ...application,
+    });
+    expect(adopted).toEqual({ id: 61, status: "pending", duplicate: true });
+    expect(requestRows).toHaveLength(1);
+    expect(requestRows[0]).toMatchObject({ affiliateId: 70, submittedByUserId: 9 });
+    expect(updates).toEqual([{ table: "requests", set: { affiliateId: 70, submittedByUserId: 9 } }]);
+
+    const listed = await affiliate.myAffiliateRequests();
+    expect(listed.map((row) => row.id)).toEqual([61]);
+    expect(listed[0]).toMatchObject({ contractorEmail: "pat@shop.test", submittedByUserId: 9 });
+  });
+
+  it("files its own pending row when the pending row belongs to a different store", async () => {
+    affiliateRows.push({ id: 80, userId: 10, email: "bea@shop.test", status: "active", slug: "bea-store" });
+    userRows.push({ id: 8, role: "user", email: "pat@shop.test", emailLower: "pat@shop.test" });
+    requestRows.push({
+      id: 71,
+      userId: 8,
+      submittedByUserId: 10,
+      contractorName: "Pat Contractor",
+      contractorEmail: "pat@shop.test",
+      businessName: "Pat Kitchens",
+      phone: "555-0100",
+      licenseNumber: null,
+      status: "pending",
+      affiliateId: 80,
+      reviewedByUserId: null,
+      reviewedAt: null,
+      createdAt: new Date("2026-01-03"),
+    });
+    const affiliate = caller({ id: 9, role: "partner", email: "ada@shop.test" });
+
     const filed = await affiliate.submitForContractor({
       contractorName: "Pat Contractor",
       contractorEmail: "pat@shop.test",
       ...application,
     });
     expect(filed).toEqual({ id: 1, status: "pending", duplicate: false });
-    const selfAgain = await customer.submit({ ...application, businessName: "Should Not Insert" });
-    expect(selfAgain).toEqual({ id: 1, status: "pending" });
-    expect(requestRows).toHaveLength(1);
+    expect(requestRows).toHaveLength(2);
+    expect(updates).toEqual([]);
+    expect(requestRows[0]).toMatchObject({ id: 71, affiliateId: 80, submittedByUserId: 10 });
+    expect(requestRows[1]).toMatchObject({ id: 1, affiliateId: 70, submittedByUserId: 9 });
 
-    requestRows.length = 0;
-    userRows.length = 0;
-    nextId = 1;
+    expect((await affiliate.myAffiliateRequests()).map((row) => row.id)).toEqual([1]);
+    expect((await caller({ id: 10, role: "partner", email: "bea@shop.test" }).myAffiliateRequests())
+      .map((row) => row.id)).toEqual([71]);
+  });
+
+  it("does not let a client-supplied affiliateId reach another store", async () => {
+    affiliateRows.push({ id: 80, userId: 10, email: "bea@shop.test", status: "active", slug: "bea-store" });
+    await expect(caller({ id: 9, role: "partner", email: "ada@shop.test" }).submitForContractor({
+      contractorName: "Pat Contractor",
+      contractorEmail: "pat@shop.test",
+      affiliateId: 80,
+      ...application,
+    })).rejects.toMatchObject({
+      code: "FORBIDDEN",
+      message: "You can only view this store's own records.",
+    });
+    expect(requestRows).toHaveLength(0);
+  });
+
+  it("attaches a later account to the affiliate pending row on self-service submit", async () => {
+    const affiliate = caller({ id: 9, role: "affiliate", email: "ada@shop.test" });
     await affiliate.submitForContractor({
       contractorName: "Future Contractor",
       contractorEmail: "future@shop.test",

@@ -14,6 +14,7 @@ import {
   canManageAffiliateContractorDesk,
   canReviewAffiliateContractorRequest,
   contractorRequestSource,
+  findAffiliatePendingMatch,
   findPendingDuplicate,
   isAffiliateRole,
   normalizeContractorEmail,
@@ -38,10 +39,32 @@ function insertedId(result: unknown): number {
   return Number((result as [{ insertId: number }])[0].insertId);
 }
 
+function affectedRows(result: unknown): number {
+  if (Array.isArray(result)) {
+    const first = result[0] as { affectedRows?: number } | undefined;
+    return Number(first?.affectedRows ?? 0);
+  }
+  const maybe = result as { affectedRows?: number } | null | undefined;
+  return Number(maybe?.affectedRows ?? 0);
+}
+
+type PendingRequestRow = ContractorRequestIdentity & {
+  affiliateId: number | null;
+  submittedByUserId: number | null;
+};
+
 async function findPendingRequest(
   db: Database,
   key: { userId: number | null; contractorEmail: string | null },
-): Promise<ContractorRequestIdentity | null> {
+): Promise<PendingRequestRow | null> {
+  const rows = await findPendingRequests(db, key);
+  return findPendingDuplicate(rows, key);
+}
+
+async function findPendingRequests(
+  db: Database,
+  key: { userId: number | null; contractorEmail: string | null },
+): Promise<PendingRequestRow[]> {
   const byUser = key.userId != null
     ? and(
       eq(contractorAccessRequests.userId, key.userId),
@@ -55,14 +78,15 @@ async function findPendingRequest(
     )
     : undefined;
   const whereClause = byUser && byEmail ? or(byUser, byEmail) : byUser ?? byEmail;
-  if (!whereClause) return null;
-  const rows = await db.select({
+  if (!whereClause) return [];
+  return db.select({
     id: contractorAccessRequests.id,
     userId: contractorAccessRequests.userId,
     contractorEmail: contractorAccessRequests.contractorEmail,
     status: contractorAccessRequests.status,
+    affiliateId: contractorAccessRequests.affiliateId,
+    submittedByUserId: contractorAccessRequests.submittedByUserId,
   }).from(contractorAccessRequests).where(whereClause);
-  return findPendingDuplicate(rows, key);
 }
 
 async function userForContractorEmail(db: Database, email: string) {
@@ -228,16 +252,37 @@ export const contractorAccessRouter = router({
     if (matched?.role === "contractor") {
       throw new TRPCError({ code: "BAD_REQUEST", message: "This account is already an approved contractor." });
     }
-    const pending = await findPendingRequest(db, {
-      userId: matched?.id ?? null,
-      contractorEmail: email,
-    });
-    if (pending) return { id: pending.id, status: "pending" as const, duplicate: true };
+    // Resolve the store before looking for duplicates so the check is scoped by
+    // an accessible store rather than by whatever id the client sent.
     const affiliateId = await resolveContractorSubmitAffiliateId(db, ctx.user, {
       affiliateId: input.affiliateId,
       slug: input.slug,
       storeScope: input.storeScope,
     });
+    const pendingKey = { userId: matched?.id ?? null, contractorEmail: email };
+    const pendingRows = await findPendingRequests(db, pendingKey);
+    const pending = findAffiliatePendingMatch(pendingRows, { ...pendingKey, affiliateId });
+    if (pending?.kind === "same-store") {
+      return { id: pending.row.id, status: "pending" as const, duplicate: true };
+    }
+    if (pending?.kind === "adopt") {
+      // A pending row with no store and no submitter belongs to nobody, so the
+      // first affiliate to file this contractor claims it. The guarded update
+      // keeps the row invisible to, and untouched by, every other store.
+      const claimed = await db.update(contractorAccessRequests).set({
+        affiliateId,
+        submittedByUserId: ctx.user.id,
+      }).where(and(
+        eq(contractorAccessRequests.id, pending.row.id),
+        eq(contractorAccessRequests.status, "pending"),
+        isNull(contractorAccessRequests.affiliateId),
+        isNull(contractorAccessRequests.submittedByUserId),
+      ));
+      if (affectedRows(claimed) > 0) {
+        return { id: pending.row.id, status: "pending" as const, duplicate: true };
+      }
+      // Another store claimed it first. Fall through and file this store's own row.
+    }
     const result = await db.insert(contractorAccessRequests).values({
       userId: matched?.id ?? null,
       submittedByUserId: ctx.user.id,
