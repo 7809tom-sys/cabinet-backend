@@ -64,6 +64,7 @@ import { enrichAdminOrderRows, loadAdminOrderDetail } from "../lib/adminOrderRea
 import { joinUniqueLabels } from "../lib/orderMoney";
 import { persistOrderCostSnapshot, withDistributorCostSnapshots } from "../lib/orderCostSnapshot";
 import { orderSchemaProcedureError } from "../lib/orderSchemaGuard";
+import { canAccessOrderPalletPhoto, readPalletPhotoForOrder, storeOrderPalletPhoto } from "../lib/orderPalletPhoto";
 import { adminMarkOrderPaid, attachOrderFulfillmentOverlay, backfillOrderCrm, markOrderShipped, markOrderSigned, markOrderVerified, notifyOrderDistributors, onOrderPlaced } from "../lib/orderSideEffects";
 import { readStripeChargeFacts } from "../lib/stripeChargeFacts";
 import { choosePromotedPrice, type PricedCandidate } from "@shared/vendorPromotions";
@@ -1553,7 +1554,10 @@ export const ordersRouter = router({
         throw new TRPCError({ code: "NOT_FOUND", message: "Order not found" });
       }
       const { accessToken: _accessToken, ...detail } = order;
-      return detail;
+      // The pallet photo is part of the order the customer can already read.
+      // Until the column exists this read returns nulls rather than failing.
+      const palletPhoto = await readPalletPhotoForOrder(db, order.id);
+      return { ...detail, ...palletPhoto };
     }),
 
   // ─── My requests (authenticated) ───────────────────────────────────────────
@@ -1865,6 +1869,58 @@ export const ordersRouter = router({
     .mutation(async ({ input, ctx }) => {
       await adminMarkOrderPaid(input.id, ctx.user.name || "Admin");
       return { id: input.id };
+    }),
+
+  /**
+   * Pallet photo on ship. The warehouse photographs the finished pallet; the
+   * image goes into existing file storage and the order keeps its URL.
+   *
+   * Scoped to the order: an admin anywhere, the distributor routed the order,
+   * the affiliate store that took it (or that store's team), and the customer
+   * who placed it. The photo is never emailed or published from here.
+   */
+  uploadPalletPhoto: protectedProcedure
+    .input(z.object({
+      id: z.number().int().positive(),
+      /// A data URL. JPEG, PNG, or WebP; the bytes decide the content type.
+      dataUrl: z.string().min(32).max(12_000_000),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      const [order] = await db.select().from(orderRequests).where(eq(orderRequests.id, input.id)).limit(1);
+      if (!order) throw new TRPCError({ code: "NOT_FOUND", message: "Order not found" });
+
+      const access = ctx.user.role === "admin"
+        ? null
+        : await resolveAffiliateAccess(db, {
+          id: ctx.user.id,
+          email: ctx.user.email ?? null,
+        });
+      const allowed = canAccessOrderPalletPhoto(
+        {
+          id: ctx.user.id,
+          role: ctx.user.role,
+          distributorId: ctx.user.distributorId ?? null,
+          approvedVendorLineId: ctx.user.approvedVendorLineId ?? null,
+        },
+        order,
+        { affiliateIds: access ? [access.affiliateId] : [] },
+      );
+      if (!allowed) throw new TRPCError({ code: "FORBIDDEN", message: "You cannot add a photo to this order." });
+
+      const stored = await storeOrderPalletPhoto({
+        orderId: order.id,
+        uploadedBy: ctx.user.name || ctx.user.email || `User ${ctx.user.id}`,
+        dataUrl: input.dataUrl,
+      });
+      if (!stored.ok) {
+        throw new TRPCError({
+          code: stored.schemaMissing ? "PRECONDITION_FAILED" : "BAD_REQUEST",
+          message: stored.message,
+        });
+      }
+      return { id: order.id, ...stored.photo };
     }),
 
   backfillCrmSales: adminProcedure

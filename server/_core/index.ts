@@ -17,6 +17,7 @@ import { apexRedirectMiddleware } from "../apexRedirect";
 import fs from "fs";
 import path from "path";
 import { registerStripeWebhook } from "../stripeWebhook";
+import { registerVendorInboundWebhook } from "../vendorInboundHttp";
 import { sdk } from "./sdk";
 import cron from "node-cron";
 import { corsMiddleware } from "../lib/cors";
@@ -97,6 +98,8 @@ async function startServer() {
   // Stripe webhook MUST be registered before express.json() so the raw body
   // is available for signature verification.
   registerStripeWebhook(app);
+  // Inbound vendor mail also needs the raw body for signature verification.
+  registerVendorInboundWebhook(app);
   // Configure body parser with larger size limit for file uploads
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));

@@ -461,6 +461,9 @@ export type FrontendAdminOrderFields = {
   stripeFeeAmount: string | null;
   stripeNetAmount: string | null;
   receiptSentAt: Date | string | null;
+  palletPhotoUrl: string | null;
+  palletPhotoUploadedAt: Date | string | null;
+  palletPhotoUploadedBy: string | null;
 };
 
 export function frontendAdminOrderFields(
@@ -469,6 +472,7 @@ export function frontendAdminOrderFields(
     receiptSentAt?: Date | string | null;
     stripeFeeCents?: number | null;
     stripeNetCents?: number | null;
+    palletPhoto?: { url: string | null; uploadedAt: string | null; uploadedBy: string | null } | null;
   },
 ): FrontendAdminOrderFields {
   const feeCents = extras?.stripeFeeCents ?? null;
@@ -492,6 +496,9 @@ export function frontendAdminOrderFields(
     stripeFeeAmount: centsToDollarString(feeCents),
     stripeNetAmount: centsToDollarString(netCents),
     receiptSentAt: extras?.receiptSentAt ?? null,
+    palletPhotoUrl: extras?.palletPhoto?.url ?? null,
+    palletPhotoUploadedAt: extras?.palletPhoto?.uploadedAt ?? null,
+    palletPhotoUploadedBy: extras?.palletPhoto?.uploadedBy ?? null,
   };
 }
 

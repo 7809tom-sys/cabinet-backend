@@ -1,0 +1,11 @@
+-- Migration 0232. Journal idx 231, when 1795300000000. It follows
+-- 0231_affiliate_outbound_sender, the last entry in the journal.
+-- TiDB SQL editor statements are in docs/sql/0246_order_verified_email.tidb.sql.
+--
+-- Additive only: one nullable timestamp that marks the customer "your order has
+-- been verified" email as sent, so clicking Order verified twice cannot email
+-- the customer twice. It is NOT added to drizzle/schema.ts on purpose: the
+-- order trail columns are read through raw SQL behind an information_schema
+-- probe so an unapplied migration degrades to "email not sent" instead of
+-- breaking every order read.
+ALTER TABLE `order_requests` ADD COLUMN IF NOT EXISTS `orderVerifiedEmailSentAt` timestamp NULL;
