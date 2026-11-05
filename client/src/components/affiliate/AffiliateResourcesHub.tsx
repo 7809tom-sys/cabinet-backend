@@ -261,6 +261,13 @@ function VideoCard({
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
           allowFullScreen
         />
+      ) : item.url ? (
+        <div className="rounded-md border border-border bg-muted/30 px-3 py-4 text-sm">
+          <p className="text-muted-foreground">Recommended channel. This is not a single video, so it opens on YouTube.</p>
+          <a href={item.url} target="_blank" rel="noopener noreferrer" className="mt-2 inline-flex items-center gap-1.5 font-medium text-primary">
+            <ExternalLink className="h-3.5 w-3.5" /> Visit channel
+          </a>
+        </div>
       ) : (
         <p className="rounded-md bg-muted px-3 py-4 text-sm text-muted-foreground">An admin still needs to add the YouTube link for this placeholder.</p>
       )}
@@ -314,7 +321,7 @@ function Printed({
     <div className="space-y-4" data-testid="printed-materials">
       <div className="rounded-lg border border-border bg-muted/30 p-4 text-sm text-muted-foreground">
         <p className="font-medium text-foreground">Printed Materials</p>
-        <p className="mt-1">No Cura catalog was found in this project. Brochures, spec sheets, and door-style cards show up here after an admin publishes them.</p>
+        <p className="mt-1">Training PDFs open in a new tab, or preview here first. No Cura product catalog was found in this project, so brochures, spec sheets, and door-style cards appear here only after an admin uploads them.</p>
         {logoUrl ? (
           <p className="mt-2">Your store logo is on file for {storeName}. Uploaded PDFs download as provided. The business card and phone strip in Share & Promote already use your store name.</p>
         ) : (
@@ -345,6 +352,15 @@ function Printed({
                     anchor.click();
                   })}>
                     <Download className="h-3.5 w-3.5" /> Download
+                  </Button>
+                </>
+              ) : item.url ? (
+                <>
+                  <Button type="button" size="sm" variant="outline" onClick={() => setPreviewUrl(item.url)}>Preview</Button>
+                  <Button type="button" size="sm" className="gap-1.5" asChild>
+                    <a href={item.url} target="_blank" rel="noopener noreferrer">
+                      <Download className="h-3.5 w-3.5" /> Open PDF
+                    </a>
                   </Button>
                 </>
               ) : <span className="text-xs text-muted-foreground">No file uploaded yet.</span>}

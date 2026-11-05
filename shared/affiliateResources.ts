@@ -18,6 +18,8 @@ export const SCRIPT_SITUATIONS = [
   { id: "follow-up", label: "Follow-up" },
   { id: "objection", label: "Objection handling" },
   { id: "closing", label: "Closing" },
+  { id: "email", label: "Email" },
+  { id: "social", label: "Social" },
 ] as const;
 
 export const GUIDE_TOPICS = [
