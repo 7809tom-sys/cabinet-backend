@@ -52,7 +52,12 @@ import { crmCustomerImportIdentities, prepareCrmCustomerImport } from "@shared/c
 import { sendEmail } from "../email";
 import { loadCrmOutboundPlan } from "../lib/crmOutboundMail";
 import { sendCrmDealEmail } from "../lib/crmCustomerMail";
-import { distributorPoAttachmentNames } from "../lib/distributorOrderEmail";
+import {
+  distributorPoAttachmentNames,
+  filterPoCcEmails,
+  parseCcEmails,
+  usableEmail,
+} from "../lib/distributorOrderEmail";
 import { contactEmailToBackfill, loadDealInvoiceRecipient, usableInvoiceEmail } from "../lib/invoiceRecipient";
 import { buildOrderDistributorMessage } from "../lib/orderSideEffects";
 import { createDistributorPoPdf } from "../lib/distributorPoPdf";
@@ -329,6 +334,56 @@ export function laborEstimateMatchesDeal(
 
 function designAffiliateWhere(affiliateId: number | null) {
   return affiliateId == null ? isNull(kitchenDesigns.affiliateId) : eq(kitchenDesigns.affiliateId, affiliateId);
+}
+
+/**
+ * CC list for a purchase-order email, minus the two parties who must never
+ * receive distributor cost: the customer and the store admin / affiliate owner.
+ * The distributor's own orderEmail and its intended CC recipients are kept.
+ *
+ * The addresses checked are the deal's linked order (customer email), the
+ * deal's own contact email, the affiliate's account and public addresses, and
+ * the affiliate owner's user email. Distributor settings are read, never
+ * written, so nothing about a supplier's saved CC list changes.
+ */
+export async function poCcForDeal(
+  db: CrmDb,
+  deal: Pick<typeof crmDeals.$inferSelect, "affiliateId" | "orderRequestId" | "contactEmail">,
+  distributorCcEmails: string | null | undefined,
+): Promise<string[]> {
+  const saved = parseCcEmails(distributorCcEmails);
+  if (saved.length === 0) return [];
+  const customerEmails: Array<string | null | undefined> = [deal.contactEmail];
+  if (deal.orderRequestId != null) {
+    const [order] = await db.select({ originatorEmail: orderRequests.originatorEmail })
+      .from(orderRequests).where(eq(orderRequests.id, deal.orderRequestId)).limit(1);
+    customerEmails.push(order?.originatorEmail);
+  }
+  const storeOwnerEmails: Array<string | null | undefined> = [];
+  if (deal.affiliateId != null) {
+    // A failed lookup must not block the PO; the deal/customer addresses are
+    // already in hand and stay excluded.
+    try {
+      const [store] = await db.select({
+        email: affiliates.email,
+        publicEmail: affiliates.publicEmail,
+        ownerUserId: affiliates.userId,
+      }).from(affiliates).where(eq(affiliates.id, deal.affiliateId)).limit(1);
+      storeOwnerEmails.push(store?.email, store?.publicEmail);
+      if (store?.ownerUserId != null) {
+        const [owner] = await db.select({ email: users.email }).from(users).where(eq(users.id, store.ownerUserId)).limit(1);
+        storeOwnerEmails.push(owner?.email);
+      }
+    } catch (error) {
+      console.error(`[CRM email] Could not read the store owner for affiliate ${deal.affiliateId} while filtering PO recipients: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+  const excluded = new Set<string>();
+  for (const email of [...customerEmails, ...storeOwnerEmails]) {
+    const usable = usableEmail(email);
+    if (usable) excluded.add(usable.toLowerCase());
+  }
+  return filterPoCcEmails(saved, excluded);
 }
 
 function designScopePath(affiliateSlug: string | null, designId: number, crmDealId?: number | null) {
@@ -1320,6 +1375,7 @@ export const crmRouter = router({
         id: distributors.id,
         name: distributors.name,
         orderEmail: distributors.orderEmail,
+        ccEmails: distributors.ccEmails,
       }).from(distributors).where(eq(distributors.id, input.distributorId)).limit(1);
       const to = distributor?.orderEmail?.trim();
       if (!distributor || !to) {
@@ -1346,10 +1402,15 @@ export const crmRouter = router({
         logBody = `${input.body}\n\nPurchase order PDF ${names.pdf} and CSV ${names.csv} attached for ${distributor.name}.`;
       }
       const html = crmEmailBodyToHtml(input.body);
+      // A PO carries distributor cost, so it never reaches the customer or the
+      // store admin/affiliate owner. Filtered at send time; distributor
+      // settings are left exactly as saved.
+      const cc = input.attachPo ? await poCcForDeal(db, deal, distributor.ccEmails) : undefined;
       await sendCrmDealEmail(db, {
         dealId: deal.id,
         affiliateId: deal.affiliateId,
         to,
+        cc,
         subject: input.subject,
         text: input.body,
         html,

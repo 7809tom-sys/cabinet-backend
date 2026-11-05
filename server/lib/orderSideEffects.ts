@@ -7,6 +7,7 @@ import {
   distributors,
   doorStyles,
   orderRequests,
+  users,
   type OrderLineItem,
 } from "../../drizzle/schema";
 import { distributorFacingName, resolveDistributorPoLine } from "@shared/distributorPoLine";
@@ -26,6 +27,7 @@ import {
   orderFulfillmentNotes,
   orderPurchaseOrderCharges,
   parseCcEmails,
+  poExcludedRecipientKeys,
   poViewToEmailLine,
   summarizeDistributorEmails,
   usableEmail,
@@ -59,6 +61,10 @@ import {
   ORDER_TRAIL_COLUMNS,
   readOrderSchemaSupport,
 } from "./orderSchemaSupport";
+import {
+  sendOrderVerifiedCustomerEmail,
+  type OrderVerifiedEmailResult,
+} from "./orderVerifiedEmail";
 
 type Database = NonNullable<Awaited<ReturnType<typeof getDb>>>;
 
@@ -768,6 +774,7 @@ export async function notifyOrderDistributors(orderId: number, opts?: { force?: 
       portions,
       prior,
       force: Boolean(opts?.force),
+      excludedCc: await poExcludedRecipients(db, order),
       send: async (portion) => {
         const message = buildDistributorEmailContent(portionDocumentInput(order, portion, await purchaseOrderBillTo(db, order)));
         const names = distributorPoAttachmentNames(order.requestNumber);
@@ -842,6 +849,39 @@ async function writeTrail(db: Database, orderId: number, patch: Record<string, s
 }
 
 /**
+ * The two parties a purchase order must never reach: the customer who placed
+ * the order, and the store admin / affiliate owner whose storefront took it.
+ * The affiliate owner is the affiliate's account email (the sign-in owner), its
+ * public storefront address, and the linked partner user's email. Read once per
+ * PO send; nothing about distributor settings is read or written here.
+ */
+async function poExcludedRecipients(
+  db: Database,
+  order: typeof orderRequests.$inferSelect,
+): Promise<Set<string>> {
+  const storeOwnerEmails: Array<string | null | undefined> = [];
+  if (order.affiliateId != null) {
+    // A lookup problem must not fail the PO. The customer address is already on
+    // the order row, so at minimum the customer is still excluded.
+    try {
+      const [store] = await db.select({
+        email: affiliates.email,
+        publicEmail: affiliates.publicEmail,
+        ownerUserId: affiliates.userId,
+      }).from(affiliates).where(eq(affiliates.id, order.affiliateId)).limit(1);
+      storeOwnerEmails.push(store?.email, store?.publicEmail);
+      if (store?.ownerUserId != null) {
+        const [owner] = await db.select({ email: users.email }).from(users).where(eq(users.id, store.ownerUserId)).limit(1);
+        storeOwnerEmails.push(owner?.email);
+      }
+    } catch (error) {
+      console.error(`[OrderEmail] Could not read the store owner for affiliate ${order.affiliateId} while filtering PO recipients: ${schemaErrorMessage(error)}`);
+    }
+  }
+  return poExcludedRecipientKeys({ customerEmail: order.originatorEmail, storeOwnerEmails });
+}
+
+/**
  * Distributor invoice confirmation and vendor shipping call these as side
  * effects. They return a result instead of throwing, so those existing flows
  * still succeed when the trail columns are absent. Admin procedures turn a
@@ -870,12 +910,28 @@ async function stampOrderTrail(orderId: number, patch: Record<string, string | n
 
 export async function markOrderVerified(orderId: number, by: string): Promise<OrderSchemaActionResult> {
   const at = new Date().toISOString();
-  return stampOrderTrail(
+  const result = await stampOrderTrail(
     orderId,
     { orderVerifiedAt: at, orderVerifiedBy: by.slice(0, 255) },
     "verified",
     `Order verified by ${by}.`,
   );
+  if (result.ok) await notifyCustomerOrderVerified(orderId);
+  return result;
+}
+
+/**
+ * Tells the customer their order was verified. Runs after the trail is written
+ * and never throws: a missing mailbox, a rejected message, or unapplied SQL is
+ * logged and the verification stands.
+ */
+export async function notifyCustomerOrderVerified(orderId: number): Promise<OrderVerifiedEmailResult> {
+  try {
+    return await sendOrderVerifiedCustomerEmail(orderId);
+  } catch (error) {
+    console.error(`[OrderEmail] Verified email for order ${orderId} failed without blocking the verification: ${schemaErrorMessage(error)}`);
+    return { sent: false, skipped: false, error: schemaErrorMessage(error) };
+  }
 }
 
 export async function markOrderShipped(orderId: number, input: { by: string; carrier?: string | null; tracking?: string | null }): Promise<OrderSchemaActionResult> {
