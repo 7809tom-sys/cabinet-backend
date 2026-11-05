@@ -1611,6 +1611,34 @@
       "when": 1795200000000,
       "tag": "0231_affiliate_outbound_sender",
       "breakpoints": true
+    },
+    {
+      "idx": 231,
+      "version": "5",
+      "when": 1795300000000,
+      "tag": "0232_order_verified_email",
+      "breakpoints": true
+    },
+    {
+      "idx": 232,
+      "version": "5",
+      "when": 1795400000000,
+      "tag": "0233_order_pallet_photo",
+      "breakpoints": true
+    },
+    {
+      "idx": 233,
+      "version": "5",
+      "when": 1795500000000,
+      "tag": "0234_vendor_email_purposes",
+      "breakpoints": true
+    },
+    {
+      "idx": 234,
+      "version": "5",
+      "when": 1795600000000,
+      "tag": "0235_room_scene_prompt_audit",
+      "breakpoints": true
     }
   ]
 }

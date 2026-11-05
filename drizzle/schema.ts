@@ -608,6 +608,9 @@ export const doorStyleRoomSceneGenerations = mysqlTable("door_style_room_scene_g
   sceneId: int("sceneId"),
   imageUrl: varchar("imageUrl", { length: 512 }),
   errorMessage: varchar("errorMessage", { length: 512 }),
+  // The exact prompt sent to the image model, kept for audit so a wrong scene
+  // can be traced back to what the model was told.
+  prompt: text("prompt"),
   attemptCount: int("attemptCount").notNull().default(0),
   startedAt: timestamp("startedAt"),
   completedAt: timestamp("completedAt"),
@@ -4440,3 +4443,110 @@ export const crmCleanupBackupRows = mysqlTable("crm_cleanup_backup_rows", {
 }));
 
 export type CrmCleanupBackupRow = typeof crmCleanupBackupRows.$inferSelect;
+
+// ─── Per-vendor contact addresses by purpose ──────────────────────────────────
+// A supplier publishes separate addresses for claims, support, sales, and sales
+// communication. Storing them lets inbound mail be tagged with the vendor and
+// the purpose, and routed to the internal inbox that owns that purpose.
+// The addresses themselves are not secrets; nothing here is ever shown to a
+// customer, and no message is ever forwarded automatically.
+export const vendorEmailAddresses = mysqlTable("vendor_email_addresses", {
+  id: int("id").autoincrement().primaryKey(),
+  distributorId: int("distributorId").notNull(),
+  purpose: mysqlEnum("purpose", ["claims", "support", "sales", "sales_communication"]).notNull(),
+  address: varchar("address", { length: 320 }).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (t) => ({
+  purposeUnique: uniqueIndex("vendor_email_addresses_vendor_purpose_uq").on(t.distributorId, t.purpose),
+  addressIdx: index("vendor_email_addresses_address_idx").on(t.address),
+}));
+
+export type VendorEmailAddress = typeof vendorEmailAddresses.$inferSelect;
+export type InsertVendorEmailAddress = typeof vendorEmailAddresses.$inferInsert;
+
+// ─── Internal routing per purpose ─────────────────────────────────────────────
+// Which Cabinet Dealz staff inbox owns each purpose. Empty means "not routed
+// yet", and the message stays in the unassigned queue rather than being sent
+// anywhere. recipientEmail is an internal address; it is never a customer.
+export const vendorEmailRoutes = mysqlTable("vendor_email_routes", {
+  id: int("id").autoincrement().primaryKey(),
+  purpose: mysqlEnum("purpose", ["claims", "support", "sales", "sales_communication"]).notNull(),
+  recipientEmail: varchar("recipientEmail", { length: 320 }).default("").notNull(),
+  recipientName: varchar("recipientName", { length: 128 }).default("").notNull(),
+  /// In-app inbox assignment: the user who should see this purpose first.
+  assigneeUserId: int("assigneeUserId"),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (t) => ({
+  purposeUnique: uniqueIndex("vendor_email_routes_purpose_uq").on(t.purpose),
+}));
+
+export type VendorEmailRoute = typeof vendorEmailRoutes.$inferSelect;
+export type InsertVendorEmailRoute = typeof vendorEmailRoutes.$inferInsert;
+
+// ─── Inbound vendor mail ──────────────────────────────────────────────────────
+// One row per accepted inbound message. The provider event id is unique so a
+// retried webhook cannot store the same message twice.
+//
+// Nothing in this table is ever forwarded on arrival. A forward is a separate,
+// explicit admin action that stamps forwardedAt/forwardedTo and is recorded in
+// vendorEmailForwards.
+export const vendorInboundEmails = mysqlTable("vendor_inbound_emails", {
+  id: int("id").autoincrement().primaryKey(),
+  /// Provider message id (svix-id for a Resend inbound webhook).
+  providerMessageId: varchar("providerMessageId", { length: 256 }).notNull(),
+  /// Assigned at receipt: the vendor whose address received the message.
+  distributorId: int("distributorId"),
+  /// Null when the receiving address is not one of the configured four.
+  purpose: mysqlEnum("purpose", ["claims", "support", "sales", "sales_communication"]),
+  /// The configured address the message actually arrived on.
+  matchedAddress: varchar("matchedAddress", { length: 320 }),
+  fromEmail: varchar("fromEmail", { length: 320 }).notNull(),
+  fromName: varchar("fromName", { length: 256 }),
+  toEmails: varchar("toEmails", { length: 1024 }),
+  ccEmails: varchar("ccEmails", { length: 1024 }),
+  subject: varchar("subject", { length: 512 }).notNull().default(""),
+  textBody: text("textBody"),
+  htmlBody: text("htmlBody"),
+  /// The internal inbox this message is queued to, resolved from its purpose.
+  routedToEmail: varchar("routedToEmail", { length: 320 }),
+  routedToUserId: int("routedToUserId"),
+  /// received | forwarded | dismissed. Only an explicit admin action changes it.
+  status: mysqlEnum("status", ["received", "forwarded", "dismissed"]).default("received").notNull(),
+  forwardedAt: timestamp("forwardedAt"),
+  forwardedTo: varchar("forwardedTo", { length: 1024 }),
+  forwardedByUserId: int("forwardedByUserId"),
+  receivedAt: timestamp("receivedAt").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (t) => ({
+  providerMessageUnique: uniqueIndex("vendor_inbound_emails_provider_msg_uq").on(t.providerMessageId),
+  vendorIdx: index("vendor_inbound_emails_vendor_idx").on(t.distributorId),
+  purposeIdx: index("vendor_inbound_emails_purpose_idx").on(t.purpose),
+  statusIdx: index("vendor_inbound_emails_status_idx").on(t.status),
+}));
+
+export type VendorInboundEmail = typeof vendorInboundEmails.$inferSelect;
+export type InsertVendorInboundEmail = typeof vendorInboundEmails.$inferInsert;
+
+// ─── Forward audit ────────────────────────────────────────────────────────────
+// One row per explicit admin forward, so "who sent this to whom" is answerable
+// even if the message row is later edited. Deliveries are never triggered from
+// the inbound webhook.
+export const vendorEmailForwards = mysqlTable("vendor_email_forwards", {
+  id: int("id").autoincrement().primaryKey(),
+  inboundEmailId: int("inboundEmailId").notNull(),
+  toEmails: varchar("toEmails", { length: 1024 }).notNull(),
+  note: varchar("note", { length: 1024 }),
+  sentByUserId: int("sentByUserId"),
+  sentByName: varchar("sentByName", { length: 256 }),
+  /// sent | failed — the exact provider failure is kept, never a credential.
+  status: mysqlEnum("status", ["sent", "failed"]).notNull(),
+  error: varchar("error", { length: 1024 }),
+  fromEmail: varchar("fromEmail", { length: 320 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (t) => ({
+  emailIdx: index("vendor_email_forwards_email_idx").on(t.inboundEmailId),
+}));
+
+export type VendorEmailForward = typeof vendorEmailForwards.$inferSelect;
+export type InsertVendorEmailForward = typeof vendorEmailForwards.$inferInsert;

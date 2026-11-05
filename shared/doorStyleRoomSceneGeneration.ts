@@ -89,23 +89,162 @@ export function nextSampleVerifiedFlag(input: {
   return input.isAdmin;
 }
 
-export function buildDoorStyleRoomScenePrompt(style: {
-  ourName: string;
+/** A color name plus its code, e.g. "Alabaster (SW 7008)". Never a palette snap. */
+export type RoomSceneColorOfRecord = {
+  /** Exact 6-digit hex, normalized to `#rrggbb`. */
+  hex: string | null;
+  /** The name or code as recorded, when one is on file. */
+  label: string | null;
+  /** Where the hex came from, so the prompt can say if it is an approved render. */
+  source: "approved-render" | "style-record" | "none";
+};
+
+export type RoomSceneProfileDetails = {
   doorStyle?: string | null;
+  doorShape?: string | null;
+  panelConstruction?: string | null;
+  doorPanelType?: string | null;
+  insideEdgeProfile?: string | null;
+  railWidth?: string | number | null;
+  stileWidth?: string | number | null;
+  centerRailWidth?: string | number | null;
+  drawerFrontType?: string | null;
   finish?: string | null;
+  grainDirection?: string | null;
+  finishSheen?: string | null;
+};
+
+export type RoomScenePromptStyle = RoomSceneProfileDetails & {
+  ourName: string;
   color?: string | null;
-}): string {
-  const details = [
-    style.doorStyle?.trim() ? `Door profile: ${style.doorStyle.trim()}.` : "",
-    style.color?.trim() ? `Color: ${style.color.trim()}.` : "",
-    style.finish?.trim() ? `Finish: ${style.finish.trim()}.` : "",
-  ].filter(Boolean);
+  /** The color of record. When present this wins over `color` and any photo. */
+  colorOfRecord?: RoomSceneColorOfRecord | null;
+  /** True when an approved door render image is passed as a reference. */
+  approvedRenderIsReference?: boolean;
+};
+
+function clean(value: string | null | undefined): string | null {
+  const text = (value ?? "").trim();
+  return text.length > 0 ? text : null;
+}
+
+/** Inches as stored, e.g. `0.75` or `"0.75"` -> "0.75 inches". Null stays null. */
+function widthInInches(value: string | number | null | undefined): string | null {
+  if (value == null) return null;
+  const numeric = typeof value === "number" ? value : Number(String(value).trim());
+  if (!Number.isFinite(numeric) || numeric <= 0) return null;
+  const rounded = Math.round(numeric * 100) / 100;
+  return `${rounded} inch${rounded === 1 ? "" : "es"}`;
+}
+
+/**
+ * One sentence naming the color of record.
+ *
+ * The recorded hex is authoritative. A name or code is appended when one is on
+ * file. Nothing here snaps to a brand palette: the hex goes into the prompt
+ * exactly as recorded, so an approved render's measured color is what the model
+ * is told to paint.
+ */
+export function colorOfRecordSentence(color: RoomSceneColorOfRecord | null | undefined): string | null {
+  if (!color || !color.hex) return null;
+  const hex = color.hex.toLowerCase();
+  const label = clean(color.label);
+  const named = label ? `${label} (${hex})` : hex;
+  const origin = color.source === "approved-render"
+    ? " taken from the approved door render for this style"
+    : color.source === "style-record"
+      ? " recorded on this door style"
+      : "";
+  return `Paint every cabinet door and drawer front exactly ${named}${origin}. Use this exact color value and do not substitute, tint, brighten, or snap it to a brand palette.`;
+}
+
+/**
+ * Only the profile details that are actually filled in. A blank field is left
+ * out entirely rather than guessed, so the model is never told something the
+ * catalog does not know.
+ */
+export function profileDetailSentences(style: RoomSceneProfileDetails): string[] {
+  const sentences: string[] = [];
+  const doorStyle = clean(style.doorStyle);
+  const shape = clean(style.doorShape);
+  if (doorStyle || shape) {
+    const label = [doorStyle, shape].filter(Boolean).join(" / ");
+    sentences.push(`Door style: ${label}.`);
+  }
+  const panel = clean(style.panelConstruction);
+  const panelType = clean(style.doorPanelType);
+  if (panel || panelType) {
+    const parts = [panelType, panel].filter(Boolean).filter((part, index, all) => all.indexOf(part) === index);
+    sentences.push(`Door panel construction: ${parts.join(", ")}.`);
+  }
+  const insideEdge = clean(style.insideEdgeProfile);
+  if (insideEdge) sentences.push(`Inside edge profile: ${insideEdge}.`);
+  const rail = widthInInches(style.railWidth);
+  const stile = widthInInches(style.stileWidth);
+  const centerRail = widthInInches(style.centerRailWidth);
+  if (rail || stile) {
+    const parts = [
+      rail ? `rail ${rail}` : null,
+      stile ? `stile ${stile}` : null,
+      centerRail ? `center rail ${centerRail}` : null,
+    ].filter(Boolean);
+    sentences.push(`Face frame proportions: ${parts.join(", ")}.`);
+  }
+  const drawerFront = clean(style.drawerFrontType);
+  if (drawerFront) sentences.push(`Drawer front type: ${drawerFront}.`);
+  const finish = clean(style.finish);
+  const sheen = clean(style.finishSheen);
+  if (finish || sheen) {
+    const parts = [finish, sheen].filter(Boolean);
+    sentences.push(`Finish: ${parts.join(", ")}.`);
+  }
+  const grain = clean(style.grainDirection);
+  if (grain) sentences.push(`Grain direction: ${grain}.`);
+  return sentences;
+}
+
+/**
+ * The prompt for an automatic door-style room scene.
+ *
+ * Order of authority, made explicit for the model:
+ *   1. the color of record (approved render hex, else the style's own hex) wins
+ *      over everything, including the sample photo;
+ *   2. the profile details that are filled in describe the construction;
+ *   3. the sample photos are references for profile, grain, and finish detail.
+ *
+ * When the sample photo's color differs from the selected color, the prompt
+ * says the selected hex wins.
+ */
+export function buildDoorStyleRoomScenePrompt(style: RoomScenePromptStyle): string {
+  const name = clean(style.ourName) ?? "selected";
+  const color = colorOfRecordSentence(style.colorOfRecord);
+  const hasHex = Boolean(style.colorOfRecord?.hex);
+  const approved = Boolean(style.approvedRenderIsReference) || style.colorOfRecord?.source === "approved-render";
+  const references: string[] = [];
+  if (approved) {
+    references.push(
+      "The first reference image is the door render approved for this style. Use it to read the profile, panel, edge profile, and grain detail.",
+    );
+  }
+  references.push(
+    "The reference door photo is the verified cabinet door this style is sold as. Use it for the door and drawer profile, panel shape, edge detail, and grain; it is the shape reference.",
+  );
+  if (approved) {
+    references.push("The next reference image is the verified drawer front. Match every drawer front to that photo's profile and construction.");
+  } else {
+    references.push("The second reference image is the verified drawer front. Match every drawer front to that photo's profile and construction, even when it differs from the door.");
+  }
+  const conflictRule = hasHex
+    ? "If a reference photo's cabinet color differs in any way from the color stated above, the stated color value wins and the photo's color must be ignored. Apply the stated color to every door and drawer front."
+    : "If the reference photos differ from one another in color, follow the door photo's color, because it is the color this style is sold as.";
+  const details = profileDetailSentences(style);
   return [
-    `Photorealistic architectural photograph of a kitchen using the "${style.ourName.trim() || "selected"}" cabinet door style.`,
-    "The first reference image is the verified cabinet door. Match every cabinet door to that photo's profile, color, grain, and finish.",
-    "The second reference image is the verified drawer front. Match every drawer front to that photo, even when it differs from the door.",
+    `Photorealistic architectural photograph of a kitchen using the "${name}" cabinet door style.`,
+    color ?? "",
+    ...references,
+    conflictRule,
     ...details,
     "Show an L-shaped kitchen with base cabinets, drawers, and wall cabinets, bright natural daylight, eye-level three-quarter view.",
     "No people, no text, no watermark, no logo, and do not paste the reference photos into the frame.",
-  ].join(" ");
+  ].filter((part) => part.length > 0).join(" ");
 }

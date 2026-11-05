@@ -512,11 +512,63 @@ export function summarizeDistributorEmails(records: DistributorEmailRecord[]): D
   };
 }
 
+/**
+ * Addresses a purchase order must never reach: the customer who placed the
+ * order, and the store admin / affiliate owner on whose storefront it was
+ * placed. A supplier PO carries distributor cost and margin, so leaking either
+ * one is a pricing and privacy problem, not just an inbox problem.
+ *
+ * Returns lowercase keys so the comparison is case-insensitive.
+ */
+export function poExcludedRecipientKeys(input: {
+  customerEmail?: string | null;
+  storeOwnerEmails?: Array<string | null | undefined>;
+}): Set<string> {
+  const keys = new Set<string>();
+  const customer = usableEmail(input.customerEmail);
+  if (customer) keys.add(customer.toLowerCase());
+  for (const value of input.storeOwnerEmails ?? []) {
+    const email = usableEmail(value);
+    if (email) keys.add(email.toLowerCase());
+  }
+  return keys;
+}
+
+/**
+ * Drops every excluded address from a PO CC list. The distributor's own
+ * orderEmail and the distributor's intended CC recipients are kept; only the
+ * customer and the store owner are removed. Applied at send time, so the
+ * distributor settings rows are never rewritten.
+ */
+export function filterPoCcEmails(
+  ccEmails: readonly string[],
+  excluded: ReadonlySet<string>,
+  orderEmail?: string | null,
+): string[] {
+  const primary = usableEmail(orderEmail)?.toLowerCase() ?? null;
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const value of ccEmails) {
+    const email = usableEmail(value);
+    if (!email) continue;
+    const key = email.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    // The destination of the message is never a CC, and never a blocked party.
+    if (primary && key === primary) continue;
+    if (excluded.has(key)) continue;
+    out.push(email);
+  }
+  return out;
+}
+
 export async function deliverDistributorEmails(input: {
   portions: DistributorPortion[];
   prior: DistributorEmailRecord[];
   force: boolean;
   now?: Date;
+  /** Customer and store-owner addresses that must never receive a PO. */
+  excludedCc?: ReadonlySet<string>;
   send: (portion: DistributorPortion) => Promise<{ ok: boolean; error?: string }>;
 }): Promise<DistributorEmailRecord[]> {
   const priorById = new Map(input.prior.map((row) => [row.distributorId, row]));
@@ -541,8 +593,8 @@ export async function deliverDistributorEmails(input: {
       continue;
     }
     try {
-      const sent = await input.send({ ...portion, orderEmail: email });
-      const cc = portion.ccEmails.filter((value) => value.toLowerCase() !== email.toLowerCase());
+      const cc = filterPoCcEmails(portion.ccEmails, input.excludedCc ?? new Set(), email);
+      const sent = await input.send({ ...portion, ccEmails: cc, orderEmail: email });
       if (!sent.ok) {
         results.push({
           distributorId: portion.distributorId,

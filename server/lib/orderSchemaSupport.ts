@@ -34,6 +34,32 @@ export const ORDER_REQUEST_PROBE_COLUMNS = [
 
 export const ORDER_TRAIL_COLUMNS = ORDER_REQUEST_PROBE_COLUMNS.filter((column) => column !== "id");
 
+/**
+ * Probed separately from the trail columns: the verified-email marker arrives
+ * with its own SQL, and an order trail must keep rendering while it waits.
+ */
+export const ORDER_VERIFIED_EMAIL_COLUMN = "orderVerifiedEmailSentAt";
+
+/**
+ * Pallet photo on ship. Also probed separately so a missing column degrades to
+ * "no photo yet" instead of breaking the admin order detail read.
+ */
+export const ORDER_PALLET_PHOTO_COLUMNS = ["palletPhotoUrl", "palletPhotoUploadedAt", "palletPhotoUploadedBy"] as const;
+
+export const ORDER_REQUEST_PROBED_COLUMNS = [
+  ...ORDER_REQUEST_PROBE_COLUMNS,
+  ORDER_VERIFIED_EMAIL_COLUMN,
+  ...ORDER_PALLET_PHOTO_COLUMNS,
+] as const;
+
+export function verifiedEmailMarkerPresent(support: OrderSchemaSupport): boolean {
+  return columnPresent(support, "order_requests", ORDER_VERIFIED_EMAIL_COLUMN);
+}
+
+export function palletPhotoColumnsPresent(support: OrderSchemaSupport): boolean {
+  return hasAllColumns(support, "order_requests", ORDER_PALLET_PHOTO_COLUMNS);
+}
+
 export type OrderSchemaSupport = {
   columns: ReadonlySet<string>;
   stageType: string | null;
@@ -56,7 +82,7 @@ const PROBE = sql`
   FROM information_schema.COLUMNS
   WHERE TABLE_SCHEMA = DATABASE()
     AND (
-      (TABLE_NAME = 'order_requests' AND COLUMN_NAME IN (${inList(ORDER_REQUEST_PROBE_COLUMNS)}))
+      (TABLE_NAME = 'order_requests' AND COLUMN_NAME IN (${inList(ORDER_REQUEST_PROBED_COLUMNS)}))
       OR (TABLE_NAME = 'order_distributor_emails' AND COLUMN_NAME = 'orderRequestId')
       OR (TABLE_NAME = 'crm_deals' AND COLUMN_NAME IN ('stage', 'saleRefundedAt'))
     )

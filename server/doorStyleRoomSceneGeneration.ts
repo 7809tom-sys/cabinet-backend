@@ -10,6 +10,8 @@ import {
   normalizedSampleUrl,
   type RoomSceneGenerationSnapshot,
   type RoomSceneGenerationStatus,
+  type RoomSceneColorOfRecord,
+  type RoomScenePromptStyle,
 } from "../shared/doorStyleRoomSceneGeneration";
 import { MAX_ROOM_SCENE_PHOTOS_PER_STYLE } from "../shared/vendorRoomScenes";
 import { getDb } from "./db";
@@ -37,6 +39,24 @@ export type DoorStyleSampleRow = {
   doorSampleVerified: boolean;
   drawerSampleVerified: boolean;
   roomSceneImageUrl: string | null;
+  // ─── The color and profile the prompt is built from ───────────────────────
+  // renderHex is the door's own color and the latest ACCEPTED run writes it, so
+  // it is the color of record. approvedVersionId is the marker that an approval
+  // actually happened; without it a typed renderHex is only the style record.
+  renderHex?: string | null;
+  approvedVersionId?: number | null;
+  approvedReferenceImageUrl?: string | null;
+  swColor?: string | null;
+  doorShape?: string | null;
+  panelConstruction?: string | null;
+  doorPanelType?: string | null;
+  insideEdgeProfile?: string | null;
+  railWidth?: string | number | null;
+  stileWidth?: string | number | null;
+  centerRailWidth?: string | number | null;
+  drawerFrontType?: string | null;
+  grainDirection?: string | null;
+  finishSheen?: string | null;
 };
 
 export type GenerationJobRow = RoomSceneGenerationSnapshot & {
@@ -47,6 +67,8 @@ export type GenerationJobRow = RoomSceneGenerationSnapshot & {
   imageUrl: string | null;
   errorMessage: string | null;
   attemptCount: number;
+  /** The exact prompt sent to the image model, for audit. */
+  prompt?: string | null;
 };
 
 export type AutoSceneRow = {
@@ -81,6 +103,80 @@ export type GenerationRunResult = {
 function failureMessage(error: unknown): string {
   const message = error instanceof Error ? error.message : "Room scene generation failed";
   return message.slice(0, 512);
+}
+
+const HEX = /^#?([0-9a-f]{6})$/i;
+
+/** `#rrggbb` from any 6-digit hex, or null. Mirrors the accepted-appearance rule. */
+export function normalizeRoomSceneHex(value: string | null | undefined): string | null {
+  const match = HEX.exec((value ?? "").trim());
+  return match ? `#${match[1]!.toLowerCase()}` : null;
+}
+
+/**
+ * The color the room scene must be painted.
+ *
+ * The approved door render wins: a style with `approvedVersionId` set has an
+ * approved `renderHex` that overrides everything, including the free-text
+ * `color` field. A style with no approval falls back to a hex already recorded
+ * on the style, and otherwise has no hex at all — the prompt then follows the
+ * door photo rather than inventing a color.
+ *
+ * The label is the recorded name/code (`color`, else a Sherwin-Williams code
+ * when one is on file). It is descriptive only: it never changes the hex.
+ */
+export function roomSceneColorOfRecord(style: DoorStyleSampleRow): RoomSceneColorOfRecord {
+  const approvedHex = style.approvedVersionId != null ? normalizeRoomSceneHex(style.renderHex) : null;
+  const styleHex = normalizeRoomSceneHex(style.renderHex);
+  const hex = approvedHex ?? styleHex;
+  const label = style.color?.trim() || style.swColor?.trim() || null;
+  return {
+    hex,
+    label,
+    source: hex == null ? "none" : approvedHex ? "approved-render" : "style-record",
+  };
+}
+
+/**
+ * Reference images for the scene: the approved render (when there is one), then
+ * the verified door photo and the verified drawer-front photo. The approved
+ * render goes first because it is the image an admin signed off on.
+ */
+export function roomSceneReferenceUrls(style: DoorStyleSampleRow): string[] {
+  const urls: string[] = [];
+  const approved = style.approvedVersionId != null
+    ? normalizedSampleUrl(style.approvedReferenceImageUrl)
+    : null;
+  if (approved) urls.push(approved);
+  const door = normalizedSampleUrl(style.doorSampleImageUrl);
+  const drawer = normalizedSampleUrl(style.drawerSampleImageUrl);
+  if (door) urls.push(door);
+  if (drawer) urls.push(drawer);
+  // A URL repeated across slots is one reference, not two.
+  return Array.from(new Set(urls));
+}
+
+/** The prompt input for one style, resolved once so the prompt and audit agree. */
+export function roomScenePromptStyle(style: DoorStyleSampleRow): RoomScenePromptStyle {
+  const colorOfRecord = roomSceneColorOfRecord(style);
+  return {
+    ourName: style.ourName,
+    color: style.color,
+    colorOfRecord,
+    approvedRenderIsReference: colorOfRecord.source === "approved-render" && Boolean(normalizedSampleUrl(style.approvedReferenceImageUrl)),
+    doorStyle: style.doorStyle,
+    doorShape: style.doorShape,
+    panelConstruction: style.panelConstruction,
+    doorPanelType: style.doorPanelType,
+    insideEdgeProfile: style.insideEdgeProfile,
+    railWidth: style.railWidth,
+    stileWidth: style.stileWidth,
+    centerRailWidth: style.centerRailWidth,
+    drawerFrontType: style.drawerFrontType,
+    finish: style.finish,
+    grainDirection: style.grainDirection,
+    finishSheen: style.finishSheen,
+  };
 }
 
 async function claimJob(
@@ -137,6 +233,25 @@ async function recordFailure(
 }
 
 /**
+ * Stores the prompt on the job that still owns this claim. A prompt that cannot
+ * be recorded is logged and never fails the generation itself.
+ */
+async function recordPrompt(
+  store: RoomSceneGenerationStore,
+  styleId: number,
+  token: string,
+  prompt: string,
+): Promise<void> {
+  try {
+    const current = await store.loadJob(styleId);
+    if (current?.claimToken !== token) return;
+    await store.updateJob(styleId, { prompt });
+  } catch (error) {
+    console.error(`${LOG_PREFIX} style ${styleId} could not record its prompt: ${failureMessage(error)}`);
+  }
+}
+
+/**
  * Generates at most one auto room scene for the current verified door + drawer
  * pair. Failures are stored on the job row and are not thrown, so a caller can
  * run this after a verification request without failing that request.
@@ -186,17 +301,25 @@ export async function applyDoorStyleRoomSceneGeneration(
 
   const doorImageUrl = normalizedSampleUrl(style.doorSampleImageUrl)!;
   const drawerImageUrl = normalizedSampleUrl(style.drawerSampleImageUrl)!;
+  const promptStyle = roomScenePromptStyle(style);
+  const prompt = doorStyleRoomScenePrompt(promptStyle);
+  const referenceUrls = roomSceneReferenceUrls(style);
   let generatedUrl: string | undefined;
   try {
     const generated = await generator.generate({
-      prompt: doorStyleRoomScenePrompt(style),
-      originalImages: [{ url: doorImageUrl }, { url: drawerImageUrl }],
+      prompt,
+      originalImages: referenceUrls.map((url) => ({ url })),
     });
     generatedUrl = generated.url?.trim();
     if (!generatedUrl) throw new Error("Image generation returned no URL");
   } catch (error) {
+    // Keep the prompt even on failure: it is the record of what was attempted.
+    await recordPrompt(store, styleId, token, prompt);
     return recordFailure(store, styleId, token, failureMessage(error), log);
   }
+  // The prompt is stored before the scene is written, so a scene can always be
+  // traced back to the exact text that produced it.
+  await recordPrompt(store, styleId, token, prompt);
 
   try {
     let sceneId = autoScene?.id ?? null;
@@ -253,6 +376,20 @@ export function createDrizzleRoomSceneStore(db: Db): RoomSceneGenerationStore {
         doorSampleVerified: doorStyles.doorSampleVerified,
         drawerSampleVerified: doorStyles.drawerSampleVerified,
         roomSceneImageUrl: doorStyles.roomSceneImageUrl,
+        // The color of record and the profile the prompt is built from.
+        renderHex: doorStyles.renderHex,
+        approvedVersionId: doorStyles.approvedVersionId,
+        approvedReferenceImageUrl: doorStyles.approvedReferenceImageUrl,
+        doorShape: doorStyles.doorShape,
+        panelConstruction: doorStyles.panelConstruction,
+        doorPanelType: doorStyles.doorPanelType,
+        insideEdgeProfile: doorStyles.insideEdgeProfile,
+        railWidth: doorStyles.railWidth,
+        stileWidth: doorStyles.stileWidth,
+        centerRailWidth: doorStyles.centerRailWidth,
+        drawerFrontType: doorStyles.drawerFrontType,
+        grainDirection: doorStyles.grainDirection,
+        finishSheen: doorStyles.finishSheen,
       }).from(doorStyles).where(eq(doorStyles.id, styleId)).limit(1);
       return style ?? null;
     },
@@ -267,6 +404,7 @@ export function createDrizzleRoomSceneStore(db: Db): RoomSceneGenerationStore {
         sceneId: doorStyleRoomSceneGenerations.sceneId,
         imageUrl: doorStyleRoomSceneGenerations.imageUrl,
         errorMessage: doorStyleRoomSceneGenerations.errorMessage,
+        prompt: doorStyleRoomSceneGenerations.prompt,
         attemptCount: doorStyleRoomSceneGenerations.attemptCount,
       }).from(doorStyleRoomSceneGenerations).where(eq(doorStyleRoomSceneGenerations.styleId, styleId)).limit(1);
       return job ? { ...job, status: job.status as RoomSceneGenerationStatus } : null;
@@ -282,6 +420,7 @@ export function createDrizzleRoomSceneStore(db: Db): RoomSceneGenerationStore {
           sceneId: job.sceneId,
           imageUrl: job.imageUrl,
           errorMessage: job.errorMessage,
+          prompt: job.prompt ?? null,
           attemptCount: job.attemptCount,
         });
       } catch (error) {

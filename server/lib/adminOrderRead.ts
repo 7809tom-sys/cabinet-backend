@@ -11,6 +11,7 @@ import {
 } from "../../drizzle/schema";
 import { pelicanProducts } from "../../drizzle/pelicanSchema";
 import { readOrderCostSnapshots, pickCurrentDistributorCost, readStoredStripePayouts, saveStoredStripePayout, type CatalogCostRow } from "./orderCostSnapshot";
+import { readPalletPhotos } from "./orderPalletPhoto";
 import { readReceiptSentAt } from "./orderReceiptEmail";
 import { loadStripePayouts } from "./orderStripePayout";
 import {
@@ -236,10 +237,11 @@ export async function loadAdminOrderDetail(
   if (!order) throw new TRPCError({ code: "NOT_FOUND", message: "Order not found" });
   const lines = (order.lineItems ?? []) as OrderLineItem[];
   const moneyOrder: OrderMoneyInput = { ...order, lineItems: lines };
-  const [{ facts, snapshots }, receipts, storedPayouts] = await Promise.all([
+  const [{ facts, snapshots }, receipts, storedPayouts, palletPhotos] = await Promise.all([
     listFacts(db, [moneyOrder]),
     readReceiptSentAt(db, [order.id]),
     readStoredStripePayouts(db, [order.id]),
+    readPalletPhotos(db, [order.id]),
   ]);
   const extra = facts.get(order.id);
   const lineCosts = (await costsForOrders(db, [moneyOrder], snapshots)).get(order.id) ?? [];
@@ -293,6 +295,7 @@ export async function loadAdminOrderDetail(
       receiptSentAt: receipts.get(order.id) ?? null,
       stripeFeeCents: detail.stripe.feeCents,
       stripeNetCents: detail.stripe.netPayoutCents,
+      palletPhoto: palletPhotos.get(order.id) ?? null,
     }),
     lineItems: withFrontendLineCosts(lines, lineCosts),
   };
