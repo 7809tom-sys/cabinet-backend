@@ -3,9 +3,11 @@ import { describe, expect, it } from "vitest";
 import {
   canManageAffiliateContractorDesk,
   contractorRequestSource,
+  findAffiliatePendingMatch,
   findPendingDuplicate,
   isApprovedUnlinkedContractorRequest,
   normalizeContractorEmail,
+  type AffiliateScopedRequestIdentity,
   type ContractorRequestIdentity,
 } from "./contractorAccessPolicy";
 
@@ -79,6 +81,61 @@ describe("contractor access affiliate desk policy", () => {
     expect(contractorRequestSource(null)).toBe("self");
     expect(contractorRequestSource(undefined)).toBe("self");
     expect(contractorRequestSource(9)).toBe("affiliate");
+  });
+});
+
+describe("affiliate store-scoped pending check", () => {
+  function scoped(
+    over: Partial<AffiliateScopedRequestIdentity> & Pick<AffiliateScopedRequestIdentity, "id">,
+  ): AffiliateScopedRequestIdentity {
+    return {
+      userId: null,
+      contractorEmail: null,
+      status: "pending",
+      affiliateId: null,
+      submittedByUserId: null,
+      ...over,
+    };
+  }
+
+  it("treats the same store's own pending row as a duplicate", () => {
+    const own = scoped({ id: 7, contractorEmail: "pat@shop.test", affiliateId: 70, submittedByUserId: 9 });
+    expect(findAffiliatePendingMatch([own], { contractorEmail: "PAT@shop.test", affiliateId: 70 }))
+      .toMatchObject({ kind: "same-store", row: { id: 7 } });
+
+    const linked = scoped({ id: 8, userId: 8, affiliateId: 70, submittedByUserId: 9 });
+    expect(findAffiliatePendingMatch([linked], { userId: 8, affiliateId: 70 }))
+      .toMatchObject({ kind: "same-store", row: { id: 8 } });
+  });
+
+  it("adopts only a pending row with no store and no submitter", () => {
+    const orphan = scoped({ id: 5, userId: 8, contractorEmail: "pat@shop.test" });
+    expect(findAffiliatePendingMatch([orphan], { userId: 8, contractorEmail: "pat@shop.test", affiliateId: 70 }))
+      .toEqual({ kind: "adopt", row: orphan });
+
+    // A house row another submitter already filed is not adoptable.
+    const claimed = scoped({ id: 6, contractorEmail: "pat@shop.test", submittedByUserId: 3 });
+    expect(findAffiliatePendingMatch([claimed], { contractorEmail: "pat@shop.test", affiliateId: 70 })).toBeNull();
+  });
+
+  it("ignores another store's pending row instead of revealing or adopting it", () => {
+    const otherStore = scoped({ id: 9, contractorEmail: "pat@shop.test", affiliateId: 80, submittedByUserId: 10 });
+    expect(findAffiliatePendingMatch([otherStore], { contractorEmail: "pat@shop.test", affiliateId: 70 })).toBeNull();
+    expect(findAffiliatePendingMatch([otherStore], { contractorEmail: "pat@shop.test", affiliateId: null })).toBeNull();
+  });
+
+  it("ignores approved or rejected rows and prefers the caller's own account row", () => {
+    const approved = scoped({ id: 2, contractorEmail: "pat@shop.test", affiliateId: 70, status: "approved" });
+    const ownStore = scoped({ id: 3, contractorEmail: "pat@shop.test", affiliateId: 70 });
+    const byAccount = scoped({ id: 4, userId: 8, affiliateId: 70 });
+    const orphan = scoped({ id: 1, contractorEmail: "pat@shop.test" });
+
+    expect(findAffiliatePendingMatch([approved], { contractorEmail: "pat@shop.test", affiliateId: 70 })).toBeNull();
+    expect(findAffiliatePendingMatch([orphan, ownStore, byAccount], {
+      userId: 8,
+      contractorEmail: "pat@shop.test",
+      affiliateId: 70,
+    })).toMatchObject({ kind: "same-store", row: { id: 4 } });
   });
 });
 
