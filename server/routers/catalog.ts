@@ -61,8 +61,10 @@ import { orderCabinetsByAliasRank, rankLoadedCabinetSearch } from "../lib/cabine
 import { aliasSearchOrder, exactCabinetAliasOwnerSql, orCabinetAliasMatch } from "../lib/cabinetAliasSearchSql";
 import { priceLadder } from "@shared/pricing";
 import { resolveCanonicalCatalogSources } from "../lib/canonicalCatalogSources";
+import { isPlaceablePanel } from "../../shared/designerPanels";
 import { isWallWineRackCabinet } from "../../shared/wallWineRack";
 import { designerCabinetReadinessBySku } from "../lib/designerCabinetReadiness";
+import { designerReadinessForMasterCodes } from "../lib/designerReadinessLookup";
 import { buildDoorProfilePatch } from "../lib/doorProfileAccess";
 import { analyzeSwatchBuffer, fetchSwatchBuffer, swatchBufferFromDataUrl } from "../lib/analyzeSwatchImage";
 import { recomputeDesignerEligibility } from "../lib/designerEligibilityRecompute";
@@ -75,16 +77,26 @@ import { framelessCatalogPresentation } from "../lib/framelessCatalogPresentatio
 // designer palette agree on what counts as trim vs. a placeable cabinet.
 // Items that match are re-categorised to "accessory" before leaving the server
 // so the client TYPE_FILTERS always route them to the Accessories & Trim tab.
+// Panels keep the catalog category the supplier filed them under (often
+// "Panels") because the Panels tab is its own surface and the panel classifier
+// in shared/designerPanels.ts decides placement, not this function.
 function isTrimItem(r: {
   category: string | null;
   subCategory: string | null;
   description: string | null;
   placementType?: string | null;
   masterCode?: string | null;
+  numberOfDoors?: number | null;
+  numberOfDrawers?: number | null;
 }): boolean {
   // Wall wine racks are upper cabinets, never trim, even when a supplier
   // filed them under Accessories / Wine Storage or Specialty / Wine Rack.
   if (isWallWineRackCabinet(r)) return false;
+  // A BP base/basement panel or a DWR dishwasher return panel is flat stock
+  // that belongs on the Panels tab. It used to be re-categorised to
+  // "accessory" here, which is why the Panels tab and Cabinet Config disagreed
+  // about the same row.
+  if (isPlaceablePanel(r)) return false;
   const pt  = (r.placementType  || "").toLowerCase();
   const cat = (r.category       || "").toLowerCase();
   const sub = (r.subCategory    || "").toLowerCase();
@@ -3665,7 +3677,22 @@ export const cabinetsRouter = router({
           .offset(input.page * input.limit),
         db.select({ count: sql<number>`count(*)` }).from(cabinets).where(where),
       ]);
-      return { rows, total: Number(countRows[0]?.count ?? 0) };
+      // Cabinet Config must not claim "designer" for an item the 3D Designer
+      // will hide. Readiness uses the same supplier/SKU and master gates as
+      // design.placeableCabinets, and names the tab the item would land on.
+      const readinessByMaster = await designerReadinessForMasterCodes(db, rows.map((row) => row.masterCode));
+      return {
+        rows: rows.map((row) => {
+          const readiness = readinessByMaster.get((row.masterCode ?? "").trim().toUpperCase()) ?? null;
+          return {
+            ...row,
+            designerSurface: readiness?.designerSurface ?? null,
+            designerReadinessReason: readiness?.reason ?? null,
+            designerReady: readiness?.isCompliant ?? false,
+          };
+        }),
+        total: Number(countRows[0]?.count ?? 0),
+      };
     }),
 
   // ── Admin: Unpriced master records ───────────────────────────────────────

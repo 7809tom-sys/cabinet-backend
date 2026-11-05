@@ -27,6 +27,7 @@ describe("designerCabinetReadinessBySku", () => {
       isCompliant: true,
       reason: null,
       canonicalMasterCode: "B-24",
+      designerSurface: "base",
     });
   });
 

@@ -20,6 +20,7 @@ import {
   isDesignerToeKick,
   isDesignerValance,
 } from "@shared/designerEligibility";
+import { isDishwasherPanelPart, isPlaceablePanel, type PanelFamily } from "@shared/designerPanels";
 export { designerPaletteAction, isDesignerFlutedFiller as isFlutedFillerItem };
 export { isGlassPolicyNomenclature } from "./glassPolicy";
 
@@ -48,10 +49,11 @@ export const STD = {
 
 // True for finished end panels, decorative panels, refrigerator/dishwasher
 // skins, and door panels — all of which are 3/4" thick flat stock.
-export function isPanelItem(c: { description?: string | null; masterCode?: string | null; subCategory?: string | null }): boolean {
-  const hay = `${c.subCategory ?? ""} ${c.description ?? ""} ${c.masterCode ?? ""}`.toLowerCase();
-  // Match "panel"/"skin" but not unrelated words like "panelized".
-  return /\bpanel\b|\bskin\b|end panel|dishwasher panel|refrigerator panel|decorative panel/.test(hay);
+// Delegates to the shared classifier so BP base/basement panels and the DWR
+// dishwasher return panel resolve the same way the server palette and Cabinet
+// Config readiness do. A drawer front is still not a panel.
+export function isPanelItem(c: { description?: string | null; masterCode?: string | null; subCategory?: string | null; category?: string | null }): boolean {
+  return isPlaceablePanel(c);
 }
 
 /** Base end/dishwasher panels are floor-level flat stock, not decorative or refrigerator skins. */
@@ -60,11 +62,10 @@ export function isDishwasherPanel(c: {
   masterCode?: string | null;
   subCategory?: string | null;
 }): boolean {
-  const hay = `${c.subCategory ?? ""} ${c.description ?? ""} ${c.masterCode ?? ""}`.toLowerCase();
-  if (/refrigerator|decorative/.test(hay)) return false;
-  const code = `${c.masterCode ?? ""}`.replace(/[^a-z0-9]/gi, "").toUpperCase();
-  return /^DW(?:EP|PANEL)$/.test(code)
-    || /dishwasher\s*(?:end\s*)?panel|\bdw\s*[-_ ]?(?:end\s*)?panel\b|\bbase\s+end\s+panel\b/.test(hay);
+  // DWR/DWP are the dishwasher return panel in the lines that sell one. The
+  // shared classifier rejects codes whose wording says drawer front, so the
+  // DWR-3 drawer front in another line is never placed at the dishwasher.
+  return isDishwasherPanelPart(c);
 }
 
 export const DISHWASHER_PANEL_MAX_MOUNT_BOTTOM_IN = 1 / 3;
@@ -776,6 +777,13 @@ export interface DesignCabinet {
 	  conflictStatus?: string | null;
 	  /** Selected distributor includes the glass insert in this glass SKU's price. */
 	  glassIncluded?: boolean | null;
+	  /**
+	   * Panel family reported by the server palette for accessory rows: base,
+	   * wall, tall, decorative, dishwasher, refrigerator, skin, full, or panel.
+	   * Null for non-panels. The Panels tab reads this instead of re-parsing prose
+	   * that already failed once for BP and DWR.
+	   */
+	  panelFamily?: PanelFamily | null;
 }
 
 // Door hinge side as seen from the front of the cabinet. "none" is used for

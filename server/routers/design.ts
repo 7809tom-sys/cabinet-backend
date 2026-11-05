@@ -38,6 +38,8 @@ import { priceLadder } from "../../shared/pricing";
 import { resolveCanonicalCatalogSources } from "../lib/canonicalCatalogSources";
 import { isWallWineRackCabinet } from "../../shared/wallWineRack";
 import { isDesignerUtilityOrOvenBox } from "../../shared/designerEligibility";
+import { panelFamilyFor, type PanelFamily } from "../../shared/designerPanels";
+import { isDesignerAccessoryRow } from "../lib/designerPaletteRouting";
 import { applyDistributorCabinetConfig, parseDistributorCabinetConfig } from "../lib/distributorCabinetConfig";
 import {
   AEF_PRINTED_GEOMETRY_MARKER,
@@ -504,56 +506,29 @@ export const designRouter = router({
       const searchRanks = await rankLoadedCabinetSearch(db, availableRows, input?.search, aliases);
       const matchesSearch = (row: { id: number }) => !searchRanks || searchRanks.has(row.id);
 
-      // Accessories/trim (countertop support brackets, hardware, fillers, glass
-      // doors sold separately, decorative legs, crown/light-rail molding, end
-      // panels, roll-out trays, etc.) are NOT placeable cabinet boxes — they are
-      // bill-of-materials add-ons. They live in their own "Accessories & Trim"
-      // tab, never the drag-and-drop placement palette, so they can't leak into
-      // a Base/Wall/Tall tab via the base-bucket fallback below.
-      const isAccessory = (r: { masterCode?: string | null; category: string | null; placementType: string | null; description?: string | null; subCategory?: string | null }) => {
-        // Wine racks stay on the Wall picker. Auto-Design still skips them as straight uppers.
-        if (isWallWineRackCabinet(r)) return false;
-        if (isDesignerUtilityOrOvenBox(r)) return false;
-        const pt = (r.placementType || "").toLowerCase();
-        const cat = (r.category || "").toLowerCase();
-        const sub = (r.subCategory || "").toLowerCase();
-        const desc = (r.description || "").toLowerCase();
-        // Catch all trim/molding/filler/accessory categories across all cabinet lines.
-        // DB categories include: "Accessory", "Trim and Molding", "Filler's and Panels", "Misc"
-        // as well as placementType values like "accessory" and "trim".
-        if (pt.includes("accessory") || pt.includes("trim")) return true;
-        if (cat === "accessory") return true;
-        if (cat.includes("trim") || cat.includes("molding")) return true;
-        if (cat.includes("filler") || cat.includes("panel")) return true;
-        if (cat === "misc") return true;
-        // Many lines store trim items with category="Base" but their subCategory
-        // or description reveals they are trim/molding/filler/panel items.
-        if (sub.includes("moulding") || sub.includes("molding") || sub.includes("crown")) return true;
-        if (sub.includes("filler") || sub.includes("panel") || sub.includes("leg") || sub.includes("scribe")) return true;
-        if (sub.includes("rail") || sub.includes("rope") || sub.includes("cove") || sub.includes("skin")) return true;
-        // Replacement glass doors such as PGWDC42 are priced BOM accessories,
-        // not standalone cabinet boxes that can be dragged onto a wall. A
-        // complete WDC42PG is different: it is the source-priced diagonal wall
-        // cabinet with its plain glass door already included and must remain in
-        // the Corner palette.
-        if (/^pgwdc/.test((r as { masterCode?: string | null }).masterCode?.toLowerCase() ?? "")) return true;
-        if (/glass door.*(?:fits|for)\s+(?:only\s+)?wdc|glass door sold separately/.test(desc)) return true;
-        // Description-based fallback: items whose description contains trim keywords
-        // but have no subCategory (e.g. ALRM, LRM, SCR, DCM, ICM, BF-*, BEP-*, etc.)
-        const trimDescPattern = /\b(molding|moulding|scribe|light rail|crown|cove|rope|filler|end panel|skin panel|decorative leg|decorative panel|island panel|bead board|fluted filler|base filler|angle molding|inside corner molding|refrigerator end panel|shoe moulding|shoe molding|flat base molding|square decorative leg|outside corner molding|touch.?up|sample door|spray paint)\b/;
-        if (trimDescPattern.test(desc)) return true;
-        return false;
-      };
+      // Accessories/trim and panels are NOT placeable cabinet boxes — trim is a
+      // bill-of-materials add-on and a panel is flat stock. Both are returned
+      // by the accessory query (the client's Accessories & Trim and Panels tabs
+      // read it), never bucketed as a Base/Wall/Tall box. See
+      // server/lib/designerPaletteRouting.ts for the same rules Cabinet Config
+      // readiness uses.
+      const isAccessory = isDesignerAccessoryRow;
 
-      // Accessory tab: return ONLY accessory/trim items. These are added to the
-      // design as BOM line items rather than placed on the canvas, so they skip
-      // the base/wall/tall placement normalization entirely.
+      // Accessory tab: return ONLY accessory/trim items plus the physical panels
+      // the Panels tab draws. `panelFamily` is the server's own classification so
+      // the client never has to re-derive panel identity from prose.
       if (input?.placement === "accessory") {
         let accessories = availableRows
           .filter(isAccessory)
           .map((r) => {
             const { minPull: _mp, maxPull: _xp, ...rest } = r;
-            return { ...rest, pullMin: null as number | null, pullMax: null as number | null, placement: "accessory" as const };
+            return {
+              ...rest,
+              pullMin: null as number | null,
+              pullMax: null as number | null,
+              placement: "accessory" as const,
+              panelFamily: panelFamilyFor(r) as PanelFamily | null,
+            };
           });
         if (searchRanks) {
           accessories = orderCabinetsByAliasRank(accessories.filter(matchesSearch), searchRanks);

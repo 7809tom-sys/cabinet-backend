@@ -142,6 +142,11 @@ type CabinetRow = {
   // Spec book line drawing + notes
   specImageUrl: string | null;
   specNotes: string | null;
+  // Designer readiness reported by the server palette's own gates. These are
+  // informational only — they never change a cabinet record.
+  designerSurface: "base" | "wall" | "tall" | "panels" | "accessory" | null;
+  designerReadinessReason: string | null;
+  designerReady: boolean | null;
 };
 
 // ─── Layout Spec Types ────────────────────────────────────────────────────────
@@ -193,6 +198,42 @@ function DimInput({
         </span>
       </div>
     </div>
+  );
+}
+
+// ─── Designer readiness notice ────────────────────────────────────────────────
+const DESIGNER_SURFACE_LABEL: Record<NonNullable<CabinetRow["designerSurface"]>, string> = {
+  base: "Base tab",
+  wall: "Wall tab",
+  tall: "Tall tab",
+  panels: "Panels tab",
+  accessory: "Accessories & Trim tab",
+};
+
+/**
+ * Explains where the 3D Designer will actually offer this item, or why it will
+ * not. Cabinet Config used to show only the stored `designerEligible` flag, so a
+ * panel with no published/available price for the selected style still read as
+ * designer-ready while the palette silently dropped it.
+ */
+export function DesignerReadinessNotice({ row }: { row: Pick<CabinetRow, "designerSurface" | "designerReadinessReason" | "designerReady"> }) {
+  if (row.designerReady === true) {
+    const surface = row.designerSurface ? DESIGNER_SURFACE_LABEL[row.designerSurface] : "the Designer";
+    return (
+      <p className="flex items-start gap-1.5 text-[11px] text-green-700 dark:text-green-400" data-testid="designer-readiness-ready">
+        <CheckCircle2 className="h-3 w-3 mt-0.5 shrink-0" />
+        <span>Designer-ready — offered on {surface}.</span>
+      </p>
+    );
+  }
+  return (
+    <p className="flex items-start gap-1.5 text-[11px] text-amber-600 dark:text-amber-400" data-testid="designer-readiness-hidden">
+      <AlertTriangle className="h-3 w-3 mt-0.5 shrink-0" />
+      <span>
+        Not shown in the 3D Designer{row.designerReadinessReason ? `: ${row.designerReadinessReason}` : ""}.
+        {" "}The Designer needs a published, available supplier SKU with a positive price for the selected style and distributor.
+      </span>
+    </p>
   );
 }
 
@@ -1683,6 +1724,7 @@ function EditModal({
                   </div>
                 ))}
               </div>
+              <DesignerReadinessNotice row={row} />
             </div>
 
             {/* ── Config Verified ── */}
@@ -2637,6 +2679,23 @@ export function CabinetConfigAdmin() {
                       <span className="text-xs text-foreground line-clamp-1">{row.description}</span>
                       {row.category && (
                         <span className="text-[10px] text-muted-foreground block">{row.category}{row.subCategory ? ` › ${row.subCategory}` : ""}</span>
+                      )}
+                      {row.designerReady === false && (
+                        <span
+                          className="mt-0.5 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700 text-[10px] font-medium"
+                          title={`Not shown in the 3D Designer: ${row.designerReadinessReason ?? "no published, available, priced supplier SKU for the selected style"}`}
+                          data-testid="cabinet-config-designer-hidden"
+                        >
+                          <AlertTriangle className="h-2.5 w-2.5" /> Designer hides this
+                        </span>
+                      )}
+                      {row.designerReady === true && row.designerSurface === "panels" && (
+                        <span
+                          className="mt-0.5 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-sky-50 text-sky-700 text-[10px] font-medium"
+                          data-testid="cabinet-config-designer-panel"
+                        >
+                          Panels tab
+                        </span>
                       )}
                     </td>
                     <td className="px-3 py-2.5 text-xs text-muted-foreground whitespace-nowrap hidden sm:table-cell">

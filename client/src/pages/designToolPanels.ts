@@ -1,15 +1,40 @@
-import { isPanelItem, isPlaceableAccessory, type DesignCabinet } from "@/lib/design";
+import { isPlaceablePanel, panelFamilyFor, type PanelFamily } from "@shared/designerPanels";
 
-/** A subset of the existing source-priced accessory query, never new products. */
-export function isPanelPaletteItem(item: Pick<DesignCabinet, "masterCode" | "description" | "subCategory">): boolean {
-  // A cabinet's Looks-like wording can mention a raised/recessed door panel;
-  // that is not a separate placeable end panel or skin.
-  const productDescription = (item.description ?? "").split(/looks\s+like\s*:/i)[0];
-  const identity = { ...item, description: productDescription };
-  const explicitFlatBoard = /plywood\s+edge[-\s]?banded\s+board/i.test(`${item.subCategory ?? ""} ${productDescription}`);
-  if (explicitFlatBoard) return isPanelItem(item) && isPlaceableAccessory(item);
-  if (!isPanelItem(identity) || !isPlaceableAccessory(identity)) return false;
-  const label = `${item.subCategory ?? ""} ${productDescription}`;
-  return /\b(?:end|skin|decorative|dishwasher|refrigerator|door|finished|island|side)\s+panels?\b|\bskins?\b|flat\s+finished\s+panel/i.test(label)
-    || /^(?:panels?|skins?)$/i.test((item.subCategory ?? "").trim());
+type PanelCandidate = {
+  masterCode?: string | null;
+  description?: string | null;
+  subCategory?: string | null;
+  category?: string | null;
+  numberOfDoors?: number | null;
+  numberOfDrawers?: number | null;
+};
+
+/**
+ * A subset of the existing source-priced accessory query, never new products.
+ *
+ * The Panels tab shows exactly what the server calls a panel, using the same
+ * shared classifier Cabinet Config readiness reports on. That keeps a BP
+ * base/basement panel or a DWR dishwasher return panel on the Panels tab
+ * instead of letting prose-only heuristics drop it while Cabinet Config still
+ * advertises it as designer-ready.
+ */
+export function isPanelPaletteItem(item: PanelCandidate): boolean {
+  return isPlaceablePanel(item);
 }
+
+export function panelPaletteFamily(item: PanelCandidate): PanelFamily | null {
+  return panelFamilyFor(item);
+}
+
+/** Accordion headings for the Panels tab, in reading order. */
+export const PANEL_FAMILY_LABEL: Record<PanelFamily, string> = {
+  base: "Base Panels",
+  wall: "Wall Panels",
+  tall: "Tall Panels",
+  decorative: "Decorative End Panels",
+  dishwasher: "Dishwasher Panels",
+  refrigerator: "Refrigerator Panels",
+  skin: "Skins",
+  full: "Full Panels",
+  panel: "Panels",
+};
