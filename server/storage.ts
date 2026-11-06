@@ -19,6 +19,9 @@ const PRIVATE_KEY_PREFIXES = [
   // Affiliate sales-education files. The public storage proxy refuses this prefix.
   "affiliate-resources/",
   "affiliate-w9-id/",
+  // Document library. Internal documents have no public URL: the proxy refuses
+  // this prefix and the bytes live in the private bucket.
+  "library-documents/",
 ];
 
 export function bucketForKey(key: string): string {
