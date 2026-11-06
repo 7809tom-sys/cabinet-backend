@@ -1,11 +1,12 @@
 import { z } from "zod";
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { adminProcedure, protectedProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
 import { storageGetSignedUrl, storagePut } from "../storage";
 import { affiliateLiterature, affiliateResourceProgress, affiliateResources } from "../../drizzle/schema";
 import { resolveAffiliateAccess } from "../lib/affiliateAccess";
+import { isAffiliateLibraryDocument } from "@shared/libraryVisibility";
 import {
   AFFILIATE_RESOURCE_FILE_PREFIX,
   AFFILIATE_RESOURCE_TYPES,
@@ -213,20 +214,42 @@ export const affiliateResourcesRouter = router({
     await requireAffiliateReader(ctx.user);
     const db = await getDb();
     if (!db) return [];
-    return db
-      .select({
-        id: affiliateLiterature.id,
-        title: affiliateLiterature.title,
-        description: affiliateLiterature.description,
-        category: affiliateLiterature.category,
-        url: affiliateLiterature.url,
-        mimeType: affiliateLiterature.mimeType,
-        filename: affiliateLiterature.filename,
-      })
+    // Only documents an admin explicitly put in the affiliate library. Both the
+    // visibility column AND the legacy isPublished flag have to agree, so a
+    // hand edit to one of them cannot publish an internal document.
+    const rows = await db
+      .select()
       .from(affiliateLiterature)
-      .where(eq(affiliateLiterature.isPublished, true))
+      .where(and(eq(affiliateLiterature.visibility, "affiliate"), eq(affiliateLiterature.isPublished, true)))
       .orderBy(asc(affiliateLiterature.sortOrder), asc(affiliateLiterature.id));
+    return rows
+      .filter(isAffiliateLibraryDocument)
+      .map((row) => ({
+        id: row.id,
+        title: row.title,
+        description: row.description,
+        category: row.category,
+        url: row.url,
+        mimeType: row.mimeType,
+        filename: row.filename,
+      }));
   }),
+
+  /**
+   * Admin-only open. A literature URL is a private-bucket key, so the admin page
+   * asks here for a short-lived signed link rather than linking the stored path.
+   * Affiliates never reach this: adminProcedure rejects them.
+   */
+  adminSignedFile: adminProcedure
+    .input(z.object({ id: z.number().int().positive() }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      const [row] = await db.select().from(affiliateLiterature).where(eq(affiliateLiterature.id, input.id)).limit(1);
+      if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "That document is not available." });
+      const url = await storageGetSignedUrl(row.fileKey);
+      return { url, filename: row.filename, mimeType: row.mimeType };
+    }),
 
   myProgress: protectedProcedure.query(async ({ ctx }) => {
     await requireAffiliateReader(ctx.user);

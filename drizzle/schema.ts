@@ -4167,6 +4167,15 @@ export const affiliateLiterature = mysqlTable("affiliate_literature", {
   mimeType: varchar("mimeType", { length: 128 }).notNull(),
   sizeBytes: int("sizeBytes"),
   isPublished: boolean("isPublished").default(false).notNull(),
+  // "internal" (admin only) or "affiliate" (signed-in affiliates). Never public.
+  // Added by hand in docs/sql/0255_library_internal_documents.tidb.sql. The
+  // admin page and the affiliate read both select it, so that SQL must run
+  // before this schema deploys.
+  visibility: varchar("visibility", { length: 16 }).default("internal").notNull(),
+  // Audit of the admin "Affiliate library" checkbox. Null means never toggled.
+  affiliateToggledAt: timestamp("affiliateToggledAt"),
+  affiliateToggledBy: int("affiliateToggledBy"),
+  affiliateToggledByName: varchar("affiliateToggledByName", { length: 255 }),
   sortOrder: int("sortOrder").default(0).notNull(),
   uploadedBy: int("uploadedBy"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
@@ -4174,6 +4183,7 @@ export const affiliateLiterature = mysqlTable("affiliate_literature", {
 }, (table) => [
   index("affiliate_literature_category_idx").on(table.category, table.sortOrder),
   index("affiliate_literature_published_idx").on(table.isPublished, table.sortOrder),
+  index("affiliate_literature_visibility_idx").on(table.visibility, table.isPublished, table.sortOrder),
 ]);
 export type AffiliateLiterature = typeof affiliateLiterature.$inferSelect;
 export type InsertAffiliateLiterature = typeof affiliateLiterature.$inferInsert;

@@ -2,8 +2,15 @@ import { z } from "zod";
 import { desc, eq } from "drizzle-orm";
 import { adminProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
-import { storagePut } from "../storage";
-import { affiliateLiterature } from "../../drizzle/schema";
+import { storageGetSignedUrl, storagePut } from "../storage";
+import { affiliateLiterature, users } from "../../drizzle/schema";
+import {
+  LIBRARY_DOCUMENT_FILE_PREFIX,
+  isAffiliateLibraryDocument,
+  normalizeLibraryVisibility,
+  visibilityForAffiliateLibrarySwitch,
+  type LibraryVisibility,
+} from "@shared/libraryVisibility";
 import { TRPCError } from "@trpc/server";
 
 const MAX_FILE_BYTES = 24 * 1024 * 1024;
@@ -29,6 +36,11 @@ function safeFilename(filename: string) {
   return trimmed || "affiliate-literature";
 }
 
+/** Internal documents and affiliate documents share one private prefix. */
+function literatureFileKey(filename: string) {
+  return `${LIBRARY_DOCUMENT_FILE_PREFIX}${Date.now()}_${filename}`;
+}
+
 export const affiliateLiteratureRouter = router({
   adminList: adminProcedure.query(async () => {
     const db = await getDb();
@@ -44,7 +56,12 @@ export const affiliateLiteratureRouter = router({
       filename: z.string().trim().min(1).max(255),
       mimeType: z.string().min(1).max(128),
       dataBase64: z.string().min(1),
-      isPublished: z.boolean().default(false),
+      /**
+       * The admin page's "Affiliate library" checkbox. Off (the default) stores
+       * the document as internal: admins only. On also shows it to signed-in
+       * affiliates. Neither value makes a document public.
+       */
+      inAffiliateLibrary: z.boolean().default(false),
     }))
     .mutation(async ({ ctx, input }) => {
       if (!ALLOWED_MIME_TYPES.has(input.mimeType)) {
@@ -54,18 +71,22 @@ export const affiliateLiteratureRouter = router({
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
       const buffer = decodeBase64(input.dataBase64);
       const filename = safeFilename(input.filename);
-      const fileKey = `affiliate-literature/${Date.now()}_${filename}`;
+      const fileKey = literatureFileKey(filename);
       const stored = await storagePut(fileKey, buffer, input.mimeType);
       const [row] = await db.insert(affiliateLiterature).values({
         title: input.title,
         description: input.description?.trim() || null,
         category: input.category,
         filename,
-        fileKey,
+        fileKey: stored.key,
         url: stored.url,
         mimeType: input.mimeType,
         sizeBytes: buffer.length,
-        isPublished: input.isPublished,
+        isPublished: input.inAffiliateLibrary,
+        visibility: visibilityForAffiliateLibrarySwitch(input.inAffiliateLibrary),
+        affiliateToggledAt: input.inAffiliateLibrary ? new Date() : null,
+        affiliateToggledBy: input.inAffiliateLibrary ? ctx.user.id : null,
+        affiliateToggledByName: input.inAffiliateLibrary ? ctx.user.name ?? null : null,
         uploadedBy: ctx.user.id,
       });
       return { id: (row as any).insertId, url: stored.url };
@@ -77,14 +98,31 @@ export const affiliateLiteratureRouter = router({
       title: z.string().trim().min(1).max(255).optional(),
       description: z.string().trim().max(2000).nullable().optional(),
       category: z.string().trim().min(1).max(64).optional(),
-      isPublished: z.boolean().optional(),
+      /**
+       * The single control for the "Affiliate library" checkbox. It writes the
+       * visibility, the legacy isPublished flag, and the who/when audit in one
+       * row update, so the three can never disagree.
+       */
+      inAffiliateLibrary: z.boolean().optional(),
       sortOrder: z.number().int().min(0).max(100000).optional(),
     }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
-      const { id, ...patch } = input;
-      await db.update(affiliateLiterature).set(patch).where(eq(affiliateLiterature.id, id));
+      const { id, inAffiliateLibrary, ...patch } = input;
+      if (inAffiliateLibrary !== undefined) {
+        const visibility: LibraryVisibility = visibilityForAffiliateLibrarySwitch(inAffiliateLibrary);
+        Object.assign(patch, {
+          visibility,
+          isPublished: inAffiliateLibrary,
+          affiliateToggledAt: new Date(),
+          affiliateToggledBy: ctx.user.id,
+          affiliateToggledByName: ctx.user.name ?? null,
+        });
+      }
+      if (Object.keys(patch).length) {
+        await db.update(affiliateLiterature).set(patch).where(eq(affiliateLiterature.id, id));
+      }
       return { id };
     }),
 

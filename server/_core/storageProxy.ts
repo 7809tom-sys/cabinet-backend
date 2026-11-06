@@ -4,6 +4,7 @@ import { ENV } from "./env";
 import { sdk } from "./sdk";
 import { storageFetchObject } from "../storage";
 import { canReadStorageKey, type StorageActor } from "../lib/storageAccess";
+import { LIBRARY_DOCUMENT_FILE_PREFIX } from "@shared/libraryVisibility";
 
 async function defaultStorageActor(req: Request): Promise<StorageActor | null> {
   if (!req.headers.authorization) return null;
@@ -45,6 +46,12 @@ export function registerStorageProxy(app: Express) {
     }
     if (key.startsWith("affiliate-resources/")) {
       res.status(403).send("This file is available only to signed-in affiliates");
+      return;
+    }
+    // Library documents are handed out only as short-lived signed URLs from the
+    // admin (or affiliate) procedure that checks visibility. Never from a path.
+    if (key.startsWith(LIBRARY_DOCUMENT_FILE_PREFIX)) {
+      res.status(403).send("This document is not available at a public address");
       return;
     }
 

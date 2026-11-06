@@ -25,9 +25,15 @@ describe("affiliate literature library contracts", () => {
     expect(routerSource).toContain("adminDelete");
   });
 
+  it("keeps every document internal until the Affiliate library checkbox is ticked", () => {
+    expect(schemaSource).toContain('visibility: varchar("visibility", { length: 16 }).default("internal").notNull()');
+    expect(routerSource).toContain("inAffiliateLibrary: z.boolean().default(false)");
+    expect(routerSource).toContain("visibilityForAffiliateLibrarySwitch(input.inAffiliateLibrary)");
+  });
+
   it("exposes the operational controls admins need", () => {
-    expect(componentSource).toContain("Affiliate Literature Library");
-    expect(componentSource).toContain("Publish to affiliate library");
+    expect(componentSource).toContain("Literature Library");
+    expect(componentSource).toContain("AFFILIATE_LIBRARY_SWITCH_LABEL");
     expect(componentSource).toContain("Library contents");
     expect(componentSource).toContain("accept=\".pdf,.docx,.xlsx,.pptx,.txt,application/pdf\"");
     expect(navigationSource).toContain('value: "affiliate-literature"');
