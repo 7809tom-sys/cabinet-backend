@@ -92,6 +92,23 @@ export function toLibraryDocument(row: RawLibraryDocument): LibraryDocument {
   };
 }
 
+/** A short-lived link to one private document, from `affiliateResources.adminSignedFile`. */
+export type LibrarySignedFile = { url: string; filename: string | null; mimeType: string | null };
+
+/**
+ * `affiliateResources.adminSignedFile` is the admin-only way to open a library
+ * document. A row's `url` is a private-bucket path and the storage proxy refuses
+ * every `library-documents/` key, so linking `url` directly answers 403. The
+ * procedure checks the admin role server-side and hands back a short-lived signed
+ * link instead.
+ *
+ * It has to be called on the utils proxy (`utils.affiliateResources.adminSignedFile`),
+ * never on the hook proxy: only the utils proxy carries `fetch`.
+ */
+type SignedFileProcedure = {
+  fetch: (input: { id: number }) => Promise<LibrarySignedFile>;
+};
+
 type LibraryProcedures = {
   adminList: {
     useQuery: () => {
@@ -118,13 +135,23 @@ export function useAffiliateLiteratureAdmin() {
     affiliateLiterature: LibraryProcedures;
     useUtils: () => {
       affiliateLiterature: { adminList: { invalidate: () => Promise<void> } };
+      /**
+       * `fetch` only exists on the utils proxy. The hook proxy
+       * (`trpc.affiliateResources.adminSignedFile`) resolves `.fetch` to a React
+       * hook name, so calling it there throws "hooks[lastArg] is not a function"
+       * and no request is made — which is what blanked the admin library page
+       * after cabinet-frontend PR 294 shipped.
+       */
+      affiliateResources: { adminSignedFile: SignedFileProcedure };
     };
   };
+  const utils = client.useUtils();
   return {
-    utils: client.useUtils(),
+    utils,
     list: client.affiliateLiterature.adminList.useQuery(),
     upload: client.affiliateLiterature.adminUpload,
     update: client.affiliateLiterature.adminUpdate,
     remove: client.affiliateLiterature.adminDelete,
+    signedFile: utils.affiliateResources.adminSignedFile,
   };
 }

@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import {
+  INTERNAL_LIBRARY_DOCUMENTS,
+  internalLibraryDocumentPath,
+  internalLibraryInsertSql,
+} from "@shared/internalLibraryDocuments";
 
 const read = (path: string) => readFileSync(resolve(process.cwd(), path), "utf8");
 
@@ -11,6 +16,7 @@ const storageSource = read("server/storage.ts");
 const proxySource = read("server/_core/storageProxy.ts");
 const importer = read("server/scripts/import-internal-library-documents.ts");
 const sql = read("docs/sql/0255_library_internal_documents.tidb.sql");
+const guideSql = read("docs/sql/0268_affiliate_app_guide_internal.tidb.sql");
 
 describe("internal-only library documents", () => {
   it("stores a visibility and a who/when audit on every document", () => {
@@ -113,9 +119,61 @@ describe("internal-only library documents", () => {
   });
 
   it("ships an importer that only uploads bytes and never widens access", () => {
-    expect(importer).toContain("storagePut(STORED_KEY, bytes, \"application/pdf\")");
+    expect(importer).toContain("storagePut(document.storageKey, bytes, document.mimeType)");
     expect(importer).toContain("library-documents/internal/");
-    expect(importer).not.toMatch(/\binsert\b/i);
+    // Matched as a Drizzle chain (`db.insert(`, `db.update(`), so the
+    // createHash(...).update(bytes) that hashes the file does not read as a
+    // row write.
+    expect(importer).not.toMatch(/\bdb\s*\.\s*insert\(/);
+    expect(importer).not.toMatch(/\bdb\s*\.\s*update\(/);
     expect(importer).not.toMatch(/isPublished:\s*true/);
+  });
+});
+
+describe("docs/sql/0268_affiliate_app_guide_internal.tidb.sql", () => {
+  it("registers the guide internal and unpublished, from the same manifest the importer reads", () => {
+    const guide = INTERNAL_LIBRARY_DOCUMENTS.find((document) => document.file === "how-to-create-an-app-for-an-affiliate.md");
+    expect(guide).toBeTruthy();
+    // The INSERT lives on one line and its values sit inside SELECT ... FROM DUAL,
+    // so the whole statement has to be compared, not a parenthesised tuple.
+    const insertLine = guideSql.split("\n").find((line) => line.startsWith("INSERT INTO"));
+    expect(insertLine).toBe(internalLibraryInsertSql(guide!));
+    expect(insertLine).toContain("WHERE NOT EXISTS");
+    // Statement 5 deliberately reads the affiliate rows to prove the guide is not
+    // among them, so the check is that the INSERT never writes 'affiliate'.
+    expect(insertLine).not.toMatch(/'affiliate'/);
+    expect(insertLine).toContain(", 0, 'internal', 901 FROM DUAL");
+    expect(guideSql).toMatch(/^-- 1\. PREVIEW /m);
+  });
+
+  it("uses plain SQL, one statement per line, every table qualified", () => {
+    expect(guideSql).toContain("Numbered 0268");
+    expect(guideSql).toContain("One statement per line");
+    expect(guideSql).not.toMatch(/IF NOT EXISTS/i);
+    for (const line of guideSql.split("\n").filter((entry) => entry.trim() && !entry.trimStart().startsWith("--"))) {
+      expect(line.startsWith(" ")).toBe(false);
+      expect(line.trim().endsWith(";")).toBe(true);
+      expect(line).toMatch(/cabinet_dealz\./);
+    }
+  });
+
+  it("uploads before it registers, so the admin Open button never 404s", () => {
+    expect(guideSql.indexOf("upload the file FIRST")).toBeLessThan(guideSql.indexOf("-- 1. PREVIEW"));
+  });
+});
+
+describe("the internal library manifest", () => {
+  it("points every document at the committed source file the importer reads", () => {
+    for (const document of INTERNAL_LIBRARY_DOCUMENTS) {
+      expect(internalLibraryDocumentPath(document)).toBe(`docs/library/internal/${document.file}`);
+      expect(document.storageKey).toBe(`library-documents/internal/${document.file}`);
+      expect(document.category).toBe("Internal");
+    }
+  });
+
+  it("reads every document out of the frontend checkout, so no bytes are invented here", () => {
+    // The backend holds no document bytes: the source lives in cabinet-frontend.
+    expect(importer).toContain("FRONTEND_REPO_ROOT");
+    expect(importer).toContain("internalLibraryDocumentPath(document)");
   });
 });
