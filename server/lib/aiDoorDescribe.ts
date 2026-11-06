@@ -31,9 +31,10 @@ import {
   type AiDoorDescribeResult,
 } from "../../shared/aiDoorDescribe";
 import type { AiDoorModel } from "../../shared/aiDoorPrompts";
+import { AI_DOOR_IMAGE_FAILED_MESSAGE, AI_DOOR_IMAGE_PLANS } from "../../shared/aiDoorImage";
 import { ENV } from "../_core/env";
-import { invokeLLM, type MessageContent } from "../_core/llm";
 import { storageFetchObject } from "../storage";
+import { paintDoorImage, type DoorImageInput, type DoorImageResult } from "./aiDoorImage";
 
 /** Longest prompt this endpoint will forward. The shipped prompts are ~1.2 KB. */
 export const AI_DOOR_PROMPT_MAX_CHARS = 6_000;
@@ -41,10 +42,22 @@ export const AI_DOOR_PROMPT_MAX_CHARS = 6_000;
 export const AI_DOOR_DESCRIPTION_MAX_CHARS = 8_000;
 /** A door photo larger than this is not sent; the description is asked for without it. */
 export const AI_DOOR_IMAGE_MAX_BYTES = 8 * 1024 * 1024;
-/** The models that answer each column. Overridable so a rollout does not need a deploy. */
+/**
+ * The models that answer each column. Overridable so a rollout does not need a
+ * deploy — and so a provider retiring a model id is a variable change, not a code
+ * change.
+ *
+ * All three defaults are current, Active ids on their provider's own model list.
+ * `claude-sonnet-5-5` replaced `claude-sonnet-4-5`, which Anthropic deprecated on
+ * September 30, 2026 and retires on November 30, 2026. Deprecated models still
+ * serve requests until their retirement date, so that was not the cause of the
+ * old failure — but it would have become one, without a code change, in three
+ * weeks. Every default stays overridable so a future retirement is a variable
+ * change rather than a deploy.
+ */
 export const AI_DOOR_PROVIDER_MODELS: Record<AiDoorModel, { env: string; fallback: string }> = {
   gpt: { env: "OPENAI_DOOR_DESCRIPTION_MODEL", fallback: "gpt-4.1-mini" },
-  claude: { env: "ANTHROPIC_DOOR_DESCRIPTION_MODEL", fallback: "claude-sonnet-4-5" },
+  claude: { env: "ANTHROPIC_DOOR_DESCRIPTION_MODEL", fallback: "claude-sonnet-5-5" },
   gemini: { env: "GEMINI_DOOR_DESCRIPTION_MODEL", fallback: "gemini-3-flash-preview" },
 };
 
@@ -156,6 +169,25 @@ export function aiDoorUserContent(prompt: string, photoDataUrl: string | null): 
   return parts;
 }
 
+/**
+ * True when this OpenAI model wants `max_completion_tokens` instead of `max_tokens`.
+ *
+ * The reasoning families (`o1`, `o3`, `o4`, `gpt-5`) reject `max_tokens`; the
+ * chat families (`gpt-4.1`, `gpt-4o`, …) reject `max_completion_tokens` on some
+ * endpoints. Sending the wrong one is a 400, so the field is chosen from the id
+ * rather than assumed.
+ */
+export function usesCompletionTokensField(model: string): boolean {
+  const id = model.trim().toLowerCase();
+  return /^(o1|o3|o4|gpt-5)/.test(id);
+}
+
+/** True when this model id is one Anthropic still serves. */
+export function isKnownAnthropicModel(model: string): boolean {
+  const id = model.trim().toLowerCase();
+  return /^claude-(3|4|5|opus|sonnet|haiku)/.test(id);
+}
+
 /** Whatever a provider returned, read as plain text. */
 function textOfContent(content: unknown): string {
   if (typeof content === "string") return content;
@@ -216,23 +248,36 @@ export function aiDoorProviderRequest(args: {
       },
       body: {
         model: env.anthropicModel ?? AI_DOOR_PROVIDER_MODELS.claude.fallback,
-        max_tokens: 1_024,
+        // Current Sonnet-class models think adaptively by default at `high`
+        // effort, and thinking counts against max_tokens. A budget sized for the
+        // answer alone can be spent entirely on thinking, which comes back as
+        // empty content with stop_reason "max_tokens". Two changes keep the
+        // description reachable: more headroom, and `low` effort, which is enough
+        // to read a door photograph and write ten labelled lines.
+        max_tokens: 4_096,
+        output_config: { effort: "low" },
         messages: [{ role: "user", content }],
       },
     };
   }
   if (args.model === "gpt") {
+    const body: Record<string, unknown> = {
+      model: env.openaiModel ?? AI_DOOR_PROVIDER_MODELS.gpt.fallback,
+      messages: [{ role: "user", content: aiDoorUserContent(text, dataUrl) }],
+    };
+    // `max_tokens` is the universal Chat Completions field. `max_completion_tokens`
+    // is only accepted by the newer reasoning models; sending it to a model on the
+    // older contract is a 400 ("Unsupported parameter"), which is exactly the kind
+    // of provider error that used to surface here as a generic sentence.
+    if (usesCompletionTokensField(body.model)) body.max_completion_tokens = 1_024;
+    else body.max_tokens = 1_024;
     return {
       url: "https://api.openai.com/v1/chat/completions",
       headers: {
         "content-type": "application/json",
         authorization: `Bearer ${env.openaiApiKey ?? ""}`,
       },
-      body: {
-        model: env.openaiModel ?? AI_DOOR_PROVIDER_MODELS.gpt.fallback,
-        max_completion_tokens: 1_024,
-        messages: [{ role: "user", content: aiDoorUserContent(text, dataUrl) }],
-      },
+      body,
     };
   }
   return {
@@ -272,22 +317,40 @@ function failureCodeForStatus(status: number): "rate-limited" | "timeout" | "pro
 }
 
 /**
- * Ask one model to describe the door. Always resolves to a `AiDoorDescribeResult`,
- * never throws, so the column always has something plain to show.
+ * Ask one model to describe the door, then draw it.
  *
- * `fetchImpl` and `env` are injectable so a test can exercise every branch without
- * a network call or a real key.
+ * Always resolves to a `AiDoorDescribeResult`, never throws, so the column always
+ * has something plain to show.
+ *
+ * The description step and the image step are separate on purpose. If the drawing
+ * fails, the description the model wrote is still returned with a plain sentence
+ * about the picture, so the operator does not lose the model's reading of the door.
+ * A failed provider call that produced neither is logged with the status and the
+ * provider's own error body, so the reason is visible in the server log instead of
+ * collapsing into one generic sentence.
+ *
+ * `fetchImpl`, `env`, `loadPhoto` and `paintImage` are injectable so a test can
+ * exercise every branch without a network call or a real key.
  */
 export async function describeDoorWithAi(args: {
   model: AiDoorModel;
   prompt: string;
   image?: AiDoorDescribeImage | null;
+  doorName?: string | null;
+  finish?: string | null;
+  colorDescription?: string | null;
   env?: ProviderEnv;
   fetchImpl?: typeof fetch;
   loadPhoto?: (image: AiDoorDescribeImage | null | undefined) => Promise<string | null>;
+  paintImage?: (input: DoorImageInput) => Promise<DoorImageResult>;
 }): Promise<AiDoorDescribeResult> {
   const env = args.env ?? providerEnv();
   const { model } = args;
+  const plan = AI_DOOR_IMAGE_PLANS[model];
+
+  // A column is connected when the provider that writes its text is connected.
+  // Claude's picture comes from Gemini, and that is checked below so a Claude
+  // column whose text arrived can still say why it has no picture.
   if (!aiDoorModelConnected(model, env)) return aiDoorNotConnected(model);
 
   const prompt = args.prompt.trim();
@@ -307,6 +370,10 @@ export async function describeDoorWithAi(args: {
   const request = aiDoorProviderRequest({ model, prompt, photoDataUrl: photo, image: args.image ?? null, env });
   const fetchImpl = args.fetchImpl ?? globalThis.fetch;
 
+  let description: string | null = null;
+  let providerModel: string | null = null;
+  let textFailure: AiDoorDescribeResult | null = null;
+
   try {
     const response = await fetchImpl(request.url, {
       method: "POST",
@@ -316,24 +383,93 @@ export async function describeDoorWithAi(args: {
     });
     if (!response.ok) {
       const reason = failureCodeForStatus(response.status);
-      return { status: "error", model, code: reason, message: aiDoorFailureMessage(model, reason) };
+      const detail = await response.text().catch(() => "");
+      console.error(
+        `[ai-door-describe] ${model} ${response.status} ${response.statusText} (model ${String(request.body.model)}): ${redactForLog(detail)}`,
+      );
+      textFailure = { status: "error", model, code: reason, message: aiDoorFailureMessage(model, reason) };
+    } else {
+      const payload = await response.json();
+      description = aiDoorDescriptionFromResponse(model, payload);
+      providerModel = providerModelOf(model, request.body);
+      if (!description) {
+        console.error(`[ai-door-describe] ${model} returned no text (model ${String(request.body.model)})`);
+      }
     }
-    const payload = await response.json();
-    const description = aiDoorDescriptionFromResponse(model, payload);
-    if (!description) {
-      return {
-        status: "error",
-        model,
-        code: "provider-error",
-        message: `${modelLabel(model)} answered with nothing. Try Generate again.`,
-      };
-    }
-    return { status: "ok", model, description, providerModel: providerModelOf(model, request.body) };
   } catch (error) {
-    const timedOut = error instanceof Error && /timeout|abort/i.test(error.message);
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`[ai-door-describe] ${model} call failed: ${message}`);
+    const timedOut = /timeout|abort/i.test(message);
     const code = timedOut ? "timeout" : "provider-error";
-    return { status: "error", model, code, message: aiDoorFailureMessage(model, code) };
+    textFailure = { status: "error", model, code, message: aiDoorFailureMessage(model, code) };
   }
+
+  // The picture. Claude's column is drawn from its description by the Gemini image
+  // model, because Anthropic returns text only; see shared/aiDoorImage.ts.
+  const paint = args.paintImage ?? paintDoorImage;
+  let image: DoorImageResult | null = null;
+  let imageMessage: string | null = null;
+  try {
+    image = await paint({
+      painter: plan.painter,
+      description: description ?? prompt,
+      photoDataUrl: photo,
+      doorName: args.doorName ?? null,
+      finish: args.finish ?? null,
+      colorDescription: args.colorDescription ?? null,
+      env: { openaiApiKey: env.openaiApiKey, geminiApiKey: env.geminiApiKey },
+      fetchImpl,
+    });
+  } catch (error) {
+    console.error(`[ai-door-image] ${plan.painter} threw: ${error instanceof Error ? error.message : String(error)}`);
+    image = null;
+  }
+  if (image && image.status === "error") {
+    imageMessage = image.message;
+    image = null;
+  }
+
+  if (!description) {
+    if (textFailure) return textFailure;
+    return {
+      status: "error",
+      model,
+      code: "provider-error",
+      message: `${modelLabel(model)} answered with nothing. Try Generate again.`,
+    };
+  }
+
+  // A description with no picture is the old, weaker outcome. Say so, and still
+  // hand back the text so the operator keeps what the model read from the door.
+  if (!image) {
+    console.error(`[ai-door-describe] ${model} produced a description but ${plan.painter} produced no image: ${imageMessage ?? "unknown"}`);
+  }
+
+  return {
+    status: "ok",
+    model,
+    description,
+    providerModel,
+    image: image
+      ? {
+        url: image.url,
+        painter: image.painter,
+        providerModel: image.providerModel,
+        fromDescription: plan.writer,
+      }
+      : null,
+    imageMessage: image ? null : imageMessage ?? AI_DOOR_IMAGE_FAILED_MESSAGE,
+  };
+}
+
+/** Keep a provider error loggable without ever echoing a credential back. */
+function redactForLog(body: string): string {
+  return body
+    .replace(/\s+/g, " ")
+    .replace(/sk-[A-Za-z0-9_-]{8,}/g, "sk-[redacted]")
+    .replace(/AIza[A-Za-z0-9_-]{8,}/g, "AIza[redacted]")
+    .trim()
+    .slice(0, 400);
 }
 
 function providerModelOf(model: AiDoorModel, body: Record<string, unknown>): string | null {

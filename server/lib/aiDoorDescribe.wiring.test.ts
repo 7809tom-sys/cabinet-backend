@@ -73,6 +73,9 @@ describe("aiDoorDescription is mounted where the contract says", () => {
       model: "claude",
       prompt: AI_DOOR_PROMPTS.claude,
       image: { url: "/manus-storage/door-styles/sample.jpg" },
+      doorName: "Ashford",
+      finish: null,
+      colorDescription: null,
     });
     expect(result).toMatchObject({ status: "ok", description: "Style family: shaker." });
   });

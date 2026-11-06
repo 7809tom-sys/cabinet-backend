@@ -31,6 +31,10 @@ const describeInput = z.object({
   image: z.object({ url: z.string().min(1).max(4_000) }).nullable().optional(),
   doorName: z.string().max(300).nullable().optional(),
   styleId: z.number().int().positive().nullable().optional(),
+  /** The editor's finish words, used only to brief the image model. */
+  finish: z.string().max(200).nullable().optional(),
+  /** The plain-text color description, used only to brief the image model. */
+  colorDescription: z.string().max(600).nullable().optional(),
 });
 
 export const aiDoorDescriptionRouter = router({
@@ -61,6 +65,9 @@ export const aiDoorDescriptionRouter = router({
         model: input.model,
         prompt: input.prompt,
         image: input.image ?? null,
+        doorName: input.doorName ?? null,
+        finish: input.finish ?? null,
+        colorDescription: input.colorDescription ?? null,
       });
     }),
 });

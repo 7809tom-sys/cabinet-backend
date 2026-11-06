@@ -16,7 +16,10 @@ import {
   aiDoorModelConnected,
   aiDoorProviderRequest,
   aiDoorUserContent,
+  aiDoorProviderRequest,
+  AI_DOOR_PROVIDER_MODELS,
   describeDoorWithAi,
+  isKnownAnthropicModel,
   loadDoorPhotoDataUrl,
 } from "./aiDoorDescribe";
 import { AI_DOOR_MODELS, AI_DOOR_PROMPTS } from "../../shared/aiDoorPrompts";
@@ -34,6 +37,14 @@ const FULL_ENV = {
   anthropicModel: "claude-test",
   geminiModel: "gemini-test",
 };
+
+/** A drawing step that always succeeds, so a test can assert the text call alone. */
+const PAINT_OK = async () => ({
+  status: "ok" as const,
+  url: "/manus-storage/door-style-images/ai-generated/test.png",
+  painter: "openai" as const,
+  providerModel: "gpt-image-2",
+});
 
 function okResponse(payload: unknown): Response {
   return new Response(JSON.stringify(payload), { status: 200, headers: { "content-type": "application/json" } });
@@ -87,17 +98,20 @@ describe("each column calls its own provider with its own prompt", () => {
       env: FULL_ENV,
       fetchImpl: fetchImpl as unknown as typeof fetch,
       loadPhoto: async () => null,
+      paintImage: PAINT_OK,
     });
     expect(seen!.url).toBe("https://api.openai.com/v1/chat/completions");
     expect(new Headers(seen!.init.headers).get("authorization")).toBe("Bearer sk-test-openai");
     const body = JSON.parse(String(seen!.init.body)) as { model: string; messages: { content: { text?: string }[] }[] };
     expect(body.model).toBe("gpt-test");
     expect(body.messages[0]!.content[0]!.text).toBe(AI_DOOR_PROMPTS.gpt);
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       status: "ok",
       model: "gpt",
       description: "Style family: shaker.",
       providerModel: "gpt-test",
+      // The picture is always drawn from this column's own description.
+      image: { painter: "openai", fromDescription: "gpt" },
     });
   });
 
@@ -113,6 +127,7 @@ describe("each column calls its own provider with its own prompt", () => {
       env: FULL_ENV,
       fetchImpl: fetchImpl as unknown as typeof fetch,
       loadPhoto: async () => null,
+      paintImage: PAINT_OK,
     });
     expect(seen!.url).toBe("https://api.anthropic.com/v1/messages");
     const headers = new Headers(seen!.init.headers);
@@ -136,6 +151,7 @@ describe("each column calls its own provider with its own prompt", () => {
       env: FULL_ENV,
       fetchImpl: fetchImpl as unknown as typeof fetch,
       loadPhoto: async () => null,
+      paintImage: PAINT_OK,
     });
     expect(seen!.url).toBe("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions");
     expect(new Headers(seen!.init.headers).get("authorization")).toBe("Bearer test-gemini");
@@ -262,5 +278,135 @@ describe("a failure becomes a plain sentence", () => {
       choices: [{ message: { content: "a".repeat(AI_DOOR_DESCRIPTION_MAX_CHARS + 500) } }],
     });
     expect(description).toHaveLength(AI_DOOR_DESCRIPTION_MAX_CHARS);
+  });
+});
+
+describe("the picture each column gets", () => {
+  it("draws GPT's and Gemini's pictures with their own provider", async () => {
+    const seen: Array<{ painter: string }> = [];
+    const paint = async (input: { painter: "openai" | "gemini" }) => {
+      seen.push({ painter: input.painter });
+      return {
+        status: "ok" as const,
+        url: "/manus-storage/door-style-images/ai-generated/x.png",
+        painter: input.painter,
+        providerModel: "m",
+      };
+    };
+    const fetchImpl = vi.fn(async () => okResponse({ choices: [{ message: { content: "Shaker door." } }] }));
+
+    const gpt = await describeDoorWithAi({
+      model: "gpt",
+      prompt: AI_DOOR_PROMPTS.gpt,
+      env: FULL_ENV,
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      loadPhoto: async () => "data:image/jpeg;base64,AAAA",
+      paintImage: paint,
+    });
+    const gemini = await describeDoorWithAi({
+      model: "gemini",
+      prompt: AI_DOOR_PROMPTS.gemini,
+      env: FULL_ENV,
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      loadPhoto: async () => "data:image/jpeg;base64,AAAA",
+      paintImage: paint,
+    });
+
+    expect(seen.map((entry) => entry.painter)).toEqual(["openai", "gemini"]);
+    expect(gpt).toMatchObject({ status: "ok", image: { painter: "openai", fromDescription: "gpt" } });
+    expect(gemini).toMatchObject({ status: "ok", image: { painter: "gemini", fromDescription: "gemini" } });
+  });
+
+  it("draws Claude's picture with the Gemini image model, and records that", async () => {
+    let paintedFrom = "";
+    const fetchImpl = vi.fn(async () => okResponse({ content: [{ type: "text", text: "Shaker door, flat panel." }] }));
+    const result = await describeDoorWithAi({
+      model: "claude",
+      prompt: AI_DOOR_PROMPTS.claude,
+      env: FULL_ENV,
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      loadPhoto: async () => null,
+      paintImage: async (input) => {
+        paintedFrom = input.description;
+        return {
+          status: "ok" as const,
+          url: "/manus-storage/door-style-images/ai-generated/claude-gemini.png",
+          painter: "gemini" as const,
+          providerModel: "gemini-3.1-flash-image",
+        };
+      },
+    });
+    // Claude's text is the brief; Gemini draws.
+    expect(paintedFrom).toBe("Shaker door, flat panel.");
+    expect(result).toMatchObject({
+      status: "ok",
+      image: { painter: "gemini", fromDescription: "claude", providerModel: "gemini-3.1-flash-image" },
+    });
+  });
+
+  it("keeps the description and explains a failed picture", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const fetchImpl = vi.fn(async () => okResponse({ choices: [{ message: { content: "Shaker door." } }] }));
+    const result = await describeDoorWithAi({
+      model: "gpt",
+      prompt: AI_DOOR_PROMPTS.gpt,
+      env: FULL_ENV,
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      loadPhoto: async () => null,
+      paintImage: async () => ({
+        status: "error" as const,
+        painter: "openai" as const,
+        message: "OpenAI's image model could not draw this door. Try Generate again.",
+      }),
+    });
+    expect(result).toMatchObject({ status: "ok", description: "Shaker door.", image: null });
+    if (result.status === "ok") {
+      expect(result.imageMessage).toContain("could not draw this door");
+    }
+    expect(error.mock.calls.map((call) => String(call[0])).join("\n")).toContain("produced a description but openai produced no image");
+    error.mockRestore();
+  });
+
+  it("does not throw when the drawing step throws", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const fetchImpl = vi.fn(async () => okResponse({ choices: [{ message: { content: "Shaker door." } }] }));
+    const result = await describeDoorWithAi({
+      model: "gpt",
+      prompt: AI_DOOR_PROMPTS.gpt,
+      env: FULL_ENV,
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      loadPhoto: async () => null,
+      paintImage: async () => { throw new Error("boom"); },
+    });
+    expect(result).toMatchObject({ status: "ok", description: "Shaker door.", image: null });
+    error.mockRestore();
+  });
+});
+
+describe("the provider request shapes that were failing", () => {
+  const base = { prompt: "describe", photoDataUrl: null, image: null, env: FULL_ENV };
+
+  it("uses max_tokens for a chat model and max_completion_tokens only for a reasoning model", () => {
+    const chat = aiDoorProviderRequest({ ...base, model: "gpt", env: { ...FULL_ENV, openaiModel: "gpt-4.1-mini" } });
+    expect(chat.body).toHaveProperty("max_tokens", 1_024);
+    expect(chat.body).not.toHaveProperty("max_completion_tokens");
+
+    const reasoning = aiDoorProviderRequest({ ...base, model: "gpt", env: { ...FULL_ENV, openaiModel: "gpt-5" } });
+    expect(reasoning.body).toHaveProperty("max_completion_tokens", 1_024);
+    expect(reasoning.body).not.toHaveProperty("max_tokens");
+  });
+
+  it("defaults Claude to a current Sonnet-class model", () => {
+    // claude-sonnet-4-5 is deprecated (retires 2026-11-30); sonnet-5-5 is Active.
+    expect(AI_DOOR_PROVIDER_MODELS.claude.fallback).toBe("claude-sonnet-5-5");
+    expect(isKnownAnthropicModel(AI_DOOR_PROVIDER_MODELS.claude.fallback)).toBe(true);
+  });
+
+  it("leaves room for adaptive thinking, which counts against max_tokens", () => {
+    const request = aiDoorProviderRequest({ ...base, model: "claude" });
+    // A budget sized for the answer alone can be spent entirely on thinking.
+    expect(request.body.max_tokens).toBeGreaterThanOrEqual(4_096);
+    // `low` effort is enough to read a photograph and write ten lines.
+    expect(request.body.output_config).toEqual({ effort: "low" });
   });
 });
