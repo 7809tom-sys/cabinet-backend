@@ -36,7 +36,7 @@ import {
   sumCommission,
 } from "@shared/affiliate";
 import { EMBED_CODE_MAX_LENGTH, embedCodeHasErrors } from "@shared/embedCode";
-import { reavesWayAffiliateDefaults } from "@shared/affiliateBlueprint";
+import { affiliateStartingMarkup, reavesWayAffiliateDefaults } from "@shared/affiliateBlueprint";
 import { affiliateNonCompeteEnforcementNote } from "@shared/affiliateNonCompete";
 import { AFFILIATE_STOREFRONT_TEMPLATE_IDS, type AffiliateStorefrontTemplate } from "@shared/affiliateStorefrontTemplates";
 import { importAffiliateWebsiteDraft } from "../lib/affiliateWebsiteImport";
@@ -666,7 +666,9 @@ export const affiliatesRouter = router({
         instagramUrl: input.instagramUrl ?? null,
         template: input.template ?? blueprint.template,
         buttonRadius: blueprint.buttonRadius,
-        defaultMarkupBps: blueprint.defaultMarkupBps,
+        // Every new affiliate starts at the blueprint's 40% markup on
+        // everything, hardware included, and can change it afterwards.
+        ...affiliateStartingMarkup(),
         notes: input.notes ?? null,
       });
       const insertId = (result as unknown as [{ insertId: number }])[0].insertId;
