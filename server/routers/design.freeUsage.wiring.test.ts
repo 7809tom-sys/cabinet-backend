@@ -7,17 +7,33 @@ const photoRenders = readFileSync(
 );
 const design = readFileSync(new URL("./design.ts", import.meta.url), "utf8");
 
-/** The body of one procedure, from its name to the next sibling procedure (or the end). */
+/**
+ * The body of one procedure, from its name to the next sibling procedure (or
+ * the end). Matches any procedure kind, so admin endpoints work too.
+ */
+const PROCEDURE_KINDS = [
+  "protectedProcedure",
+  "publicProcedure",
+  "adminProcedure",
+] as const;
+
 function procedureBody(source: string, name: string, nextName?: string) {
-  const start = source.indexOf(`${name}: protectedProcedure`);
+  // Procedure keys are indented two spaces and sit at the start of a line, which
+  // keeps the search off the same word inside a SQL string or a comment.
+  const marker = `\n  ${name}: `;
+  const start = source.indexOf(marker);
   expect(start, `${name} not found`).toBeGreaterThan(-1);
-  const end = nextName
-    ? source.indexOf(`${nextName}: protectedProcedure`, start + 1)
-    : -1;
-  expect(end === -1 || end > start, `${nextName} not found after ${name}`).toBe(
-    true
-  );
-  return source.slice(start, end === -1 ? undefined : end);
+  const afterMarker = start + marker.length;
+  expect(
+    PROCEDURE_KINDS.some(kind => source.startsWith(kind, afterMarker)),
+    `${name} is not a procedure`
+  ).toBe(true);
+  if (!nextName) return source.slice(start);
+  const relative = source
+    .slice(afterMarker)
+    .search(new RegExp(`\\n  ${nextName}: `));
+  expect(relative, `${nextName} not found after ${name}`).toBeGreaterThan(-1);
+  return source.slice(start, afterMarker + relative);
 }
 
 describe("free-use cap is enforced at every design-tool entry point", () => {
@@ -69,5 +85,37 @@ describe("free-use cap is enforced at every design-tool entry point", () => {
     const save = procedureBody(design, "save", "autosave");
     expect(save).toContain("loadFreeUsageGate(db, ctx.user)");
     expect(save).not.toContain("loadFreeUsageGate(db, ctx.user, affiliateId)");
+  });
+
+  it("exposes the admin grant, renew, and view endpoints as adminProcedure only", () => {
+    const grant = procedureBody(
+      design,
+      "adminGrantDesigns",
+      "adminRenewDesignGrant"
+    );
+    const renew = procedureBody(
+      design,
+      "adminRenewDesignGrant",
+      "adminDesignGrant"
+    );
+    const view = procedureBody(design, "adminDesignGrant", "rename");
+    // Declared as adminProcedure, never reachable as a plain procedure.
+    for (const [name, body] of [
+      ["adminGrantDesigns", grant],
+      ["adminRenewDesignGrant", renew],
+      ["adminDesignGrant", view],
+    ] as const) {
+      expect(design).toContain(`${name}: adminProcedure`);
+      expect(design).not.toContain(`${name}: protectedProcedure`);
+      expect(design).not.toContain(`${name}: publicProcedure`);
+      expect(body, name).toContain("ctx.user");
+    }
+    // A grant is written only through the grant and renew mutations.
+    expect(grant).toContain("writeDesignGrant");
+    expect(renew).toContain("renewDesignGrant");
+    expect(view).toContain("loadGrantView");
+    // Viewing must not write anything.
+    expect(view).not.toContain("writeDesignGrant");
+    expect(view).not.toContain("renewDesignGrant");
   });
 });

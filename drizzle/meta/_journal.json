@@ -1653,6 +1653,13 @@
       "when": 1795800000000,
       "tag": "0237_affiliate_free_usage",
       "breakpoints": true
+    },
+    {
+      "idx": 237,
+      "version": "5",
+      "when": 1795900000000,
+      "tag": "0238_affiliate_design_grants",
+      "breakpoints": true
     }
   ]
 }

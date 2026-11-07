@@ -3134,6 +3134,42 @@ export const affiliateFreeUsage = mysqlTable("affiliate_free_usage", {
 export type AffiliateFreeUsage = typeof affiliateFreeUsage.$inferSelect;
 export type InsertAffiliateFreeUsage = typeof affiliateFreeUsage.$inferInsert;
 
+// ─── Affiliate design grants (admin "backdoor" allowance) ─────────────────────
+// An admin can give one store extra design uses on top of the free five, for
+// example while an affiliate is still setting up before paying. The grant is
+// spent only after the free five are gone, and an admin can top it back up to
+// designCount at any time — renewing resets usedSinceGrant and can change the
+// count. designCount is stored explicitly so the admin view and the affiliate's
+// usage response can both say "Extra designs: 5 (3 left)".
+//
+// contactEmails is a comma-separated list of the emails the grant belongs to,
+// read from the affiliate's own row when it is first granted. Anyone signed in
+// with one of those emails draws from the same grant. Keeping the count and the
+// spent counter on the row (rather than in the usage ledger) is what makes a
+// renewal a single reset: it never revives an already-spent free use.
+export const affiliateDesignGrants = mysqlTable("affiliate_design_grants", {
+  id: int("id").autoincrement().primaryKey(),
+  affiliateId: int("affiliateId").notNull(),
+  // The allowance as the admin set it, e.g. 5.
+  designCount: int("designCount").default(0).notNull(),
+  // Uses spent since the grant was issued or last renewed.
+  usedSinceGrant: int("usedSinceGrant").default(0).notNull(),
+  // Comma-separated lowercase emails this grant belongs to.
+  contactEmails: text("contactEmails"),
+  grantedBy: varchar("grantedBy", { length: 320 }),
+  grantedAt: timestamp("grantedAt").defaultNow().notNull(),
+  renewedAt: timestamp("renewedAt"),
+  renewedBy: varchar("renewedBy", { length: 320 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (t) => [
+  // One live grant per store: renewing updates that row rather than stacking.
+  unique("affiliate_design_grants_affiliate_uq").on(t.affiliateId),
+]);
+
+export type AffiliateDesignGrant = typeof affiliateDesignGrants.$inferSelect;
+export type InsertAffiliateDesignGrant = typeof affiliateDesignGrants.$inferInsert;
+
 // ─── Stripe payment history ───────────────────────────────────────────────────
 // One row per Stripe payment (order checkout, affiliate membership, or any
 // other charge). Webhook events and the admin backfill upsert the same row

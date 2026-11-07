@@ -2,16 +2,32 @@ import { describe, expect, it } from "vitest";
 import {
   FREE_USAGE_LIMIT,
   MEMBERSHIP_REQUIRED_CAUSE,
+  contactEmailMatches,
   emptyUsageCounts,
+  formatContactEmails,
   freeUsageApplies,
   freeUsageExhausted,
   freeUsageNotice,
   freeUsageSnapshot,
+  grantLine,
   isPaidMembership,
   membershipRequiredMessage,
+  normalizeContactEmails,
+  normalizeDesignGrant,
   normalizeUsageCounts,
   totalUsage,
 } from "./affiliateFreeUsage";
+
+const GRANT_ROW = {
+  id: 9,
+  designCount: 5,
+  usedSinceGrant: 2,
+  contactEmails: "owner@example.test,store@example.test",
+  grantedBy: "tom",
+  grantedAt: "2026-11-07T12:00:00.000Z",
+  renewedAt: null,
+  renewedBy: null,
+};
 
 describe("affiliate free-use rules", () => {
   it("gives five free uses in total, counted across all three kinds", () => {
@@ -31,6 +47,7 @@ describe("affiliate free-use rules", () => {
       unlimited: false,
       limit: 5,
       used: 5,
+      freeRemaining: 0,
       remaining: 0,
     });
     expect(freeUsageExhausted(snapshot)).toBe(true);
@@ -41,9 +58,8 @@ describe("affiliate free-use rules", () => {
       { design: 3, auto_design: 1 },
       { enforced: true }
     );
-    expect(four.remaining).toBe(1);
+    expect(four.freeRemaining).toBe(1);
     expect(freeUsageExhausted(four)).toBe(false);
-    // The next use of any kind is refused, not just a sixth of one kind.
     const five = freeUsageSnapshot(
       { design: 1, auto_design: 2, photo_render: 2 },
       { enforced: true }
@@ -88,7 +104,6 @@ describe("affiliate free-use rules", () => {
         membershipStatus: "cancelled",
       })
     ).toBe(true);
-    // Paid affiliate: unlimited.
     expect(
       freeUsageApplies({
         role: "user",
@@ -96,7 +111,6 @@ describe("affiliate free-use rules", () => {
         membershipStatus: "active",
       })
     ).toBe(false);
-    // Admin: exempt even with an unpaid store.
     expect(
       freeUsageApplies({
         role: "admin",
@@ -104,7 +118,6 @@ describe("affiliate free-use rules", () => {
         membershipStatus: "pending",
       })
     ).toBe(false);
-    // Regular customer / contractor: not an affiliate, so not affected.
     expect(
       freeUsageApplies({
         role: "user",
@@ -130,6 +143,7 @@ describe("affiliate free-use rules", () => {
       enforced: false,
       unlimited: true,
       limit: null,
+      freeRemaining: null,
       remaining: null,
     });
     expect(snapshot.used).toBe(99);
@@ -143,7 +157,7 @@ describe("affiliate free-use rules", () => {
       { enforced: true }
     );
     expect(snapshot.used).toBe(7);
-    expect(snapshot.remaining).toBe(0);
+    expect(snapshot.freeRemaining).toBe(0);
   });
 
   it("ignores unknown kinds and junk values instead of inflating the count", () => {
@@ -175,5 +189,136 @@ describe("affiliate free-use rules", () => {
     expect(
       freeUsageNotice(freeUsageSnapshot({ design: 5 }, { enforced: true }))
     ).toMatch(/buy the affiliate membership/i);
+  });
+});
+
+describe("admin design grant", () => {
+  it("stores the count explicitly and reports what is left of it", () => {
+    const grant = normalizeDesignGrant(GRANT_ROW, "owner@example.test");
+    expect(grant).toMatchObject({
+      designCount: 5,
+      used: 2,
+      remaining: 3,
+      appliesToYou: true,
+    });
+    expect(grantLine(grant)).toBe("Extra designs: 5 (3 left)");
+  });
+
+  it("adds the grant on top of the free five for someone the grant covers", () => {
+    const snapshot = freeUsageSnapshot(
+      { design: 5 },
+      {
+        enforced: true,
+        grant: normalizeDesignGrant(GRANT_ROW, "owner@example.test"),
+      }
+    );
+    expect(snapshot).toMatchObject({
+      used: 5,
+      freeRemaining: 0,
+      grantRemaining: 3,
+      remaining: 3,
+    });
+    expect(freeUsageExhausted(snapshot)).toBe(false);
+    expect(freeUsageNotice(snapshot)).toContain("Extra designs: 5 (3 left)");
+  });
+
+  it("counts free and bonus together, so six uses are available with a 5 grant", () => {
+    const fresh = normalizeDesignGrant(
+      { ...GRANT_ROW, usedSinceGrant: 0 },
+      "owner@example.test"
+    );
+    const snapshot = freeUsageSnapshot({}, { enforced: true, grant: fresh });
+    expect(snapshot.remaining).toBe(10);
+    const halfway = freeUsageSnapshot(
+      { design: 5 },
+      { enforced: true, grant: fresh }
+    );
+    expect(halfway).toMatchObject({
+      freeRemaining: 0,
+      grantRemaining: 5,
+      remaining: 5,
+    });
+    const spentBonus = freeUsageSnapshot(
+      { design: 5 },
+      {
+        enforced: true,
+        grant: normalizeDesignGrant(GRANT_ROW, "owner@example.test"),
+      }
+    );
+    expect(spentBonus).toMatchObject({ grantRemaining: 3, remaining: 3 });
+  });
+
+  it("does not give a grant to someone whose email is not on it", () => {
+    const snapshot = freeUsageSnapshot(
+      { design: 5 },
+      {
+        enforced: true,
+        grant: normalizeDesignGrant(GRANT_ROW, "someone-else@example.test"),
+      }
+    );
+    expect(snapshot.grant?.appliesToYou).toBe(false);
+    expect(snapshot.grantRemaining).toBe(0);
+    expect(snapshot.remaining).toBe(0);
+    expect(freeUsageExhausted(snapshot)).toBe(true);
+    // The grant is still visible for the admin view, just not spendable here.
+    expect(snapshot.grant?.designCount).toBe(5);
+    // And the notice must not promise uses this person does not have.
+    expect(freeUsageNotice(snapshot)).toMatch(/buy the affiliate membership/i);
+    expect(freeUsageNotice(snapshot)).not.toContain("Extra designs");
+  });
+
+  it("never exceeds the stored count even if the spent counter is higher", () => {
+    const grant = normalizeDesignGrant(
+      { ...GRANT_ROW, usedSinceGrant: 9 },
+      "owner@example.test"
+    );
+    expect(grant?.remaining).toBe(0);
+    expect(grantLine(grant)).toBe("Extra designs: 5 (0 left)");
+  });
+
+  it("reports null when the store has no grant", () => {
+    expect(normalizeDesignGrant(null, "owner@example.test")).toBeNull();
+    expect(grantLine(null)).toBeNull();
+    const snapshot = freeUsageSnapshot({}, { enforced: true, grant: null });
+    expect(snapshot.grant).toBeNull();
+    expect(snapshot.grantRemaining).toBe(0);
+    expect(snapshot.remaining).toBe(5);
+  });
+
+  it("matches contact emails case-insensitively, trimmed, from a comma list", () => {
+    expect(
+      contactEmailMatches(" A@Example.test , b@example.test ", "a@example.test")
+    ).toBe(true);
+    expect(contactEmailMatches("a@example.test", "  A@EXAMPLE.TEST  ")).toBe(
+      true
+    );
+    expect(contactEmailMatches("a@example.test", "c@example.test")).toBe(false);
+    expect(contactEmailMatches("", "a@example.test")).toBe(false);
+    expect(contactEmailMatches("a@example.test", null)).toBe(false);
+  });
+
+  it("normalizes and formats the contact list for storage", () => {
+    expect(
+      normalizeContactEmails(["A@x.test", " a@X.test ", "", "b@x.test"])
+    ).toEqual(["a@x.test", "b@x.test"]);
+    expect(normalizeContactEmails("a@x.test, b@x.test")).toEqual([
+      "a@x.test",
+      "b@x.test",
+    ]);
+    expect(formatContactEmails(["A@x.test", "b@x.test"])).toBe(
+      "a@x.test,b@x.test"
+    );
+    expect(formatContactEmails(null)).toBe("");
+  });
+
+  it("keeps the grant out of the count for a paid affiliate", () => {
+    const snapshot = freeUsageSnapshot(null, {
+      enforced: false,
+      membershipStatus: "active",
+      grant: normalizeDesignGrant(GRANT_ROW, "owner@example.test"),
+    });
+    expect(snapshot.unlimited).toBe(true);
+    expect(snapshot.remaining).toBeNull();
+    expect(freeUsageExhausted(snapshot)).toBe(false);
   });
 });

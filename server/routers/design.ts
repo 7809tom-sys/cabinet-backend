@@ -3,7 +3,7 @@ import { skuVisibleToViewer } from "../lib/distributorPreview";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { eq, and, inArray, desc, like, sql, or, isNull, ne, gt } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
-import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
+import { adminProcedure, publicProcedure, protectedProcedure, router } from "../_core/trpc";
 import { getDb, notInConflict, getPlatformPricingSettings } from "../db";
 import { verifyUsAddress, formatEnteredAddress } from "../lib/addressVerification";
 import { distributorCabinetOverrides, cabinets, cabinetAliases, skuMasterAliases, kitchenDesigns, distributorSkus, doorStyles, distributors, countertopQuotes, designLeads, crmDeals, crmDealDesigns, affiliates, affiliateStyleBranding, affiliateDistributorSelections, orderRequests, payments, threeDRoomShares, designConsultations, designGeminiImageTestJobs, designImageRequests, designPhotoRenders, designViewLog } from "../../drizzle/schema";
@@ -25,9 +25,12 @@ import {
   attachFreeUsageRef,
   claimFreeUsage,
   loadFreeUsageGate,
+  loadGrantView,
   releaseFreeUsage,
   releaseUsageById,
+  renewDesignGrant,
   usagePayload,
+  writeDesignGrant,
 } from "../lib/affiliateFreeUsage";
 import { decideAssistAccess } from "@shared/customerDirectory";
 import { filterCabinetSourceRows, loadAffiliateCatalogGate } from "../lib/affiliateCatalogGate";
@@ -2054,6 +2057,74 @@ export const designRouter = router({
         await releaseUsageById(db, { ledgerId: input.claimId, userId: ctx.user.id, kind: "auto_design" });
       }
       return usagePayload(await loadFreeUsageGate(db, ctx.user));
+    }),
+
+  // ─── Admin: the "backdoor" design allowance per affiliate ──────────────────
+  // An admin can give one store N extra design uses on top of the free five,
+  // and top it back up whenever they like. The count is stored on the grant, so
+  // the admin view and the affiliate's design.usage can both report it.
+  adminGrantDesigns: adminProcedure
+    .input(
+      z.object({
+        affiliateId: z.number().int().positive(),
+        designCount: z.number().int().min(0).max(10_000),
+        // Defaults to the affiliate's own contact emails when omitted.
+        contactEmails: z.array(z.string().trim().min(3).max(320)).max(20).optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      const view = await writeDesignGrant(db, {
+        affiliateId: input.affiliateId,
+        designCount: input.designCount,
+        contactEmails: input.contactEmails ?? null,
+        actor: ctx.user.email ?? ctx.user.name ?? null,
+      });
+      if (view.storeName == null) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Affiliate not found." });
+      }
+      return view;
+    }),
+
+  // Top an existing grant back up to the stored count, or to a new count. The
+  // spent counter resets, so the store is back to a full allowance.
+  adminRenewDesignGrant: adminProcedure
+    .input(
+      z.object({
+        affiliateId: z.number().int().positive(),
+        // Omit to renew at the count already on the grant.
+        designCount: z.number().int().min(0).max(10_000).optional(),
+        contactEmails: z.array(z.string().trim().min(3).max(320)).max(20).optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      const view = await renewDesignGrant(db, {
+        affiliateId: input.affiliateId,
+        designCount: input.designCount ?? null,
+        contactEmails: input.contactEmails ?? null,
+        actor: ctx.user.email ?? ctx.user.name ?? null,
+      });
+      if (view.storeName == null) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Affiliate not found." });
+      }
+      return view;
+    }),
+
+  // What an admin sees for one store: the stored count, what is left of it, the
+  // emails it is tied to, and who granted or last renewed it.
+  adminDesignGrant: adminProcedure
+    .input(z.object({ affiliateId: z.number().int().positive() }))
+    .query(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      const view = await loadGrantView(db, input.affiliateId, ctx.user.email ?? null);
+      if (view.storeName == null) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Affiliate not found." });
+      }
+      return view;
     }),
 
   rename: protectedProcedure
