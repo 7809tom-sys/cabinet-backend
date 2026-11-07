@@ -15,6 +15,7 @@ import {
   uniqueIndex,
 } from "drizzle-orm/mysql-core";
 import { AFFILIATE_STOREFRONT_TEMPLATE_IDS } from "../shared/affiliateStorefrontTemplates";
+import { FREE_USAGE_KINDS } from "../shared/affiliateFreeUsage";
 import type { AffiliateSocialLink } from "../shared/affiliateSocialLinks";
 import type { AffiliateResourceMeta } from "../shared/affiliateResources";
 
@@ -3106,6 +3107,32 @@ export const affiliateInvoices = mysqlTable("affiliate_invoices", {
 
 export type AffiliateInvoice = typeof affiliateInvoices.$inferSelect;
 export type InsertAffiliateInvoice = typeof affiliateInvoices.$inferInsert;
+
+// ─── Affiliate free-usage ledger ──────────────────────────────────────────────
+// One row per design-tool use consumed by an affiliate whose membership is not
+// active. The cap is five uses in total across saved designs, Auto Design runs,
+// and photo renders (shared/affiliateFreeUsage.ts), so the count is read from
+// this table instead of from how many designs exist: deleting a design does not
+// hand the use back, and nothing can be reset by cleaning up rows elsewhere.
+//
+// refId is the id of the thing created (kitchenDesigns.id, designPhotoRenders.id,
+// or the client's Auto Design run id when one was supplied). It is informative
+// only; nothing joins on it, so a deleted design leaves the ledger row intact.
+export const affiliateFreeUsage = mysqlTable("affiliate_free_usage", {
+  id: int("id").autoincrement().primaryKey(),
+  affiliateId: int("affiliateId").notNull(),
+  kind: mysqlEnum("kind", FREE_USAGE_KINDS).notNull(),
+  refId: int("refId"),
+  // Who spent the use (an owner or an enabled team member of that store).
+  userId: int("userId"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (t) => [
+  index("affiliate_free_usage_affiliate_kind_idx").on(t.affiliateId, t.kind),
+  index("affiliate_free_usage_created_at_idx").on(t.createdAt),
+]);
+
+export type AffiliateFreeUsage = typeof affiliateFreeUsage.$inferSelect;
+export type InsertAffiliateFreeUsage = typeof affiliateFreeUsage.$inferInsert;
 
 // ─── Stripe payment history ───────────────────────────────────────────────────
 // One row per Stripe payment (order checkout, affiliate membership, or any

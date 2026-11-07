@@ -18,6 +18,14 @@ import {
 import { canDeleteCustomerDesign, canEditCustomerProject, normalizeEmail } from "@shared/customerDirectory";
 import { planRevert, snapshotDesign } from "@shared/designAssist";
 import { resolveRequestStoreScope, type ResolvedHostScope } from "../lib/affiliateHostScope";
+import {
+  assertFreeUsageAvailable,
+  attachFreeUsageRef,
+  claimFreeUsage,
+  loadFreeUsageGate,
+  releaseFreeUsage,
+  usagePayload,
+} from "../lib/affiliateFreeUsage";
 
 const projectStatus = z.enum(["planning", "active", "quoted", "completed", "archived"]);
 
@@ -212,23 +220,39 @@ export const customerAccountRouter = router({
       if (!design || !canDeleteCustomerDesign(ctx.user.id, design.userId)) {
         throw new TRPCError({ code: "NOT_FOUND", message: "Design not found." });
       }
-      const result = await db.insert(kitchenDesigns).values({
-        userId: ctx.user.id,
-        affiliateId: affiliate.id,
-        name: `Copy of ${design.name}`.slice(0, 256),
-        projectName: design.projectName,
-        roomLabel: design.roomLabel,
-        roomType: design.roomType,
-        roomData: design.roomData,
-        placedCabinets: design.placedCabinets,
-        selectedSurfaces: design.selectedSurfaces,
-        threeDPresentation: design.threeDPresentation,
-        selectedStyleId: design.selectedStyleId,
-        selectedDistributorId: design.selectedDistributorId,
-        thumbnailUrl: design.thumbnailUrl,
-        recordKind: "customer",
-      });
-      return { id: insertId(result) };
+      // A copy is a new saved design, so it is a counted use for an affiliate
+      // without an active membership. A plain customer is not an affiliate and
+      // is not capped.
+      const usageGate = await loadFreeUsageGate(db, ctx.user);
+      assertFreeUsageAvailable(usageGate, "design");
+      const usageClaim = await claimFreeUsage(db, usageGate, "design", { userId: ctx.user.id });
+      let result: unknown;
+      try {
+        result = await db.insert(kitchenDesigns).values({
+          userId: ctx.user.id,
+          affiliateId: affiliate.id,
+          name: `Copy of ${design.name}`.slice(0, 256),
+          projectName: design.projectName,
+          roomLabel: design.roomLabel,
+          roomType: design.roomType,
+          roomData: design.roomData,
+          placedCabinets: design.placedCabinets,
+          selectedSurfaces: design.selectedSurfaces,
+          threeDPresentation: design.threeDPresentation,
+          selectedStyleId: design.selectedStyleId,
+          selectedDistributorId: design.selectedDistributorId,
+          thumbnailUrl: design.thumbnailUrl,
+          recordKind: "customer",
+        });
+      } catch (error) {
+        await releaseFreeUsage(db, usageClaim).catch((releaseError) => {
+          console.warn("[Affiliate usage] Could not release the free use after a failed design copy.", releaseError);
+        });
+        throw error;
+      }
+      const copyId = insertId(result);
+      await attachFreeUsageRef(db, usageClaim, copyId).catch(() => undefined);
+      return { id: copyId, usage: usagePayload({ ...usageGate, snapshot: usageClaim.snapshot }) };
     }),
 
   requestQuoteRevision: protectedProcedure
