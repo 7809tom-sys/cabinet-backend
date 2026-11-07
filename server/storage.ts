@@ -22,6 +22,10 @@ const PRIVATE_KEY_PREFIXES = [
   // Document library. Internal documents have no public URL: the proxy refuses
   // this prefix and the bytes live in the private bucket.
   "library-documents/",
+  // Affiliate onboarding documents (driver's license, SSN card, business card,
+  // reseller certificate). The proxy refuses this prefix as well: the only way
+  // to bytes is a short-lived signed URL from an owner or admin procedure.
+  "affiliate-documents/",
 ];
 
 export function bucketForKey(key: string): string {

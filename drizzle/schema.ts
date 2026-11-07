@@ -2242,6 +2242,47 @@ export const affiliates = mysqlTable("affiliates", {
 export type Affiliate = typeof affiliates.$inferSelect;
 export type InsertAffiliate = typeof affiliates.$inferInsert;
 
+// ─── Affiliate Onboarding Documents ──────────────────────────────────────────
+// Driver's license, Social Security card, business card (all required) and an
+// optional reseller certificate. Bytes live in the private Supabase bucket
+// under affiliate-documents/ — this table stores the storage KEY, never a
+// public URL and never a public bucket path.
+//
+// A replace never deletes history: the old row keeps its status and review
+// audit, and supersededAt + supersededByDocumentId point at the upload that
+// took its place. Only current rows (supersededAt IS NULL) count for the gate.
+// Created by docs/sql/affiliate-onboarding-documents.tidb.sql, which is run by
+// hand.
+export const affiliateDocumentTypes = ["driver_license", "ssn_card", "business_card", "reseller_certificate"] as const;
+export const affiliateDocumentStatuses = ["pending", "approved", "rejected"] as const;
+
+export const affiliateDocuments = mysqlTable("affiliate_documents", {
+  id: int("id").autoincrement().primaryKey(),
+  affiliateId: int("affiliateId").notNull(),
+  docType: mysqlEnum("docType", affiliateDocumentTypes).notNull(),
+  // Storage key under the private bucket (affiliate-documents/...). No URL.
+  storageKey: varchar("storageKey", { length: 512 }).notNull(),
+  mimeType: varchar("mimeType", { length: 128 }).notNull(),
+  sizeBytes: int("sizeBytes").notNull(),
+  // The affiliate-visible filename as typed by them, sanitized. Display only.
+  originalName: varchar("originalName", { length: 255 }),
+  status: mysqlEnum("status", affiliateDocumentStatuses).default("pending").notNull(),
+  reviewedAt: timestamp("reviewedAt"),
+  reviewedBy: int("reviewedBy"),
+  note: text("note"),
+  // Replace audit: who uploaded, when, and which row replaced this one.
+  uploadedBy: int("uploadedBy"),
+  supersededAt: timestamp("supersededAt"),
+  supersededByDocumentId: int("supersededByDocumentId"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => [
+  index("affiliate_documents_affiliate_idx").on(table.affiliateId, table.docType, table.supersededAt),
+  index("affiliate_documents_status_idx").on(table.status, table.createdAt),
+]);
+export type AffiliateDocument = typeof affiliateDocuments.$inferSelect;
+export type InsertAffiliateDocument = typeof affiliateDocuments.$inferInsert;
+
 // Admin-defined affiliate buy-cost tiers. Example rows are placeholders.
 // Volume threshold is assignment guidance and is not applied automatically.
 export const affiliatePricingTiers = mysqlTable("affiliate_pricing_tiers", {

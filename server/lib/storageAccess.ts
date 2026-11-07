@@ -22,9 +22,14 @@ export function isPublicStorageKey(key: string): boolean {
  * Unauthenticated reads are limited to public key prefixes. Private keys need
  * an admin, the encoded owner, or the affiliate who uploaded the government ID.
  */
-export function privateStorageDecision(key: string, user: StorageActor | null): "public" | "allow" | "deny" | "owner-check" {
+export function privateStorageDecision(key: string, user: StorageActor | null): "public" | "allow" | "deny" | "owner-check" | "affiliate-document" {
   const normalized = key.replace(/^\/+/, "");
   if (!isPrivateStorageKey(normalized)) return "public";
+  // Onboarding documents are refused on this path before any role is
+  // considered, so not even an admin session can read them here. The only way
+  // to the bytes is a short-lived signed URL from a procedure that checked the
+  // row.
+  if (normalized.startsWith("affiliate-documents/")) return "affiliate-document";
   if (!user) return "deny";
   if (user.role === "admin") return "allow";
   const uploadedBy = /^(?:ocr-uploads|fixture-uploads)\/u(\d+)-/.exec(normalized);
@@ -64,5 +69,9 @@ export async function canReadStorageKey(key: string, user: StorageActor | null):
   const decision = privateStorageDecision(key, user);
   if (decision === "public" || decision === "allow") return true;
   if (decision === "owner-check" && user) return affiliateOwnerCanReadW9Key(user, key.replace(/^\/+/, ""));
+  // Onboarding documents never travel through this proxy: the bytes are handed
+  // out only as short-lived signed URLs from the affiliate or admin procedure
+  // that checked the row. Even an admin is refused here, so a forwarded
+  // /manus-storage/affiliate-documents/... path is worthless.
   return false;
 }
