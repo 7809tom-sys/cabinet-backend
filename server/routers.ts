@@ -33,6 +33,7 @@ import { prosRouter } from "./routers/pros";
 import { vendorRouter } from "./routers/vendor";
 import { ordersRouter } from "./routers/orders";
 import { affiliatesRouter } from "./routers/affiliates";
+import { affiliateDocumentsRouter } from "./routers/affiliateDocuments";
 import { storefrontRouter } from "./routers/storefront";
 import { crmRouter } from "./routers/crm";
 import { crmEmailRouter } from "./routers/crmEmail";
@@ -189,6 +190,10 @@ export const appRouter = router({
   vendor: vendorRouter,
   orders: ordersRouter,
   affiliates: affiliatesRouter,
+  // Affiliate onboarding documents (Feature 3 of 6): driver's license, SSN
+  // card, business card, and optional reseller certificate, all in the private
+  // bucket behind short-lived signed links.
+  affiliateDocuments: affiliateDocumentsRouter,
   storefront: storefrontRouter,
   crm: mergeRouters(crmRouter, crmEmailRouter),
   // Frontend dashboard contract (cabinet-frontend PR 232). Same authorization

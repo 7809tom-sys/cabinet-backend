@@ -14,7 +14,7 @@ vi.mock("../db", () => ({
   }),
 }));
 
-import { affiliateOwnerCanReadW9Key, privateStorageDecision } from "./storageAccess";
+import { affiliateOwnerCanReadW9Key, canReadStorageKey, privateStorageDecision } from "./storageAccess";
 
 const owner = { id: 9, role: "user", email: "owner@example.com", distributorId: null };
 
@@ -43,5 +43,16 @@ describe("storage access decisions", () => {
     lookup.rows = [{ userId: 9, email: "owner@example.com" }];
     await expect(affiliateOwnerCanReadW9Key(owner, "affiliate-w9-id/license.jpg")).resolves.toBe(true);
     await expect(affiliateOwnerCanReadW9Key({ ...owner, id: 4, email: "team@example.com" }, "affiliate-w9-id/license.jpg")).resolves.toBe(false);
+  });
+
+  it("keeps onboarding documents off the path-based proxy for everyone, admins included", async () => {
+    const key = "affiliate-documents/7/driver_license-1794000000000.jpg";
+    expect(privateStorageDecision(key, null)).toBe("affiliate-document");
+    expect(privateStorageDecision(key, owner)).toBe("affiliate-document");
+    expect(privateStorageDecision(key, { ...owner, role: "admin" })).toBe("affiliate-document");
+    // There is no allow branch for this prefix, so a forwarded URL is worthless.
+    await expect(canReadStorageKey(key, owner)).resolves.toBe(false);
+    await expect(canReadStorageKey(key, { ...owner, id: 1, role: "admin" })).resolves.toBe(false);
+    await expect(canReadStorageKey(key, null)).resolves.toBe(false);
   });
 });
