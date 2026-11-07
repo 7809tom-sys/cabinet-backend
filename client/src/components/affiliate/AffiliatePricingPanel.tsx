@@ -315,7 +315,7 @@ export default function AffiliatePricingPanel({ affiliateId, isAdminView = false
                 step="0.5"
                 value={defaultPct}
                 onChange={(e) => setDefaultPct(e.target.value)}
-                placeholder="e.g. 20"
+                placeholder="e.g. 40"
                 aria-invalid={Boolean(defaultMarkupError)}
                 className={defaultMarkupError ? "border-destructive focus-visible:ring-destructive" : undefined}
               />

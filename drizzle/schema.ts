@@ -2192,14 +2192,16 @@ export const affiliates = mysqlTable("affiliates", {
   // White-label markup: default % (bps) this affiliate adds on top of their
   // affiliate cost to produce the customer-facing retail price. Per-style and
   // per-category overrides live in affiliateStyleBranding / as JSON below.
-  defaultMarkupBps: int("defaultMarkupBps").default(2000).notNull(), // 20% default
+  // New affiliates start at 40% (4000 bps) and may change it themselves.
+  defaultMarkupBps: int("defaultMarkupBps").default(4000).notNull(), // 40% default
   // Assigned affiliate buy-cost tier. Null keeps the platform affiliate markup.
   // The tier row lives in affiliate_pricing_tiers. Hand-run SQL adds the column.
   pricingTierId: int("pricingTierId"),
   // Separate list-price markup for Decorative Hardware. It never participates in
   // cabinet or surface price calculations. The baseline is the supplier list
   // price; affiliates may set an above-list value, including zero.
-  hardwareMarkupBps: int("hardwareMarkupBps").default(0).notNull(),
+  // New affiliates start at the same 40% (4000 bps) as everything else.
+  hardwareMarkupBps: int("hardwareMarkupBps").default(4000).notNull(),
   // Optional per-category markup overrides, JSON: { "base": 2500, "wall": 1500 }
   categoryMarkupJson: text("categoryMarkupJson"),
   // Kitchen Cost Sheet default unit prices, JSON keyed by the exact sheet row:
