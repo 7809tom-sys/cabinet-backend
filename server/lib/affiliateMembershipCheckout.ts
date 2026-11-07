@@ -69,11 +69,6 @@ export function membershipCheckoutMetadata(input: {
   };
 }
 
-/** Read the plan out of a Stripe object's metadata, defaulting to annual. */
-export function planFromMetadata(metadata: Record<string, string> | null | undefined): MembershipPlan {
-  return normalizeMembershipPlan(metadata?.membership_plan);
-}
-
 export function isMembershipCheckoutMetadata(metadata: Record<string, string> | null | undefined): boolean {
   return metadata?.purpose === MEMBERSHIP_CHECKOUT_PURPOSE;
 }
