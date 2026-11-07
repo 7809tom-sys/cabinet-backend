@@ -88,6 +88,31 @@ export function notInConflict() {
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
+/**
+ * The host and database the process actually connected to, safe to log.
+ *
+ * Nothing else about the URL is ever kept: no user, no password, no query
+ * string. `DATABASE_URL` is the only input, but it can silently point at a
+ * scratch database (DEPLOY.md warns that the local `.env` value is the scratch
+ * one), and before this line there was no way to tell from the runtime log
+ * which database a deploy had landed on. See `describeDatabaseTarget`.
+ */
+export function describeDatabaseTarget(databaseUrl: string | undefined): string {
+  const raw = (databaseUrl ?? "").trim();
+  if (!raw) return "DATABASE_URL is not set";
+  // The scheme is checked so a stray value is reported as such rather than
+  // parsed into a host-ish string that would look like a real target.
+  if (!/^mysql(2|s)?:\/\//i.test(raw)) return "DATABASE_URL is not a MySQL connection URL";
+  try {
+    const parsed = new URL(raw);
+    const database = parsed.pathname.replace(/^\/+/, "") || "(no database in URL)";
+    const port = parsed.port ? `:${parsed.port}` : "";
+    return `${parsed.hostname}${port}/${database}`;
+  } catch {
+    return "DATABASE_URL is not a valid connection URL";
+  }
+}
+
 // Lazily create the drizzle instance so local tooling can run without a DB.
 export async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
@@ -104,6 +129,7 @@ export async function getDb() {
       });
       installMysqlPoolFreeShippingGuard(pool);
       _db = drizzle(pool);
+      console.log(`[Database] Connected to ${describeDatabaseTarget(process.env.DATABASE_URL)}`);
       await primeCabinetFreeShippingColumn(pool.promise());
     } catch (error) {
       console.warn("[Database] Failed to connect:", error);
