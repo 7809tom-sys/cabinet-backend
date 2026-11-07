@@ -135,17 +135,14 @@ export const DEFAULT_ONBOARDING_GATE_CHECKS: OnboardingGateChecks = {
   requiredDocuments: hasRequiredDocumentsStub,
 };
 
-/**
- * The checks the running process uses for the storefront-name claim. Kept as a
- * function so the two stub checks can be swapped for the real sibling-PR
- * implementations in exactly one place, and so a test can substitute all-true
- * checks and exercise the publish path while the stubs block production.
- */
-export function storefrontNameGateChecks(): OnboardingGateChecks {
-  return DEFAULT_ONBOARDING_GATE_CHECKS;
-}
-
-const CHECK_ORDER = ["store_inactive", "membership_inactive", "membership_expired", "legal_docs_unsigned", "documents_missing"] as const;
+/** Blocker order in every response, so the onboarding checklist is stable. */
+const CHECK_ORDER = [
+  "store_inactive",
+  "membership_inactive",
+  "membership_expired",
+  "legal_docs_unsigned",
+  "documents_missing",
+] as const;
 
 /**
  * Run every check (no short-circuit, so the partner sees the whole list) and
