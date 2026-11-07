@@ -1,96 +1,193 @@
 import { z } from "zod";
-import { eq, desc, and } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
-import { protectedProcedure, adminProcedure, router } from "../_core/trpc";
+import { protectedProcedure, publicProcedure, adminProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
-import { affiliates, affiliateInvoices } from "../../drizzle/schema";
-import { computeMembershipPeriodEnd } from "@shared/salesPrograms";
-import { linkStripeRecordsToAffiliateInvoice } from "../stripePaymentStore";
+import { affiliateInvoices } from "../../drizzle/schema";
 import { resolveAffiliateAccess } from "../lib/affiliateAccess";
+import { linkStripeRecordsToAffiliateInvoice } from "../stripePaymentStore";
+import {
+  MEMBERSHIP_PLAN_IDS,
+  MEMBERSHIP_PLAN_OPTIONS,
+  assessMembershipCancellation,
+  formatPlanPrice,
+  membershipPlanOption,
+  normalizeMembershipPlan,
+} from "@shared/affiliateMembershipPlans";
+import { loadMembershipSnapshot, toMembershipView } from "../lib/affiliateMembership";
+import {
+  cancelMembershipAtPeriodEnd,
+  ensureOpenInvoice,
+  getInvoice,
+  listAffiliateInvoices,
+  listAllAffiliateInvoices,
+  markInvoicePaid,
+  planPaymentTerm,
+} from "../lib/affiliateMembershipBilling";
+import {
+  cancelMembershipSubscriptionAtPeriodEnd,
+  createMembershipCheckoutSession,
+} from "../lib/affiliateMembershipCheckout";
 
-const ANNUAL_FEE_CENTS = 119500; // $1,195.00
+const planSchema = z.enum(MEMBERSHIP_PLAN_IDS);
 
-async function resolveMyAffiliate(ctx: { user: { id: number; email: string | null } }) {
+async function resolveMyAffiliateId(ctx: { user: { id: number; email: string | null } }): Promise<number | null> {
   const db = await getDb();
   if (!db) return null;
   const access = await resolveAffiliateAccess(db, ctx.user);
   if (!access?.isOwner) return null;
-  const [row] = await db.select().from(affiliates).where(eq(affiliates.id, access.affiliateId)).limit(1);
-  return row ?? null;
+  return access.affiliateId;
 }
 
-// Human-friendly invoice number: AFF-<year>-<zero-padded id>.
-function invoiceNumber(year: number, id: number) {
-  return `AFF-${year}-${String(id).padStart(4, "0")}`;
+function requestOrigin(ctx: { req?: { headers?: Record<string, unknown> } }): string {
+  const origin = (ctx.req?.headers?.origin as string | undefined) ?? "";
+  return origin || "https://www.cabinetdealz.com";
 }
 
 /**
- * Ensure an affiliate has an OPEN invoice for their annual membership. If one
- * already exists, return it; otherwise create a fresh $1,195 open invoice.
- * Idempotent per affiliate (only one open invoice at a time).
+ * The two plan options, in the shape the pricing page and the member page
+ * render. Published from one constant so the frontend never types a price.
  */
-async function ensureOpenInvoice(
-  db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
-  affiliateId: number,
-) {
-  const open = (
-    await db
-      .select()
-      .from(affiliateInvoices)
-      .where(and(eq(affiliateInvoices.affiliateId, affiliateId), eq(affiliateInvoices.status, "open")))
-      .orderBy(desc(affiliateInvoices.issuedAt))
-      .limit(1)
-  )[0];
-  if (open) return open;
-
-  // Temporary unique placeholder so the unique constraint is satisfied on insert,
-  // then patch with the real number derived from the generated id.
-  const placeholder = `AFF-TMP-${affiliateId}-${Date.now()}`;
-  const res = await db.insert(affiliateInvoices).values({
-    affiliateId,
-    invoiceNumber: placeholder,
-    description: "Annual affiliate membership",
-    amountCents: ANNUAL_FEE_CENTS,
-    status: "open",
-    paymentMethod: "none",
-  });
-  const id = (res as unknown as [{ insertId: number }])[0].insertId;
-  const num = invoiceNumber(new Date().getFullYear(), id);
-  await db.update(affiliateInvoices).set({ invoiceNumber: num }).where(eq(affiliateInvoices.id, id));
-  return (await db.select().from(affiliateInvoices).where(eq(affiliateInvoices.id, id)).limit(1))[0];
-}
+export const MEMBERSHIP_PLAN_PUBLIC = MEMBERSHIP_PLAN_IDS.map((id) => {
+  const option = MEMBERSHIP_PLAN_OPTIONS[id];
+  return {
+    id: option.id,
+    label: option.label,
+    amountCents: option.amountCents,
+    priceLabel: formatPlanPrice(id),
+    minimumMonths: option.minimumMonths,
+    minimumCommitmentCents: option.minimumCommitmentCents,
+    description: option.description,
+  };
+});
 
 export const affiliateMembershipRouter = router({
+  // ─── Public: the two plan options ──────────────────────────────────────────
+  // The storefront landing page and the affiliate pricing page read this, so
+  // both prices and the three-month minimum come from one place.
+  planOptions: publicProcedure.query(() => MEMBERSHIP_PLAN_PUBLIC),
+
   // ─── Partner: my membership status + invoices ──────────────────────────────
   myMembership: protectedProcedure.query(async ({ ctx }) => {
-    const mine = await resolveMyAffiliate(ctx);
-    if (!mine) return null;
     const db = await getDb();
     if (!db) return null;
-    const invoices = await db
-      .select()
-      .from(affiliateInvoices)
-      .where(eq(affiliateInvoices.affiliateId, mine.id))
-      .orderBy(desc(affiliateInvoices.issuedAt));
+    const affiliateId = await resolveMyAffiliateId(ctx);
+    if (affiliateId == null) return null;
+    const snapshot = await loadMembershipSnapshot(db, affiliateId);
+    if (!snapshot) return null;
+    const invoices = await listAffiliateInvoices(db, affiliateId);
     return {
-      affiliateId: mine.id,
-      storeName: mine.storeName,
-      membershipStatus: mine.membershipStatus,
-      membershipFeeCents: mine.membershipFeeCents,
-      membershipPaidAt: mine.membershipPaidAt,
-      membershipExpiresAt: mine.membershipExpiresAt,
+      ...toMembershipView(snapshot),
       invoices,
+      planOptions: MEMBERSHIP_PLAN_PUBLIC,
     };
   }),
 
-  // ─── Partner: generate (or fetch) my open annual invoice ───────────────────
-  requestInvoice: protectedProcedure.mutation(async ({ ctx }) => {
-    const mine = await resolveMyAffiliate(ctx);
-    if (!mine) throw new TRPCError({ code: "FORBIDDEN", message: "No affiliate account linked to you." });
+  /**
+   * Partner: the open invoice for the plan they picked. Idempotent — a second
+   * call with the same plan returns the same invoice, and a call with the other
+   * plan re-points the single open invoice at that plan.
+   */
+  requestInvoice: protectedProcedure
+    .input(z.object({ plan: planSchema.default("annual") }).optional())
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      const affiliateId = await resolveMyAffiliateId(ctx);
+      if (affiliateId == null) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "No affiliate account linked to you." });
+      }
+      return ensureOpenInvoice(db, affiliateId, normalizeMembershipPlan(input?.plan));
+    }),
+
+  /**
+   * Partner: start Stripe Checkout for the plan they picked. Annual is a one
+   * time payment; monthly is a subscription (see affiliateMembershipCheckout).
+   * The membership is activated by the webhook, never by the browser coming
+   * back to the success URL.
+   */
+  startCheckout: protectedProcedure
+    .input(z.object({ plan: planSchema.default("annual") }).optional())
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      const affiliateId = await resolveMyAffiliateId(ctx);
+      if (affiliateId == null) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "No affiliate account linked to you." });
+      }
+      const plan = normalizeMembershipPlan(input?.plan);
+      const invoices = await listAffiliateInvoices(db, affiliateId);
+      const open = invoices.find((row) => row.status === "open");
+
+      let checkout: { url: string; sessionId: string; mode: "payment" | "subscription" };
+      try {
+        checkout = await createMembershipCheckoutSession({
+          affiliateId,
+          userId: ctx.user.id,
+          plan,
+          customerEmail: ctx.user.email ?? null,
+          customerName: ctx.user.name ?? null,
+          invoiceId: open?.id ?? null,
+          successUrl: `${requestOrigin(ctx)}/affiliate?membership=success&plan=${plan}&session_id={CHECKOUT_SESSION_ID}`,
+          cancelUrl: `${requestOrigin(ctx)}/affiliate?membership=cancelled&plan=${plan}`,
+        });
+      } catch (error) {
+        throw new TRPCError({
+          code: "BAD_GATEWAY",
+          message: `Stripe Checkout could not be started. ${error instanceof Error ? error.message : "Unknown error"}`,
+        });
+      }
+
+      return {
+        ...checkout,
+        plan,
+        amountCents: membershipPlanOption(plan).amountCents,
+        invoiceId: open?.id ?? null,
+      };
+    }),
+
+  /**
+   * Partner: cancel. Refused inside the monthly three-month minimum, with the
+   * date the button unlocks. Accepted, access continues to the end of the paid
+   * period and no further renewal is charged.
+   */
+  cancelMembership: protectedProcedure.mutation(async ({ ctx }) => {
     const db = await getDb();
     if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
-    const invoice = await ensureOpenInvoice(db, mine.id);
-    return invoice;
+    const affiliateId = await resolveMyAffiliateId(ctx);
+    if (affiliateId == null) {
+      throw new TRPCError({ code: "FORBIDDEN", message: "No affiliate account linked to you." });
+    }
+
+    const snapshot = await loadMembershipSnapshot(db, affiliateId);
+    if (!snapshot) throw new TRPCError({ code: "NOT_FOUND", message: "Affiliate not found." });
+    if (snapshot.cancelledAt) {
+      return {
+        ok: true,
+        alreadyCancelled: true,
+        accessUntil: snapshot.expiresAt,
+        stripeSubscription: "not_applicable" as const,
+      };
+    }
+
+    const now = Date.now();
+    const decision = assessMembershipCancellation({
+      plan: snapshot.plan,
+      nowMs: now,
+      periodEndMs: snapshot.expiresAt?.getTime() ?? null,
+      commitmentEndsAtMs: snapshot.committedUntil?.getTime() ?? null,
+    });
+    if (!decision.allowed) {
+      const unlock = snapshot.committedUntil ? snapshot.committedUntil.toISOString().slice(0, 10) : "the end of the minimum";
+      throw new TRPCError({
+        code: "PRECONDITION_FAILED",
+        message: `This plan has a three-month minimum. You can cancel from ${unlock}.`,
+      });
+    }
+
+    const stripeSubscription = await cancelMembershipSubscriptionAtPeriodEnd(snapshot.stripeSubscriptionId);
+    const result = await cancelMembershipAtPeriodEnd(db, affiliateId, now);
+    return { ok: true, alreadyCancelled: false, accessUntil: result.accessUntil, stripeSubscription };
   }),
 
   // ─── Admin: list all invoices (optionally by status) ───────────────────────
@@ -100,27 +197,42 @@ export const affiliateMembershipRouter = router({
       const db = await getDb();
       if (!db) return [];
       const status = input?.status ?? "all";
-      const rows = await db
-        .select()
-        .from(affiliateInvoices)
-        .orderBy(desc(affiliateInvoices.issuedAt))
-        .limit(1000);
+      const rows = await listAllAffiliateInvoices(db);
       return status === "all" ? rows : rows.filter((r) => r.status === status);
     }),
 
   // ─── Admin: create an open invoice for an affiliate ────────────────────────
   adminCreateInvoice: adminProcedure
-    .input(z.object({ affiliateId: z.number().int() }))
+    .input(z.object({ affiliateId: z.number().int(), plan: planSchema.default("annual") }))
     .mutation(async ({ input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
-      const invoice = await ensureOpenInvoice(db, input.affiliateId);
-      return invoice;
+      return ensureOpenInvoice(db, input.affiliateId, normalizeMembershipPlan(input.plan));
+    }),
+
+  /**
+   * Admin: preview what recording a payment now would do — the new expiry and
+   * the commitment date — before anything is written.
+   */
+  adminPreviewPayment: adminProcedure
+    .input(z.object({ affiliateId: z.number().int(), plan: planSchema.default("annual") }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      const { term, plan } = await planPaymentTerm(db, input.affiliateId, input.plan, Date.now());
+      return {
+        plan,
+        amountCents: membershipPlanOption(plan).amountCents,
+        periodStart: new Date(term.periodStartMs),
+        periodEnd: new Date(term.periodEndMs),
+        committedUntil: new Date(term.commitmentEndsAtMs),
+      };
     }),
 
   // ─── Admin: record a payment (Stripe / external card / manual) ─────────────
-  // Marks the invoice paid and activates the membership for a 1-year term from
-  // today (or extends from the current expiry if still active).
+  // Activates the membership for the invoice's plan: one year for annual, one
+  // month for monthly (with the three-month minimum starting at the first
+  // monthly payment).
   adminMarkPaid: adminProcedure
     .input(
       z.object({
@@ -132,57 +244,27 @@ export const affiliateMembershipRouter = router({
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
-      const inv = (
-        await db.select().from(affiliateInvoices).where(eq(affiliateInvoices.id, input.invoiceId)).limit(1)
-      )[0];
+      const inv = await getInvoice(db, input.invoiceId);
       if (!inv) throw new TRPCError({ code: "NOT_FOUND", message: "Invoice not found." });
       if (inv.status === "paid") return { ok: true, alreadyPaid: true };
+      if (inv.status === "void") throw new TRPCError({ code: "BAD_REQUEST", message: "This invoice was voided." });
 
-      const aff = (
-        await db.select().from(affiliates).where(eq(affiliates.id, inv.affiliateId)).limit(1)
-      )[0];
-      const now = new Date();
-      // Extend from current expiry if it is in the future, else from now
-      // (shared rule: early renewals stack and never lose remaining days).
-      const periodEnd = new Date(
-        computeMembershipPeriodEnd(
-          now.getTime(),
-          aff?.membershipExpiresAt ? aff.membershipExpiresAt.getTime() : null,
-        ),
-      );
-
-      await db
-        .update(affiliateInvoices)
-        .set({
-          status: "paid",
-          paymentMethod: input.paymentMethod,
-          paymentRef: input.paymentRef ?? null,
-          paidAt: now,
-          paidByUserId: ctx.user.id,
-          periodStart: now,
-          periodEnd,
-        })
-        .where(eq(affiliateInvoices.id, inv.id));
-
-      await db
-        .update(affiliates)
-        .set({
-          membershipStatus: "active",
-          membershipPaidAt: now,
-          membershipExpiresAt: periodEnd,
-        })
-        .where(eq(affiliates.id, inv.affiliateId));
+      const result = await markInvoicePaid(db, {
+        invoiceId: inv.id,
+        paidAtMs: Date.now(),
+        paymentMethod: input.paymentMethod,
+        paymentRef: input.paymentRef,
+        paidByUserId: ctx.user.id,
+      });
 
       if (input.paymentMethod === "stripe" && input.paymentRef) {
         try {
-          if (db) {
-            await linkStripeRecordsToAffiliateInvoice(db, {
-              paymentRef: input.paymentRef,
-              affiliateId: inv.affiliateId,
-              affiliateInvoiceId: inv.id,
-              description: inv.description,
-            });
-          }
+          await linkStripeRecordsToAffiliateInvoice(db, {
+            paymentRef: input.paymentRef,
+            affiliateId: inv.affiliateId,
+            affiliateInvoiceId: inv.id,
+            description: inv.description,
+          });
         } catch (error) {
           console.error(
             "[Affiliate membership] Could not link the Stripe payment reference:",
@@ -191,7 +273,7 @@ export const affiliateMembershipRouter = router({
         }
       }
 
-      return { ok: true, periodEnd };
+      return { ...result, periodEnd: result.periodEnd ?? null, committedUntil: result.committedUntil ?? null };
     }),
 
   // ─── Admin: void an invoice ────────────────────────────────────────────────

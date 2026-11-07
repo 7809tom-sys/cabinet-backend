@@ -2206,13 +2206,27 @@ export const affiliates = mysqlTable("affiliates", {
   // [{ description, materialUnitCost, laborUnitCost }]. These are affiliate
   // installation defaults and never alter Cabinet Dealz catalog pricing.
   kitchenCostDefaultsJson: text("kitchenCostDefaultsJson"),
-  // Annual membership: an affiliate pays a yearly fee ($1,195) to participate.
-  // membershipStatus drives storefront/CRM access; the dated fields track the
-  // current paid term. Detailed invoices live in affiliate_invoices.
+  // Membership: an affiliate pays either $1,195 a year or $169 a month (with a
+  // three-month minimum) to participate. membershipStatus drives storefront/CRM
+  // access; the dated fields track the current paid term. Detailed invoices
+  // live in affiliate_invoices. membershipPlan and membershipCommittedUntil are
+  // added by hand in docs/sql/0269_membership_plan_options.tidb.sql, so the
+  // server treats a missing column as "annual, no commitment" and keeps working
+  // if the code ships before Tom runs the file.
   membershipStatus: mysqlEnum("membershipStatus", ["pending", "active", "past_due", "cancelled"]).default("pending").notNull(),
-  membershipFeeCents: int("membershipFeeCents").default(119500).notNull(), // $1,195.00
+  membershipPlan: mysqlEnum("membershipPlan", ["annual", "monthly"]).default("annual").notNull(),
+  membershipFeeCents: int("membershipFeeCents").default(119500).notNull(), // $1,195.00 a year, or $169.00 a month
   membershipPaidAt: timestamp("membershipPaidAt"),
   membershipExpiresAt: timestamp("membershipExpiresAt"),
+  // Date the member becomes free to cancel. For monthly this is the end of the
+  // three-month minimum; for annual it is the end of the paid year.
+  membershipCommittedUntil: timestamp("membershipCommittedUntil"),
+  // Set when a member cancels. Access continues to membershipExpiresAt (the end
+  // of the period they already paid for) and the next renewal is skipped.
+  membershipCancelledAt: timestamp("membershipCancelledAt"),
+  // Stripe subscription for the monthly plan (null for annual and for invoices
+  // paid by card, check, or a one-time Checkout).
+  membershipStripeSubscriptionId: varchar("membershipStripeSubscriptionId", { length: 255 }),
   notes: text("notes"),
   // ─── W-9 / Tax compliance ─────────────────────────────────────────────────────
   // Affiliates must submit legal info + government ID before payouts are released.
@@ -3089,7 +3103,13 @@ export const affiliateInvoices = mysqlTable("affiliate_invoices", {
   // Human-friendly invoice number, e.g. "AFF-2026-0007".
   invoiceNumber: varchar("invoiceNumber", { length: 32 }).notNull().unique(),
   description: varchar("description", { length: 256 }).default("Annual affiliate membership").notNull(),
-  amountCents: int("amountCents").default(119500).notNull(), // $1,195.00
+  amountCents: int("amountCents").default(119500).notNull(), // $1,195.00 a year, or $169.00 a month
+  // Which plan and which billing period this invoice covers. Added by hand in
+  // docs/sql/0269_membership_plan_options.tidb.sql; a missing column reads as
+  // "annual", which is what every pre-existing invoice is.
+  membershipPlan: mysqlEnum("membershipPlan", ["annual", "monthly"]).default("annual").notNull(),
+  // 1-based billing period within the paid term. Monthly invoices are 1, 2, 3…
+  periodNumber: int("periodNumber").default(1).notNull(),
   status: mysqlEnum("status", ["open", "paid", "void"]).default("open").notNull(),
   // How it was paid once status = paid.
   paymentMethod: mysqlEnum("paymentMethod", ["stripe", "external_card", "manual", "none"]).default("none").notNull(),
@@ -3097,6 +3117,9 @@ export const affiliateInvoices = mysqlTable("affiliate_invoices", {
   // Membership term this invoice covers (snapshotted on payment).
   periodStart: timestamp("periodStart"),
   periodEnd: timestamp("periodEnd"),
+  // Commitment date this payment produced, so a later cancellation check does
+  // not have to re-derive it from the plan.
+  committedUntil: timestamp("committedUntil"),
   issuedAt: timestamp("issuedAt").defaultNow().notNull(),
   paidAt: timestamp("paidAt"),
   paidByUserId: int("paidByUserId"), // admin who recorded a manual/external payment

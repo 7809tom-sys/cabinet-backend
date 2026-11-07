@@ -16,6 +16,7 @@ import { markOrderPaidById, sendPaidOrderReceipt } from "./lib/orderReceiptEmail
 import { flagOrderCrmRefund } from "./lib/orderSideEffects";
 import { rememberOrderStripePayout } from "./lib/orderStripePayout";
 import { createDbPaymentLinkContext, createDrizzleStripePaymentStore } from "./stripePaymentStore";
+import { handleMembershipStripeEvent } from "./lib/affiliateMembershipWebhook";
 import {
   configuredWebhookSecrets,
   recordStripeWebhookEvent,
@@ -89,6 +90,16 @@ export function registerStripeWebhook(app: Express): void {
                 ? session.payment_intent
                 : session.payment_intent?.id ?? null;
 
+            // A membership Checkout carries purpose=affiliate_membership. It never
+            // creates or fulfills an order, so it is handled before the order path.
+            const membership = await handleMembershipStripeEvent(event);
+            if (membership.handled) {
+              console.log(
+                `[Stripe Webhook] Membership ${membership.action} for affiliate ${membership.affiliateId ?? "unknown"} (session ${session.id})`,
+              );
+              break;
+            }
+
             if (session.payment_status === "paid" || event.type === "checkout.session.async_payment_succeeded") {
               const orderId = await fulfillOrder(session.id, paymentIntentId);
               console.log(
@@ -146,6 +157,24 @@ export function registerStripeWebhook(app: Express): void {
           case "payment_intent.payment_failed": {
             const pi = event.data.object as import("stripe").Stripe.PaymentIntent;
             console.warn(`[Stripe Webhook] Payment failed: ${pi.id}`);
+            break;
+          }
+
+          // ─── Membership renewals (Stripe subscription billing) ─────────────
+          // A monthly membership is a real Stripe subscription, so every later
+          // month arrives as invoice.paid rather than another checkout session.
+          // invoice.payment_failed flags the member past_due instead of silently
+          // dropping their access. Any non-membership invoice falls through
+          // untouched (handled: false).
+          case "invoice.paid":
+          case "invoice.payment_failed":
+          case "customer.subscription.deleted": {
+            const membership = await handleMembershipStripeEvent(event);
+            if (membership.handled) {
+              console.log(
+                `[Stripe Webhook] Membership ${membership.action} for affiliate ${membership.affiliateId ?? "unknown"} (${event.type})`,
+              );
+            }
             break;
           }
 
