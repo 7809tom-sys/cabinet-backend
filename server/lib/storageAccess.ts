@@ -25,6 +25,14 @@ export function isPublicStorageKey(key: string): boolean {
 export function privateStorageDecision(key: string, user: StorageActor | null): "public" | "allow" | "deny" | "owner-check" {
   const normalized = key.replace(/^\/+/, "");
   if (!isPrivateStorageKey(normalized)) return "public";
+  // Signed affiliate contracts, the contract PDFs behind them, and the DocuSeal
+  // audit trails are refused on every storage path, for every role, including
+  // admin. They leave only through affiliateLegal.signedCopyLink, which issues a
+  // short-lived URL after checking that the caller owns the affiliate or is an
+  // admin. Checked before the admin rule, so this cannot be widened by accident.
+  if (normalized.startsWith("affiliate-legal-signatures/") || normalized.startsWith("affiliate-legal-documents/")) {
+    return "deny";
+  }
   if (!user) return "deny";
   if (user.role === "admin") return "allow";
   const uploadedBy = /^(?:ocr-uploads|fixture-uploads)\/u(\d+)-/.exec(normalized);

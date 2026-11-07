@@ -22,6 +22,11 @@ const PRIVATE_KEY_PREFIXES = [
   // Document library. Internal documents have no public URL: the proxy refuses
   // this prefix and the bytes live in the private bucket.
   "library-documents/",
+  // Signed affiliate contracts, the contract PDFs they were built from, and the
+  // DocuSeal audit trails. Private, and handed out only as short-lived signed
+  // URLs from a procedure that checks the affiliate or an admin.
+  "affiliate-legal-documents/",
+  "affiliate-legal-signatures/",
 ];
 
 export function bucketForKey(key: string): string {
