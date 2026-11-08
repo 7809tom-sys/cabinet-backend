@@ -2257,6 +2257,26 @@ export const affiliates = mysqlTable("affiliates", {
 export type Affiliate = typeof affiliates.$inferSelect;
 export type InsertAffiliate = typeof affiliates.$inferInsert;
 
+// One row per affiliate recording the storefront name they claimed themselves on
+// the last onboarding step. affiliates.slug is the live value; claimedSlug is
+// what they claimed, so an admin rename is visible as a difference between the
+// two instead of looking like the affiliate's own choice. Added by hand in
+// docs/sql/0271_affiliate_storefront_name_claim.tidb.sql, so a missing table is
+// tolerated by the claim reader (see server/lib/affiliateStorefrontName.ts).
+export const affiliateStorefrontClaims = mysqlTable("affiliate_storefront_claims", {
+  id: int("id").autoincrement().primaryKey(),
+  affiliateId: int("affiliateId").notNull().unique(),
+  claimedSlug: varchar("claimedSlug", { length: 64 }).notNull(),
+  claimedByName: varchar("claimedByName", { length: 256 }),
+  claimedByUserId: int("claimedByUserId"),
+  claimedAt: timestamp("claimedAt").defaultNow().notNull(),
+}, (table) => [
+  index("affiliate_storefront_claims_slug_idx").on(table.claimedSlug),
+]);
+
+export type AffiliateStorefrontClaim = typeof affiliateStorefrontClaims.$inferSelect;
+export type InsertAffiliateStorefrontClaim = typeof affiliateStorefrontClaims.$inferInsert;
+
 // ─── Affiliate Onboarding Documents ──────────────────────────────────────────
 // Driver's license, Social Security card, business card (all required) and an
 // optional reseller certificate. Bytes live in the private Supabase bucket
