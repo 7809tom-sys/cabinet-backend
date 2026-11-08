@@ -48,6 +48,7 @@ import {
   AFFILIATE_MEMBERSHIP,
   formatMembershipPrice,
 } from "@shared/affiliate";
+import { MEMBERSHIP_PLAN_OPTIONS } from "@shared/affiliateMembershipPlans";
 import {
   AFFILIATE_STOREFRONT_TEMPLATES,
   type AffiliateStorefrontTemplate,
@@ -80,19 +81,29 @@ function AffiliateLanding() {
               — Without the Overhead
             </h1>
             <p className="text-white/80 text-lg md:text-xl mt-6 leading-relaxed">
-              One annual membership gives you a fully branded storefront, the 3D Kitchen Designer,
+              One membership gives you a fully branded storefront, the 3D Kitchen Designer,
               access to thousands of cabinets and surfaces at trade pricing, and we handle all the fulfillment.
               A single completed kitchen order typically returns more than the membership costs.
             </p>
-            <div className="mt-10 flex flex-wrap items-end gap-6">
+            <div className="mt-10 flex flex-wrap items-end gap-8">
               <div>
                 <span className="font-serif text-5xl md:text-6xl font-bold text-[var(--color-gold)]">
+                  {MEMBERSHIP_PLAN_OPTIONS.monthly.amountCents / 100}
+                </span>
+                <span className="text-white/70 text-lg ml-2">per month</span>
+                <p className="text-white/60 text-sm mt-1">
+                  {MEMBERSHIP_PLAN_OPTIONS.monthly.minimumMonths}-month minimum, then cancel any time
+                </p>
+              </div>
+              <div>
+                <span className="font-serif text-4xl md:text-5xl font-bold text-[var(--color-gold)]">
                   {formatMembershipPrice()}
                 </span>
-                <span className="text-white/70 text-lg ml-2">
-                  per {AFFILIATE_MEMBERSHIP.billingPeriod}
-                </span>
+                <span className="text-white/70 text-lg ml-2">per {AFFILIATE_MEMBERSHIP.billingPeriod}</span>
+                <p className="text-white/60 text-sm mt-1">Pay for the year up front and save</p>
               </div>
+            </div>
+            <div className="mt-8 flex flex-wrap items-end gap-6">
               <Link href="/pro-network">
                 <Button size="lg" className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-bold text-base px-8 gap-2">
                   Apply Now <ArrowRight className="h-5 w-5" />
@@ -167,16 +178,16 @@ function AffiliateLanding() {
               The Math Works in Your Favor
             </h2>
             <p className="text-muted-foreground text-lg mt-4">
-              One kitchen order can return more than your annual membership. Every order after that is profit.
+              One kitchen order can return more than a year of membership. Every order after that is profit.
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto">
             <div className="text-center">
               <div className="font-serif text-4xl md:text-5xl font-bold text-[var(--color-navy)]">
-                {formatMembershipPrice()}
+                {MEMBERSHIP_PLAN_OPTIONS.monthly.amountCents / 100}
               </div>
-              <div className="text-sm text-muted-foreground mt-2">Annual membership</div>
+              <div className="text-sm text-muted-foreground mt-2">Monthly membership</div>
             </div>
             <div className="text-center">
               <div className="font-serif text-4xl md:text-5xl font-bold text-emerald-600">
@@ -297,7 +308,7 @@ function AffiliateLanding() {
             </a>
           </div>
           <p className="text-xs text-muted-foreground mt-6">
-            {formatMembershipPrice()}/{AFFILIATE_MEMBERSHIP.billingPeriod} · Free to apply · No inventory required
+            {MEMBERSHIP_PLAN_OPTIONS.monthly.amountCents / 100} month-to-month (3-month minimum) or {formatMembershipPrice()}/{AFFILIATE_MEMBERSHIP.billingPeriod} · Free to apply · No inventory required
           </p>
         </div>
       </section>
@@ -459,8 +470,10 @@ export default function AffiliateDashboard() {
     );
   }
 
-  // Determine which query to use based on role and context
-  const activeQuery: typeof myRef = isAdminViewAs ? adminRef : myRef;
+  // Determine which query to use based on role and context. The two queries
+  // return the same store row through different views (owner view vs admin
+  // view); the owner view is the shape the rest of this page reads.
+  const activeQuery = (isAdminViewAs ? adminRef : myRef) as typeof myRef;
 
   if (activeQuery.isLoading) {
     return (

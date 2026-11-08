@@ -44,6 +44,7 @@ import {
   type InternalLibraryDocument,
 } from "@shared/internalLibraryDocuments";
 import { isAffiliateLibraryDocument } from "@shared/libraryVisibility";
+import { readLiteratureRows } from "../lib/affiliateLiteratureSchema";
 
 /** Optional: point at the frontend checkout that holds docs/library/internal. */
 function documentPath(document: InternalLibraryDocument) {
@@ -82,11 +83,11 @@ async function main() {
     console.log(`Uploaded ${bytes.length} bytes to the private bucket as ${document.storageKey}`);
     console.log(`SHA-256 ${sha256}`);
 
-    const [row] = await db
-      .select()
+    const [row] = await readLiteratureRows((columns) => db
+      .select(columns)
       .from(affiliateLiterature)
       .where(eq(affiliateLiterature.fileKey, document.storageKey))
-      .limit(1);
+      .limit(1));
     if (!row) {
       // Not fatal: the SQL that registers the row can run after this.
       console.log(

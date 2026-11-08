@@ -15,6 +15,14 @@ import { finalizeRoomScenePrompt } from "../lib/roomScenePromptRules";
 import { resendConfigured, sendEmail } from "../email";
 import { sendCrmCustomerEmail, sendCrmDealEmail } from "../lib/crmCustomerMail";
 import { resolveAffiliateAccess } from "../lib/affiliateAccess";
+import {
+  assertFreeUsageAvailable,
+  attachFreeUsageRef,
+  claimFreeUsage,
+  loadFreeUsageGate,
+  releaseFreeUsage,
+  usagePayload,
+} from "../lib/affiliateFreeUsage";
 import { GEMINI_MATERIAL_MANIFEST_WIRE_VERSION, hasCurrentGeminiMaterialManifestWireVersion, serializeGeminiMaterialManifestForWire } from "../../shared/geminiMaterialManifest";
 
 const DATA_IMAGE_PREFIX = /^data:image\/(png|jpeg|webp);base64,/;
@@ -1673,6 +1681,13 @@ export const designPhotoRendersRouter = router({
       if (verifiedRequest) {
         await db.update(designImageRequests).set({ generationStatus: "generating" }).where(eq(designImageRequests.id, verifiedRequest.id));
       }
+      // A new photo render is one of the three things the free-use cap counts;
+      // a cached render returned above is not. An affiliate with an active
+      // membership, an admin, and a shopper who is not an affiliate are not
+      // capped, so this only bites an unpaid affiliate.
+      const usageGate = await loadFreeUsageGate(db, ctx.user);
+      assertFreeUsageAvailable(usageGate, "photo_render");
+      const usageClaim = await claimFreeUsage(db, usageGate, "photo_render", { userId: ctx.user.id });
       // Persist a canonical hash of the exact decoded JPEG bytes. This keeps
       // the provenance truthful when a browser's client-side digest and the
       // multipart/tRPC transport disagree, without relaxing resolution,
@@ -1683,38 +1698,48 @@ export const designPhotoRendersRouter = router({
       }
       const contentType = "image/jpeg";
       const extension = "jpg";
-      const storedRender = await storagePut(
-        `photo-quality/${ctx.user.id}/${input.sceneSignature}-deterministic.${extension}`,
-        renderedBytes,
-        contentType,
-      );
+      let storedRender: Awaited<ReturnType<typeof storagePut>>;
       const promptFingerprint = createHash("sha256").update("deterministic-webgl-high-resolution-v1").digest("hex");
       const confirmedAt = new Date();
-      await db.insert(designPhotoRenders).values({
-        userId: ctx.user.id,
-        sceneSignature: input.sceneSignature,
-        imageUrl: storedRender.url,
-        provenance: canonicalProvenance,
-        sourceImageHash: canonicalProvenance.sourceImageHash,
-        promptFingerprint,
-        generationMethod: input.provenance.generationMethod,
-        confirmedAt,
-      }).onDuplicateKeyUpdate({
-        set: {
+      try {
+        storedRender = await storagePut(
+          `photo-quality/${ctx.user.id}/${input.sceneSignature}-deterministic.${extension}`,
+          renderedBytes,
+          contentType,
+        );
+        await db.insert(designPhotoRenders).values({
+          userId: ctx.user.id,
+          sceneSignature: input.sceneSignature,
           imageUrl: storedRender.url,
           provenance: canonicalProvenance,
           sourceImageHash: canonicalProvenance.sourceImageHash,
           promptFingerprint,
           generationMethod: input.provenance.generationMethod,
           confirmedAt,
-          updatedAt: confirmedAt,
-        },
-      });
+        }).onDuplicateKeyUpdate({
+          set: {
+            imageUrl: storedRender.url,
+            provenance: canonicalProvenance,
+            sourceImageHash: canonicalProvenance.sourceImageHash,
+            promptFingerprint,
+            generationMethod: input.provenance.generationMethod,
+            confirmedAt,
+            updatedAt: confirmedAt,
+          },
+        });
+      } catch (error) {
+        // No render was produced, so the use is not spent.
+        await releaseFreeUsage(db, usageClaim).catch((releaseError) => {
+          console.warn("[Affiliate usage] Could not release the free use after a failed photo render.", releaseError);
+        });
+        throw error;
+      }
       if (verifiedRequest) {
         const [stored] = await db.select({ id: designPhotoRenders.id }).from(designPhotoRenders).where(and(
           eq(designPhotoRenders.userId, ctx.user.id),
           eq(designPhotoRenders.sceneSignature, input.sceneSignature),
         )).limit(1);
+        await attachFreeUsageRef(db, usageClaim, stored?.id ?? null).catch(() => undefined);
         await db.update(designImageRequests).set({
           generationStatus: "completed",
           designPhotoRenderId: stored?.id ?? null,
@@ -1723,7 +1748,17 @@ export const designPhotoRendersRouter = router({
         void sendCustomerImageReadyEmail(db, { ...verifiedRequest, generationStatus: "completed", designPhotoRenderId: stored?.id ?? null, imageUrl: storedRender.url })
           .catch(() => console.warn("[Photo render] Customer image-ready email delivery could not be completed."));
       }
-      return { imageUrl: storedRender.url, provenance: canonicalProvenance, sourceImageHash: canonicalProvenance.sourceImageHash, reused: false, promptFingerprint, generationMethod: input.provenance.generationMethod, confirmedAt };
+      return {
+        imageUrl: storedRender.url,
+        provenance: canonicalProvenance,
+        sourceImageHash: canonicalProvenance.sourceImageHash,
+        reused: false,
+        promptFingerprint,
+        generationMethod: input.provenance.generationMethod,
+        confirmedAt,
+        // Lets the Photo Quality screen update its free-use counter in place.
+        usage: usagePayload({ ...usageGate, snapshot: usageClaim.snapshot }),
+      };
     }),
 });
 

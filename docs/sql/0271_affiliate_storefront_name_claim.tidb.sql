@@ -1,4 +1,6 @@
--- TiDB SQL editor version. Numbered 0269. Run after 0268.
+-- TiDB SQL editor version. Numbered 0271. Run after 0270_affiliate_design_grants
+-- and 0270_pelican_missing_product_images. It is independent of both: it creates
+-- one new table and touches nothing they add.
 -- One statement per line, so each line can be pasted on its own in the TiDB
 -- editor. Every table is cabinet_dealz.<table>. No reserved-word aliases, and no
 -- "IF NOT EXISTS" anywhere: TiDB Cloud rejects it here.

@@ -4,6 +4,14 @@ import { TRPCError } from "@trpc/server";
 import { protectedProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
 import { resolveAffiliateAccess } from "../lib/affiliateAccess";
+import {
+  assertFreeUsageAvailable,
+  attachFreeUsageRef,
+  claimFreeUsage,
+  loadFreeUsageGate,
+  releaseFreeUsage,
+  usagePayload,
+} from "../lib/affiliateFreeUsage";
 import { resolveRequestStoreScope, type RequestStoreScope } from "../lib/affiliateHostScope";
 import {
   affiliates,
@@ -174,24 +182,41 @@ export const designAssistRouter = router({
       if (plan.mode !== "suggestion" || plan.updatesOriginal || plan.deletesDesign) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "A suggestion must leave the customer's design unchanged." });
       }
-      const result = await db.insert(kitchenDesigns).values({
-        userId: design.userId,
-        affiliateId: design.affiliateId,
-        name: plan.copy.name,
-        roomData: plan.copy.roomData as object | null,
-        placedCabinets: plan.copy.placedCabinets as object[] | null,
-        selectedSurfaces: plan.copy.selectedSurfaces as object[] | null,
-        threeDPresentation: plan.copy.threeDPresentation as object | null,
-        selectedStyleId: plan.copy.selectedStyleId,
-        selectedDistributorId: plan.copy.selectedDistributorId,
-        projectName: plan.copy.projectName,
-        roomLabel: plan.copy.roomLabel,
-        roomType: plan.copy.roomType,
-        recordKind: "suggested",
-        suggestionOfDesignId: design.id,
-        assistLabel: plan.copy.assistLabel,
-      });
+      // This writes a new kitchen design, so it is one of the counted uses for an
+      // affiliate without an active membership. Editing the original (saveRevision
+      // above) is not, and never reaches this gate.
+      const usageGate = await loadFreeUsageGate(db, ctx.user);
+      assertFreeUsageAvailable(usageGate, "design");
+      const usageClaim = await claimFreeUsage(db, usageGate, "design", { userId: ctx.user.id });
+
+      let result: unknown;
+      try {
+        result = await db.insert(kitchenDesigns).values({
+          userId: design.userId,
+          affiliateId: design.affiliateId,
+          name: plan.copy.name,
+          roomData: plan.copy.roomData as object | null,
+          placedCabinets: plan.copy.placedCabinets as object[] | null,
+          selectedSurfaces: plan.copy.selectedSurfaces as object[] | null,
+          threeDPresentation: plan.copy.threeDPresentation as object | null,
+          selectedStyleId: plan.copy.selectedStyleId,
+          selectedDistributorId: plan.copy.selectedDistributorId,
+          projectName: plan.copy.projectName,
+          roomLabel: plan.copy.roomLabel,
+          roomType: plan.copy.roomType,
+          recordKind: "suggested",
+          suggestionOfDesignId: design.id,
+          assistLabel: plan.copy.assistLabel,
+        });
+      } catch (error) {
+        // No copy was written, so the use is not spent.
+        await releaseFreeUsage(db, usageClaim).catch((releaseError) => {
+          console.warn("[Affiliate usage] Could not release the free use after a failed suggestion.", releaseError);
+        });
+        throw error;
+      }
       const copyId = insertId(result);
+      await attachFreeUsageRef(db, usageClaim, copyId).catch(() => undefined);
       const links = await db.select().from(customerProjectDesigns).where(eq(customerProjectDesigns.kitchenDesignId, design.id));
       for (const link of links) {
         await db.insert(customerProjectDesigns).values({ projectId: link.projectId, kitchenDesignId: copyId });
@@ -206,6 +231,10 @@ export const designAssistRouter = router({
         noticeKind: "design_suggested",
         projectId: links[0]?.projectId ?? null,
       });
-      return { id: copyId, originalId: design.id };
+      return {
+        id: copyId,
+        originalId: design.id,
+        usage: usagePayload({ ...usageGate, snapshot: usageClaim.snapshot }),
+      };
     }),
 });

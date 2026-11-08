@@ -247,13 +247,18 @@ describe("0236 Marketing Hub content migration", () => {
     const journal = JSON.parse(read("drizzle/meta/_journal.json")) as {
       entries: { idx: number; tag: string }[];
     };
-    const last = journal.entries[journal.entries.length - 1];
-    const previous = journal.entries[journal.entries.length - 2];
-    expect(last.tag).toBe("0236_affiliate_marketing_hub_content");
+    // Later migrations are appended after this one, so find it by tag instead of
+    // assuming it is last: the entry it has to follow is 0235.
+    const index = journal.entries.findIndex(
+      entry => entry.tag === "0236_affiliate_marketing_hub_content"
+    );
+    expect(index).toBeGreaterThan(0);
+    const entry = journal.entries[index]!;
+    const previous = journal.entries[index - 1]!;
     expect(previous.tag).toBe("0235_room_scene_prompt_audit");
     // The journal already has a historical gap (idx 161), so compare to the
     // previous entry rather than to entries.length.
-    expect(last.idx).toBe(previous.idx + 1);
+    expect(entry.idx).toBe(previous.idx + 1);
   });
 });
 

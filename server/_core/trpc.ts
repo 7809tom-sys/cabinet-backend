@@ -5,8 +5,24 @@ import type { TrpcContext } from "./context";
 import { loadLinkedCatalogLineIds } from "../lib/approvedVendorCatalog";
 import { invalidatePublicCatalogCache } from "../lib/publicCatalogCache";
 
+/**
+ * The one error cause the client is allowed to read. Only an all-caps code shape
+ * is passed through, so an internal cause (a database message, a stack, a URL)
+ * is never widened into the public error payload. The free-use cap uses this to
+ * send MEMBERSHIP_REQUIRED without the client matching message text.
+ */
+export function publicErrorCause(error: { cause?: unknown }): string | undefined {
+  const message = (error.cause as { message?: unknown } | undefined)?.message;
+  if (typeof message !== "string") return undefined;
+  return /^[A-Z][A-Z0-9_]{0,63}$/.test(message) ? message : undefined;
+}
+
 const t = initTRPC.context<TrpcContext>().create({
   transformer: superjson,
+  errorFormatter({ shape, error }) {
+    const cause = publicErrorCause(error);
+    return cause ? { ...shape, data: { ...shape.data, cause } } : shape;
+  },
 });
 
 export const router = t.router;

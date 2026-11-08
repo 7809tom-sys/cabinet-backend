@@ -5,6 +5,7 @@ import { protectedProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
 import { affiliates } from "../../drizzle/schema";
 import { resolveAffiliateAccess } from "../lib/affiliateAccess";
+import { loadMembershipSnapshot } from "../lib/affiliateMembership";
 import {
   claimStorefrontName,
   loadStorefrontClaimState,
@@ -57,7 +58,11 @@ async function requireOwnedStorefront(
     .where(eq(affiliates.id, access.affiliateId))
     .limit(1);
   if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Affiliate account not found." });
-  return { db, affiliate: row };
+  // membershipCancelledAt is added by hand, so it is read through the snapshot
+  // loader, which falls back to the legacy columns instead of throwing when the
+  // membership-plan SQL has not been run yet.
+  const snapshot = await loadMembershipSnapshot(db, access.affiliateId);
+  return { db, affiliate: { ...row, membershipCancelledAt: snapshot?.cancelledAt ?? null } };
 }
 
 function claimedState(state: StorefrontClaimState) {

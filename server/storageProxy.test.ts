@@ -196,6 +196,28 @@ describe("storage proxy Supabase routing", () => {
     }
   });
 
+  it("refuses an onboarding document on the path for an admin too, so only a signed link works", async () => {
+    const fetched: string[] = [];
+    global.fetch = vi.fn(async (input: string | URL | Request) => {
+      fetched.push(String(input));
+      return new Response(jpeg as unknown as BodyInit);
+    }) as unknown as typeof fetch;
+    setStorageProxyAuthenticator(async (req) => (
+      req.headers["x-test-role"] === "admin"
+        ? { id: 1, role: "admin", email: "admin@example.com", distributorId: null }
+        : { id: 7, role: "user", email: "owner@example.com", distributorId: null }
+    ));
+    const { server, baseUrl } = await startProxy();
+    try {
+      const key = "affiliate-documents/7/ssn_card-1794000000000.png";
+      expect((await realFetch(`${baseUrl}/manus-storage/${key}`)).status).toBe(403);
+      expect((await realFetch(`${baseUrl}/manus-storage/${key}`, { headers: { "x-test-role": "admin" } })).status).toBe(403);
+      expect(fetched).toHaveLength(0);
+    } finally {
+      server.close();
+    }
+  });
+
   it("reads public media anonymously and refuses private keys without an owner", async () => {
     const seen: { url: string; auth: string | null }[] = [];
     global.fetch = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {

@@ -5,18 +5,21 @@
  * Three things must all be true:
  *   1. the paid membership is active and not expired;
  *   2. every required legal document is signed;
- *   3. every required onboarding document is uploaded.
+ *   3. every required onboarding document is uploaded and approved.
  *
- * (1) is implemented here and reads the existing membership columns. (2) and (3)
- * belong to sibling PRs — `hasSignedAllRequired` and `hasRequiredDocuments` —
- * which are not merged yet, so they are stubs that return BLOCKED. That default
- * is deliberate: until those checks are wired, no storefront can go live on an
- * unsigned agreement or a missing document. A stub that returned true would
- * publish stores that skipped the legal steps.
+ * (1) is implemented here from the existing membership columns. (3) calls
+ * `hasRequiredDocuments` from server/lib/affiliateDocuments.ts, which landed in
+ * PR 85. (2) belongs to the legal-contracts sibling PR 87, which is still open, so
+ * it is a stub that returns BLOCKED. That default is deliberate: until it is
+ * wired, no storefront can go live on an unsigned agreement. A stub that
+ * returned true would publish stores that skipped the contract.
  *
  * The checks sit behind `OnboardingGateChecks` so a test can substitute all-true
- * checks, and so the sibling PRs only have to fill in one function each.
+ * checks, and so PR 87 only has to fill in one function.
  */
+
+import { hasRequiredDocuments } from "./affiliateDocuments";
+import { effectiveMembershipStatus } from "./affiliateMembership";
 
 export type OnboardingGateBlocker =
   | "store_inactive"
@@ -33,6 +36,12 @@ export type OnboardingGateInput = {
   membershipStatus: string;
   /** affiliates.membershipExpiresAt. Null means no term recorded yet. */
   membershipExpiresAt: Date | string | number | null;
+  /**
+   * affiliates.membershipCancelledAt. A cancelled member keeps access until the
+   * paid period ends, so this changes the reading of an active status. Optional
+   * because a row read before the membership-plan columns existed has none.
+   */
+  membershipCancelledAt?: Date | string | number | null;
 };
 
 export type OnboardingCheckOutcome =
@@ -40,11 +49,11 @@ export type OnboardingCheckOutcome =
   | { ok: false; blockers: OnboardingGateBlocker[] };
 
 export type OnboardingGateChecks = {
-  /** Implemented now: paid membership is active for the current term. */
+  /** Implemented: paid membership is active for the current term. */
   membership: (input: OnboardingGateInput, now: Date) => Promise<OnboardingCheckOutcome>;
-  /** Sibling PR: every required legal document has been signed. */
+  /** PR 87 (open): every required legal document has been signed. */
   legalDocuments: (input: OnboardingGateInput) => Promise<OnboardingCheckOutcome>;
-  /** Sibling PR: every required onboarding document has been uploaded. */
+  /** Implemented: every required onboarding document is uploaded and approved. */
   requiredDocuments: (input: OnboardingGateInput) => Promise<OnboardingCheckOutcome>;
 };
 
@@ -84,55 +93,66 @@ function expiryMillis(value: OnboardingGateInput["membershipExpiresAt"]): number
 }
 
 /**
- * Active membership means the paid status AND a term that has not run out. A
- * null expiry keeps working (older rows paid before the term columns existed);
- * an expiry on the exact boundary is treated as expired.
+ * Active membership means the paid status AND a term that has not run out.
+ *
+ * The status is read through effectiveMembershipStatus(), main's rule for how a
+ * member should read, so this gate cannot disagree with the membership dashboard.
+ * Its one judgement is that a cancelled membership paid through the end of its
+ * period still counts as active here: the member has paid for that time, and the
+ * dashboard shows the same "active until <date>". A null expiry keeps working
+ * (older rows paid before the term columns existed); an expiry on the exact
+ * boundary is treated as expired.
  */
 export function evaluateMembership(
-  input: Pick<OnboardingGateInput, "membershipStatus" | "membershipExpiresAt">,
+  input: Pick<OnboardingGateInput, "membershipStatus" | "membershipExpiresAt" | "membershipCancelledAt">,
   now: Date = new Date(),
 ): OnboardingCheckOutcome {
-  if (input.membershipStatus !== "active") {
-    return { ok: false, blockers: ["membership_inactive"] };
-  }
   const expiresAt = expiryMillis(input.membershipExpiresAt);
-  if (expiresAt != null && expiresAt <= now.getTime()) {
-    return { ok: false, blockers: ["membership_expired"] };
-  }
-  return { ok: true };
+  const cancelledAt = expiryMillis(input.membershipCancelledAt ?? null);
+  const status = effectiveMembershipStatus(
+    {
+      status: input.membershipStatus as "pending" | "active" | "past_due" | "cancelled",
+      expiresAt: expiresAt == null ? null : new Date(expiresAt),
+      cancelledAt: cancelledAt == null ? null : new Date(cancelledAt),
+    },
+    now.getTime(),
+  );
+  if (status === "active") return { ok: true };
+  if (status === "past_due") return { ok: false, blockers: ["membership_expired"] };
+  return { ok: false, blockers: ["membership_inactive"] };
 }
 
 /**
- * TODO(final-onboarding PRs): replace with
- *   import { hasSignedAllRequired } from "../lib/affiliateLegalDocuments";
+ * TODO(PR 87, cursor/affiliate-legal-esign-36e8): replace with
+ *   import { hasSignedAllRequired } from "./affiliateLegalContracts";
  *   return (await hasSignedAllRequired(input.affiliateId))
  *     ? { ok: true }
  *     : { ok: false, blockers: ["legal_docs_unsigned"] };
- * until the legal-documents sibling PR lands. Blocking is intentional.
+ * hasSignedAllRequired(affiliateId: number): Promise<boolean> is the exact
+ * signature on that branch. Until it lands, this blocks: publishing on an
+ * unsigned contract is not recoverable, and the PR that adds the check has to be
+ * the one that un-publishes live stores otherwise.
  */
 async function hasSignedAllRequiredStub(_input: OnboardingGateInput): Promise<OnboardingCheckOutcome> {
-  // TODO(legal-docs sibling PR): wire hasSignedAllRequired here.
+  // TODO(PR 87): wire hasSignedAllRequired here.
   return { ok: false, blockers: ["legal_docs_unsigned"] };
 }
 
 /**
- * TODO(final-onboarding PRs): replace with
- *   import { hasRequiredDocuments } from "../lib/affiliateOnboardingDocuments";
- *   return (await hasRequiredDocuments(input.affiliateId))
- *     ? { ok: true }
- *     : { ok: false, blockers: ["documents_missing"] };
- * until the onboarding-documents sibling PR lands. Blocking is intentional.
+ * Every required onboarding document (license, SSN card, business card) is
+ * uploaded and approved. Delegated to the helper PR 85 shipped, so the rule lives
+ * in one place and cannot drift from the documents dashboard.
  */
-async function hasRequiredDocumentsStub(_input: OnboardingGateInput): Promise<OnboardingCheckOutcome> {
-  // TODO(onboarding-documents sibling PR): wire hasRequiredDocuments here.
-  return { ok: false, blockers: ["documents_missing"] };
+async function requiredDocumentsCheck(input: OnboardingGateInput): Promise<OnboardingCheckOutcome> {
+  const ok = await hasRequiredDocuments(input.affiliateId);
+  return ok ? { ok: true } : { ok: false, blockers: ["documents_missing"] };
 }
 
-/** Default checks: the real membership rule plus the two blocking stubs. */
+/** Default checks: membership, the blocking legal stub, and the real documents check. */
 export const DEFAULT_ONBOARDING_GATE_CHECKS: OnboardingGateChecks = {
   membership: (input, now) => Promise.resolve(evaluateMembership(input, now)),
   legalDocuments: hasSignedAllRequiredStub,
-  requiredDocuments: hasRequiredDocumentsStub,
+  requiredDocuments: requiredDocumentsCheck,
 };
 
 /** Blocker order in every response, so the onboarding checklist is stable. */

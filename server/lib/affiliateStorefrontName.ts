@@ -60,6 +60,12 @@ export type ClaimableAffiliate = {
   status: string;
   membershipStatus: string;
   membershipExpiresAt: Date | string | number | null;
+  /**
+   * Set when a member cancels. A cancelled member keeps access until the period
+   * they paid for ends. Loaded through loadMembershipSnapshot(), which tolerates
+   * the hand-run column missing, so it is absent on a legacy row.
+   */
+  membershipCancelledAt?: Date | string | number | null;
   storefrontEnabled: boolean;
 };
 
@@ -69,6 +75,7 @@ export function gateInputFor(affiliate: ClaimableAffiliate): OnboardingGateInput
     status: affiliate.status,
     membershipStatus: affiliate.membershipStatus,
     membershipExpiresAt: affiliate.membershipExpiresAt,
+    membershipCancelledAt: affiliate.membershipCancelledAt ?? null,
   };
 }
 
@@ -102,7 +109,7 @@ export async function loadStorefrontClaim(
   } catch (error) {
     if (isMissingSchemaError(error)) {
       console.error(
-        "[Affiliate storefront claim] affiliate_storefront_claims is missing. Run docs/sql/0269_affiliate_storefront_name_claim.tidb.sql.",
+        "[Affiliate storefront claim] affiliate_storefront_claims is missing. Run docs/sql/0271_affiliate_storefront_name_claim.tidb.sql.",
       );
       return { claim: null, schemaMissing: true };
     }
@@ -188,7 +195,7 @@ export async function claimStorefrontName(
       ok: false,
       reason: "schema",
       message:
-        "Storefront publishing is not set up yet. Run docs/sql/0269_affiliate_storefront_name_claim.tidb.sql and try again.",
+        "Storefront publishing is not set up yet. Run docs/sql/0271_affiliate_storefront_name_claim.tidb.sql and try again.",
     };
   }
 
@@ -259,7 +266,7 @@ export async function claimStorefrontName(
         ok: false,
         reason: "schema",
         message:
-          "Storefront publishing is not set up yet. Run docs/sql/0269_affiliate_storefront_name_claim.tidb.sql and try again.",
+          "Storefront publishing is not set up yet. Run docs/sql/0271_affiliate_storefront_name_claim.tidb.sql and try again.",
       };
     }
     throw error;

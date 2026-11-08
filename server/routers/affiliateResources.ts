@@ -7,6 +7,7 @@ import { storageGetSignedUrl, storagePut } from "../storage";
 import { affiliateLiterature, affiliateResourceProgress, affiliateResources } from "../../drizzle/schema";
 import { resolveAffiliateAccess } from "../lib/affiliateAccess";
 import { isAffiliateLibraryDocument } from "@shared/libraryVisibility";
+import { readLiteratureRows } from "../lib/affiliateLiteratureSchema";
 import {
   AFFILIATE_RESOURCE_FILE_PREFIX,
   AFFILIATE_RESOURCE_TYPES,
@@ -217,11 +218,20 @@ export const affiliateResourcesRouter = router({
     // Only documents an admin explicitly put in the affiliate library. Both the
     // visibility column AND the legacy isPublished flag have to agree, so a
     // hand edit to one of them cannot publish an internal document.
-    const rows = await db
-      .select()
+    //
+    // The filter runs on the shaped row rather than in SQL because visibility is
+    // added by hand in docs/sql/0269: before that SQL runs, a WHERE on the column
+    // fails inside the driver and the affiliate portal 500s. A missing column now
+    // reads as internal, so the row is simply not affiliate-visible. The SQL still
+    // filters when the column is there, and the shared predicate is applied to the
+    // shaped row either way, so a value the column cannot hold cannot publish.
+    const rows = await readLiteratureRows((columns) => db
+      .select(columns)
       .from(affiliateLiterature)
-      .where(and(eq(affiliateLiterature.visibility, "affiliate"), eq(affiliateLiterature.isPublished, true)))
-      .orderBy(asc(affiliateLiterature.sortOrder), asc(affiliateLiterature.id));
+      .where(columns.visibility
+        ? and(eq(affiliateLiterature.visibility, "affiliate"), eq(affiliateLiterature.isPublished, true))
+        : eq(affiliateLiterature.isPublished, true))
+      .orderBy(asc(affiliateLiterature.sortOrder), asc(affiliateLiterature.id)));
     return rows
       .filter(isAffiliateLibraryDocument)
       .map((row) => ({
@@ -245,7 +255,14 @@ export const affiliateResourcesRouter = router({
     .query(async ({ input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
-      const [row] = await db.select().from(affiliateLiterature).where(eq(affiliateLiterature.id, input.id)).limit(1);
+      // The Open button needs the file key, not the visibility audit, so this
+      // read goes through the same fallback as the admin list: a deploy that
+      // lands before docs/sql/0269 still opens every document.
+      const [row] = await readLiteratureRows((columns) => db
+        .select(columns)
+        .from(affiliateLiterature)
+        .where(eq(affiliateLiterature.id, input.id))
+        .limit(1));
       if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "That document is not available." });
       const url = await storageGetSignedUrl(row.fileKey);
       return { url, filename: row.filename, mimeType: row.mimeType };

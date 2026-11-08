@@ -167,7 +167,7 @@ describe("claimStorefrontName", () => {
     expect(result.ok).toBe(false);
     if (result.ok) throw new Error("expected refusal");
     expect(result.reason).toBe("gate");
-    expect(result.gate?.blockers).toContain("membership_inactive");
+    expect(result.gate?.blockers).toContain("membership_expired");
     expect(rowsOf(affiliateStorefrontClaims)).toHaveLength(0);
   });
 
@@ -311,7 +311,7 @@ describe("claimStorefrontName", () => {
     expect(result.ok).toBe(false);
     if (result.ok) throw new Error("expected refusal");
     expect(result.reason).toBe("schema");
-    expect(result.message).toMatch(/0269_affiliate_storefront_name_claim/);
+    expect(result.message).toMatch(/0271_affiliate_storefront_name_claim/);
   });
 });
 
@@ -357,6 +357,14 @@ describe("gateInputFor", () => {
       status: "active",
       membershipStatus: "active",
       membershipExpiresAt: MINE.membershipExpiresAt,
+      membershipCancelledAt: null,
+    });
+  });
+
+  it("passes a cancellation date through, so a paid-through cancel still counts", () => {
+    const cancelled = new Date("2026-10-01T00:00:00Z");
+    expect(gateInputFor({ ...MINE, membershipCancelledAt: cancelled })).toMatchObject({
+      membershipCancelledAt: cancelled,
     });
   });
 });

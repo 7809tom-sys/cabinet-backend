@@ -1046,7 +1046,7 @@ function AffiliatePricingAdmin({ affiliateId }: { affiliateId: number }) {
         <div className="space-y-1">
           <Label className="text-xs">Default markup % (all styles unless overridden)</Label>
           <div className="flex items-center gap-2 max-w-xs">
-            <Input type="number" min="0" step="0.5" value={defaultPct} onChange={(e) => setDefaultPct(e.target.value)} placeholder="e.g. 20" />
+            <Input type="number" min="0" step="0.5" value={defaultPct} onChange={(e) => setDefaultPct(e.target.value)} placeholder="e.g. 40" />
             <span className="text-muted-foreground text-sm">%</span>
           </div>
         </div>
