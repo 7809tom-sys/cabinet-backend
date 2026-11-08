@@ -31,17 +31,20 @@ import { cleanSectionLabels, parseCatalogVendorKey, storefrontEditDecision, vali
 import { computeEarning, dollarsToCents, groupByWeek, isoWeekKey, isoWeekStart } from "@shared/earnings";
 import {
   normalizeReferralCode,
-  slugify,
   deriveReferralCode,
   sumCommission,
 } from "@shared/affiliate";
 import { EMBED_CODE_MAX_LENGTH, embedCodeHasErrors } from "@shared/embedCode";
-import { reavesWayAffiliateDefaults } from "@shared/affiliateBlueprint";
+import { affiliateStartingMarkup, reavesWayAffiliateDefaults } from "@shared/affiliateBlueprint";
 import { affiliateNonCompeteEnforcementNote } from "@shared/affiliateNonCompete";
 import { AFFILIATE_STOREFRONT_TEMPLATE_IDS, type AffiliateStorefrontTemplate } from "@shared/affiliateStorefrontTemplates";
 import { importAffiliateWebsiteDraft } from "../lib/affiliateWebsiteImport";
 import { assertAffiliateSocialEditor } from "../lib/affiliateSocialAccess";
 import { legacySocialColumns, mergeLegacySocialColumns, publicSocialLinks } from "@shared/affiliateSocialLinks";
+import { isReservedStorefrontSlug, storefrontSlugFromName } from "@shared/affiliateStorefrontName";
+import {
+  checkStorefrontAvailability,
+} from "../lib/affiliateStorefrontName";
 
 type HardwareCommissionSnapshotFact = {
   hardwareMerchandiseCents: number;
@@ -625,10 +628,14 @@ export const affiliatesRouter = router({
       if (!db)
         throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
 
-      const slug = slugify(input.slug || input.storeName);
+      const slug = input.slug ? storefrontSlugFromName(input.slug) : storefrontSlugFromName(input.storeName);
       const referralCode = normalizeReferralCode(input.referralCode || deriveReferralCode(input.storeName));
       if (!slug)
         throw new TRPCError({ code: "BAD_REQUEST", message: "Could not derive a storefront slug from the name." });
+      // The same reserved list the self-serve claim uses. An admin-created store
+      // must not take a name the platform already routes.
+      if (isReservedStorefrontSlug(slug))
+        throw new TRPCError({ code: "BAD_REQUEST", message: `"${slug}" is reserved by Cabinet Dealz. Choose a different storefront slug.` });
 
       // Ensure slug + code are unique.
       const existing = await db
@@ -666,7 +673,9 @@ export const affiliatesRouter = router({
         instagramUrl: input.instagramUrl ?? null,
         template: input.template ?? blueprint.template,
         buttonRadius: blueprint.buttonRadius,
-        defaultMarkupBps: blueprint.defaultMarkupBps,
+        // Every new affiliate starts at the blueprint's 40% markup on
+        // everything, hardware included, and can change it afterwards.
+        ...affiliateStartingMarkup(),
         notes: input.notes ?? null,
       });
       const insertId = (result as unknown as [{ insertId: number }])[0].insertId;
@@ -739,6 +748,9 @@ export const affiliatesRouter = router({
         .object({
           id: z.number(),
           storeName: z.string().min(1).max(256).optional(),
+          // The only path that may change a slug after it was claimed. Partners
+          // cannot send this: their own procedures do not accept a slug.
+          slug: z.string().max(64).optional(),
           contactName: z.string().max(256).nullable().optional(),
           email: z.string().email().max(320).optional(),
           phone: z.string().max(32).nullable().optional(),
@@ -755,9 +767,22 @@ export const affiliatesRouter = router({
       const db = await getDb();
       if (!db)
         throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
-      const { id, commissionRate, ...rest } = input;
+      const { id, commissionRate, slug: requestedSlug, ...rest } = input;
       const set: Record<string, unknown> = { ...rest };
       if (commissionRate !== undefined) set.commissionRate = commissionRate.toFixed(4);
+      if (requestedSlug !== undefined) {
+        // Admin rename. The claim row keeps the slug the affiliate claimed, so
+        // the difference between the two is the audit trail.
+        const slug = storefrontSlugFromName(requestedSlug);
+        if (!slug)
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Could not derive a storefront slug from that value." });
+        if (isReservedStorefrontSlug(slug))
+          throw new TRPCError({ code: "BAD_REQUEST", message: `"${slug}" is reserved by Cabinet Dealz. Choose a different storefront slug.` });
+        const availability = await checkStorefrontAvailability(db, slug, { ignoreAffiliateId: id });
+        if (!availability.available)
+          throw new TRPCError({ code: "CONFLICT", message: availability.message });
+        set.slug = slug;
+      }
       if (typeof set.email === "string") {
         const email = set.email.trim();
         const emailLower = email.toLowerCase();

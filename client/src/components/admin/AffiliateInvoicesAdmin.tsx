@@ -43,7 +43,8 @@ export default function AffiliateInvoicesAdmin() {
   const { data: affiliateList } = trpc.affiliates.adminList.useQuery();
 
   const [createForId, setCreateForId] = useState<string>("");
-  const [payFor, setPayFor] = useState<{ id: number; number: string; amountCents: number } | null>(null);
+  const [createPlan, setCreatePlan] = useState<"annual" | "monthly">("annual");
+  const [payFor, setPayFor] = useState<{ id: number; number: string; amountCents: number; plan: "annual" | "monthly" } | null>(null);
   const [payMethod, setPayMethod] = useState<"stripe" | "external_card" | "manual">("external_card");
   const [payRef, setPayRef] = useState("");
 
@@ -68,7 +69,7 @@ export default function AffiliateInvoicesAdmin() {
       utils.affiliates.adminList.invalidate();
       setPayFor(null);
       setPayRef("");
-      toast.success("Payment recorded — membership activated for 1 year");
+      toast.success("Payment recorded — membership term set by the invoice's plan");
     },
     onError: (e) => toast.error(e.message),
   });
@@ -110,9 +111,9 @@ export default function AffiliateInvoicesAdmin() {
         </Card>
         <Card>
           <CardContent className="pt-6">
-            <p className="text-sm text-muted-foreground">Annual fee</p>
-            <p className="text-2xl font-bold">$1,195</p>
-            <p className="text-xs text-muted-foreground mt-1">per affiliate / year</p>
+            <p className="text-sm text-muted-foreground">Plans</p>
+            <p className="text-2xl font-bold">$1,195 / $169</p>
+            <p className="text-xs text-muted-foreground mt-1">per year · per month, 3-month minimum</p>
           </CardContent>
         </Card>
       </div>
@@ -120,7 +121,7 @@ export default function AffiliateInvoicesAdmin() {
       <Card>
         <CardContent className="pt-6 flex flex-col sm:flex-row gap-3 sm:items-end">
           <div className="flex-1">
-            <label className="text-sm font-medium mb-1.5 block">Generate annual invoice for affiliate</label>
+            <label className="text-sm font-medium mb-1.5 block">Generate an invoice for affiliate</label>
             <Select value={createForId} onValueChange={setCreateForId}>
               <SelectTrigger>
                 <SelectValue placeholder="Choose an affiliate…" />
@@ -134,12 +135,24 @@ export default function AffiliateInvoicesAdmin() {
               </SelectContent>
             </Select>
           </div>
+          <div className="w-full sm:w-40">
+            <label className="text-sm font-medium mb-1.5 block">Plan</label>
+            <Select value={createPlan} onValueChange={(v) => setCreatePlan(v as "annual" | "monthly")}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="annual">Annual — $1,195/year</SelectItem>
+                <SelectItem value="monthly">Monthly — $169/month</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           <Button
             className="gap-1.5"
             disabled={!createForId || createInvoice.isPending}
-            onClick={() => createInvoice.mutate({ affiliateId: Number(createForId) })}
+            onClick={() => createInvoice.mutate({ affiliateId: Number(createForId), plan: createPlan })}
           >
-            <Plus className="h-4 w-4" /> Create $1,195 invoice
+            <Plus className="h-4 w-4" /> Create {createPlan === "monthly" ? "$169" : "$1,195"} invoice
           </Button>
         </CardContent>
       </Card>
@@ -147,8 +160,8 @@ export default function AffiliateInvoicesAdmin() {
       {!invoices || invoices.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground text-sm">
           <FileText className="h-8 w-8 mx-auto mb-2 opacity-40" />
-          No membership invoices yet. Generate one above, or an affiliate can request theirs from their
-          partner dashboard.
+          No membership invoices yet. Generate one above, or an affiliate can pick a plan and pay it
+          themselves from their partner dashboard.
         </div>
       ) : (
         <Card>
@@ -158,6 +171,7 @@ export default function AffiliateInvoicesAdmin() {
                 <TableRow>
                   <TableHead>Invoice #</TableHead>
                   <TableHead>Affiliate</TableHead>
+                  <TableHead>Plan</TableHead>
                   <TableHead>Issued</TableHead>
                   <TableHead className="text-right">Amount</TableHead>
                   <TableHead>Status</TableHead>
@@ -170,6 +184,10 @@ export default function AffiliateInvoicesAdmin() {
                   <TableRow key={inv.id}>
                     <TableCell className="font-mono text-xs">{inv.invoiceNumber}</TableCell>
                     <TableCell>{affiliateName.get(inv.affiliateId) ?? `#${inv.affiliateId}`}</TableCell>
+                    <TableCell className="capitalize text-muted-foreground">
+                      {inv.membershipPlan ?? "annual"}
+                      {inv.membershipPlan === "monthly" && inv.periodNumber > 1 ? ` · month ${inv.periodNumber}` : ""}
+                    </TableCell>
                     <TableCell className="text-muted-foreground">{fmt(inv.issuedAt)}</TableCell>
                     <TableCell className="text-right font-semibold">{money(inv.amountCents)}</TableCell>
                     <TableCell>
@@ -192,7 +210,12 @@ export default function AffiliateInvoicesAdmin() {
                           size="sm"
                           className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1"
                           onClick={() => {
-                            setPayFor({ id: inv.id, number: inv.invoiceNumber, amountCents: inv.amountCents });
+                            setPayFor({
+                              id: inv.id,
+                              number: inv.invoiceNumber,
+                              amountCents: inv.amountCents,
+                              plan: inv.membershipPlan ?? "annual",
+                            });
                             setPayMethod("external_card");
                             setPayRef("");
                           }}
@@ -218,8 +241,8 @@ export default function AffiliateInvoicesAdmin() {
           </DialogHeader>
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Recording {payFor ? money(payFor.amountCents) : ""} activates this affiliate's membership for one
-              year from today.
+              Recording {payFor ? money(payFor.amountCents) : ""} activates this affiliate's{" "}
+              {payFor?.plan === "monthly" ? "monthly membership for one month (three-month minimum)" : "annual membership for one year"}.
             </p>
             <div>
               <label className="text-sm font-medium mb-1.5 block">Payment method</label>

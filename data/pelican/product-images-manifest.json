@@ -1,0 +1,1234 @@
+{
+  "capturedOn": "2026-11-07",
+  "sourceDomain": "buildpelican.com",
+  "sourceDomainNote": "buildpelican.com is Pelican International's current official storefront. pelicanintl.com serves a park page, not a catalog.",
+  "onlyFieldChanged": "pelican_products.imageUrl",
+  "imageCount": 44,
+  "catalogRowCount": 48,
+  "processing": "Official image downloaded, then re-encoded to WebP at a 1200px maximum edge. No crop, retouch, generation or lookalike substitution.",
+  "notes": [
+    "One committed file per distinct image. Rows that share an official photo share one file.",
+    "The right-hand drain skirt rows PL-02849RNSO / PL-02850RNSO / PL-02851RNSO use the official right-hand-drain alcove tub photo (PL-02849R / PL-02850R / PL-02851R).",
+    "NSO (nested pallet) and BSO (individually boxed) rows are packaging variants of the same tub model, so they use that model's official photo.",
+    "Pelican publishes byte-identical photos for PL-02849L and PL-02851L, so those two rows share one committed file.",
+    "Pelican's PL-FC3320WS Black and White variants reuse PL-FC3020WS photographs; those two rows are left without a photo rather than showing the wrong model."
+  ],
+  "images": [
+    {
+      "asset": "acornplanks-e8d39eb1-fc3b-4ffa-a1f5-9fd50f90e489_4771a784.webp",
+      "storageKey": "pelican/acornplanks-e8d39eb1-fc3b-4ffa-a1f5-9fd50f90e489_4771a784.webp",
+      "sha256": "83a3c1ffa4e15b69584ed01c0fc2a87cd5e8ee9ffc16cd68fcc194cbcd98f0ec",
+      "width": 1200,
+      "height": 900,
+      "sourceProductUrls": [
+        "https://buildpelican.com/products/acorn"
+      ],
+      "sourceImageUrls": [
+        "https://cdn.shopify.com/s/files/1/0624/4476/5324/files/AcornPlanks_e8d39eb1-fc3b-4ffa-a1f5-9fd50f90e489.jpg?v=1759177240"
+      ],
+      "officialSkus": [
+        "Acorn 20mil Dryback Planks"
+      ],
+      "matchRules": [
+        "exact-product-name"
+      ],
+      "catalogRows": [
+        {
+          "id": 39,
+          "pelicanCode": "Acorn",
+          "name": "Acorn",
+          "category": "Flooring"
+        }
+      ]
+    },
+    {
+      "asset": "avilesinstalled-c365b488-9fd7-4309-9c7f-0255d3551d08_25d99b0d.webp",
+      "storageKey": "pelican/avilesinstalled-c365b488-9fd7-4309-9c7f-0255d3551d08_25d99b0d.webp",
+      "sha256": "02a35b0c0ef6fc883b7a3f50d21f9f08e45b26048bfd2de89d586661327aa985",
+      "width": 1200,
+      "height": 900,
+      "sourceProductUrls": [
+        "https://buildpelican.com/products/aviles"
+      ],
+      "sourceImageUrls": [
+        "https://cdn.shopify.com/s/files/1/0624/4476/5324/files/AvilesInstalled_c365b488-9fd7-4309-9c7f-0255d3551d08.jpg?v=1759238283"
+      ],
+      "officialSkus": [
+        "Aviles 20mil Dryback Planks"
+      ],
+      "matchRules": [
+        "exact-product-name"
+      ],
+      "catalogRows": [
+        {
+          "id": 77,
+          "pelicanCode": "Aviles",
+          "name": "Aviles",
+          "category": "Flooring"
+        }
+      ]
+    },
+    {
+      "asset": "24_0681f7c4.webp",
+      "storageKey": "pelican/24_0681f7c4.webp",
+      "sha256": "2e284202de9b23ee2e8d094babef15d0a444ca512553f4816bf30d6edae1a78e",
+      "width": 1200,
+      "height": 900,
+      "sourceProductUrls": [
+        "https://buildpelican.com/products/scotchguard-guardian"
+      ],
+      "sourceImageUrls": [
+        "https://cdn.shopify.com/s/files/1/0624/4476/5324/files/24.png?v=1770233929"
+      ],
+      "officialSkus": [
+        "BM0096 Scotchgard Guardian Underlayment"
+      ],
+      "matchRules": [
+        "exact-sku"
+      ],
+      "catalogRows": [
+        {
+          "id": 112,
+          "pelicanCode": "BM0096 Scotchgard Guardian Underlayment",
+          "name": "BM0096 Scotchgard Guardian Underlayment",
+          "category": "Flooring"
+        }
+      ]
+    },
+    {
+      "asset": "bbl-914-006-1_e055c0b1.webp",
+      "storageKey": "pelican/bbl-914-006-1_e055c0b1.webp",
+      "sha256": "48aa8089497bec806840d123e15108cfa793fcb60a4f43a2d16e5627e15c0e33",
+      "width": 1200,
+      "height": 674,
+      "sourceProductUrls": [
+        "https://buildpelican.com/products/bahia"
+      ],
+      "sourceImageUrls": [
+        "https://cdn.shopify.com/s/files/1/0624/4476/5324/files/BBL-914-006_1.jpg?v=1737144440"
+      ],
+      "officialSkus": [
+        "Bahia Stair Nose"
+      ],
+      "matchRules": [
+        "exact-sku"
+      ],
+      "catalogRows": [
+        {
+          "id": 89,
+          "pelicanCode": "Bahia Stair Nose",
+          "name": "Bahia Stair Nose",
+          "category": "Flooring"
+        }
+      ]
+    },
+    {
+      "asset": "bourbonplanks_732c31b2.webp",
+      "storageKey": "pelican/bourbonplanks_732c31b2.webp",
+      "sha256": "6e405d06869b7d16b7515baa6253cd0a1d619fdef7b3176114137994de3ca263",
+      "width": 1200,
+      "height": 900,
+      "sourceProductUrls": [
+        "https://buildpelican.com/products/bourbon"
+      ],
+      "sourceImageUrls": [
+        "https://cdn.shopify.com/s/files/1/0624/4476/5324/files/BourbonPlanks.jpg?v=1759177686"
+      ],
+      "officialSkus": [
+        "Bourbon 20mil Dryback Planks"
+      ],
+      "matchRules": [
+        "exact-product-name"
+      ],
+      "catalogRows": [
+        {
+          "id": 113,
+          "pelicanCode": "Bourbon",
+          "name": "Bourbon",
+          "category": "Flooring"
+        }
+      ]
+    },
+    {
+      "asset": "broadwayplanks_ea19c71e.webp",
+      "storageKey": "pelican/broadwayplanks_ea19c71e.webp",
+      "sha256": "0764499a8bff75776c2da938048bf8d210041e278262603f29a00cf3ba09de6d",
+      "width": 1200,
+      "height": 900,
+      "sourceProductUrls": [
+        "https://buildpelican.com/products/broadway"
+      ],
+      "sourceImageUrls": [
+        "https://cdn.shopify.com/s/files/1/0624/4476/5324/files/BroadwayPlanks.jpg?v=1759178087"
+      ],
+      "officialSkus": [
+        "Broadway 20mil Dryback Planks"
+      ],
+      "matchRules": [
+        "exact-product-name"
+      ],
+      "catalogRows": [
+        {
+          "id": 115,
+          "pelicanCode": "Broadway",
+          "name": "Broadway",
+          "category": "Flooring"
+        }
+      ]
+    },
+    {
+      "asset": "caldeninstalled-6ef2618d-8923-4c04-895b-084ae97c8c87_84ba4043.webp",
+      "storageKey": "pelican/caldeninstalled-6ef2618d-8923-4c04-895b-084ae97c8c87_84ba4043.webp",
+      "sha256": "0ded13b5ae2ed8646b8d6680ab4428f912efa78c9dd4d8e62d078f4663d61fee",
+      "width": 1200,
+      "height": 900,
+      "sourceProductUrls": [
+        "https://buildpelican.com/products/calden"
+      ],
+      "sourceImageUrls": [
+        "https://cdn.shopify.com/s/files/1/0624/4476/5324/files/CaldenInstalled_6ef2618d-8923-4c04-895b-084ae97c8c87.png?v=1777565754"
+      ],
+      "officialSkus": [
+        "Calden 10mm Laminate Flooring"
+      ],
+      "matchRules": [
+        "exact-product-name"
+      ],
+      "catalogRows": [
+        {
+          "id": 124,
+          "pelicanCode": "Calden",
+          "name": "Calden",
+          "category": "Flooring"
+        }
+      ]
+    },
+    {
+      "asset": "bbl-911-11-1_da1cd3fb.webp",
+      "storageKey": "pelican/bbl-911-11-1_da1cd3fb.webp",
+      "sha256": "9f711c5855fdd5dfc2810e4a0a61257725bc3302ac5b528fa28de461a0935f4c",
+      "width": 1200,
+      "height": 674,
+      "sourceProductUrls": [
+        "https://buildpelican.com/products/captiva"
+      ],
+      "sourceImageUrls": [
+        "https://cdn.shopify.com/s/files/1/0624/4476/5324/files/BBL-911-11_1.jpg?v=1737144481"
+      ],
+      "officialSkus": [
+        "Captiva Stair Nose"
+      ],
+      "matchRules": [
+        "exact-sku"
+      ],
+      "catalogRows": [
+        {
+          "id": 140,
+          "pelicanCode": "Captiva Stair Nose",
+          "name": "Captiva Stair Nose",
+          "category": "Flooring"
+        }
+      ]
+    },
+    {
+      "asset": "bbl923-9-1_c0e93b4c.webp",
+      "storageKey": "pelican/bbl923-9-1_c0e93b4c.webp",
+      "sha256": "1a65a9b7373cfd5c1eb94b12c61d8360892a9b11a514d51d2508adea076b158d",
+      "width": 1200,
+      "height": 674,
+      "sourceProductUrls": [
+        "https://buildpelican.com/products/desoto"
+      ],
+      "sourceImageUrls": [
+        "https://cdn.shopify.com/s/files/1/0624/4476/5324/files/BBL923-9_1.jpg?v=1737144658"
+      ],
+      "officialSkus": [
+        "Desoto Stair Nose"
+      ],
+      "matchRules": [
+        "exact-sku"
+      ],
+      "catalogRows": [
+        {
+          "id": 194,
+          "pelicanCode": "Desoto Stair Nose",
+          "name": "Desoto Stair Nose",
+          "category": "Flooring"
+        }
+      ]
+    },
+    {
+      "asset": "elfrethplanks_c7e55f1d.webp",
+      "storageKey": "pelican/elfrethplanks_c7e55f1d.webp",
+      "sha256": "cf5d380437d73ce2c3f12047621279363b373b5c9182adf0db69f38291b1fad0",
+      "width": 1200,
+      "height": 900,
+      "sourceProductUrls": [
+        "https://buildpelican.com/products/elfreth"
+      ],
+      "sourceImageUrls": [
+        "https://cdn.shopify.com/s/files/1/0624/4476/5324/files/ElfrethPlanks.jpg?v=1759178351"
+      ],
+      "officialSkus": [
+        "Elfreth 20mil Dryback Planks"
+      ],
+      "matchRules": [
+        "exact-product-name"
+      ],
+      "catalogRows": [
+        {
+          "id": 212,
+          "pelicanCode": "Elfreth",
+          "name": "Elfreth",
+          "category": "Flooring"
+        }
+      ]
+    },
+    {
+      "asset": "freemontplanks_4a4fed97.webp",
+      "storageKey": "pelican/freemontplanks_4a4fed97.webp",
+      "sha256": "039d823dfcde73c2a9bc0c6ecd48430ae66c14512d21377fd2f645c01ac86202",
+      "width": 1200,
+      "height": 900,
+      "sourceProductUrls": [
+        "https://buildpelican.com/products/freemont"
+      ],
+      "sourceImageUrls": [
+        "https://cdn.shopify.com/s/files/1/0624/4476/5324/files/FreemontPlanks.jpg?v=1759178723"
+      ],
+      "officialSkus": [
+        "Freemont 20mil Dryback Planks"
+      ],
+      "matchRules": [
+        "exact-product-name"
+      ],
+      "catalogRows": [
+        {
+          "id": 235,
+          "pelicanCode": "Freemont",
+          "name": "Freemont",
+          "category": "Flooring"
+        }
+      ]
+    },
+    {
+      "asset": "kingplanks_68b5771a.webp",
+      "storageKey": "pelican/kingplanks_68b5771a.webp",
+      "sha256": "9c7bb612b57b3f5d2755276473eab9e6d0375c58279e90395003c2e5ea9aeb1d",
+      "width": 1200,
+      "height": 900,
+      "sourceProductUrls": [
+        "https://buildpelican.com/products/king"
+      ],
+      "sourceImageUrls": [
+        "https://cdn.shopify.com/s/files/1/0624/4476/5324/files/KingPlanks.jpg?v=1759419397"
+      ],
+      "officialSkus": [
+        "King 20mil Dryback Planks"
+      ],
+      "matchRules": [
+        "exact-product-name"
+      ],
+      "catalogRows": [
+        {
+          "id": 290,
+          "pelicanCode": "King",
+          "name": "King",
+          "category": "Flooring"
+        }
+      ]
+    },
+    {
+      "asset": "leydenplanks_6bcff11d.webp",
+      "storageKey": "pelican/leydenplanks_6bcff11d.webp",
+      "sha256": "54e2701aa14f053951c14d872a2d9d7b49b810915d591fbf095ef4f0048d0ae2",
+      "width": 1200,
+      "height": 900,
+      "sourceProductUrls": [
+        "https://buildpelican.com/products/leyden"
+      ],
+      "sourceImageUrls": [
+        "https://cdn.shopify.com/s/files/1/0624/4476/5324/files/LeydenPlanks.jpg?v=1759179573"
+      ],
+      "officialSkus": [
+        "Leyden 20mil Dryback Planks"
+      ],
+      "matchRules": [
+        "exact-product-name"
+      ],
+      "catalogRows": [
+        {
+          "id": 305,
+          "pelicanCode": "Leyden",
+          "name": "Leyden",
+          "category": "Flooring"
+        }
+      ]
+    },
+    {
+      "asset": "bbl-914-008-1_a16698b7.webp",
+      "storageKey": "pelican/bbl-914-008-1_a16698b7.webp",
+      "sha256": "b88570efef36393689eb1fee534ac0a1364ec40c622e8e101fa291e69fb0429f",
+      "width": 1200,
+      "height": 674,
+      "sourceProductUrls": [
+        "https://buildpelican.com/products/madeira"
+      ],
+      "sourceImageUrls": [
+        "https://cdn.shopify.com/s/files/1/0624/4476/5324/files/BBL-914-008_1.jpg?v=1737144691"
+      ],
+      "officialSkus": [
+        "Madeira Stair Nose"
+      ],
+      "matchRules": [
+        "exact-sku"
+      ],
+      "catalogRows": [
+        {
+          "id": 317,
+          "pelicanCode": "Madeira Stair Nose",
+          "name": "Madeira Stair Nose",
+          "category": "Flooring"
+        }
+      ]
+    },
+    {
+      "asset": "bbl2101l-5-1_354a79ba.webp",
+      "storageKey": "pelican/bbl2101l-5-1_354a79ba.webp",
+      "sha256": "c8941c135ce7069fd4ad47870208d0fa59346f1dc878385bdf57ce482625774a",
+      "width": 1200,
+      "height": 674,
+      "sourceProductUrls": [
+        "https://buildpelican.com/products/navarre"
+      ],
+      "sourceImageUrls": [
+        "https://cdn.shopify.com/s/files/1/0624/4476/5324/files/BBL2101L-5_1.jpg?v=1737652016"
+      ],
+      "officialSkus": [
+        "Navarre Stair Nose"
+      ],
+      "matchRules": [
+        "exact-sku"
+      ],
+      "catalogRows": [
+        {
+          "id": 376,
+          "pelicanCode": "Navarre Stair Nose",
+          "name": "Navarre Stair Nose",
+          "category": "Flooring"
+        }
+      ]
+    },
+    {
+      "asset": "orelleinstalled_6317b1ae.webp",
+      "storageKey": "pelican/orelleinstalled_6317b1ae.webp",
+      "sha256": "b8058d72b76decd10c9dfd18df472e055dcaf3a7dd1340bab087b37d4875de3c",
+      "width": 1200,
+      "height": 900,
+      "sourceProductUrls": [
+        "https://buildpelican.com/products/orelle"
+      ],
+      "sourceImageUrls": [
+        "https://cdn.shopify.com/s/files/1/0624/4476/5324/files/OrelleInstalled.png?v=1777565574"
+      ],
+      "officialSkus": [
+        "Orelle 10mm Laminate Flooring"
+      ],
+      "matchRules": [
+        "exact-product-name"
+      ],
+      "catalogRows": [
+        {
+          "id": 398,
+          "pelicanCode": "Orelle",
+          "name": "Orelle",
+          "category": "Flooring"
+        }
+      ]
+    },
+    {
+      "asset": "palisinstalled_46360cd4.webp",
+      "storageKey": "pelican/palisinstalled_46360cd4.webp",
+      "sha256": "e8441d101f7e3b4772e56fb838387b445873573191b057e769a9a31e5b2c0fdb",
+      "width": 1200,
+      "height": 900,
+      "sourceProductUrls": [
+        "https://buildpelican.com/products/palis"
+      ],
+      "sourceImageUrls": [
+        "https://cdn.shopify.com/s/files/1/0624/4476/5324/files/PalisInstalled.png?v=1777565551"
+      ],
+      "officialSkus": [
+        "Palis 10mm Laminate Flooring"
+      ],
+      "matchRules": [
+        "exact-product-name"
+      ],
+      "catalogRows": [
+        {
+          "id": 420,
+          "pelicanCode": "Palis",
+          "name": "Palis",
+          "category": "Flooring"
+        }
+      ]
+    },
+    {
+      "asset": "riverinstalled_72975e47.webp",
+      "storageKey": "pelican/riverinstalled_72975e47.webp",
+      "sha256": "54a75cce7c4317642602465550fbd1721e487884fa380aa1b4754e0d5a82231d",
+      "width": 1200,
+      "height": 900,
+      "sourceProductUrls": [
+        "https://buildpelican.com/products/river"
+      ],
+      "sourceImageUrls": [
+        "https://cdn.shopify.com/s/files/1/0624/4476/5324/files/RiverInstalled.jpg?v=1759179700"
+      ],
+      "officialSkus": [
+        "River 20mil Dryback Planks"
+      ],
+      "matchRules": [
+        "exact-product-name"
+      ],
+      "catalogRows": [
+        {
+          "id": 1165,
+          "pelicanCode": "River",
+          "name": "River",
+          "category": "Flooring"
+        }
+      ]
+    },
+    {
+      "asset": "bbl-911-10-1_f1f217dd.webp",
+      "storageKey": "pelican/bbl-911-10-1_f1f217dd.webp",
+      "sha256": "bfad92d0ccf2abc60eaf09ac58f041878addefa2dbf7e47389db193261210623",
+      "width": 1200,
+      "height": 674,
+      "sourceProductUrls": [
+        "https://buildpelican.com/products/sanibel"
+      ],
+      "sourceImageUrls": [
+        "https://cdn.shopify.com/s/files/1/0624/4476/5324/files/BBL-911-10_1.jpg?v=1737144790"
+      ],
+      "officialSkus": [
+        "Sanibel Stair Nose"
+      ],
+      "matchRules": [
+        "exact-sku"
+      ],
+      "catalogRows": [
+        {
+          "id": 1191,
+          "pelicanCode": "Sanibel Stair Nose",
+          "name": "Sanibel Stair Nose",
+          "category": "Flooring"
+        }
+      ]
+    },
+    {
+      "asset": "sorainstalled_7e7c6e27.webp",
+      "storageKey": "pelican/sorainstalled_7e7c6e27.webp",
+      "sha256": "3f18f61ed03ced84261536c1cc6cfa6fa99fe218f9f4cba37218c6fa5b659008",
+      "width": 1200,
+      "height": 900,
+      "sourceProductUrls": [
+        "https://buildpelican.com/products/sora"
+      ],
+      "sourceImageUrls": [
+        "https://cdn.shopify.com/s/files/1/0624/4476/5324/files/SoraInstalled.png?v=1777565727"
+      ],
+      "officialSkus": [
+        "Sora 10mm Laminate Flooring"
+      ],
+      "matchRules": [
+        "exact-product-name"
+      ],
+      "catalogRows": [
+        {
+          "id": 1238,
+          "pelicanCode": "Sora",
+          "name": "Sora",
+          "category": "Flooring"
+        }
+      ]
+    },
+    {
+      "asset": "stoneplanks_e5d2e840.webp",
+      "storageKey": "pelican/stoneplanks_e5d2e840.webp",
+      "sha256": "db61d4a36dc6a0b3dd2d70a5a2b8f8dd7845d69eb711537aa8e769eb454aa86a",
+      "width": 1200,
+      "height": 900,
+      "sourceProductUrls": [
+        "https://buildpelican.com/products/stone"
+      ],
+      "sourceImageUrls": [
+        "https://cdn.shopify.com/s/files/1/0624/4476/5324/files/StonePlanks.jpg?v=1759180132"
+      ],
+      "officialSkus": [
+        "Stone 20mil Dryback Planks"
+      ],
+      "matchRules": [
+        "exact-product-name"
+      ],
+      "catalogRows": [
+        {
+          "id": 1264,
+          "pelicanCode": "Stone",
+          "name": "Stone",
+          "category": "Flooring"
+        }
+      ]
+    },
+    {
+      "asset": "bbl984l-2-1_724ad619.webp",
+      "storageKey": "pelican/bbl984l-2-1_724ad619.webp",
+      "sha256": "01a0c15b66acca24fdad42ebabe220fde40131d3840396bfecc123ead9f1908c",
+      "width": 1200,
+      "height": 674,
+      "sourceProductUrls": [
+        "https://buildpelican.com/products/tigertail"
+      ],
+      "sourceImageUrls": [
+        "https://cdn.shopify.com/s/files/1/0624/4476/5324/files/BBL984L-2_1.jpg?v=1737144822"
+      ],
+      "officialSkus": [
+        "Tigertail Stair Nose"
+      ],
+      "matchRules": [
+        "exact-sku"
+      ],
+      "catalogRows": [
+        {
+          "id": 1304,
+          "pelicanCode": "Tigertail Stair Nose",
+          "name": "Tigertail Stair Nose",
+          "category": "Flooring"
+        }
+      ]
+    },
+    {
+      "asset": "tressainstalled_3b14f86c.webp",
+      "storageKey": "pelican/tressainstalled_3b14f86c.webp",
+      "sha256": "68db40828942fd258e8cfd5318f07642a83b746f2c6d125538f25e0cd65117b5",
+      "width": 1200,
+      "height": 900,
+      "sourceProductUrls": [
+        "https://buildpelican.com/products/tressa"
+      ],
+      "sourceImageUrls": [
+        "https://cdn.shopify.com/s/files/1/0624/4476/5324/files/TressaInstalled.png?v=1777565421"
+      ],
+      "officialSkus": [
+        "Tressa 10mm Laminate Flooring"
+      ],
+      "matchRules": [
+        "exact-product-name"
+      ],
+      "catalogRows": [
+        {
+          "id": 1313,
+          "pelicanCode": "Tressa",
+          "name": "Tressa",
+          "category": "Flooring"
+        }
+      ]
+    },
+    {
+      "asset": "vaileninstalled_e34829b0.webp",
+      "storageKey": "pelican/vaileninstalled_e34829b0.webp",
+      "sha256": "05bb08326505a5b7b9c54c77ab76946984050843a78a19a881035900eaeb1226",
+      "width": 1200,
+      "height": 900,
+      "sourceProductUrls": [
+        "https://buildpelican.com/products/vailen"
+      ],
+      "sourceImageUrls": [
+        "https://cdn.shopify.com/s/files/1/0624/4476/5324/files/VailenInstalled.png?v=1777565198"
+      ],
+      "officialSkus": [
+        "Vailen 10mm Laminate Flooring"
+      ],
+      "matchRules": [
+        "exact-product-name"
+      ],
+      "catalogRows": [
+        {
+          "id": 1331,
+          "pelicanCode": "Vailen",
+          "name": "Vailen",
+          "category": "Flooring"
+        }
+      ]
+    },
+    {
+      "asset": "33001-001-1_c381a020.webp",
+      "storageKey": "pelican/33001-001-1_c381a020.webp",
+      "sha256": "1fd2fe635be0f60472a8b2f9c7b5c0e6f35d3860bab79a4aa25f954b62ca0f20",
+      "width": 1200,
+      "height": 674,
+      "sourceProductUrls": [
+        "https://buildpelican.com/products/vanderbilt"
+      ],
+      "sourceImageUrls": [
+        "https://cdn.shopify.com/s/files/1/0624/4476/5324/files/33001-001_1.jpg?v=1737652044"
+      ],
+      "officialSkus": [
+        "Vanderbilt Stair Nose"
+      ],
+      "matchRules": [
+        "exact-sku"
+      ],
+      "catalogRows": [
+        {
+          "id": 1345,
+          "pelicanCode": "Vanderbilt Stair Nose",
+          "name": "Vanderbilt Stair Nose",
+          "category": "Flooring"
+        }
+      ]
+    },
+    {
+      "asset": "pl-fc3020wsblack-c56a13a8-c476-49aa-9819-0609a2509d08_4bcaacf0.webp",
+      "storageKey": "pelican/pl-fc3020wsblack-c56a13a8-c476-49aa-9819-0609a2509d08_4bcaacf0.webp",
+      "sha256": "4eb53de8743d7acfd97ecba8fb422c472b069b63658d801b10ec44b7f244dba4",
+      "width": 1200,
+      "height": 900,
+      "sourceProductUrls": [
+        "https://buildpelican.com/products/pl-fc3020ws"
+      ],
+      "sourceImageUrls": [
+        "https://cdn.shopify.com/s/files/1/0624/4476/5324/files/PL-FC3020WSBlack_c56a13a8-c476-49aa-9819-0609a2509d08.png?v=1786632389"
+      ],
+      "officialSkus": [
+        "PL-FC3020WS Black"
+      ],
+      "matchRules": [
+        "exact-sku"
+      ],
+      "catalogRows": [
+        {
+          "id": 887,
+          "pelicanCode": "PL-FC3020WS Black",
+          "name": "PL-FC3020WS Black",
+          "category": "Marketing & Merchandise"
+        }
+      ]
+    },
+    {
+      "asset": "pl-fc3020wsgrey_974a97e1.webp",
+      "storageKey": "pelican/pl-fc3020wsgrey_974a97e1.webp",
+      "sha256": "ce6e7bb207e82f1eb0077abf1ade3e093b1da165a3281f60c9ff50d8f301c82a",
+      "width": 1200,
+      "height": 900,
+      "sourceProductUrls": [
+        "https://buildpelican.com/products/pl-fc3020ws"
+      ],
+      "sourceImageUrls": [
+        "https://cdn.shopify.com/s/files/1/0624/4476/5324/files/PL-FC3020WSGrey.png?v=1786632389"
+      ],
+      "officialSkus": [
+        "PL-FC3020WS Grey"
+      ],
+      "matchRules": [
+        "exact-sku"
+      ],
+      "catalogRows": [
+        {
+          "id": 888,
+          "pelicanCode": "PL-FC3020WS Grey",
+          "name": "PL-FC3020WS Grey",
+          "category": "Marketing & Merchandise"
+        }
+      ]
+    },
+    {
+      "asset": "pl-fc3020wswhite-9779d2ca-d492-4bbe-871b-a0abb4f8492c_4dc359a6.webp",
+      "storageKey": "pelican/pl-fc3020wswhite-9779d2ca-d492-4bbe-871b-a0abb4f8492c_4dc359a6.webp",
+      "sha256": "ee820566e2e3abeabbb12a336b386736b1d0f2404f11946fb24d04897297817d",
+      "width": 1200,
+      "height": 900,
+      "sourceProductUrls": [
+        "https://buildpelican.com/products/pl-fc3020ws"
+      ],
+      "sourceImageUrls": [
+        "https://cdn.shopify.com/s/files/1/0624/4476/5324/files/PL-FC3020WSWhite_9779d2ca-d492-4bbe-871b-a0abb4f8492c.png?v=1786632389"
+      ],
+      "officialSkus": [
+        "PL-FC3020WS White"
+      ],
+      "matchRules": [
+        "exact-sku"
+      ],
+      "catalogRows": [
+        {
+          "id": 889,
+          "pelicanCode": "PL-FC3020WS White",
+          "name": "PL-FC3020WS White",
+          "category": "Marketing & Merchandise"
+        }
+      ]
+    },
+    {
+      "asset": "pl-fc3320wsgrey_209737fe.webp",
+      "storageKey": "pelican/pl-fc3320wsgrey_209737fe.webp",
+      "sha256": "83079c3132be0b23774e228e5fb3ef880d7c9c9b303c75273c370d987d4acbd3",
+      "width": 1200,
+      "height": 900,
+      "sourceProductUrls": [
+        "https://buildpelican.com/products/pl-fc3320ws"
+      ],
+      "sourceImageUrls": [
+        "https://cdn.shopify.com/s/files/1/0624/4476/5324/files/PL-FC3320WSGrey.png?v=1781708112"
+      ],
+      "officialSkus": [
+        "PL-FC3320WS Grey"
+      ],
+      "matchRules": [
+        "exact-sku"
+      ],
+      "catalogRows": [
+        {
+          "id": 910,
+          "pelicanCode": "PL-FC3320WS Grey",
+          "name": "PL-FC3320WS Grey",
+          "category": "Marketing & Merchandise"
+        }
+      ]
+    },
+    {
+      "asset": "pl-02849l-18e8a446-cb1a-4dfb-9cff-37a8f59439d6_e76e0a84.webp",
+      "storageKey": "pelican/pl-02849l-18e8a446-cb1a-4dfb-9cff-37a8f59439d6_e76e0a84.webp",
+      "sha256": "aee78e6c92e4cc4b3fbb917f03d2e72c35edc3b1af5c6f20cae0d13d4678dad2",
+      "width": 1200,
+      "height": 900,
+      "sourceProductUrls": [
+        "https://buildpelican.com/products/pl-2849"
+      ],
+      "sourceImageUrls": [
+        "https://cdn.shopify.com/s/files/1/0624/4476/5324/files/PL-02849L_18e8a446-cb1a-4dfb-9cff-37a8f59439d6.png?v=1776714061",
+        "https://cdn.shopify.com/s/files/1/0624/4476/5324/files/PL-02851L_937c7460-cb3f-400c-9066-8636cd144f83.png?v=1776715619"
+      ],
+      "officialSkus": [
+        "PL-02849L"
+      ],
+      "matchRules": [
+        "packaging-variant"
+      ],
+      "catalogRows": [
+        {
+          "id": 473,
+          "pelicanCode": "PL-02849LNSO",
+          "name": "PL-02849LNSO",
+          "category": "Sinks & Faucets"
+        },
+        {
+          "id": 481,
+          "pelicanCode": "PL-02851LNSO",
+          "name": "PL-02851LNSO",
+          "category": "Sinks & Faucets"
+        }
+      ]
+    },
+    {
+      "asset": "pl-02849r-f7e444ec-7605-4e32-8e9a-98d72853bfdb_ee699fe2.webp",
+      "storageKey": "pelican/pl-02849r-f7e444ec-7605-4e32-8e9a-98d72853bfdb_ee699fe2.webp",
+      "sha256": "071abbe03bd56ebae8f5d636298af32c7c063c32df4cffc61cef8e4ce86d9a6d",
+      "width": 1200,
+      "height": 900,
+      "sourceProductUrls": [
+        "https://buildpelican.com/products/pl-2849"
+      ],
+      "sourceImageUrls": [
+        "https://cdn.shopify.com/s/files/1/0624/4476/5324/files/PL-02849R_f7e444ec-7605-4e32-8e9a-98d72853bfdb.png?v=1776714061",
+        "https://cdn.shopify.com/s/files/1/0624/4476/5324/files/PL-02851R_c2585147-0235-4b1f-a8c3-9f8c2002b34a.png?v=1776715619"
+      ],
+      "officialSkus": [
+        "PL-02849R"
+      ],
+      "matchRules": [
+        "packaging-variant"
+      ],
+      "catalogRows": [
+        {
+          "id": 475,
+          "pelicanCode": "PL-02849RNSO",
+          "name": "PL-02849RNSO",
+          "category": "Sinks & Faucets"
+        },
+        {
+          "id": 483,
+          "pelicanCode": "PL-02851RNSO",
+          "name": "PL-02851RNSO",
+          "category": "Sinks & Faucets"
+        }
+      ]
+    },
+    {
+      "asset": "pl-02850l-bb7b611b-4985-4aca-860b-1b9e18b75c86_867f496a.webp",
+      "storageKey": "pelican/pl-02850l-bb7b611b-4985-4aca-860b-1b9e18b75c86_867f496a.webp",
+      "sha256": "defaa465551befb67694dcfdbe80447c7cf449617c622e927b1b4c8aee979ec6",
+      "width": 1200,
+      "height": 900,
+      "sourceProductUrls": [
+        "https://buildpelican.com/products/pl-2850"
+      ],
+      "sourceImageUrls": [
+        "https://cdn.shopify.com/s/files/1/0624/4476/5324/files/PL-02850L_bb7b611b-4985-4aca-860b-1b9e18b75c86.png?v=1776715604"
+      ],
+      "officialSkus": [
+        "PL-02850L"
+      ],
+      "matchRules": [
+        "packaging-variant"
+      ],
+      "catalogRows": [
+        {
+          "id": 477,
+          "pelicanCode": "PL-02850LNSO",
+          "name": "PL-02850LNSO",
+          "category": "Sinks & Faucets"
+        }
+      ]
+    },
+    {
+      "asset": "pl-02850r-b135cdad-bb7b-4957-8786-f8dfef1fe63a_95b8b4ba.webp",
+      "storageKey": "pelican/pl-02850r-b135cdad-bb7b-4957-8786-f8dfef1fe63a_95b8b4ba.webp",
+      "sha256": "3ca22e190ab4a9558dc7d4d25ae118fc91efdee1ba71bcd768e155e8a9949244",
+      "width": 1200,
+      "height": 900,
+      "sourceProductUrls": [
+        "https://buildpelican.com/products/pl-2850"
+      ],
+      "sourceImageUrls": [
+        "https://cdn.shopify.com/s/files/1/0624/4476/5324/files/PL-02850R_b135cdad-bb7b-4957-8786-f8dfef1fe63a.png?v=1776715604"
+      ],
+      "officialSkus": [
+        "PL-02850R"
+      ],
+      "matchRules": [
+        "packaging-variant"
+      ],
+      "catalogRows": [
+        {
+          "id": 479,
+          "pelicanCode": "PL-02850RNSO",
+          "name": "PL-02850RNSO",
+          "category": "Sinks & Faucets"
+        }
+      ]
+    },
+    {
+      "asset": "pl-36-tub-drain-white_6eb10f57.webp",
+      "storageKey": "pelican/pl-36-tub-drain-white_6eb10f57.webp",
+      "sha256": "ceb0e4be7e5b5f21479dbc0f48936f13a3358d9bcb5cfbaba53024f41bffeabb",
+      "width": 1200,
+      "height": 900,
+      "sourceProductUrls": [
+        "https://buildpelican.com/products/pl-36"
+      ],
+      "sourceImageUrls": [
+        "https://cdn.shopify.com/s/files/1/0624/4476/5324/files/PL-36_Tub_Drain_White.jpg?v=1785943596"
+      ],
+      "officialSkus": [
+        "PL-36 Tub Drain White"
+      ],
+      "matchRules": [
+        "exact-sku"
+      ],
+      "catalogRows": [
+        {
+          "id": 670,
+          "pelicanCode": "PL-36 Tub Drain White",
+          "name": "PL-36 Tub Drain White",
+          "category": "Sinks & Faucets"
+        }
+      ]
+    },
+    {
+      "asset": "pl-fc3018sb-black_49368879.webp",
+      "storageKey": "pelican/pl-fc3018sb-black_49368879.webp",
+      "sha256": "80b1a0824e89699ed2ab530a31e5418e5b7a739897114aac9b3cd3911b75f8f3",
+      "width": 1200,
+      "height": 900,
+      "sourceProductUrls": [
+        "https://buildpelican.com/products/pl-fc3018sb"
+      ],
+      "sourceImageUrls": [
+        "https://cdn.shopify.com/s/files/1/0624/4476/5324/files/PL-FC3018SB_Black.png?v=1786717557"
+      ],
+      "officialSkus": [
+        "PL-FC3018SB Black"
+      ],
+      "matchRules": [
+        "exact-sku"
+      ],
+      "catalogRows": [
+        {
+          "id": 882,
+          "pelicanCode": "PL-FC3018SB Black",
+          "name": "PL-FC3018SB Black",
+          "category": "Sinks & Faucets"
+        }
+      ]
+    },
+    {
+      "asset": "pl-fc3018sb-grey_2bbcb801.webp",
+      "storageKey": "pelican/pl-fc3018sb-grey_2bbcb801.webp",
+      "sha256": "82f6133bad69c396c427dbaf8d81fd5e7a62dcc8fa682582277cd4d8367e57c9",
+      "width": 1200,
+      "height": 900,
+      "sourceProductUrls": [
+        "https://buildpelican.com/products/pl-fc3018sb"
+      ],
+      "sourceImageUrls": [
+        "https://cdn.shopify.com/s/files/1/0624/4476/5324/files/PL-FC3018SB_Grey.png?v=1786717557"
+      ],
+      "officialSkus": [
+        "PL-FC3018SB Grey"
+      ],
+      "matchRules": [
+        "exact-sku"
+      ],
+      "catalogRows": [
+        {
+          "id": 884,
+          "pelicanCode": "PL-FC3018SB Grey",
+          "name": "PL-FC3018SB Grey",
+          "category": "Sinks & Faucets"
+        }
+      ]
+    },
+    {
+      "asset": "pl-fc3018sb-white_2cfe33be.webp",
+      "storageKey": "pelican/pl-fc3018sb-white_2cfe33be.webp",
+      "sha256": "6a7f093f610d47c2c7803ae8e7744cb1837958b4be9ed632acefeaab9bef4eea",
+      "width": 1200,
+      "height": 900,
+      "sourceProductUrls": [
+        "https://buildpelican.com/products/pl-fc3018sb"
+      ],
+      "sourceImageUrls": [
+        "https://cdn.shopify.com/s/files/1/0624/4476/5324/files/PL-FC3018SB_White.png?v=1786717557"
+      ],
+      "officialSkus": [
+        "PL-FC3018SB White"
+      ],
+      "matchRules": [
+        "exact-sku"
+      ],
+      "catalogRows": [
+        {
+          "id": 885,
+          "pelicanCode": "PL-FC3018SB White",
+          "name": "PL-FC3018SB White",
+          "category": "Sinks & Faucets"
+        }
+      ]
+    },
+    {
+      "asset": "pl-fc3219sb_55091c82.webp",
+      "storageKey": "pelican/pl-fc3219sb_55091c82.webp",
+      "sha256": "c5a32eb8f1cf2a2700c68fcfd2f0afde03ce728711f126fb6bf237ca8cba3371",
+      "width": 1200,
+      "height": 900,
+      "sourceProductUrls": [
+        "https://buildpelican.com/products/pl-fc3219sb"
+      ],
+      "sourceImageUrls": [
+        "https://cdn.shopify.com/s/files/1/0624/4476/5324/files/PL-FC3219SB.png?v=1786579571"
+      ],
+      "officialSkus": [
+        "PL-FC3219SB White"
+      ],
+      "matchRules": [
+        "exact-product-name",
+        "exact-sku"
+      ],
+      "catalogRows": [
+        {
+          "id": 893,
+          "pelicanCode": "PL-FC3219SB",
+          "name": "PL-FC3219SB",
+          "category": "Sinks & Faucets"
+        },
+        {
+          "id": 895,
+          "pelicanCode": "PL-FC3219SB White",
+          "name": "PL-FC3219SB White",
+          "category": "Sinks & Faucets"
+        }
+      ]
+    },
+    {
+      "asset": "pl-fc3220sb_7677dc60.webp",
+      "storageKey": "pelican/pl-fc3220sb_7677dc60.webp",
+      "sha256": "9bbf8a279dd78d94ef32f36e60465ca53f664d7ac430f8419603e769f85d0214",
+      "width": 1200,
+      "height": 900,
+      "sourceProductUrls": [
+        "https://buildpelican.com/products/pl-fc3220sb"
+      ],
+      "sourceImageUrls": [
+        "https://cdn.shopify.com/s/files/1/0624/4476/5324/files/PL-FC3220SB.png?v=1786580547"
+      ],
+      "officialSkus": [
+        "PL-FC3220SB White"
+      ],
+      "matchRules": [
+        "exact-product-name",
+        "exact-sku"
+      ],
+      "catalogRows": [
+        {
+          "id": 896,
+          "pelicanCode": "PL-FC3220SB",
+          "name": "PL-FC3220SB",
+          "category": "Sinks & Faucets"
+        },
+        {
+          "id": 898,
+          "pelicanCode": "PL-FC3220SB White",
+          "name": "PL-FC3220SB White",
+          "category": "Sinks & Faucets"
+        }
+      ]
+    },
+    {
+      "asset": "pl-12005-13_26930a41.webp",
+      "storageKey": "pelican/pl-12005-13_26930a41.webp",
+      "sha256": "99c1c09fbb7c80e7a5169e06f4ba26aa98fa5f6ac081efccc8fa47e5fa5777c9",
+      "width": 1200,
+      "height": 900,
+      "sourceProductUrls": [
+        "https://buildpelican.com/products/pl-12005"
+      ],
+      "sourceImageUrls": [
+        "https://cdn.shopify.com/s/files/1/0624/4476/5324/files/PL-12005_13.png?v=1777408820"
+      ],
+      "officialSkus": [
+        "PL-12005"
+      ],
+      "matchRules": [
+        "exact-sku"
+      ],
+      "catalogRows": [
+        {
+          "id": 557,
+          "pelicanCode": "PL-12005",
+          "name": "PL-12005",
+          "category": "Toilets & Bidets"
+        }
+      ]
+    },
+    {
+      "asset": "pl-12005black-14_ecc408c5.webp",
+      "storageKey": "pelican/pl-12005black-14_ecc408c5.webp",
+      "sha256": "2fdd26768277317b02defcf2724f928d0c9801cdab59d977353189e1e6ca18fd",
+      "width": 1200,
+      "height": 900,
+      "sourceProductUrls": [
+        "https://buildpelican.com/products/pl-12005-mb"
+      ],
+      "sourceImageUrls": [
+        "https://cdn.shopify.com/s/files/1/0624/4476/5324/files/PL-12005Black_14.png?v=1777401556"
+      ],
+      "officialSkus": [
+        "PL-12005 MB"
+      ],
+      "matchRules": [
+        "exact-sku"
+      ],
+      "catalogRows": [
+        {
+          "id": 558,
+          "pelicanCode": "PL-12005 MB",
+          "name": "PL-12005 MB",
+          "category": "Toilets & Bidets"
+        }
+      ]
+    },
+    {
+      "asset": "pl-12305_c9a2458a.webp",
+      "storageKey": "pelican/pl-12305_c9a2458a.webp",
+      "sha256": "c319bd242d764d17b6573a2868b047b9f03d146bea83130b5973b289f50c6211",
+      "width": 1200,
+      "height": 900,
+      "sourceProductUrls": [
+        "https://buildpelican.com/products/pl-12305"
+      ],
+      "sourceImageUrls": [
+        "https://cdn.shopify.com/s/files/1/0624/4476/5324/files/PL-12305.png?v=1777401331"
+      ],
+      "officialSkus": [
+        "PL-12305"
+      ],
+      "matchRules": [
+        "exact-sku"
+      ],
+      "catalogRows": [
+        {
+          "id": 571,
+          "pelicanCode": "PL-12305",
+          "name": "PL-12305",
+          "category": "Toilets & Bidets"
+        }
+      ]
+    },
+    {
+      "asset": "12305black-2_9d20875e.webp",
+      "storageKey": "pelican/12305black-2_9d20875e.webp",
+      "sha256": "aa80381772976763f41d6ecec83787d40fa3fd7360830b805f4449c48e63c0a9",
+      "width": 1200,
+      "height": 900,
+      "sourceProductUrls": [
+        "https://buildpelican.com/products/pl-12305-mb"
+      ],
+      "sourceImageUrls": [
+        "https://cdn.shopify.com/s/files/1/0624/4476/5324/files/12305Black_2.png?v=1777400992"
+      ],
+      "officialSkus": [
+        "PL-12305 MB"
+      ],
+      "matchRules": [
+        "exact-sku"
+      ],
+      "catalogRows": [
+        {
+          "id": 572,
+          "pelicanCode": "PL-12305 MB",
+          "name": "PL-12305 MB",
+          "category": "Toilets & Bidets"
+        }
+      ]
+    },
+    {
+      "asset": "pl-a249-2f3f0a47-36c0-44b1-821d-e877da28097e_7c5337e6.webp",
+      "storageKey": "pelican/pl-a249-2f3f0a47-36c0-44b1-821d-e877da28097e_7c5337e6.webp",
+      "sha256": "faab57ac5c61a20132d26411760d8cc6161169ed3c636c1d6c9d37f7b63048cd",
+      "width": 1200,
+      "height": 900,
+      "sourceProductUrls": [
+        "https://buildpelican.com/products/pl-a249"
+      ],
+      "sourceImageUrls": [
+        "https://cdn.shopify.com/s/files/1/0624/4476/5324/files/PL-A249_2f3f0a47-36c0-44b1-821d-e877da28097e.png?v=1776715243"
+      ],
+      "officialSkus": [
+        "PL-A249 ADA"
+      ],
+      "matchRules": [
+        "exact-sku"
+      ],
+      "catalogRows": [
+        {
+          "id": 840,
+          "pelicanCode": "PL-A249 ADA",
+          "name": "PL-A249 ADA",
+          "category": "Toilets & Bidets"
+        }
+      ]
+    }
+  ]
+}

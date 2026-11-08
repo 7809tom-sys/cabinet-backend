@@ -37,12 +37,25 @@ describe("legal document gate", () => {
   it("passes only when every required contract is signed", () => {
     const unsigned = legalDocumentGate([row()]);
     expect(unsigned.signedAll).toBe(false);
+    expect(unsigned.requiredCount).toBe(1);
     expect(unsigned.pending.map((entry) => entry.status)).toEqual(["unsigned"]);
 
     const signed = legalDocumentGate([row({ signedAt: new Date("2026-11-01T12:00:00Z") })]);
     expect(signed.signedAll).toBe(true);
+    expect(signed.requiredCount).toBe(1);
     expect(signed.pending).toEqual([]);
     expect(signed.documents[0]?.signedAt).toBe("2026-11-01T12:00:00.000Z");
+  });
+
+  it("reports requiredCount 0 when nothing is configured, so a caller can tell that from signed", () => {
+    // The storefront publish gate needs this distinction: "no contract exists"
+    // must not read as "this affiliate signed everything".
+    const empty = legalDocumentGate([]);
+    expect(empty.signedAll).toBe(true);
+    expect(empty.requiredCount).toBe(0);
+
+    const optionalOnly = legalDocumentGate([row({ requiredForMembership: false })]);
+    expect(optionalOnly.requiredCount).toBe(0);
   });
 
   it("does not require a contract that is inactive or not required for membership", () => {

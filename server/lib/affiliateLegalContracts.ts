@@ -116,14 +116,31 @@ export async function loadLegalDocumentGate(db: Database, affiliateId: number): 
 
 /**
  * The onboarding gate helper. True only when every active, required contract has
- * a signature on its current version. A required contract with no published
- * version keeps this false, so onboarding cannot pass on a missing document.
+ * a signature on its current version.
+ *
+ * Two cases fail closed on purpose: a required contract with no published
+ * version cannot pass (nobody can sign it), and a required contract with no
+ * signature cannot pass.
+ *
+ * The one case that genuinely passes is a deployment where an admin has not
+ * published a single required contract. Callers that publish something
+ * irreversible on the strength of this value should also read
+ * `gate.requiredCount` — see legalDocumentGate — so "nothing was configured"
+ * is not mistaken for "everything was signed".
  */
 export async function hasSignedAllRequired(affiliateId: number): Promise<boolean> {
-  const db = await getDb();
-  if (!db) return false;
-  const gate = await loadLegalDocumentGate(db, affiliateId);
+  const gate = await loadLegalDocumentGateForAffiliate(affiliateId);
   return gate.signedAll;
+}
+
+/**
+ * The gate for one affiliate, opening its own connection. Callers that already
+ * hold a `db` should use loadLegalDocumentGate(db, affiliateId) instead.
+ */
+export async function loadLegalDocumentGateForAffiliate(affiliateId: number) {
+  const db = await getDb();
+  if (!db) return legalDocumentGate([]);
+  return loadLegalDocumentGate(db, affiliateId);
 }
 
 export type RecordSignatureInput = {

@@ -1,8 +1,11 @@
 -- Affiliate legal contracts and DocuSeal e-signatures.
--- File number 0269. BUMP THIS NUMBER AT MERGE if a sibling PR takes 0269 or
--- later; the number is only a paste order, nothing reads it.
+-- File number 0272. Renumbered from 0269 at merge: main already carries four
+-- files numbered 0269 (affiliate-onboarding-documents, library_visibility_columns,
+-- membership_plan_options, new_affiliate_default_markup_40) plus two at 0270 and
+-- 0271_affiliate_storefront_name_claim, so 0272 is the next free number. The
+-- number is only a paste order; nothing reads it.
 --
--- Run after 0268. Paste ONE LINE at a time in the TiDB Cloud SQL editor: every
+-- Run after 0271. Paste ONE LINE at a time in the TiDB Cloud SQL editor: every
 -- statement is on a single line by design, and every table is
 -- cabinet_dealz.<table>. No IF NOT EXISTS anywhere, because TiDB Cloud rejects
 -- it on ADD COLUMN and CREATE TABLE in some regions.

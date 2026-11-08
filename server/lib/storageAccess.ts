@@ -22,16 +22,22 @@ export function isPublicStorageKey(key: string): boolean {
  * Unauthenticated reads are limited to public key prefixes. Private keys need
  * an admin, the encoded owner, or the affiliate who uploaded the government ID.
  */
-export function privateStorageDecision(key: string, user: StorageActor | null): "public" | "allow" | "deny" | "owner-check" {
+export function privateStorageDecision(key: string, user: StorageActor | null): "public" | "allow" | "deny" | "owner-check" | "affiliate-document" {
   const normalized = key.replace(/^\/+/, "");
   if (!isPrivateStorageKey(normalized)) return "public";
-  // Signed affiliate contracts, the contract PDFs behind them, and the DocuSeal
-  // audit trails are refused on every storage path, for every role, including
-  // admin. They leave only through affiliateLegal.signedCopyLink, which issues a
-  // short-lived URL after checking that the caller owns the affiliate or is an
-  // admin. Checked before the admin rule, so this cannot be widened by accident.
-  if (normalized.startsWith("affiliate-legal-signatures/") || normalized.startsWith("affiliate-legal-documents/")) {
-    return "deny";
+  // Affiliate-private documents are refused on this path before any role is
+  // considered, so not even an admin session can read them here. The only way
+  // to the bytes is a short-lived signed URL from a procedure that checked the
+  // row. This covers main's onboarding documents (affiliate-documents/) and this
+  // branch's signed contracts plus DocuSeal audit trails
+  // (affiliate-legal-signatures/, affiliate-legal-documents/): all three are
+  // evidence handed out only by a procedure that checked ownership.
+  if (
+    normalized.startsWith("affiliate-documents/") ||
+    normalized.startsWith("affiliate-legal-signatures/") ||
+    normalized.startsWith("affiliate-legal-documents/")
+  ) {
+    return "affiliate-document";
   }
   if (!user) return "deny";
   if (user.role === "admin") return "allow";
@@ -72,5 +78,9 @@ export async function canReadStorageKey(key: string, user: StorageActor | null):
   const decision = privateStorageDecision(key, user);
   if (decision === "public" || decision === "allow") return true;
   if (decision === "owner-check" && user) return affiliateOwnerCanReadW9Key(user, key.replace(/^\/+/, ""));
+  // Onboarding documents never travel through this proxy: the bytes are handed
+  // out only as short-lived signed URLs from the affiliate or admin procedure
+  // that checked the row. Even an admin is refused here, so a forwarded
+  // /manus-storage/affiliate-documents/... path is worthless.
   return false;
 }

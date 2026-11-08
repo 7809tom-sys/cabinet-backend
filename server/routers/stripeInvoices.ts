@@ -4,7 +4,9 @@ import { TRPCError } from "@trpc/server";
 import { desc, eq } from "drizzle-orm";
 import { adminProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
-import { affiliateInvoices, affiliates } from "../../drizzle/schema";
+import { affiliates } from "../../drizzle/schema";
+import { listAffiliateInvoices } from "../lib/affiliateMembershipBilling";
+import { loadMembershipSnapshot } from "../lib/affiliateMembership";
 import {
   createDbPaymentLinkContext,
   createDrizzleStripePaymentStore,
@@ -102,21 +104,31 @@ export const stripeInvoicesRouter = router({
           storeName: affiliates.storeName,
           slug: affiliates.slug,
           email: affiliates.email,
-          membershipStatus: affiliates.membershipStatus,
-          membershipFeeCents: affiliates.membershipFeeCents,
-          membershipPaidAt: affiliates.membershipPaidAt,
-          membershipExpiresAt: affiliates.membershipExpiresAt,
         })
         .from(affiliates)
         .where(eq(affiliates.id, input.affiliateId))
         .limit(1);
-      const membershipInvoices = await db
-        .select()
-        .from(affiliateInvoices)
-        .where(eq(affiliateInvoices.affiliateId, input.affiliateId))
-        .orderBy(desc(affiliateInvoices.issuedAt));
+      // Read membership through the plan-aware loader so this admin view keeps
+      // working before docs/sql/0269_membership_plan_options.tidb.sql is applied.
+      const membership = await loadMembershipSnapshot(db, input.affiliateId);
+      const membershipInvoices = await listAffiliateInvoices(db, input.affiliateId);
       const stripePayments = await listStripePaymentRecords(db, { affiliateId: input.affiliateId, limit: 200 });
-      return { affiliate: affiliate ?? null, membershipInvoices, stripePayments };
+      return {
+        affiliate: affiliate
+          ? {
+              ...affiliate,
+              membershipStatus: membership?.status ?? null,
+              membershipPlan: membership?.plan ?? null,
+              membershipFeeCents: membership?.feeCents ?? null,
+              membershipPaidAt: membership?.paidAt ?? null,
+              membershipExpiresAt: membership?.expiresAt ?? null,
+              membershipCommittedUntil: membership?.committedUntil ?? null,
+              membershipCancelledAt: membership?.cancelledAt ?? null,
+            }
+          : null,
+        membershipInvoices,
+        stripePayments,
+      };
     }),
 
   /**

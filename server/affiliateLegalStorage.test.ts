@@ -28,19 +28,30 @@ describe("legal contract storage", () => {
   it("never serves a signed copy from a storage path, even to an admin", async () => {
     // Admins reach a signed copy through signedCopyLink, which issues a
     // short-lived URL. The proxy path stays closed so a leaked key cannot be
-    // used by an arbitrary signed-in session.
-    expect(privateStorageDecision(SIGNED_PDF, admin)).toBe("deny");
-    expect(privateStorageDecision(SIGNED_PDF, owner)).toBe("deny");
+    // used by an arbitrary signed-in session. The decision value is main's
+    // "affiliate-document" (the prefix family that never travels this path),
+    // not the generic "deny": both refuse the read, and matching main keeps one
+    // vocabulary for affiliate evidence.
+    expect(privateStorageDecision(SIGNED_PDF, admin)).toBe("affiliate-document");
+    expect(privateStorageDecision(SIGNED_PDF, owner)).toBe("affiliate-document");
     expect(await canReadStorageKey(SIGNED_PDF, admin)).toBe(false);
     expect(await canReadStorageKey(SIGNED_PDF, owner)).toBe(false);
   });
 
-  it("never serves a contract PDF or an audit trail from a storage path either", () => {
+  it("never serves a contract PDF or an audit trail from a storage path either", async () => {
     for (const key of [AUDIT_LOG, CONTRACT_PDF]) {
-      expect(privateStorageDecision(key, admin)).toBe("deny");
-      expect(privateStorageDecision(key, owner)).toBe("deny");
-      expect(privateStorageDecision(key, null)).toBe("deny");
+      expect(privateStorageDecision(key, admin)).toBe("affiliate-document");
+      expect(privateStorageDecision(key, owner)).toBe("affiliate-document");
+      expect(privateStorageDecision(key, null)).toBe("affiliate-document");
+      expect(await canReadStorageKey(key, admin)).toBe(false);
     }
+  });
+
+  it("uses the same refusal family main's onboarding documents use", () => {
+    // One rule, three prefixes: onboarding documents (main), signed contracts and
+    // audit trails (this branch). None of them is readable through the proxy.
+    expect(privateStorageDecision("affiliate-documents/7/driver_license-1.jpg", admin)).toBe("affiliate-document");
+    expect(privateStorageDecision(SIGNED_PDF, admin)).toBe("affiliate-document");
   });
 
   it("keeps the prefixes distinct from the affiliate-resource prefix, which is also private", () => {

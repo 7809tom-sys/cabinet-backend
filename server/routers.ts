@@ -33,6 +33,7 @@ import { prosRouter } from "./routers/pros";
 import { vendorRouter } from "./routers/vendor";
 import { ordersRouter } from "./routers/orders";
 import { affiliatesRouter } from "./routers/affiliates";
+import { affiliateDocumentsRouter } from "./routers/affiliateDocuments";
 import { storefrontRouter } from "./routers/storefront";
 import { crmRouter } from "./routers/crm";
 import { crmEmailRouter } from "./routers/crmEmail";
@@ -49,6 +50,7 @@ import { pantryRouter } from "./routers/pantry";
 import { paymentsRouter } from "./routers/payments";
 import { consultationsRouter } from "./routers/consultations";
 import { affiliateMembershipRouter } from "./routers/affiliateMembership";
+import { affiliateStorefrontNameRouter } from "./routers/affiliateStorefrontName";
 import { siteSettingsRouter } from "./routers/siteSettings";
 import { skuAdminRouter } from "./routers/skuAdmin";
 import { genericCabinetsRouter } from "./routers/genericCabinets";
@@ -190,6 +192,10 @@ export const appRouter = router({
   vendor: vendorRouter,
   orders: ordersRouter,
   affiliates: affiliatesRouter,
+  // Affiliate onboarding documents (Feature 3 of 6): driver's license, SSN
+  // card, business card, and optional reseller certificate, all in the private
+  // bucket behind short-lived signed links.
+  affiliateDocuments: affiliateDocumentsRouter,
   storefront: storefrontRouter,
   crm: mergeRouters(crmRouter, crmEmailRouter),
   // Frontend dashboard contract (cabinet-frontend PR 232). Same authorization
@@ -207,6 +213,9 @@ export const appRouter = router({
   payments: paymentsRouter,
   consultations: consultationsRouter,
   affiliateMembership: affiliateMembershipRouter,
+  // Final onboarding step: the affiliate claims the website name that publishes
+  // their storefront at /store/<slug>. Backend for the frontend onboarding wizard.
+  affiliateStorefrontName: affiliateStorefrontNameRouter,
   siteSettings: siteSettingsRouter,
   skuAdmin: skuAdminRouter,
   genericCabinets: genericCabinetsRouter,

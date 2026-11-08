@@ -15,6 +15,7 @@ import {
   uniqueIndex,
 } from "drizzle-orm/mysql-core";
 import { AFFILIATE_STOREFRONT_TEMPLATE_IDS } from "../shared/affiliateStorefrontTemplates";
+import { FREE_USAGE_KINDS } from "../shared/affiliateFreeUsage";
 import type { AffiliateSocialLink } from "../shared/affiliateSocialLinks";
 import type { AffiliateResourceMeta } from "../shared/affiliateResources";
 
@@ -2192,27 +2193,43 @@ export const affiliates = mysqlTable("affiliates", {
   // White-label markup: default % (bps) this affiliate adds on top of their
   // affiliate cost to produce the customer-facing retail price. Per-style and
   // per-category overrides live in affiliateStyleBranding / as JSON below.
-  defaultMarkupBps: int("defaultMarkupBps").default(2000).notNull(), // 20% default
+  // New affiliates start at 40% (4000 bps) and may change it themselves.
+  defaultMarkupBps: int("defaultMarkupBps").default(4000).notNull(), // 40% default
   // Assigned affiliate buy-cost tier. Null keeps the platform affiliate markup.
   // The tier row lives in affiliate_pricing_tiers. Hand-run SQL adds the column.
   pricingTierId: int("pricingTierId"),
   // Separate list-price markup for Decorative Hardware. It never participates in
   // cabinet or surface price calculations. The baseline is the supplier list
   // price; affiliates may set an above-list value, including zero.
-  hardwareMarkupBps: int("hardwareMarkupBps").default(0).notNull(),
+  // New affiliates start at the same 40% (4000 bps) as everything else.
+  hardwareMarkupBps: int("hardwareMarkupBps").default(4000).notNull(),
   // Optional per-category markup overrides, JSON: { "base": 2500, "wall": 1500 }
   categoryMarkupJson: text("categoryMarkupJson"),
   // Kitchen Cost Sheet default unit prices, JSON keyed by the exact sheet row:
   // [{ description, materialUnitCost, laborUnitCost }]. These are affiliate
   // installation defaults and never alter Cabinet Dealz catalog pricing.
   kitchenCostDefaultsJson: text("kitchenCostDefaultsJson"),
-  // Annual membership: an affiliate pays a yearly fee ($1,195) to participate.
-  // membershipStatus drives storefront/CRM access; the dated fields track the
-  // current paid term. Detailed invoices live in affiliate_invoices.
+  // Membership: an affiliate pays either $1,195 a year or $169 a month (with a
+  // three-month minimum) to participate. membershipStatus drives storefront/CRM
+  // access; the dated fields track the current paid term. Detailed invoices
+  // live in affiliate_invoices. membershipPlan and membershipCommittedUntil are
+  // added by hand in docs/sql/0269_membership_plan_options.tidb.sql, so the
+  // server treats a missing column as "annual, no commitment" and keeps working
+  // if the code ships before Tom runs the file.
   membershipStatus: mysqlEnum("membershipStatus", ["pending", "active", "past_due", "cancelled"]).default("pending").notNull(),
-  membershipFeeCents: int("membershipFeeCents").default(119500).notNull(), // $1,195.00
+  membershipPlan: mysqlEnum("membershipPlan", ["annual", "monthly"]).default("annual").notNull(),
+  membershipFeeCents: int("membershipFeeCents").default(119500).notNull(), // $1,195.00 a year, or $169.00 a month
   membershipPaidAt: timestamp("membershipPaidAt"),
   membershipExpiresAt: timestamp("membershipExpiresAt"),
+  // Date the member becomes free to cancel. For monthly this is the end of the
+  // three-month minimum; for annual it is the end of the paid year.
+  membershipCommittedUntil: timestamp("membershipCommittedUntil"),
+  // Set when a member cancels. Access continues to membershipExpiresAt (the end
+  // of the period they already paid for) and the next renewal is skipped.
+  membershipCancelledAt: timestamp("membershipCancelledAt"),
+  // Stripe subscription for the monthly plan (null for annual and for invoices
+  // paid by card, check, or a one-time Checkout).
+  membershipStripeSubscriptionId: varchar("membershipStripeSubscriptionId", { length: 255 }),
   notes: text("notes"),
   // ─── W-9 / Tax compliance ─────────────────────────────────────────────────────
   // Affiliates must submit legal info + government ID before payouts are released.
@@ -2239,6 +2256,67 @@ export const affiliates = mysqlTable("affiliates", {
 
 export type Affiliate = typeof affiliates.$inferSelect;
 export type InsertAffiliate = typeof affiliates.$inferInsert;
+
+// One row per affiliate recording the storefront name they claimed themselves on
+// the last onboarding step. affiliates.slug is the live value; claimedSlug is
+// what they claimed, so an admin rename is visible as a difference between the
+// two instead of looking like the affiliate's own choice. Added by hand in
+// docs/sql/0271_affiliate_storefront_name_claim.tidb.sql, so a missing table is
+// tolerated by the claim reader (see server/lib/affiliateStorefrontName.ts).
+export const affiliateStorefrontClaims = mysqlTable("affiliate_storefront_claims", {
+  id: int("id").autoincrement().primaryKey(),
+  affiliateId: int("affiliateId").notNull().unique(),
+  claimedSlug: varchar("claimedSlug", { length: 64 }).notNull(),
+  claimedByName: varchar("claimedByName", { length: 256 }),
+  claimedByUserId: int("claimedByUserId"),
+  claimedAt: timestamp("claimedAt").defaultNow().notNull(),
+}, (table) => [
+  index("affiliate_storefront_claims_slug_idx").on(table.claimedSlug),
+]);
+
+export type AffiliateStorefrontClaim = typeof affiliateStorefrontClaims.$inferSelect;
+export type InsertAffiliateStorefrontClaim = typeof affiliateStorefrontClaims.$inferInsert;
+
+// ─── Affiliate Onboarding Documents ──────────────────────────────────────────
+// Driver's license, Social Security card, business card (all required) and an
+// optional reseller certificate. Bytes live in the private Supabase bucket
+// under affiliate-documents/ — this table stores the storage KEY, never a
+// public URL and never a public bucket path.
+//
+// A replace never deletes history: the old row keeps its status and review
+// audit, and supersededAt + supersededByDocumentId point at the upload that
+// took its place. Only current rows (supersededAt IS NULL) count for the gate.
+// Created by docs/sql/affiliate-onboarding-documents.tidb.sql, which is run by
+// hand.
+export const affiliateDocumentTypes = ["driver_license", "ssn_card", "business_card", "reseller_certificate"] as const;
+export const affiliateDocumentStatuses = ["pending", "approved", "rejected"] as const;
+
+export const affiliateDocuments = mysqlTable("affiliate_documents", {
+  id: int("id").autoincrement().primaryKey(),
+  affiliateId: int("affiliateId").notNull(),
+  docType: mysqlEnum("docType", affiliateDocumentTypes).notNull(),
+  // Storage key under the private bucket (affiliate-documents/...). No URL.
+  storageKey: varchar("storageKey", { length: 512 }).notNull(),
+  mimeType: varchar("mimeType", { length: 128 }).notNull(),
+  sizeBytes: int("sizeBytes").notNull(),
+  // The affiliate-visible filename as typed by them, sanitized. Display only.
+  originalName: varchar("originalName", { length: 255 }),
+  status: mysqlEnum("status", affiliateDocumentStatuses).default("pending").notNull(),
+  reviewedAt: timestamp("reviewedAt"),
+  reviewedBy: int("reviewedBy"),
+  note: text("note"),
+  // Replace audit: who uploaded, when, and which row replaced this one.
+  uploadedBy: int("uploadedBy"),
+  supersededAt: timestamp("supersededAt"),
+  supersededByDocumentId: int("supersededByDocumentId"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => [
+  index("affiliate_documents_affiliate_idx").on(table.affiliateId, table.docType, table.supersededAt),
+  index("affiliate_documents_status_idx").on(table.status, table.createdAt),
+]);
+export type AffiliateDocument = typeof affiliateDocuments.$inferSelect;
+export type InsertAffiliateDocument = typeof affiliateDocuments.$inferInsert;
 
 // Admin-defined affiliate buy-cost tiers. Example rows are placeholders.
 // Volume threshold is assignment guidance and is not applied automatically.
@@ -3089,7 +3167,13 @@ export const affiliateInvoices = mysqlTable("affiliate_invoices", {
   // Human-friendly invoice number, e.g. "AFF-2026-0007".
   invoiceNumber: varchar("invoiceNumber", { length: 32 }).notNull().unique(),
   description: varchar("description", { length: 256 }).default("Annual affiliate membership").notNull(),
-  amountCents: int("amountCents").default(119500).notNull(), // $1,195.00
+  amountCents: int("amountCents").default(119500).notNull(), // $1,195.00 a year, or $169.00 a month
+  // Which plan and which billing period this invoice covers. Added by hand in
+  // docs/sql/0269_membership_plan_options.tidb.sql; a missing column reads as
+  // "annual", which is what every pre-existing invoice is.
+  membershipPlan: mysqlEnum("membershipPlan", ["annual", "monthly"]).default("annual").notNull(),
+  // 1-based billing period within the paid term. Monthly invoices are 1, 2, 3…
+  periodNumber: int("periodNumber").default(1).notNull(),
   status: mysqlEnum("status", ["open", "paid", "void"]).default("open").notNull(),
   // How it was paid once status = paid.
   paymentMethod: mysqlEnum("paymentMethod", ["stripe", "external_card", "manual", "none"]).default("none").notNull(),
@@ -3097,6 +3181,9 @@ export const affiliateInvoices = mysqlTable("affiliate_invoices", {
   // Membership term this invoice covers (snapshotted on payment).
   periodStart: timestamp("periodStart"),
   periodEnd: timestamp("periodEnd"),
+  // Commitment date this payment produced, so a later cancellation check does
+  // not have to re-derive it from the plan.
+  committedUntil: timestamp("committedUntil"),
   issuedAt: timestamp("issuedAt").defaultNow().notNull(),
   paidAt: timestamp("paidAt"),
   paidByUserId: int("paidByUserId"), // admin who recorded a manual/external payment
@@ -3106,6 +3193,68 @@ export const affiliateInvoices = mysqlTable("affiliate_invoices", {
 
 export type AffiliateInvoice = typeof affiliateInvoices.$inferSelect;
 export type InsertAffiliateInvoice = typeof affiliateInvoices.$inferInsert;
+
+// ─── Affiliate free-usage ledger ──────────────────────────────────────────────
+// One row per design-tool use consumed by an affiliate whose membership is not
+// active. The cap is five uses in total across saved designs, Auto Design runs,
+// and photo renders (shared/affiliateFreeUsage.ts), so the count is read from
+// this table instead of from how many designs exist: deleting a design does not
+// hand the use back, and nothing can be reset by cleaning up rows elsewhere.
+//
+// refId is the id of the thing created (kitchenDesigns.id, designPhotoRenders.id,
+// or the client's Auto Design run id when one was supplied). It is informative
+// only; nothing joins on it, so a deleted design leaves the ledger row intact.
+export const affiliateFreeUsage = mysqlTable("affiliate_free_usage", {
+  id: int("id").autoincrement().primaryKey(),
+  affiliateId: int("affiliateId").notNull(),
+  kind: mysqlEnum("kind", FREE_USAGE_KINDS).notNull(),
+  refId: int("refId"),
+  // Who spent the use (an owner or an enabled team member of that store).
+  userId: int("userId"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (t) => [
+  index("affiliate_free_usage_affiliate_kind_idx").on(t.affiliateId, t.kind),
+  index("affiliate_free_usage_created_at_idx").on(t.createdAt),
+]);
+
+export type AffiliateFreeUsage = typeof affiliateFreeUsage.$inferSelect;
+export type InsertAffiliateFreeUsage = typeof affiliateFreeUsage.$inferInsert;
+
+// ─── Affiliate design grants (admin "backdoor" allowance) ─────────────────────
+// An admin can give one store extra design uses on top of the free five, for
+// example while an affiliate is still setting up before paying. The grant is
+// spent only after the free five are gone, and an admin can top it back up to
+// designCount at any time — renewing resets usedSinceGrant and can change the
+// count. designCount is stored explicitly so the admin view and the affiliate's
+// usage response can both say "Extra designs: 5 (3 left)".
+//
+// contactEmails is a comma-separated list of the emails the grant belongs to,
+// read from the affiliate's own row when it is first granted. Anyone signed in
+// with one of those emails draws from the same grant. Keeping the count and the
+// spent counter on the row (rather than in the usage ledger) is what makes a
+// renewal a single reset: it never revives an already-spent free use.
+export const affiliateDesignGrants = mysqlTable("affiliate_design_grants", {
+  id: int("id").autoincrement().primaryKey(),
+  affiliateId: int("affiliateId").notNull(),
+  // The allowance as the admin set it, e.g. 5.
+  designCount: int("designCount").default(0).notNull(),
+  // Uses spent since the grant was issued or last renewed.
+  usedSinceGrant: int("usedSinceGrant").default(0).notNull(),
+  // Comma-separated lowercase emails this grant belongs to.
+  contactEmails: text("contactEmails"),
+  grantedBy: varchar("grantedBy", { length: 320 }),
+  grantedAt: timestamp("grantedAt").defaultNow().notNull(),
+  renewedAt: timestamp("renewedAt"),
+  renewedBy: varchar("renewedBy", { length: 320 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (t) => [
+  // One live grant per store: renewing updates that row rather than stacking.
+  unique("affiliate_design_grants_affiliate_uq").on(t.affiliateId),
+]);
+
+export type AffiliateDesignGrant = typeof affiliateDesignGrants.$inferSelect;
+export type InsertAffiliateDesignGrant = typeof affiliateDesignGrants.$inferInsert;
 
 // ─── Stripe payment history ───────────────────────────────────────────────────
 // One row per Stripe payment (order checkout, affiliate membership, or any

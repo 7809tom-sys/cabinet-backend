@@ -57,14 +57,18 @@ export function sumCommission(
 
 
 // ─── Affiliate membership offer ───────────────────────────────────────────────
-// Single source of truth for the paid affiliate membership. An affiliate pays an
-// annual fee and gets: access to the kitchen design software, their own
-// (white-labeled) website/storefront, and membership in the buying group (trade
-// pricing). Surface this constant anywhere the offer/price is shown so copy and
-// pricing never drift.
+// Single source of truth for the paid affiliate membership. An affiliate pays a
+// fee and gets: access to the kitchen design software, their own (white-labeled)
+// website/storefront, and membership in the buying group (trade pricing).
+// Surface these constants anywhere the offer/price is shown so copy and pricing
+// never drift. The two prices themselves live in
+// shared/affiliateMembershipPlans.ts, which the server also bills from.
 export const AFFILIATE_MEMBERSHIP = {
   priceUsd: 1195,
   billingPeriod: "year" as const,
+  // Both plans, in the order a pricing page should show them: the cheaper
+  // up-front commitment first, then the annual one.
+  planIds: ["monthly", "annual"] as const,
   benefits: [
     {
       title: "Kitchen Design Software",

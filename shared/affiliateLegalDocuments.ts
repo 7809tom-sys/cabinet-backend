@@ -105,6 +105,13 @@ export type LegalDocumentGateEntry = {
 export type LegalDocumentGate = {
   /** True only when every required, published contract is signed. */
   signedAll: boolean;
+  /**
+   * How many active, required, published contracts exist. Zero means an admin
+   * has not configured the legal feature yet, which is not the same statement as
+   * "this affiliate signed everything". A caller that publishes something
+   * irreversible should require this to be greater than zero as well.
+   */
+  requiredCount: number;
   /** Required contracts still to sign, including one in progress. */
   pending: LegalDocumentGateEntry[];
   /** Required contracts with no current version; the gate cannot pass until an admin publishes. */
@@ -148,7 +155,10 @@ export function legalDocumentGate(rows: LegalDocumentGateRow[]): LegalDocumentGa
 
   const pending = documents.filter((entry) => entry.required && entry.status !== "signed" && entry.status !== "unpublished");
   const unpublished = documents.filter((entry) => entry.required && entry.status === "unpublished");
-  return { signedAll: pending.length === 0 && unpublished.length === 0, pending, unpublished, documents };
+  const requiredCount = documents.filter(
+    (entry) => entry.required && entry.status !== "unpublished",
+  ).length;
+  return { signedAll: pending.length === 0 && unpublished.length === 0, requiredCount, pending, unpublished, documents };
 }
 
 /** What the affiliate portal shows for one contract. */

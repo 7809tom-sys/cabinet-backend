@@ -27,6 +27,10 @@ const PRIVATE_KEY_PREFIXES = [
   // URLs from a procedure that checks the affiliate or an admin.
   "affiliate-legal-documents/",
   "affiliate-legal-signatures/",
+  // Affiliate onboarding documents (driver's license, SSN card, business card,
+  // reseller certificate). The proxy refuses this prefix as well: the only way
+  // to bytes is a short-lived signed URL from an owner or admin procedure.
+  "affiliate-documents/",
 ];
 
 export function bucketForKey(key: string): string {

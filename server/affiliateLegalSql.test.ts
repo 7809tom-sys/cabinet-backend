@@ -6,11 +6,11 @@
  * learned the hard way: one statement per line, no IF NOT EXISTS, every table
  * prefixed, and nothing destructive.
  */
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
-const TIDB = "docs/sql/0269_affiliate_legal_esign.tidb.sql";
+const TIDB = "docs/sql/0272_affiliate_legal_esign.tidb.sql";
 const sql = readFileSync(resolve(process.cwd(), TIDB), "utf8");
 
 /** Executable lines only: comments and blanks removed. */
@@ -92,7 +92,20 @@ describe("0269 affiliate legal e-sign SQL", () => {
     expect(selects.some((line) => line.includes("affiliate_legal_signatures"))).toBe(true);
   });
 
-  it("states that the file number may need bumping at merge", () => {
-    expect(sql).toMatch(/BUMP THIS NUMBER AT MERGE/);
+  it("states the renumbering and the file it must follow", () => {
+    expect(sql).toMatch(/File number 0272/);
+    expect(sql).toMatch(/Renumbered from 0269 at merge/);
+    expect(sql).toMatch(/Run after 0271/);
+  });
+
+  it("is not the only file at its number, so it cannot be pasted out of order", () => {
+    // The branch was renumbered to 0272 precisely because main took 0269 twice
+    // over, so this asserts the number is still the highest one present.
+    const numbers = readdirSync(resolve(process.cwd(), "docs/sql"))
+      .map((name) => /^(\d{4})_/.exec(name)?.[1])
+      .filter((value): value is string => Boolean(value))
+      .sort();
+    expect(numbers[numbers.length - 1]).toBe("0272");
+    expect(numbers.filter((value) => value === "0272")).toHaveLength(1);
   });
 });

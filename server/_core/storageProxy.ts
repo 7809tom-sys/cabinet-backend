@@ -48,6 +48,14 @@ export function registerStorageProxy(app: Express) {
       res.status(403).send("This file is available only to signed-in affiliates");
       return;
     }
+    // Affiliate onboarding documents (driver's license, SSN card, business
+    // card, reseller certificate) are handed out only as short-lived signed
+    // URLs from the owner/admin procedure that checked the row. The path is
+    // refused for everyone, admins included, so a leaked key is worthless.
+    if (key.startsWith("affiliate-documents/")) {
+      res.status(403).send("This document is not available at a public address");
+      return;
+    }
     // Library documents are handed out only as short-lived signed URLs from the
     // admin (or affiliate) procedure that checks visibility. Never from a path.
     if (key.startsWith(LIBRARY_DOCUMENT_FILE_PREFIX)) {
