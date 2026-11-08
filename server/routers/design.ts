@@ -3,7 +3,7 @@ import { skuVisibleToViewer } from "../lib/distributorPreview";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { eq, and, inArray, desc, like, sql, or, isNull, ne, gt } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
-import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
+import { adminProcedure, publicProcedure, protectedProcedure, router } from "../_core/trpc";
 import { getDb, notInConflict, getPlatformPricingSettings } from "../db";
 import { verifyUsAddress, formatEnteredAddress } from "../lib/addressVerification";
 import { distributorCabinetOverrides, cabinets, cabinetAliases, skuMasterAliases, kitchenDesigns, distributorSkus, doorStyles, distributors, countertopQuotes, designLeads, crmDeals, crmDealDesigns, affiliates, affiliateStyleBranding, affiliateDistributorSelections, orderRequests, payments, threeDRoomShares, designConsultations, designGeminiImageTestJobs, designImageRequests, designPhotoRenders, designViewLog } from "../../drizzle/schema";
@@ -20,6 +20,18 @@ import { getPricingSettings } from "../db";
 import { getPricingSettingsForViewer } from "../lib/affiliateContractorPricing";
 import { resolveStorefrontTier, visiblePricesForViewer } from "../../shared/pricingTier";
 import { resolveAffiliateAccess } from "../lib/affiliateAccess";
+import {
+  assertFreeUsageAvailable,
+  attachFreeUsageRef,
+  claimFreeUsage,
+  loadFreeUsageGate,
+  loadGrantView,
+  releaseFreeUsage,
+  releaseUsageById,
+  renewDesignGrant,
+  usagePayload,
+  writeDesignGrant,
+} from "../lib/affiliateFreeUsage";
 import { decideAssistAccess } from "@shared/customerDirectory";
 import { filterCabinetSourceRows, loadAffiliateCatalogGate } from "../lib/affiliateCatalogGate";
 import { canViewAffiliateDesignPriceList, affiliateCustomerPosition } from "../lib/affiliateDesignPriceList";
@@ -1828,27 +1840,54 @@ export const designRouter = router({
 	              designAffiliateScopeCondition(affiliateId),
 	            ));
 	          const updatedDealId = await linkDesignToCrmDeal({ db, designId: input.id, input, affiliateId, affiliateName: affiliate?.storeName ?? null, userId, userName: ctx.user?.name ?? null, userEmail: ctx.user?.email ?? null });
-          return { id: input.id, recoveredFromStaleId: false, dealId: updatedDealId ?? null };
+          return {
+            id: input.id,
+            recoveredFromStaleId: false,
+            dealId: updatedDealId ?? null,
+            // Editing an existing plan does not spend a free use, so the caller
+            // gets the current balance to keep the Designer's counter in step.
+            usage: usagePayload(await loadFreeUsageGate(db, ctx.user)),
+          };
 	        }
 	      }
 
-      const result = await db.insert(kitchenDesigns).values({
-        userId,
-        affiliateId,
-        name: input.name,
-        roomData: input.roomData,
-        placedCabinets: input.placedCabinets,
-        selectedSurfaces: input.selectedSurfaces ?? null,
-        threeDPresentation: input.threeDPresentation ?? null,
-        selectedStyleId: input.selectedStyleId,
-        selectedDistributorId: input.selectedDistributorId,
-        trimSettings: input.trimSettings ?? null,
-        projectName: input.projectName ?? null,
-        roomLabel: input.roomLabel ?? null,
-        roomType: input.roomType ?? null,
-      });
+      // A brand-new saved design is one of the three things the free-use cap
+      // counts. Editing an existing design (the branch above) never counts, and
+      // autosave cannot create a design at all. An affiliate with an active
+      // membership, and anyone who is not an affiliate, is not capped.
+      const usageGate = await loadFreeUsageGate(db, ctx.user);
+      assertFreeUsageAvailable(usageGate, "design");
+      const usageClaim = await claimFreeUsage(db, usageGate, "design", { userId });
+
+      let result: unknown;
+      try {
+        result = await db.insert(kitchenDesigns).values({
+          userId,
+          affiliateId,
+          name: input.name,
+          roomData: input.roomData,
+          placedCabinets: input.placedCabinets,
+          selectedSurfaces: input.selectedSurfaces ?? null,
+          threeDPresentation: input.threeDPresentation ?? null,
+          selectedStyleId: input.selectedStyleId,
+          selectedDistributorId: input.selectedDistributorId,
+          trimSettings: input.trimSettings ?? null,
+          projectName: input.projectName ?? null,
+          roomLabel: input.roomLabel ?? null,
+          roomType: input.roomType ?? null,
+        });
+      } catch (error) {
+        // Nothing was saved, so the use is not spent.
+        await releaseFreeUsage(db, usageClaim).catch((releaseError) => {
+          console.warn("[Affiliate usage] Could not release the free use after a failed design insert.", releaseError);
+        });
+        throw error;
+      }
       // mysql2 returns a tuple: [ResultSetHeader, ...]; insertId lives on the header.
       const insertId = (result as unknown as [{ insertId: number }])[0].insertId;
+      await attachFreeUsageRef(db, usageClaim, insertId).catch((refError) => {
+        console.warn("[Affiliate usage] Could not record the design id on the free-use row.", refError);
+      });
 
       // An affiliate storefront design is linked only to that affiliate's CRM.
       // A normal design retains the existing house CRM behavior.
@@ -1878,7 +1917,13 @@ export const designRouter = router({
 	        link: affiliateId ? `/affiliate?section=crm&deal=${dealId ?? ""}` : `/design?id=${insertId}`,
 	      });
 
-      return { id: insertId, recoveredFromStaleId: Boolean(input.id), dealId: dealId ?? null };
+      return {
+        id: insertId,
+        recoveredFromStaleId: Boolean(input.id),
+        dealId: dealId ?? null,
+        // Lets the Designer refresh "N free uses left" without a second call.
+        usage: usagePayload({ ...usageGate, snapshot: usageClaim.snapshot }),
+      };
     }),
 
   // Background persistence for an already named/saved plan. This deliberately
@@ -1963,6 +2008,123 @@ export const designRouter = router({
       }).where(ownership);
 
       return { id: input.id };
+    }),
+
+  // ─── Affiliate free-use cap ────────────────────────────────────────────────
+  // What the Designer shows next to its tools: how many of the five free uses
+  // are left, and whether the person is capped at all. A paid affiliate, an
+  // admin, and a shopper who is not an affiliate all come back unlimited.
+  usage: protectedProcedure.query(async ({ ctx }) => {
+    const db = await getDb();
+    if (!db) {
+      throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+    }
+    return usagePayload(await loadFreeUsageGate(db, ctx.user));
+  }),
+
+  // One Auto Design run. Auto Design is built in the browser from the live
+  // catalog, so this procedure is the server's record of the run: it refuses a
+  // sixth free run for an unpaid affiliate and spends one use otherwise. The
+  // Designer calls it before it starts building a layout.
+  startAutoDesign: protectedProcedure
+    .input(z.object({ affiliateSlug: designStoreScopeInput, layoutType: z.string().max(32).optional() }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      const hostScope = await resolveRequestStoreScope(ctx.req);
+      assertClientStoreScope(hostScope, input.affiliateSlug);
+      const gate = await loadFreeUsageGate(db, ctx.user);
+      assertFreeUsageAvailable(gate, "auto_design");
+      const claim = await claimFreeUsage(db, gate, "auto_design", { userId: ctx.user.id });
+      return {
+        startedAt: new Date().toISOString(),
+        layoutType: input.layoutType ?? null,
+        // The ledger row, so a run abandoned before it places anything can be
+        // handed back through releaseAutoDesign.
+        claimId: claim.ledgerId,
+        usage: usagePayload({ ...gate, snapshot: claim.snapshot }),
+      };
+    }),
+
+  // Give an Auto Design use back when the run produced nothing the person kept,
+  // for example a refrigerator already in the layout blocking the build.
+  releaseAutoDesign: protectedProcedure
+    .input(z.object({ claimId: z.number().int().positive().nullable().optional() }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      if (input.claimId != null) {
+        await releaseUsageById(db, { ledgerId: input.claimId, userId: ctx.user.id, kind: "auto_design" });
+      }
+      return usagePayload(await loadFreeUsageGate(db, ctx.user));
+    }),
+
+  // ─── Admin: the "backdoor" design allowance per affiliate ──────────────────
+  // An admin can give one store N extra design uses on top of the free five,
+  // and top it back up whenever they like. The count is stored on the grant, so
+  // the admin view and the affiliate's design.usage can both report it.
+  adminGrantDesigns: adminProcedure
+    .input(
+      z.object({
+        affiliateId: z.number().int().positive(),
+        designCount: z.number().int().min(0).max(10_000),
+        // Defaults to the affiliate's own contact emails when omitted.
+        contactEmails: z.array(z.string().trim().min(3).max(320)).max(20).optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      const view = await writeDesignGrant(db, {
+        affiliateId: input.affiliateId,
+        designCount: input.designCount,
+        contactEmails: input.contactEmails ?? null,
+        actor: ctx.user.email ?? ctx.user.name ?? null,
+      });
+      if (view.storeName == null) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Affiliate not found." });
+      }
+      return view;
+    }),
+
+  // Top an existing grant back up to the stored count, or to a new count. The
+  // spent counter resets, so the store is back to a full allowance.
+  adminRenewDesignGrant: adminProcedure
+    .input(
+      z.object({
+        affiliateId: z.number().int().positive(),
+        // Omit to renew at the count already on the grant.
+        designCount: z.number().int().min(0).max(10_000).optional(),
+        contactEmails: z.array(z.string().trim().min(3).max(320)).max(20).optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      const view = await renewDesignGrant(db, {
+        affiliateId: input.affiliateId,
+        designCount: input.designCount ?? null,
+        contactEmails: input.contactEmails ?? null,
+        actor: ctx.user.email ?? ctx.user.name ?? null,
+      });
+      if (view.storeName == null) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Affiliate not found." });
+      }
+      return view;
+    }),
+
+  // What an admin sees for one store: the stored count, what is left of it, the
+  // emails it is tied to, and who granted or last renewed it.
+  adminDesignGrant: adminProcedure
+    .input(z.object({ affiliateId: z.number().int().positive() }))
+    .query(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      const view = await loadGrantView(db, input.affiliateId, ctx.user.email ?? null);
+      if (view.storeName == null) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Affiliate not found." });
+      }
+      return view;
     }),
 
   rename: protectedProcedure

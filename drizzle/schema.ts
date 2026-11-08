@@ -15,6 +15,7 @@ import {
   uniqueIndex,
 } from "drizzle-orm/mysql-core";
 import { AFFILIATE_STOREFRONT_TEMPLATE_IDS } from "../shared/affiliateStorefrontTemplates";
+import { FREE_USAGE_KINDS } from "../shared/affiliateFreeUsage";
 import type { AffiliateSocialLink } from "../shared/affiliateSocialLinks";
 import type { AffiliateResourceMeta } from "../shared/affiliateResources";
 
@@ -3172,6 +3173,68 @@ export const affiliateInvoices = mysqlTable("affiliate_invoices", {
 
 export type AffiliateInvoice = typeof affiliateInvoices.$inferSelect;
 export type InsertAffiliateInvoice = typeof affiliateInvoices.$inferInsert;
+
+// ─── Affiliate free-usage ledger ──────────────────────────────────────────────
+// One row per design-tool use consumed by an affiliate whose membership is not
+// active. The cap is five uses in total across saved designs, Auto Design runs,
+// and photo renders (shared/affiliateFreeUsage.ts), so the count is read from
+// this table instead of from how many designs exist: deleting a design does not
+// hand the use back, and nothing can be reset by cleaning up rows elsewhere.
+//
+// refId is the id of the thing created (kitchenDesigns.id, designPhotoRenders.id,
+// or the client's Auto Design run id when one was supplied). It is informative
+// only; nothing joins on it, so a deleted design leaves the ledger row intact.
+export const affiliateFreeUsage = mysqlTable("affiliate_free_usage", {
+  id: int("id").autoincrement().primaryKey(),
+  affiliateId: int("affiliateId").notNull(),
+  kind: mysqlEnum("kind", FREE_USAGE_KINDS).notNull(),
+  refId: int("refId"),
+  // Who spent the use (an owner or an enabled team member of that store).
+  userId: int("userId"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (t) => [
+  index("affiliate_free_usage_affiliate_kind_idx").on(t.affiliateId, t.kind),
+  index("affiliate_free_usage_created_at_idx").on(t.createdAt),
+]);
+
+export type AffiliateFreeUsage = typeof affiliateFreeUsage.$inferSelect;
+export type InsertAffiliateFreeUsage = typeof affiliateFreeUsage.$inferInsert;
+
+// ─── Affiliate design grants (admin "backdoor" allowance) ─────────────────────
+// An admin can give one store extra design uses on top of the free five, for
+// example while an affiliate is still setting up before paying. The grant is
+// spent only after the free five are gone, and an admin can top it back up to
+// designCount at any time — renewing resets usedSinceGrant and can change the
+// count. designCount is stored explicitly so the admin view and the affiliate's
+// usage response can both say "Extra designs: 5 (3 left)".
+//
+// contactEmails is a comma-separated list of the emails the grant belongs to,
+// read from the affiliate's own row when it is first granted. Anyone signed in
+// with one of those emails draws from the same grant. Keeping the count and the
+// spent counter on the row (rather than in the usage ledger) is what makes a
+// renewal a single reset: it never revives an already-spent free use.
+export const affiliateDesignGrants = mysqlTable("affiliate_design_grants", {
+  id: int("id").autoincrement().primaryKey(),
+  affiliateId: int("affiliateId").notNull(),
+  // The allowance as the admin set it, e.g. 5.
+  designCount: int("designCount").default(0).notNull(),
+  // Uses spent since the grant was issued or last renewed.
+  usedSinceGrant: int("usedSinceGrant").default(0).notNull(),
+  // Comma-separated lowercase emails this grant belongs to.
+  contactEmails: text("contactEmails"),
+  grantedBy: varchar("grantedBy", { length: 320 }),
+  grantedAt: timestamp("grantedAt").defaultNow().notNull(),
+  renewedAt: timestamp("renewedAt"),
+  renewedBy: varchar("renewedBy", { length: 320 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (t) => [
+  // One live grant per store: renewing updates that row rather than stacking.
+  unique("affiliate_design_grants_affiliate_uq").on(t.affiliateId),
+]);
+
+export type AffiliateDesignGrant = typeof affiliateDesignGrants.$inferSelect;
+export type InsertAffiliateDesignGrant = typeof affiliateDesignGrants.$inferInsert;
 
 // ─── Stripe payment history ───────────────────────────────────────────────────
 // One row per Stripe payment (order checkout, affiliate membership, or any
