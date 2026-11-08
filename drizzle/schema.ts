@@ -4709,3 +4709,123 @@ export const vendorEmailForwards = mysqlTable("vendor_email_forwards", {
 
 export type VendorEmailForward = typeof vendorEmailForwards.$inferSelect;
 export type InsertVendorEmailForward = typeof vendorEmailForwards.$inferInsert;
+
+// ─── Affiliate legal contracts and DocuSeal signatures ───────────────────────
+// Hand-run SQL: docs/sql/0269_affiliate_legal_esign.tidb.sql (bump the number at
+// merge if a sibling PR takes 0269). Nothing here is applied by the application.
+//
+// A legal document is an admin-owned contract. Its text is immutable once
+// published: editing a published document creates the next version, so a
+// signature always points at the exact bytes the affiliate agreed to.
+export const affiliateLegalDocuments = mysqlTable("affiliate_legal_documents", {
+  id: int("id").autoincrement().primaryKey(),
+  slug: varchar("slug", { length: 80 }).notNull().unique(),
+  title: varchar("title", { length: 255 }).notNull(),
+  summary: varchar("summary", { length: 512 }),
+  // Order the affiliate portal lists them in.
+  sortOrder: int("sortOrder").default(0).notNull(),
+  // Inactive documents are hidden from affiliates and never gate onboarding.
+  isActive: boolean("isActive").default(true).notNull(),
+  // Required for membership: hasSignedAllRequired stays false until signed.
+  requiredForMembership: boolean("requiredForMembership").default(true).notNull(),
+  // Points at the version currently offered for signing. Null until the first
+  // version is published. Versions are never deleted, only superseded.
+  currentVersionId: int("currentVersionId"),
+  createdByUserId: int("createdByUserId"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type AffiliateLegalDocument = typeof affiliateLegalDocuments.$inferSelect;
+export type InsertAffiliateLegalDocument = typeof affiliateLegalDocuments.$inferInsert;
+
+// One immutable version of a legal document. A row is never updated after it is
+// published except to record its DocuSeal template, and never deleted.
+export const affiliateLegalDocumentVersions = mysqlTable("affiliate_legal_document_versions", {
+  id: int("id").autoincrement().primaryKey(),
+  documentId: int("documentId").notNull(),
+  version: int("version").notNull(),
+  title: varchar("title", { length: 255 }).notNull(),
+  // markdown: bodyMarkdown holds the text. pdf: fileKey holds the private object.
+  kind: mysqlEnum("kind", ["markdown", "pdf"]).default("markdown").notNull(),
+  bodyMarkdown: text("bodyMarkdown"),
+  fileKey: varchar("fileKey", { length: 512 }),
+  filename: varchar("filename", { length: 255 }),
+  mimeType: varchar("mimeType", { length: 128 }),
+  sizeBytes: int("sizeBytes"),
+  // SHA-256 of the exact content shown to a signer (markdown bytes or PDF bytes).
+  contentSha256: varchar("contentSha256", { length: 64 }).notNull(),
+  // The DocuSeal template built from this version. Null means signing is not
+  // possible yet, and the portal says so instead of failing silently.
+  docusealTemplateId: int("docusealTemplateId"),
+  publishedAt: timestamp("publishedAt"),
+  createdByUserId: int("createdByUserId"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (t) => ({
+  documentVersionUq: uniqueIndex("affiliate_legal_document_versions_doc_version_uq").on(t.documentId, t.version),
+  documentIdx: index("affiliate_legal_document_versions_document_idx").on(t.documentId),
+}));
+export type AffiliateLegalDocumentVersion = typeof affiliateLegalDocumentVersions.$inferSelect;
+export type InsertAffiliateLegalDocumentVersion = typeof affiliateLegalDocumentVersions.$inferInsert;
+
+// An in-flight DocuSeal signing request for one affiliate and one version.
+// At most one pending row per (affiliate, version); a completed row is kept as
+// history. status only moves pending -> completed | declined | expired.
+export const affiliateLegalSigningSessions = mysqlTable("affiliate_legal_signing_sessions", {
+  id: int("id").autoincrement().primaryKey(),
+  affiliateId: int("affiliateId").notNull(),
+  documentId: int("documentId").notNull(),
+  documentVersionId: int("documentVersionId").notNull(),
+  provider: mysqlEnum("provider", ["docuseal"]).default("docuseal").notNull(),
+  providerSubmissionId: varchar("providerSubmissionId", { length: 64 }),
+  providerSubmitterId: varchar("providerSubmitterId", { length: 64 }),
+  status: mysqlEnum("status", ["pending", "completed", "declined", "expired"]).default("pending").notNull(),
+  createdByUserId: int("createdByUserId"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (t) => ({
+  affiliateVersionIdx: index("affiliate_legal_signing_sessions_affiliate_version_idx").on(t.affiliateId, t.documentVersionId),
+  submissionIdx: index("affiliate_legal_signing_sessions_submission_idx").on(t.providerSubmissionId),
+  statusIdx: index("affiliate_legal_signing_sessions_status_idx").on(t.status),
+}));
+export type AffiliateLegalSigningSession = typeof affiliateLegalSigningSessions.$inferSelect;
+export type InsertAffiliateLegalSigningSession = typeof affiliateLegalSigningSessions.$inferInsert;
+
+// Append-only signature record. There is no update and no delete path in the
+// application: a mistaken signature is superseded by a new version, never
+// rewritten. provider_event_id is UNIQUE so a replayed webhook cannot insert a
+// second signature for the same DocuSeal completion.
+export const affiliateLegalSignatures = mysqlTable("affiliate_legal_signatures", {
+  id: int("id").autoincrement().primaryKey(),
+  affiliateId: int("affiliateId").notNull(),
+  userId: int("userId"),
+  documentId: int("documentId").notNull(),
+  documentVersionId: int("documentVersionId").notNull(),
+  documentSlug: varchar("documentSlug", { length: 80 }).notNull(),
+  documentVersion: int("documentVersion").notNull(),
+  // Snapshot of what was signed, so the record survives a later rename.
+  documentTitle: varchar("documentTitle", { length: 255 }).notNull(),
+  contentSha256: varchar("contentSha256", { length: 64 }).notNull(),
+  provider: mysqlEnum("provider", ["docuseal"]).default("docuseal").notNull(),
+  providerSubmissionId: varchar("providerSubmissionId", { length: 64 }).notNull(),
+  providerSubmitterId: varchar("providerSubmitterId", { length: 64 }),
+  // Set when the completion event is the form-level one; unique when present.
+  providerEventId: varchar("providerEventId", { length: 128 }),
+  signerName: varchar("signerName", { length: 255 }),
+  signerEmail: varchar("signerEmail", { length: 320 }),
+  signerIp: varchar("signerIp", { length: 64 }),
+  signerUserAgent: varchar("signerUserAgent", { length: 512 }),
+  // DocuSeal's own audit-log PDF URL, kept as evidence even if the copy below fails.
+  providerAuditLogUrl: varchar("providerAuditLogUrl", { length: 1024 }),
+  signedPdfKey: varchar("signedPdfKey", { length: 512 }),
+  auditLogKey: varchar("auditLogKey", { length: 512 }),
+  completedAt: timestamp("completedAt").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (t) => ({
+  affiliateIdx: index("affiliate_legal_signatures_affiliate_idx").on(t.affiliateId),
+  versionIdx: index("affiliate_legal_signatures_version_idx").on(t.documentVersionId),
+  // One signature per affiliate per version. A webhook retry collides here.
+  affiliateVersionUq: uniqueIndex("affiliate_legal_signatures_affiliate_version_uq").on(t.affiliateId, t.documentVersionId),
+  eventUq: uniqueIndex("affiliate_legal_signatures_event_uq").on(t.providerEventId),
+}));
+export type AffiliateLegalSignature = typeof affiliateLegalSignatures.$inferSelect;
+export type InsertAffiliateLegalSignature = typeof affiliateLegalSignatures.$inferInsert;

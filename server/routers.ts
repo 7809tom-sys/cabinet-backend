@@ -88,6 +88,7 @@ import { adminStickyNotesRouter } from "./routers/adminStickyNotes";
 import { operationsProvidersRouter } from "./routers/operationsProviders";
 import { affiliateLiteratureRouter } from "./routers/affiliateLiterature";
 import { affiliateResourcesRouter } from "./routers/affiliateResources";
+import { affiliateLegalRouter } from "./routers/affiliateLegal";
 import { affiliateSocialRouter } from "./routers/affiliateSocialLinks";
 import { affiliateGeneratedImagesRouter } from "./routers/affiliateGeneratedImages";
 import { hardwareRouter } from "./routers/hardware";
@@ -252,6 +253,7 @@ export const appRouter = router({
   operationsProviders: operationsProvidersRouter,
   affiliateLiterature: affiliateLiteratureRouter,
   affiliateResources: affiliateResourcesRouter,
+  affiliateLegal: affiliateLegalRouter,
   affiliateSocial: affiliateSocialRouter,
   affiliateGeneratedImages: affiliateGeneratedImagesRouter,
   hardware: hardwareRouter,

@@ -18,6 +18,7 @@ import fs from "fs";
 import path from "path";
 import { registerStripeWebhook } from "../stripeWebhook";
 import { registerVendorInboundWebhook } from "../vendorInboundHttp";
+import { registerDocusealWebhook } from "../docusealWebhook";
 import { sdk } from "./sdk";
 import cron from "node-cron";
 import { corsMiddleware } from "../lib/cors";
@@ -100,6 +101,8 @@ async function startServer() {
   registerStripeWebhook(app);
   // Inbound vendor mail also needs the raw body for signature verification.
   registerVendorInboundWebhook(app);
+  // DocuSeal signs its webhook body with an HMAC, so it needs the raw bytes too.
+  registerDocusealWebhook(app);
   // Configure body parser with larger size limit for file uploads
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));

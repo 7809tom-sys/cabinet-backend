@@ -8,13 +8,20 @@
 type Token =
   | { kind: "column"; name: string }
   | { kind: "text"; value: string }
-  | { kind: "param"; value: unknown };
+  | { kind: "param"; value: unknown }
+  | { kind: "list"; values: unknown[] };
 
 export type Row = Record<string, unknown>;
 
 function collectTokens(node: unknown, out: Token[]): void {
   if (node == null) return;
   if (Array.isArray(node)) {
+    // Drizzle's inArray embeds the value list as a raw JS array chunk, not as a
+    // Param. Keep it whole so `id IN (1, 2)` is read as two values.
+    if (node.length > 0 && node.every((entry) => entry == null || typeof entry !== "object")) {
+      out.push({ kind: "list", values: node });
+      return;
+    }
     for (const entry of node) collectTokens(entry, out);
     return;
   }
@@ -61,7 +68,15 @@ function readConditions(where: unknown): Condition[] {
     }
     const operand = tokens[index + 2];
     if (text.includes(" in ")) {
-      conditions.push({ column: token.name, op: "in", value: operand?.kind === "param" ? operand.value : undefined });
+      const value =
+        operand?.kind === "list"
+          ? operand.values
+          : operand?.kind === "param" && Array.isArray(operand.value)
+            ? operand.value
+            : operand?.kind === "param"
+              ? [operand.value]
+              : undefined;
+      conditions.push({ column: token.name, op: "in", value });
       continue;
     }
     if (text.includes("=") && operand?.kind === "param") {

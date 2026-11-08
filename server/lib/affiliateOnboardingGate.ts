@@ -7,18 +7,21 @@
  *   2. every required legal document is signed;
  *   3. every required onboarding document is uploaded and approved.
  *
- * (1) is implemented here from the existing membership columns. (3) calls
+ * (1) is implemented here from the existing membership columns. (2) calls
+ * `hasSignedAllRequired` from server/lib/affiliateLegalContracts.ts, the
+ * DocuSeal legal-contract check that landed in PR 87. (3) calls
  * `hasRequiredDocuments` from server/lib/affiliateDocuments.ts, which landed in
- * PR 85. (2) belongs to the legal-contracts sibling PR 87, which is still open, so
- * it is a stub that returns BLOCKED. That default is deliberate: until it is
- * wired, no storefront can go live on an unsigned agreement. A stub that
- * returned true would publish stores that skipped the contract.
+ * PR 85.
+ *
+ * Until PR 87 merged, (2) was a stub that returned BLOCKED, so no storefront
+ * could go live on an unsigned agreement. It now runs the real check.
  *
  * The checks sit behind `OnboardingGateChecks` so a test can substitute all-true
- * checks, and so PR 87 only has to fill in one function.
+ * checks without a database.
  */
 
 import { hasRequiredDocuments } from "./affiliateDocuments";
+import { loadLegalDocumentGateForAffiliate } from "./affiliateLegalContracts";
 import { effectiveMembershipStatus } from "./affiliateMembership";
 
 export type OnboardingGateBlocker =
@@ -51,7 +54,7 @@ export type OnboardingCheckOutcome =
 export type OnboardingGateChecks = {
   /** Implemented: paid membership is active for the current term. */
   membership: (input: OnboardingGateInput, now: Date) => Promise<OnboardingCheckOutcome>;
-  /** PR 87 (open): every required legal document has been signed. */
+  /** Implemented (PR 87): every required legal document has been signed. */
   legalDocuments: (input: OnboardingGateInput) => Promise<OnboardingCheckOutcome>;
   /** Implemented: every required onboarding document is uploaded and approved. */
   requiredDocuments: (input: OnboardingGateInput) => Promise<OnboardingCheckOutcome>;
@@ -123,19 +126,27 @@ export function evaluateMembership(
 }
 
 /**
- * TODO(PR 87, cursor/affiliate-legal-esign-36e8): replace with
- *   import { hasSignedAllRequired } from "./affiliateLegalContracts";
- *   return (await hasSignedAllRequired(input.affiliateId))
- *     ? { ok: true }
- *     : { ok: false, blockers: ["legal_docs_unsigned"] };
- * hasSignedAllRequired(affiliateId: number): Promise<boolean> is the exact
- * signature on that branch. Until it lands, this blocks: publishing on an
- * unsigned contract is not recoverable, and the PR that adds the check has to be
- * the one that un-publishes live stores otherwise.
+ * Every required legal contract is signed on its current version. Wired to PR
+ * 87's hasSignedAllRequired(affiliateId), which reads the
+ * affiliate_legal_signatures records DocuSeal's webhook writes.
+ *
+ * This replaced a stub that always returned BLOCKED. The stub existed so the
+ * gate could not publish a store on an unsigned agreement before the legal
+ * feature landed. It is still fail-closed, for both reasons the stub was:
+ *
+ *   - an unsigned required contract blocks;
+ *   - a deployment with NO required contract published yet also blocks, because
+ *     that means the feature is unconfigured, not that the affiliate signed
+ *     everything. Publishing a public storefront is not reversible, so "nothing
+ *     was asked of you" must not read as "you are done".
+ *
+ * An admin publishing the first required contract lifts the second case for
+ * everyone; from then on the rule is the same one the affiliate portal shows.
  */
-async function hasSignedAllRequiredStub(_input: OnboardingGateInput): Promise<OnboardingCheckOutcome> {
-  // TODO(PR 87): wire hasSignedAllRequired here.
-  return { ok: false, blockers: ["legal_docs_unsigned"] };
+async function legalDocumentsCheck(input: OnboardingGateInput): Promise<OnboardingCheckOutcome> {
+  const gate = await loadLegalDocumentGateForAffiliate(input.affiliateId);
+  const ok = gate.requiredCount > 0 && gate.signedAll;
+  return ok ? { ok: true } : { ok: false, blockers: ["legal_docs_unsigned"] };
 }
 
 /**
@@ -148,10 +159,10 @@ async function requiredDocumentsCheck(input: OnboardingGateInput): Promise<Onboa
   return ok ? { ok: true } : { ok: false, blockers: ["documents_missing"] };
 }
 
-/** Default checks: membership, the blocking legal stub, and the real documents check. */
+/** Default checks: membership, the real legal-document check, and the real documents check. */
 export const DEFAULT_ONBOARDING_GATE_CHECKS: OnboardingGateChecks = {
   membership: (input, now) => Promise.resolve(evaluateMembership(input, now)),
-  legalDocuments: hasSignedAllRequiredStub,
+  legalDocuments: legalDocumentsCheck,
   requiredDocuments: requiredDocumentsCheck,
 };
 

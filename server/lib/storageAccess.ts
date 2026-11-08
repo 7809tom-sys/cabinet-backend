@@ -25,11 +25,20 @@ export function isPublicStorageKey(key: string): boolean {
 export function privateStorageDecision(key: string, user: StorageActor | null): "public" | "allow" | "deny" | "owner-check" | "affiliate-document" {
   const normalized = key.replace(/^\/+/, "");
   if (!isPrivateStorageKey(normalized)) return "public";
-  // Onboarding documents are refused on this path before any role is
+  // Affiliate-private documents are refused on this path before any role is
   // considered, so not even an admin session can read them here. The only way
   // to the bytes is a short-lived signed URL from a procedure that checked the
-  // row.
-  if (normalized.startsWith("affiliate-documents/")) return "affiliate-document";
+  // row. This covers main's onboarding documents (affiliate-documents/) and this
+  // branch's signed contracts plus DocuSeal audit trails
+  // (affiliate-legal-signatures/, affiliate-legal-documents/): all three are
+  // evidence handed out only by a procedure that checked ownership.
+  if (
+    normalized.startsWith("affiliate-documents/") ||
+    normalized.startsWith("affiliate-legal-signatures/") ||
+    normalized.startsWith("affiliate-legal-documents/")
+  ) {
+    return "affiliate-document";
+  }
   if (!user) return "deny";
   if (user.role === "admin") return "allow";
   const uploadedBy = /^(?:ocr-uploads|fixture-uploads)\/u(\d+)-/.exec(normalized);

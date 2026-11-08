@@ -1,12 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// The documents check now delegates to the helper PR 85 shipped in
-// server/lib/affiliateDocuments.ts, which reads the database. Mocked so the gate
-// logic is testable without one, and so the assertions can prove the gate calls
-// the real helper rather than a stub of its own.
-const { hasRequiredDocumentsMock } = vi.hoisted(() => ({ hasRequiredDocumentsMock: vi.fn() }));
+// The documents check delegates to the helper PR 85 shipped in
+// server/lib/affiliateDocuments.ts, and the legal check to the DocuSeal helper PR
+// 87 shipped in server/lib/affiliateLegalContracts.ts. Both read the database, so
+// both are mocked here: the gate logic is testable without one, and the
+// assertions can prove the gate calls the real helpers rather than stubs.
+const { hasRequiredDocumentsMock, loadLegalDocumentGateMock } = vi.hoisted(() => ({
+  hasRequiredDocumentsMock: vi.fn(),
+  loadLegalDocumentGateMock: vi.fn(),
+}));
 
 vi.mock("./affiliateDocuments", () => ({ hasRequiredDocuments: hasRequiredDocumentsMock }));
+vi.mock("./affiliateLegalContracts", () => ({ loadLegalDocumentGateForAffiliate: loadLegalDocumentGateMock }));
 
 import {
   DEFAULT_ONBOARDING_GATE_CHECKS,
@@ -22,7 +27,15 @@ const NOW = new Date("2026-11-07T12:00:00Z");
 beforeEach(() => {
   hasRequiredDocumentsMock.mockReset();
   hasRequiredDocumentsMock.mockResolvedValue(false);
+  loadLegalDocumentGateMock.mockReset();
+  // The unconfigured case: a contract exists but is not signed.
+  loadLegalDocumentGateMock.mockResolvedValue({ signedAll: false, requiredCount: 1, pending: [], unpublished: [], documents: [] });
 });
+
+/** A published contract this affiliate has signed. */
+function signedGate() {
+  return { signedAll: true, requiredCount: 1, pending: [], unpublished: [], documents: [] };
+}
 
 function baseInput(over: Partial<OnboardingGateInput> = {}): OnboardingGateInput {
   return {
@@ -130,7 +143,7 @@ describe("evaluateMembership", () => {
 });
 
 describe("evaluateOnboardingGate", () => {
-  it("blocks on the legal stub and the real documents check", async () => {
+  it("blocks on the real legal check and the real documents check", async () => {
     const result = await evaluateOnboardingGate(baseInput(), DEFAULT_ONBOARDING_GATE_CHECKS, NOW);
     expect(result.ok).toBe(false);
     expect(result.blockers).toEqual(["legal_docs_unsigned", "documents_missing"]);
@@ -139,15 +152,34 @@ describe("evaluateOnboardingGate", () => {
       legalDocuments: false,
       requiredDocuments: false,
     });
-    // The documents check is the real helper, called with this affiliate's id.
+    // Both checks are the real helpers, called with this affiliate's id.
     expect(hasRequiredDocumentsMock).toHaveBeenCalledWith(42);
+    expect(loadLegalDocumentGateMock).toHaveBeenCalledWith(42);
+  });
+
+  it("passes the legal check once the affiliate has signed the published contract", async () => {
+    loadLegalDocumentGateMock.mockResolvedValue(signedGate());
+    const result = await evaluateOnboardingGate(baseInput(), DEFAULT_ONBOARDING_GATE_CHECKS, NOW);
+    expect(result.checks.legalDocuments).toBe(true);
+    // Only the un-uploaded onboarding document still blocks.
+    expect(result.blockers).toEqual(["documents_missing"]);
+    expect(result.ok).toBe(false);
+  });
+
+  it("still blocks when no contract is configured, because that is not the same as signed", async () => {
+    // Main's publish gate fails closed until the legal feature is configured.
+    // "Nothing required" must not read as "signed" on an irreversible publish.
+    loadLegalDocumentGateMock.mockResolvedValue({ signedAll: true, requiredCount: 0, pending: [], unpublished: [], documents: [] });
+    const result = await evaluateOnboardingGate(baseInput(), DEFAULT_ONBOARDING_GATE_CHECKS, NOW);
+    expect(result.checks.legalDocuments).toBe(false);
+    expect(result.blockers).toContain("legal_docs_unsigned");
   });
 
   it("passes the documents check once the helper reports them uploaded", async () => {
     hasRequiredDocumentsMock.mockResolvedValue(true);
     const result = await evaluateOnboardingGate(baseInput(), DEFAULT_ONBOARDING_GATE_CHECKS, NOW);
     expect(result.checks.requiredDocuments).toBe(true);
-    // Only the open legal-contracts PR still blocks.
+    // Only the unsigned legal contract still blocks.
     expect(result.blockers).toEqual(["legal_docs_unsigned"]);
     expect(result.ok).toBe(false);
   });
@@ -174,7 +206,28 @@ describe("evaluateOnboardingGate", () => {
     expect(result.messages).toHaveLength(4);
   });
 
-  it("passes once the membership is active and the legal stub is replaced", async () => {
+  it("passes when every real check agrees", async () => {
+    // Both helpers are the real ones the gate ships with, now that the legal
+    // check is wired instead of stubbed.
+    hasRequiredDocumentsMock.mockResolvedValue(true);
+    loadLegalDocumentGateMock.mockResolvedValue(signedGate());
+    const result = await evaluateOnboardingGate(baseInput(), DEFAULT_ONBOARDING_GATE_CHECKS, NOW);
+    expect(result.ok).toBe(true);
+    expect(result.blockers).toEqual([]);
+    expect(result.messages).toEqual([]);
+    expect(result.checks).toEqual({ membership: true, legalDocuments: true, requiredDocuments: true });
+  });
+
+  it("still blocks on an unsigned contract even when the onboarding documents are approved", async () => {
+    hasRequiredDocumentsMock.mockResolvedValue(true);
+    loadLegalDocumentGateMock.mockResolvedValue({ signedAll: false, requiredCount: 1, pending: [], unpublished: [], documents: [] });
+    const result = await evaluateOnboardingGate(baseInput(), DEFAULT_ONBOARDING_GATE_CHECKS, NOW);
+    expect(result.ok).toBe(false);
+    expect(result.blockers).toEqual(["legal_docs_unsigned"]);
+    expect(result.messages[0]).toMatch(/sign every required agreement/i);
+  });
+
+  it("passes once the membership is active and both document checks are satisfied", async () => {
     hasRequiredDocumentsMock.mockResolvedValue(true);
     const result = await evaluateOnboardingGate(baseInput(), documentsReadyChecks, NOW);
     expect(result.ok).toBe(true);

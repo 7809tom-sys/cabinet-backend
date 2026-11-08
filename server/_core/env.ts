@@ -53,4 +53,13 @@ export const ENV = {
   pelicanShippingQuotesEnabled: process.env.PELICAN_SHIPPING_QUOTES_ENABLED === "true",
   pelicanShippingQuoteApiKey: process.env.PELICAN_SHIPPING_QUOTE_API_KEY ?? "",
   pelicanShippingQuoteApiUrl: process.env.PELICAN_SHIPPING_QUOTE_API_URL ?? "",
+  /**
+   * DocuSeal e-signature for affiliate legal contracts. Every value is
+   * server-only: never expose these through Vite or return them from a status
+   * procedure. When DOCUSEAL_API_KEY is absent the signing endpoints answer
+   * "DocuSeal not configured" and there is no fallback signing path.
+   */
+  docusealApiKey: process.env.DOCUSEAL_API_KEY ?? "",
+  docusealApiUrl: process.env.DOCUSEAL_API_URL ?? "",
+  docusealWebhookSecret: process.env.DOCUSEAL_WEBHOOK_SECRET ?? "",
 };
