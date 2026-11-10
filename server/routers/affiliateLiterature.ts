@@ -1,9 +1,15 @@
+import { createHash } from "node:crypto";
 import { z } from "zod";
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, isNotNull } from "drizzle-orm";
 import { adminProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
 import { storagePut } from "../storage";
 import { affiliateLiterature } from "../../drizzle/schema";
+import { duplicateLibraryFileMessage } from "@shared/libraryFileHash";
+import { isCommercialVideoMime } from "@shared/commercialVideo";
+import { archiveLibraryCommercial } from "../lib/archiveLibraryCommercial";
+import { lookupLibraryFileByHash } from "../lib/libraryContentHash";
+import { LIBRARY_COMMERCIALS_MIGRATION, LibraryCommercialSchemaError, isUnknownNamedColumn } from "../lib/libraryCommercialSchema";
 import {
   LIBRARY_DOCUMENT_FILE_PREFIX,
   visibilityForAffiliateLibrarySwitch,
@@ -45,6 +51,24 @@ function safeFilename(filename: string) {
 /** Internal documents and affiliate documents share one private prefix. */
 function literatureFileKey(filename: string) {
   return `${LIBRARY_DOCUMENT_FILE_PREFIX}${Date.now()}_${filename}`;
+}
+
+/**
+ * Ids of archived commercials. Null when the column has not been pasted yet,
+ * which is the same as "nothing is archived". A failure that is not that
+ * missing column is rethrown.
+ */
+async function archivedLiteratureIds(db: { select: (fields: any) => any }): Promise<Set<number> | null> {
+  try {
+    const rows = await db
+      .select({ id: affiliateLiterature.id })
+      .from(affiliateLiterature)
+      .where(isNotNull(affiliateLiterature.archivedAt)) as Array<{ id: number }>;
+    return new Set(rows.map((row) => Number(row.id)));
+  } catch (error) {
+    if (isUnknownNamedColumn(error, "archivedAt")) return null;
+    throw error;
+  }
 }
 
 /**
@@ -93,10 +117,13 @@ export const affiliateLiteratureRouter = router({
   adminList: adminProcedure.query(async () => {
     const db = await getDb();
     if (!db) return [];
-    return logged("adminList", () => readLiteratureRows((columns) => db
+    const rows = await logged("adminList", () => readLiteratureRows((columns) => db
       .select(columns)
       .from(affiliateLiterature)
       .orderBy(desc(affiliateLiterature.createdAt))));
+    const archived = await archivedLiteratureIds(db);
+    if (!archived) return rows;
+    return rows.filter((row) => !archived.has(row.id));
   }),
 
   adminUpload: adminProcedure
@@ -121,6 +148,19 @@ export const affiliateLiteratureRouter = router({
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
       const buffer = decodeBase64(input.dataBase64);
+      const contentSha256 = createHash("sha256").update(buffer).digest("hex");
+      // Exact duplicates are refused before anything is stored. A missing hash
+      // column means the owner has not pasted 0273 yet: the document still
+      // uploads, and the log names the file that turns the check on.
+      const lookup = await lookupLibraryFileByHash(db, contentSha256);
+      if (lookup.state === "ready" && lookup.existing) {
+        throw new TRPCError({ code: "CONFLICT", message: duplicateLibraryFileMessage(lookup.existing) });
+      }
+      if (lookup.state === "column-missing") {
+        console.warn(
+          `[affiliate-literature] contentSha256 is missing, so this upload was not checked for a duplicate. Run ${LIBRARY_COMMERCIALS_MIGRATION}.`,
+        );
+      }
       const filename = safeFilename(input.filename);
       const fileKey = literatureFileKey(filename);
       const stored = await storagePut(fileKey, buffer, input.mimeType);
@@ -133,6 +173,7 @@ export const affiliateLiteratureRouter = router({
         url: stored.url,
         mimeType: input.mimeType,
         sizeBytes: buffer.length,
+        ...(lookup.state === "ready" ? { contentSha256 } : {}),
         isPublished: input.inAffiliateLibrary,
         visibility: visibilityForAffiliateLibrarySwitch(input.inAffiliateLibrary),
         affiliateToggledAt: input.inAffiliateLibrary ? new Date() : null,
@@ -196,10 +237,29 @@ export const affiliateLiteratureRouter = router({
 
   adminDelete: adminProcedure
     .input(z.object({ id: z.number().int() }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      const [existing] = await db
+        .select({ id: affiliateLiterature.id, mimeType: affiliateLiterature.mimeType })
+        .from(affiliateLiterature)
+        .where(eq(affiliateLiterature.id, input.id))
+        .limit(1);
+      if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "That library file was not found." });
+      // A commercial is archived. The storage object stays. Documents keep the
+      // existing row delete, which still does not delete the stored file.
+      if (isCommercialVideoMime(existing.mimeType)) {
+        try {
+          await archiveLibraryCommercial(db, existing.id, { id: ctx.user.id, name: ctx.user.name ?? null });
+        } catch (error) {
+          if (error instanceof LibraryCommercialSchemaError) {
+            throw new TRPCError({ code: "PRECONDITION_FAILED", message: error.message });
+          }
+          throw error;
+        }
+        return { id: existing.id, archived: true as const };
+      }
       await logged("adminDelete", () => db.delete(affiliateLiterature).where(eq(affiliateLiterature.id, input.id)));
-      return { id: input.id };
+      return { id: input.id, archived: false as const };
     }),
 });

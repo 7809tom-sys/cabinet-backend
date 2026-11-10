@@ -69,6 +69,7 @@ function dbWithoutVisibilityColumns(options: { failWith?: Error } = {}) {
             if (absent) throw unknownColumn(absent);
             return [{ ...libraryRow }];
           },
+          where: async () => [],
         }),
       };
     },
@@ -128,14 +129,15 @@ describe("affiliateLiterature.adminList through a deploy with no visibility colu
               affiliateToggledBy: 1,
               affiliateToggledByName: "Tom",
             }],
+            where: async () => [],
           }),
         };
       },
     });
     const withColumns = await caller(admin).adminList();
 
-    expect(statements).toHaveLength(1);
     expect(statements[0]).toContain("visibility");
+    expect(statements.filter((fields) => fields.includes("visibility"))).toHaveLength(1);
     expect(Object.keys(withColumns[0]).sort()).toEqual(Object.keys(withoutColumns[0]).sort());
     expect(withColumns[0].id).toBe(withoutColumns[0].id);
     expect(withColumns[0].title).toBe(withoutColumns[0].title);
@@ -178,6 +180,13 @@ describe("affiliateLiterature writes through the same window", () => {
   it("saves an internal upload without the optional columns and names the SQL file when a toggle is refused", async () => {
     const writes: Array<Record<string, unknown>> = [];
     getDbMock.mockResolvedValue({
+      select: () => ({
+        from: () => ({
+          where: () => ({
+            limit: async () => [],
+          }),
+        }),
+      }),
       insert: () => ({
         values: async (values: Record<string, unknown>) => {
           writes.push(values);

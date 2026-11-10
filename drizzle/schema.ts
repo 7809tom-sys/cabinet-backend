@@ -4327,15 +4327,61 @@ export const affiliateLiterature = mysqlTable("affiliate_literature", {
   affiliateToggledByName: varchar("affiliateToggledByName", { length: 255 }),
   sortOrder: int("sortOrder").default(0).notNull(),
   uploadedBy: int("uploadedBy"),
+  // SHA-256 of the uploaded bytes. Null until the owner runs
+  // docs/sql/0273 or the one-off hash script. Not unique: existing duplicates
+  // are flagged, never deleted, and a unique index would fail on them.
+  contentSha256: varchar("contentSha256", { length: 64 }),
+  // Set for short commercials when the container duration can be read.
+  durationSeconds: int("durationSeconds"),
+  // Set when a commercial is archived. The file in storage stays.
+  archivedAt: timestamp("archivedAt"),
+  archivedBy: int("archivedBy"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 }, (table) => [
   index("affiliate_literature_category_idx").on(table.category, table.sortOrder),
   index("affiliate_literature_published_idx").on(table.isPublished, table.sortOrder),
   index("affiliate_literature_visibility_idx").on(table.visibility, table.isPublished, table.sortOrder),
+  index("affiliate_literature_content_sha256_idx").on(table.contentSha256),
 ]);
 export type AffiliateLiterature = typeof affiliateLiterature.$inferSelect;
 export type InsertAffiliateLiterature = typeof affiliateLiterature.$inferInsert;
+
+// Free-text labels on a library commercial. tagKey is the lowercase form so
+// "Kitchen" and "kitchen" cannot both be stored on the same video. Removing a
+// tag deletes this row only; it never deletes the video file.
+export const affiliateLiteratureTags = mysqlTable("affiliate_literature_tags", {
+  id: int("id").autoincrement().primaryKey(),
+  literatureId: int("literatureId").notNull(),
+  tag: varchar("tag", { length: 40 }).notNull(),
+  tagKey: varchar("tagKey", { length: 40 }).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (table) => [
+  uniqueIndex("affiliate_literature_tags_literature_tag_uq").on(table.literatureId, table.tagKey),
+  index("affiliate_literature_tags_tag_key_idx").on(table.tagKey),
+]);
+export type AffiliateLiteratureTag = typeof affiliateLiteratureTags.$inferSelect;
+
+// One current publish record per commercial per channel. Status moves only
+// when an admin saves a draft or clicks publish for that pair. Nothing here
+// posts on a schedule.
+export const libraryCommercialPublishes = mysqlTable("library_commercial_publishes", {
+  id: int("id").autoincrement().primaryKey(),
+  literatureId: int("literatureId").notNull(),
+  channel: varchar("channel", { length: 32 }).notNull(),
+  status: varchar("status", { length: 16 }).default("draft").notNull(),
+  externalPostId: varchar("externalPostId", { length: 255 }),
+  externalPostUrl: varchar("externalPostUrl", { length: 1024 }),
+  error: text("error"),
+  publishedBy: int("publishedBy"),
+  publishedAt: timestamp("publishedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => [
+  uniqueIndex("library_commercial_publishes_video_channel_uq").on(table.literatureId, table.channel),
+  index("library_commercial_publishes_status_idx").on(table.status),
+]);
+export type LibraryCommercialPublish = typeof libraryCommercialPublishes.$inferSelect;
 
 // Admin-managed sales education for the affiliate Marketing Hub.
 // Files use the private storage prefix affiliate-resources/ and are served
