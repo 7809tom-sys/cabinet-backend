@@ -58,7 +58,7 @@ import { upsParcelQuote, upsTestConnection } from "../_core/ups";
 import { fedexTestConnection } from "../_core/fedex";
 import { logFreightApiCall, getFreightApiLogs, type FreightApiPackageAudit } from "../_core/freightApiLog";
 import { createFreightQuoteToken } from "../_core/freightQuoteToken";
-import { normalizeFreightQuoteDeliveryAddress, type FreightQuoteDeliveryAddress } from "@shared/freightQuoteAddress";
+import { normalizeFreightQuoteDeliveryAddress, type FreightQuoteDeliveryAddress, type NormalizedFreightQuoteDeliveryAddress } from "@shared/freightQuoteAddress";
 import { getPricingSettings } from "../db";
 import { sellPriceForTier } from "@shared/margins";
 import { resolveAffiliateAccess } from "../lib/affiliateAccess";
@@ -76,6 +76,11 @@ import {
 } from "@shared/parcelEligibility";
 import { freightClassFromDensity, genericCabinetPackage } from "@shared/genericCabinetPackaging";
 import { isCatalogFreeShippingIdentity, loadCatalogFreeShippingIndex } from "../lib/catalogFreeShipping";
+import {
+  resolveOriginLocality,
+  shopperCarrierAddress,
+  type CarrierLocality,
+} from "@shared/freightCarrierAddress";
 
 // ─── Settings loading + defaults ────────────────────────────────────────────────
 const DEFAULT_SETTINGS: FreightSettings = {
@@ -738,6 +743,26 @@ async function resolveZipAddress(zip: string): Promise<LiveQuoteAddress | null> 
 }
 
 /**
+ * Destination uses the shopper's city and state. Origin uses a warehouse
+ * address for this ZIP, then the documented origin map. Google runs only
+ * for the side that is still missing.
+ */
+async function resolveCarrierAddressPair(input: {
+  originZip: string;
+  destinationZip: string;
+  originAddress?: CarrierLocality | null;
+  deliveryAddress?: Pick<NormalizedFreightQuoteDeliveryAddress, "city" | "state" | "line1" | "line2"> | null;
+}): Promise<{ fromAddress: LiveQuoteAddress | null; toAddress: LiveQuoteAddress | null }> {
+  const shopper = shopperCarrierAddress(input.deliveryAddress);
+  const storedOrigin = input.originAddress ?? resolveOriginLocality({ zip: input.originZip });
+  const [fromAddress, toAddress] = await Promise.all([
+    storedOrigin ? Promise.resolve(storedOrigin) : resolveZipAddress(input.originZip),
+    shopper ? Promise.resolve(shopper) : resolveZipAddress(input.destinationZip),
+  ]);
+  return { fromAddress, toAddress };
+}
+
+/**
  * Figure out which distributor(s) the cart's cabinets belong to. We look up the
  * distributor_skus rows for the cabinetIds present in the cart. A well-formed
  * order is single-line (one distributor), so we use the most common distributor.
@@ -836,6 +861,8 @@ type StyleFreightGroup = {
   distributorRuleFeeCents: number | null;
   distributorRuleLabel: string | null;
   usedOperationsOriginFallback: boolean;
+  /** City and state for this origin ZIP. Null leaves Google as the last resort. */
+  originAddress: CarrierLocality | null;
   missingOriginStyle: {
     id: number;
     name: string;
@@ -901,6 +928,7 @@ async function resolveStyleFreightGroups(input: {
   const db = await getDb();
   const pelicanProfileByProductId = new Map<number, {
     originZip: string;
+    originName: string | null;
     transportMode: "parcel" | "ltl";
     freightClass: string | null;
     evidenceType: "supplier_verified" | "comparable_estimate";
@@ -916,6 +944,7 @@ async function resolveStyleFreightGroups(input: {
       .select({
         productId: pelicanShippingProfiles.pelicanProductId,
         originZip: pelicanShippingProfiles.originZip,
+        originName: pelicanShippingProfiles.originName,
         transportMode: pelicanShippingProfiles.transportMode,
         freightClass: pelicanShippingProfiles.freightClass,
         evidenceType: pelicanShippingProfiles.evidenceType,
@@ -930,6 +959,7 @@ async function resolveStyleFreightGroups(input: {
       if (!originZip) continue;
       pelicanProfileByProductId.set(profile.productId, {
         originZip,
+        originName: profile.originName,
         transportMode: profile.transportMode,
         freightClass: profile.freightClass,
         evidenceType: profile.evidenceType,
@@ -966,6 +996,8 @@ async function resolveStyleFreightGroups(input: {
     shippingFreeFreightThresholdCents: number | null;
     shippingZipRates: DistributorZipRate[] | null;
     shippingExceptions: string | null;
+    warehouseAddress: string | null;
+    pickupAddress: string | null;
   };
   const styleById = new Map<number, StyleMeta>();
   const candidatesByCabinet = new Map<number, StyleMeta[]>();
@@ -987,6 +1019,8 @@ async function resolveStyleFreightGroups(input: {
         shippingFreeFreightThresholdCents: distributors.shippingFreeFreightThresholdCents,
         shippingZipRates: distributors.shippingZipRates,
         shippingExceptions: distributors.shippingExceptions,
+        warehouseAddress: distributors.warehouseAddress,
+        pickupAddress: distributors.pickupAddress,
       })
       .from(doorStyles)
       .innerJoin(distributors, eq(doorStyles.distributorId, distributors.id))
@@ -1012,6 +1046,8 @@ async function resolveStyleFreightGroups(input: {
         shippingFreeFreightThresholdCents: distributors.shippingFreeFreightThresholdCents,
         shippingZipRates: distributors.shippingZipRates,
         shippingExceptions: distributors.shippingExceptions,
+        warehouseAddress: distributors.warehouseAddress,
+        pickupAddress: distributors.pickupAddress,
       })
       .from(distributorSkus)
       .innerJoin(doorStyles, eq(distributorSkus.styleId, doorStyles.id))
@@ -1068,6 +1104,9 @@ async function resolveStyleFreightGroups(input: {
         distributorRuleFeeCents: null,
         distributorRuleLabel: null,
         usedOperationsOriginFallback: false,
+        originAddress: profile
+          ? resolveOriginLocality({ zip: profile.originZip, placeLabel: profile.originName })
+          : null,
         missingOriginStyle: null,
         profileTransportMode: profile?.transportMode,
         profileFreightClass: profile?.freightClass ?? null,
@@ -1146,6 +1185,11 @@ async function resolveStyleFreightGroups(input: {
       distributorRuleFeeCents: distributorRule.fixedFeeCents,
       distributorRuleLabel: distributorRule.label,
       usedOperationsOriginFallback,
+      originAddress: resolveOriginLocality({
+        zip: originZip,
+        warehouseAddress: matchedStyle?.warehouseAddress,
+        pickupAddress: matchedStyle?.pickupAddress,
+      }),
       missingOriginStyle: usedOperationsOriginFallback && matchedStyle
         ? {
             id: matchedStyle.id,
@@ -1229,6 +1273,8 @@ async function requestLiveRate(input: {
   palletCount: number;
   totalWeightLbs: number;
   kitchenDesignId?: number | null;
+  originAddress?: CarrierLocality | null;
+  deliveryAddress?: Pick<NormalizedFreightQuoteDeliveryAddress, "city" | "state" | "line1" | "line2"> | null;
 }): Promise<LiveRateResult> {
   const startedAt = Date.now();
   let live: LiveRateResult;
@@ -1263,10 +1309,12 @@ async function requestLiveRate(input: {
     );
   } else if (input.provider === "worldwideexpress") {
     const isProduction = input.settings.wwexEnvironment === "production";
-    const [fromAddress, toAddress] = await Promise.all([
-      resolveZipAddress(input.request.fromZip),
-      resolveZipAddress(input.request.toZip),
-    ]);
+    const { fromAddress, toAddress } = await resolveCarrierAddressPair({
+      originZip: input.request.fromZip,
+      destinationZip: input.request.toZip,
+      originAddress: input.request.fromAddress ?? input.originAddress,
+      deliveryAddress: input.deliveryAddress,
+    });
     live = await worldwideexpressQuote(
       {
         clientId: input.settings.wwexClientId ?? "",
@@ -1467,6 +1515,7 @@ async function simulateFreight(input: {
           liftgate: input.accessorials?.liftgate,
           limitedAccess: input.accessorials?.limitedAccess,
         },
+        originAddress: group.originAddress,
         palletCount: plan.palletCount,
         totalWeightLbs: plan.totalWeightLbs,
       });
@@ -2105,10 +2154,12 @@ export const freightRouter = router({
             const parcelQuoteStartedAt = Date.now();
             const live = await (directUpsParcel
               ? (async () => {
-                  const [fromAddress, toAddress] = await Promise.all([
-                    resolveZipAddress(group.originZip),
-                    resolveZipAddress(quoteInput.destinationZip),
-                  ]);
+                  const { fromAddress, toAddress } = await resolveCarrierAddressPair({
+                    originZip: group.originZip,
+                    destinationZip: quoteInput.destinationZip,
+                    originAddress: group.originAddress,
+                    deliveryAddress: quoteInput.deliveryAddress,
+                  });
                   if (!fromAddress || !toAddress) {
                     return {
                       ok: false as const,
@@ -2295,6 +2346,8 @@ export const freightRouter = router({
             settings: settingsRow,
             liveApiKey: liveKey,
             request: liveReq,
+            originAddress: group.originAddress,
+            deliveryAddress: quoteInput.deliveryAddress,
             palletCount: plan.palletCount,
             totalWeightLbs: plan.totalWeightLbs,
             kitchenDesignId: quoteInput.kitchenDesignId,
