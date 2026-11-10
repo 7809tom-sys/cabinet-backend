@@ -123,7 +123,16 @@ describe("affiliateResources.publishedLiterature without the visibility column",
     const caller = affiliateResourcesRouter.createCaller({ user: affiliate } as never);
 
     const rows = await caller.publishedLiterature();
-    expect(rows.map((row) => row.title)).toEqual(["Brochure"]);
+    expect(rows).toEqual([{
+      id: affiliateRow.id,
+      title: "Brochure",
+      description: affiliateRow.description,
+      category: affiliateRow.category,
+      url: affiliateRow.url,
+      mimeType: affiliateRow.mimeType,
+      filename: affiliateRow.filename,
+      createdAt: affiliateRow.createdAt,
+    }]);
     // The internal guide is still absent, as it was before this change.
     expect(rows.map((row) => row.id)).not.toContain(internalRow.id);
   });
@@ -188,6 +197,89 @@ describe("affiliateResources.adminSignedFile without the visibility column", () 
     const caller = affiliateResourcesRouter.createCaller({ user: admin } as never);
 
     await expect(caller.adminSignedFile({ id: 4242 })).rejects.toThrow(/not available/);
+    expect(signedMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("affiliateResources.literatureSignedFile", () => {
+  const deck = {
+    ...affiliateRow,
+    filename: "investor-deck.pptx",
+    mimeType: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  };
+
+  function dbReturning(rows: unknown[]) {
+    return {
+      select: () => ({
+        from: () => ({
+          where: () => ({ limit: async () => rows }),
+        }),
+      }),
+    };
+  }
+
+  it("signs an affiliate-visible deck and returns the stored upload time", async () => {
+    getDbMock.mockResolvedValue(dbReturning([deck]));
+    accessMock.mockResolvedValue(affiliateAccess);
+    const caller = affiliateResourcesRouter.createCaller({ user: affiliate } as never);
+
+    await expect(caller.literatureSignedFile({ id: deck.id })).resolves.toEqual({
+      url: `https://signed.example/${deck.fileKey}`,
+      filename: deck.filename,
+      mimeType: deck.mimeType,
+      createdAt: deck.createdAt,
+    });
+  });
+
+  it("does not sign an internal document for an affiliate", async () => {
+    getDbMock.mockResolvedValue(dbReturning([internalRow]));
+    accessMock.mockResolvedValue(affiliateAccess);
+    const caller = affiliateResourcesRouter.createCaller({ user: affiliate } as never);
+
+    await expect(caller.literatureSignedFile({ id: internalRow.id })).rejects.toThrow(/not available/);
+    expect(signedMock).not.toHaveBeenCalled();
+  });
+
+  it("does not sign a document unless visibility and isPublished both say affiliate library", async () => {
+    accessMock.mockResolvedValue(affiliateAccess);
+    const caller = affiliateResourcesRouter.createCaller({ user: affiliate } as never);
+
+    for (const row of [
+      { ...deck, isPublished: true, visibility: "internal" },
+      { ...deck, isPublished: false, visibility: "affiliate" },
+    ]) {
+      signedMock.mockClear();
+      getDbMock.mockResolvedValue(dbReturning([row]));
+      await expect(caller.literatureSignedFile({ id: row.id })).rejects.toThrow(/not available/);
+      expect(signedMock).not.toHaveBeenCalled();
+    }
+  });
+
+  it("does not sign when the visibility column is missing, because that row reads as internal", async () => {
+    getDbMock.mockResolvedValue(dbWithoutVisibilityColumns([deck]));
+    accessMock.mockResolvedValue(affiliateAccess);
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const caller = affiliateResourcesRouter.createCaller({ user: affiliate } as never);
+
+    await expect(caller.literatureSignedFile({ id: deck.id })).rejects.toThrow(/not available/);
+    expect(signedMock).not.toHaveBeenCalled();
+  });
+
+  it("lets an admin open an internal deck", async () => {
+    getDbMock.mockResolvedValue(dbReturning([internalRow]));
+    const caller = affiliateResourcesRouter.createCaller({ user: admin } as never);
+
+    const file = await caller.literatureSignedFile({ id: internalRow.id });
+    expect(file.url).toBe(`https://signed.example/${internalRow.fileKey}`);
+    expect(file.createdAt).toEqual(internalRow.createdAt);
+  });
+
+  it("answers NOT_FOUND for a missing document and does not sign", async () => {
+    getDbMock.mockResolvedValue(dbReturning([]));
+    accessMock.mockResolvedValue(affiliateAccess);
+    const caller = affiliateResourcesRouter.createCaller({ user: affiliate } as never);
+
+    await expect(caller.literatureSignedFile({ id: 4242 })).rejects.toThrow(/not available/);
     expect(signedMock).not.toHaveBeenCalled();
   });
 });

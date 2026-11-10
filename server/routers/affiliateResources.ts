@@ -242,8 +242,35 @@ export const affiliateResourcesRouter = router({
         url: row.url,
         mimeType: row.mimeType,
         filename: row.filename,
+        createdAt: row.createdAt,
       }));
   }),
+
+  /**
+   * Signed-in affiliate open for one library document. The stored `/manus-storage`
+   * path is refused by the storage proxy, so the portal asks here for a short-lived
+   * signed URL and renders a PowerPoint, Word file, or PDF in the browser.
+   * Internal rows stay hidden: a non-admin who guesses an id gets the same
+   * not-found as a missing row. Admins may open any row, matching adminSignedFile.
+   */
+  literatureSignedFile: protectedProcedure
+    .input(z.object({ id: z.number().int().positive() }))
+    .query(async ({ ctx, input }) => {
+      await requireAffiliateReader(ctx.user);
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      const [row] = await readLiteratureRows((columns) => db
+        .select(columns)
+        .from(affiliateLiterature)
+        .where(eq(affiliateLiterature.id, input.id))
+        .limit(1));
+      if (!row?.fileKey) throw new TRPCError({ code: "NOT_FOUND", message: "That document is not available." });
+      if (!isAffiliateLibraryDocument(row) && ctx.user.role !== "admin") {
+        throw new TRPCError({ code: "NOT_FOUND", message: "That document is not available." });
+      }
+      const url = await storageGetSignedUrl(row.fileKey);
+      return { url, filename: row.filename, mimeType: row.mimeType, createdAt: row.createdAt };
+    }),
 
   /**
    * Admin-only open. A literature URL is a private-bucket key, so the admin page

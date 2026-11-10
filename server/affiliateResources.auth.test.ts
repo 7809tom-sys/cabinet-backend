@@ -75,6 +75,7 @@ describe("affiliate resource access", () => {
     await expect(caller.published()).rejects.toThrow(/Affiliate access required/);
     await expect(caller.publishedLiterature()).rejects.toThrow(/Affiliate access required/);
     await expect(caller.signedFile({ id: 5, kind: "file" })).rejects.toThrow(/Affiliate access required/);
+    await expect(caller.literatureSignedFile({ id: 5 })).rejects.toThrow(/Affiliate access required/);
     expect(signedMock).not.toHaveBeenCalled();
   });
 
