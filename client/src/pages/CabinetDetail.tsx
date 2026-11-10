@@ -52,6 +52,7 @@ import { affiliateCabinetHref, affiliateCatalogRootHref, affiliateDesignerHref }
 import { affiliateSlugForStoreScope, resolveStoreScope } from "@/lib/affiliateContext";
 import { aefPrintedGeometryForSku } from "@shared/aefFramelessGeometry";
 import { catalogPublicCopy, publicTechnicalDrawingNote } from "@shared/catalogPublicDescription";
+import { resolveEditableProductDescription, resolveProductPageDescription } from "@shared/productPageDescription";
 import { aefProductDiagramCabinet } from "@shared/aefProductRenderPresentation";
 import {
   CABINET_ATTENTION_RETURN_URL,
@@ -456,17 +457,6 @@ export default function CabinetDetail({ masterCode }: Props) {
     styleRows[0]?.styleId ??
     null;
   const selectedRow = styleRows.find((s) => s.styleId === activeStyle) ?? null;
-  // A line may share the master code with another construction (for example,
-  // Frameless B24S). Use the selected line's product description without ever
-  // changing the shared master description.
-  const displayedDescription = selectedRow?.supplierDescription?.trim() || masterCabinet?.description || canonicalMasterCode;
-  // Supplier/master descriptions are retained as source records. Derive a
-  // source-free, compact public title and dimension-aware SEO description only
-  // for customer presentation; do not write either result back to the editor.
-  const publicProductCopy = useMemo(
-    () => catalogPublicCopy(displayedDescription, canonicalMasterCode),
-    [displayedDescription, canonicalMasterCode],
-  );
   const aefDetailGeometry = useMemo(
     () => selectedRow?.isFrameless && masterCabinet
       ? aefPrintedGeometryForSku(masterCabinet.masterCode)
@@ -479,6 +469,25 @@ export default function CabinetDetail({ masterCode }: Props) {
   const { data: distributorRule } = trpc.cabinetOverrides.configForDistributor.useQuery(
     { cabinetId: masterCabinet?.id ?? 0, distributorId: selectedRow?.distributorId ?? 0 },
     { enabled: Boolean(masterCabinet?.id && selectedRow?.distributorId) },
+  );
+  // Cabinetdealz copy for this distributor, then the shared master, then the
+  // distributor's supplier description, then the master code. The supplier
+  // string stays a source record: this read never writes it back.
+  const displayedDescription = resolveProductPageDescription({
+    distributorDescription: distributorRule?.config?.description,
+    masterDescription: masterCabinet?.description,
+    supplierDescription: selectedRow?.supplierDescription,
+    masterCode: canonicalMasterCode,
+  });
+  const editableDescription = resolveEditableProductDescription({
+    distributorDescription: distributorRule?.config?.description,
+    masterDescription: masterCabinet?.description,
+  });
+  // Derive a source-free, compact public title and dimension-aware SEO
+  // description from the chosen text only. Do not write either result back.
+  const publicProductCopy = useMemo(
+    () => catalogPublicCopy(displayedDescription, canonicalMasterCode),
+    [displayedDescription, canonicalMasterCode],
   );
   const cabinet = useMemo(() => {
     if (!masterCabinet) return masterCabinet;
@@ -668,7 +677,7 @@ export default function CabinetDetail({ masterCode }: Props) {
   // Pre-fill form when dialog opens
   useEffect(() => {
     if (editOpen && cabinet) {
-      setEditDescription(cabinet.description ?? "");
+      setEditDescription(editableDescription);
       setEditCategory(cabinet.category ?? "");
       setEditSubCategory(cabinet.subCategory ?? "");
       setEditImageUrl(cabinet.catalogImageUrl ?? "");
@@ -716,7 +725,7 @@ export default function CabinetDetail({ masterCode }: Props) {
       setEditGraphicType(String(cab.graphicType ?? "standard"));
       setEditMasterCode(cabinet.masterCode ?? "");
     }
-  }, [editOpen, cabinet]);
+  }, [editOpen, cabinet, editableDescription]);
 
   // A red Designer Coverage cell identifies a cabinet/style/line with no
   // published SKU. Prefill that exact context, while still requiring the
