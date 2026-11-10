@@ -22,7 +22,7 @@ describe("shopper carrier city and state", () => {
       countryCode: "US",
       addressLineList: ["100 Main Street", "Apt 2"],
     });
-    expect(shopperCarrierAddress({ city: "Monee", state: "Illinois" })?.region).toBe("IL");
+    expect(shopperCarrierAddress({ city: "Mokena", state: "Illinois" })?.region).toBe("IL");
   });
 
   it("is missing when the shopper did not enter a city or a real state", () => {
@@ -58,14 +58,14 @@ describe("origin carrier city and state", () => {
     expect(resolveOriginLocality({
       zip: "60448",
       warehouseAddress: "1950 North Norcross-Tucker Rd, Norcross, GA 30071",
-    })).toEqual({ locality: "Monee", region: "IL", countryCode: "US" });
+    })).toEqual({ locality: "Mokena", region: "IL", countryCode: "US" });
   });
 
   it("uses the documented postal city when no warehouse address is stored", () => {
-    expect(knownOriginLocality("60448")).toEqual({ locality: "Monee", region: "IL", countryCode: "US" });
+    expect(knownOriginLocality("60448")).toEqual({ locality: "Mokena", region: "IL", countryCode: "US" });
     expect(knownOriginLocality("30071")?.locality).toBe("Norcross");
     expect(knownOriginLocality("33760")?.locality).toBe("Clearwater");
-    expect(resolveOriginLocality({ zip: "60448" })?.locality).toBe("Monee");
+    expect(resolveOriginLocality({ zip: "60448" })?.locality).toBe("Mokena");
     expect(resolveOriginLocality({ zip: "99999" })).toBeNull();
   });
 });
@@ -90,7 +90,7 @@ describe("Worldwide Express address requirement", () => {
       toAddress: shopperCarrierAddress({ city: "Dallas", state: "TX", line1: "100 Main Street" }) ?? undefined,
     });
     const shipment = payload.request.shipment;
-    expect(shipment.originAddress.address.locality).toBe("Monee");
+    expect(shipment.originAddress.address.locality).toBe("Mokena");
     expect(shipment.originAddress.address.region).toBe("IL");
     expect(shipment.originAddress.address.postalCode).toBe("60448");
     expect(shipment.destinationAddress.address.locality).toBe("Dallas");
