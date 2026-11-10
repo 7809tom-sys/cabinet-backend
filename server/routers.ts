@@ -105,6 +105,9 @@ import { crmCleanupRouter } from "./routers/crmCleanup";
 import { doorRenderingAuditRouter } from "./routers/doorRenderingAudit";
 import { contractorPortalRouter } from "./routers/contractorPortal";
 import { contractorAccessRouter } from "./routers/contractorAccess";
+import { jobBoardingRouter } from "./routers/jobBoarding";
+import { loadFeatureGate } from "./lib/jobBoardingStore";
+import { isMissingSchemaError } from "./lib/orderSchemaGuard";
 import { orderTrackingRouter } from "./routers/orderTracking";
 import { vendorEmailRouter } from "./routers/vendorEmail";
 import { aiDoorDescriptionRouter } from "./routers/aiDoorDescription";
@@ -160,12 +163,27 @@ export const appRouter = router({
         const portal = input.portal === "affiliate" || input.portal === "contractor" || input.portal === "customer"
           ? input.portal
           : null;
-        return resolveSignInDestination({
+        const destination = resolveSignInDestination({
           returnPath,
           userRole: user.role,
           resolution,
           portal,
         });
+        if (user.role !== "admin" && database && !returnPath.startsWith("/job-boarding")) {
+          try {
+            const gate = await loadFeatureGate(user.id);
+            const pending = !gate.schemaMissing && !gate.verified && (user.role === "sales_rep" || gate.hasRow);
+            if (pending) return { ...destination, destination: "/job-boarding" };
+          } catch (error) {
+            if (!isMissingSchemaError(error)) {
+              console.error(
+                "[Auth] job boarding destination skipped",
+                error instanceof Error ? error.message : "unknown error",
+              );
+            }
+          }
+        }
+        return destination;
       }),
     testAccountsEnabled: publicProcedure.query(() => ({
       enabled: testAccountsEnabled(process.env.ENABLE_TEST_ACCOUNTS),
@@ -270,6 +288,7 @@ export const appRouter = router({
   doorRenderingAudit: doorRenderingAuditRouter,
   contractorPortal: contractorPortalRouter,
   contractorAccess: contractorAccessRouter,
+  jobBoarding: jobBoardingRouter,
   orderTracking: orderTrackingRouter,
   vendorEmail: vendorEmailRouter,
   aiDoorDescription: aiDoorDescriptionRouter,

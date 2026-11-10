@@ -427,7 +427,24 @@ function wallNameFor(side: string | null | undefined, room: RoomData): string {
 
 export default function DesignTool(props: { affiliateSlug?: string }) {
   const search = useSearch();
+  const { user } = useAuth();
+  const salespersonGate = trpc.jobBoarding.myStatus.useQuery(undefined, {
+    enabled: user?.role === "sales_rep",
+    retry: false,
+  });
   const scope = resolvedDesignToolStoreScope(props.affiliateSlug, search);
+  if (user?.role === "sales_rep" && salespersonGate.isLoading) {
+    return <div className="flex justify-center py-20 text-sm text-muted-foreground">Checking Job Boarding…</div>;
+  }
+  if (user?.role === "sales_rep" && !salespersonGate.data?.schemaMissing && salespersonGate.data?.verified !== true) {
+    return (
+      <div className="container max-w-lg py-16">
+        <h1 className="font-serif text-2xl font-bold">Job Boarding is not finished</h1>
+        <p className="mt-2 text-sm text-muted-foreground">The designer stays closed until your information, non-compete, W-9, and government ID are complete.</p>
+        <a href="/job-boarding" className="mt-4 inline-block text-sm font-medium text-primary underline">Open Job Boarding</a>
+      </div>
+    );
+  }
   return <ScopedDesignTool key={scope} {...props} />;
 }
 

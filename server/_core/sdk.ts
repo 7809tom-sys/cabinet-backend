@@ -7,7 +7,8 @@ import { eq } from "drizzle-orm";
 import { affiliates, users, type User } from "../../drizzle/schema";
 import * as db from "../db";
 import { linkApprovedContractorAccess } from "../lib/contractorAccessGrant";
-import { describedDatabaseError } from "../lib/orderSchemaGuard";
+import { describedDatabaseError, isMissingSchemaError } from "../lib/orderSchemaGuard";
+import { ensureSalespersonOnboarding } from "../lib/jobBoardingStore";
 import { affiliateSlugFromHostCandidates } from "../lib/affiliateSubdomain";
 import { ENV } from "./env";
 import { readTestAccountUserId, TEST_ACCOUNT_HEADER, testAccountsEnabled } from "../lib/testAccounts";
@@ -101,6 +102,7 @@ class SDKServer {
     companyName: string | null;
     inviteToken: string | null;
     storeScope: string | null;
+    jobBoarding: "salesperson" | null;
   } | null> {
     if (!isNonEmptyString(token)) return null;
 
@@ -127,6 +129,7 @@ class SDKServer {
         companyName: pick(user_metadata?.companyName),
         inviteToken: pick(user_metadata?.inviteToken),
         storeScope: pick(user_metadata?.storeScope) ?? pick(user_metadata?.affiliateSlug),
+        jobBoarding: user_metadata?.jobBoarding === "salesperson" ? "salesperson" : null,
       };
     } catch (error) {
       console.warn("[Auth] Supabase token verification failed", authFailureDetail(error, token));
@@ -218,6 +221,20 @@ class SDKServer {
     } catch (error) {
       // A missing column or a bad store lookup must not turn a valid token into ctx.user = null.
       console.error("[Auth] signup affiliate stamp failed", describedDatabaseError(error));
+    }
+    if (claims.jobBoarding === "salesperson") {
+      try {
+        await ensureSalespersonOnboarding(database, {
+          id: signedIn.id,
+          email: signedIn.email ?? claims.email,
+          name: signedIn.name ?? claims.name,
+          companyName: claims.companyName,
+        });
+      } catch (error) {
+        if (!isMissingSchemaError(error)) {
+          console.error("[Auth] salesperson onboarding stamp failed", describedDatabaseError(error));
+        }
+      }
     }
     return linkApprovedContractorAccess(database, {
       ...signedIn,

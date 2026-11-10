@@ -18,6 +18,8 @@ import {
   affiliateLegalDocumentVersions,
   affiliateLegalSignatures,
   affiliateLegalSigningSessions,
+  salespersonLegalDocumentVersions,
+  salespersonLegalSignatures,
 } from "../drizzle/schema";
 import { memoryStore, type Row } from "./lib/__testDb";
 import { setEsignatureProvider } from "./lib/docusealProvider";
@@ -341,5 +343,43 @@ describe("DocuSeal webhook", () => {
     const result = await post(body, sign(body));
     expect(result.status).toBe(200);
     expect(tables.get(affiliateLegalSignatures)).toHaveLength(1);
+  });
+
+  it("records a salesperson non-compete signature from a cd-job signer tag", async () => {
+    tables.set(salespersonLegalDocumentVersions, [{
+      id: 44,
+      documentId: 6,
+      version: 1,
+      termYears: 2,
+      title: "Salesperson non-compete",
+      contentSha256: "b".repeat(64),
+    }]);
+    tables.set(salespersonLegalSignatures, []);
+    await startServer();
+    const body = JSON.stringify({
+      event_type: "form.completed",
+      data: {
+        id: 88,
+        email: "rep@example.test",
+        name: "New Rep",
+        status: "completed",
+        external_id: "cd-job:u15:v44",
+        completed_at: "2026-11-10T12:00:00.000Z",
+        submission: { id: 901, status: "completed" },
+      },
+    });
+    const result = await post(body, sign(body));
+    expect(result.status).toBe(200);
+    expect(result.json).toMatchObject({ received: true, handled: true, eventType: "form.completed" });
+    const signatures = tables.get(salespersonLegalSignatures) ?? [];
+    expect(signatures).toHaveLength(1);
+    expect(signatures[0]).toMatchObject({
+      userId: 15,
+      documentVersionId: 44,
+      documentVersion: 1,
+      termYears: 2,
+      signerEmail: "rep@example.test",
+    });
+    expect(tables.get(affiliateLegalSignatures)).toEqual([]);
   });
 });

@@ -62,6 +62,7 @@ import PelicanCatalogAdmin from "@/components/admin/PelicanCatalogAdmin";
 import { AnalyticsAdmin } from "@/components/admin/AnalyticsAdmin";
 import FullDatabaseExport from "@/components/admin/FullDatabaseExport";
 import AdminGroupedTabs from "@/components/admin/AdminGroupedTabs";
+import { JobBoardingLock } from "@/components/jobBoarding/JobBoardingLock";
 
 function statusVariant(status: string): "default" | "secondary" | "destructive" | "outline" {
   if (status === "approved" || status === "won") return "default";
@@ -514,6 +515,10 @@ function ProMatcher({ zip, onZipChange }: { zip: string; onZipChange: (z: string
 
 export default function Admin() {
   const { user, loading } = useAuth();
+  const salespersonGate = trpc.jobBoarding.myStatus.useQuery(undefined, {
+    enabled: !loading && user?.role === "sales_rep",
+    retry: false,
+  });
 
   if (loading) {
     return (
@@ -552,6 +557,16 @@ export default function Admin() {
   }
 
   if (isSalesRep) {
+    if (salespersonGate.isLoading) {
+      return (
+        <div className="flex justify-center py-20">
+          <Spinner className="h-8 w-8 text-primary" />
+        </div>
+      );
+    }
+    if (!salespersonGate.data?.schemaMissing && salespersonGate.data?.verified !== true) {
+      return <JobBoardingLock />;
+    }
     return (
       <div className="container py-10">
         <h1 className="font-serif text-3xl font-bold mb-1">Sales Rep Workspace</h1>

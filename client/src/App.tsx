@@ -57,6 +57,7 @@ const Storefront = lazy(() => import("@/pages/Storefront"));
 const StorefrontPreview = lazy(() => import("@/pages/StorefrontPreview"));
 const AffiliateDashboard = lazy(() => import("@/pages/AffiliateDashboard"));
 const ContractorDashboard = lazy(() => import("@/pages/ContractorDashboard"));
+const JobBoarding = lazy(() => import("@/pages/JobBoarding"));
 const Cart = lazy(() => import("@/pages/Cart"));
 const VendorPortal = lazy(() => import("@/pages/VendorPortal"));
 const VendorClosetStudio = lazy(() => import("@/pages/VendorClosetStudio"));
@@ -761,6 +762,28 @@ export default function App() {
           <AppLayout>
             <Suspense fallback={<PageLoader />}>
               <ContractorDashboard />
+            </Suspense>
+          </AppLayout>
+        </Route>
+
+        <Route path="/job-boarding/verify/:token">
+          <AppLayout>
+            <Suspense fallback={<PageLoader />}>
+              <JobBoarding />
+            </Suspense>
+          </AppLayout>
+        </Route>
+        <Route path="/job-boarding/review/:userId">
+          <AppLayout>
+            <Suspense fallback={<PageLoader />}>
+              <JobBoarding />
+            </Suspense>
+          </AppLayout>
+        </Route>
+        <Route path="/job-boarding">
+          <AppLayout>
+            <Suspense fallback={<PageLoader />}>
+              <JobBoarding />
             </Suspense>
           </AppLayout>
         </Route>

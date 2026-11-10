@@ -35,7 +35,10 @@ export function privateStorageDecision(key: string, user: StorageActor | null): 
   if (
     normalized.startsWith("affiliate-documents/") ||
     normalized.startsWith("affiliate-legal-signatures/") ||
-    normalized.startsWith("affiliate-legal-documents/")
+    normalized.startsWith("affiliate-legal-documents/") ||
+    normalized.startsWith("salesperson-identity/") ||
+    normalized.startsWith("salesperson-legal-documents/") ||
+    normalized.startsWith("salesperson-legal-signatures/")
   ) {
     return "affiliate-document";
   }

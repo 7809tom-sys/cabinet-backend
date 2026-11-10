@@ -19,6 +19,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Spinner } from "@/components/ui/spinner";
 import { Eye, EyeOff } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { affiliateSlugFromHostname, affiliateSlugFromPath } from "@/lib/affiliateContext";
 
 function signupStoreScope(): string | undefined {
@@ -66,6 +67,7 @@ export default function SignIn() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showSignupPw, setShowSignupPw] = useState(false);
   const [showConfirmPw, setShowConfirmPw] = useState(false);
+  const [joinAsSalesperson, setJoinAsSalesperson] = useState(false);
 
   const [pending, setPending] = useState<"login" | "signup" | "reset" | "google" | null>(null);
   const finishing = useRef(false);
@@ -169,7 +171,12 @@ export default function SignIn() {
       options: {
         emailRedirectTo: authRedirectUrl(),
         // Read by the server when it creates the users row.
-        data: { name: name.trim() || undefined, companyName: companyName.trim() || undefined, storeScope: signupStoreScope() },
+        data: {
+          name: name.trim() || undefined,
+          companyName: companyName.trim() || undefined,
+          storeScope: signupStoreScope(),
+          jobBoarding: joinAsSalesperson ? "salesperson" : undefined,
+        },
       },
     });
     if (error) {
@@ -329,6 +336,14 @@ export default function SignIn() {
                     placeholder="Company name"
                   />
                 </div>
+                <label className="flex items-start gap-2 text-sm" htmlFor="signup-salesperson">
+                  <Checkbox
+                    id="signup-salesperson"
+                    checked={joinAsSalesperson}
+                    onCheckedChange={(value) => setJoinAsSalesperson(value === true)}
+                  />
+                  <span>I'm joining as a salesperson. I'll get an e-document verification link and my salesperson account stays inactive until the non-compete, W-9, and ID are finished.</span>
+                </label>
                 <div className="space-y-2">
                   <Label htmlFor="signup-email">Email</Label>
                   <Input

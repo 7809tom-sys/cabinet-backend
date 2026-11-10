@@ -42,6 +42,13 @@ import {
 } from "../drizzle/schema";
 import { and, eq } from "drizzle-orm";
 import { parseLegalSignerExternalId } from "@shared/affiliateLegalDocuments";
+import { parseJobBoardingSignerExternalId, SALESPERSON_LEGAL_SIGNATURE_PREFIX } from "@shared/jobBoarding";
+import {
+  attachSignatureFiles,
+  markSalespersonSessionStatus,
+  recordSalespersonSignature,
+} from "./lib/jobBoardingStore";
+import { storagePut } from "./storage";
 
 const LOG = "[DocuSeal Webhook]";
 
@@ -147,6 +154,96 @@ function signersForEvent(payload: DocusealWebhookPayload) {
     .filter((entry): entry is NonNullable<typeof entry> => entry !== null);
 }
 
+function jobBoardingSignersForEvent(payload: DocusealWebhookPayload) {
+  const data = payload.data;
+  if (!data) return [];
+  const isSubmissionLevel = payload.event_type?.startsWith("submission.");
+  const list = isSubmissionLevel ? data.submitters ?? [] : [data];
+  return list
+    .map((entry) => {
+      const parsed = parseJobBoardingSignerExternalId(entry.external_id);
+      if (!parsed) return null;
+      return {
+        userId: parsed.userId,
+        documentVersionId: parsed.documentVersionId,
+        submitterId: entry.id != null ? String(entry.id) : null,
+        name: (entry.name ?? "").trim() || null,
+        email: (entry.email ?? "").trim() || null,
+        completedAt: entry.completed_at ?? null,
+        auditLogUrl: entry.audit_log_url ?? data.submission?.audit_log_url ?? data.audit_log_url ?? null,
+      };
+    })
+    .filter((entry): entry is NonNullable<typeof entry> => entry !== null);
+}
+
+type WebhookDb = NonNullable<Awaited<ReturnType<typeof getDb>>>;
+
+async function markSalespersonSessionQuietly(
+  db: WebhookDb,
+  submissionId: string,
+  status: "declined" | "expired",
+) {
+  try {
+    await markSalespersonSessionStatus(db, submissionId, status);
+  } catch (error) {
+    console.error(
+      `${LOG} salesperson session was not updated:`,
+      error instanceof Error ? error.message : "unknown error",
+    );
+  }
+}
+
+async function recordJobBoardingCompletions(
+  db: WebhookDb,
+  payload: DocusealWebhookPayload,
+  signers: ReturnType<typeof jobBoardingSignersForEvent>,
+) {
+  const submissionId = payload.data?.submission?.id != null ? String(payload.data.submission.id) : "";
+  const eventKey = docusealEventKey(payload);
+  for (const signer of signers) {
+    const recorded = await recordSalespersonSignature(db, {
+      userId: signer.userId,
+      documentVersionId: signer.documentVersionId,
+      providerSubmissionId: submissionId,
+      providerSubmitterId: signer.submitterId,
+      providerEventId: eventKey,
+      signerName: signer.name,
+      signerEmail: signer.email,
+      completedAt: asDate(signer.completedAt, new Date()),
+    });
+    if (!recorded.ok) {
+      console.error(`${LOG} salesperson signature was not recorded: ${recorded.reason}`);
+      continue;
+    }
+    if (!submissionId) continue;
+    try {
+      const artifacts = await getEsignatureProvider().fetchSignedArtifacts({
+        submissionId,
+        auditLogUrl: signer.auditLogUrl,
+      });
+      const files: { signedPdfKey?: string; auditLogKey?: string } = {};
+      for (const artifact of artifacts) {
+        const stored = await storagePut(
+          `${SALESPERSON_LEGAL_SIGNATURE_PREFIX}${signer.userId}/${artifact.kind}.pdf`,
+          artifact.bytes,
+          artifact.mimeType,
+        );
+        if (!stored.key.startsWith(SALESPERSON_LEGAL_SIGNATURE_PREFIX)) continue;
+        if (artifact.kind === "audit_log") files.auditLogKey = stored.key;
+        else files.signedPdfKey = stored.key;
+      }
+      if (files.signedPdfKey || files.auditLogKey) {
+        await attachSignatureFiles(db, recorded.signatureId, files);
+      }
+    } catch (error) {
+      console.error(
+        `${LOG} salesperson signed copy was not stored:`,
+        error instanceof Error ? error.message : "unknown error",
+      );
+    }
+  }
+}
+
 export function registerDocusealWebhook(app: Express): void {
   app.post(
     "/api/docuseal/webhook",
@@ -201,18 +298,33 @@ export function registerDocusealWebhook(app: Express): void {
       console.log(`${LOG} ${eventType} submission=${submissionId ?? "unknown"}`);
 
       if (eventType === "form.declined") {
-        if (submissionId) await markSessionStatus(db, submissionId, "declined");
+        if (submissionId) {
+          await markSessionStatus(db, submissionId, "declined");
+          await markSalespersonSessionQuietly(db, submissionId, "declined");
+        }
         res.json({ received: true, handled: true, eventType });
         return;
       }
       if (eventType === "submission.expired") {
-        if (submissionId) await markSessionStatus(db, submissionId, "expired");
+        if (submissionId) {
+          await markSessionStatus(db, submissionId, "expired");
+          await markSalespersonSessionQuietly(db, submissionId, "expired");
+        }
         res.json({ received: true, handled: true, eventType });
         return;
       }
 
+      const jobSigners = jobBoardingSignersForEvent(payload);
+      if ((eventType === "form.completed" || eventType === "submission.completed") && jobSigners.length) {
+        await recordJobBoardingCompletions(db, payload, jobSigners);
+      }
+
       const signers = signersForEvent(payload);
       if (!signers.length) {
+        if (jobSigners.length) {
+          res.json({ received: true, handled: true, eventType });
+          return;
+        }
         // A completion with no recognisable external id is not ours to record.
         // 200 so DocuSeal stops retrying: retrying cannot add the missing tag.
         console.error(`${LOG} ${eventType} carried no cd-legal external_id; nothing recorded.`);

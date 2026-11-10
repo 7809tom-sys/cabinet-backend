@@ -75,6 +75,7 @@ import {
   type PlanSwitchSourceCabinet,
   type PricedPlanSwitchCandidate,
 } from "../lib/planSwitchPricingAlternatives";
+import { assertSalespersonFeatures } from "../lib/salespersonOnboardingGate";
 
 async function resolveAffiliateDesignOwner(
   db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
@@ -2259,6 +2260,7 @@ export const designRouter = router({
 	      if (access) {
 	        canOpenFromCrm = Boolean(access.affiliateId === deal.affiliateId && access.accessCrm);
 	      } else if (ctx.user.role === "designer" || ctx.user.role === "sales_rep") {
+	        if (ctx.user.role === "sales_rep") await assertSalespersonFeatures(ctx.user);
 	        canOpenFromCrm = true;
 	      } else if (deal.affiliateId == null) {
 	        canOpenFromCrm = deal.ownerUserId === ctx.user.id;

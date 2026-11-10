@@ -111,6 +111,8 @@ describe("verifySupabaseToken JWKS", () => {
       name: "Ada Lovelace",
       companyName: "Analytical Engines",
       inviteToken: "invite-1",
+      storeScope: null,
+      jobBoarding: null,
     });
 
     const second = await signAccessToken(privateKey, {
@@ -198,6 +200,8 @@ describe("verifySupabaseToken legacy HS256", () => {
       name: "Ada Lovelace",
       companyName: "Analytical Engines",
       inviteToken: "invite-1",
+      storeScope: null,
+      jobBoarding: null,
     });
     expect(fetchMock).not.toHaveBeenCalled();
   });

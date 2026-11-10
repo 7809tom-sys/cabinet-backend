@@ -98,6 +98,7 @@ import SalesForecastAdmin from "@/components/admin/SalesForecastAdmin";
 import VendorUpdatesAdmin from "@/components/admin/VendorUpdatesAdmin";
 import VendorInventoryAdmin from "@/components/admin/VendorInventoryAdmin";
 import { SampleOrderDesk } from "@/components/samples/SampleOrderDesk";
+import JobBoardingAdmin from "@/components/admin/JobBoardingAdmin";
 
 // ─── Group definitions ────────────────────────────────────────────────────────
 const GROUPS = [
@@ -126,6 +127,7 @@ const GROUPS = [
       { value: "customers", label: "Customers" },
       { value: "crm-cleanup", label: "CRM Cleanup" },
       { value: "roles", label: "Roles" },
+      { value: "job-boarding", label: "Job Boarding" },
       { value: "affiliates", label: "Affiliates" },
       { value: "affiliate-invoices", label: "Affiliate Invoices" },
       { value: "payouts", label: "Payouts" },
@@ -542,6 +544,7 @@ export default function AdminGroupedTabs() {
         <TabsContent value="customers" className="mt-6"><AdminTabHelp tab="customers" /><CustomersAdmin /></TabsContent>
         <TabsContent value="crm-cleanup" className="mt-6"><AdminTabHelp tab="crm-cleanup" /><CrmCleanupAdmin /></TabsContent>
         <TabsContent value="roles" className="mt-6"><AdminTabHelp tab="roles" /><RolesAdmin /></TabsContent>
+        <TabsContent value="job-boarding" className="mt-6"><AdminTabHelp tab="job-boarding" /><JobBoardingAdmin /></TabsContent>
         <TabsContent value="affiliates" className="mt-6"><AdminTabHelp tab="affiliates" /><AffiliatesAdmin /></TabsContent>
         <TabsContent value="affiliate-invoices" className="mt-6"><AdminTabHelp tab="affiliate-invoices" /><AffiliateInvoicesAdmin /></TabsContent>
         <TabsContent value="payouts" className="mt-6"><AdminTabHelp tab="payouts" /><PayoutsAdmin /></TabsContent>

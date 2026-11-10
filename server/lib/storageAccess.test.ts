@@ -55,4 +55,17 @@ describe("storage access decisions", () => {
     await expect(canReadStorageKey(key, { ...owner, id: 1, role: "admin" })).resolves.toBe(false);
     await expect(canReadStorageKey(key, null)).resolves.toBe(false);
   });
+
+  it("keeps salesperson IDs and non-compete files off the public proxy, including for admins", async () => {
+    for (const key of [
+      "salesperson-identity/4/id-front.jpg",
+      "salesperson-legal-documents/non-compete.pdf",
+      "salesperson-legal-signatures/4/signed_pdf.pdf",
+    ]) {
+      expect(privateStorageDecision(key, null)).toBe("affiliate-document");
+      expect(privateStorageDecision(key, { ...owner, role: "admin" })).toBe("affiliate-document");
+      await expect(canReadStorageKey(key, { ...owner, role: "admin" })).resolves.toBe(false);
+      await expect(canReadStorageKey(key, owner)).resolves.toBe(false);
+    }
+  });
 });

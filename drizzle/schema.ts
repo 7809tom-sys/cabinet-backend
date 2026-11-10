@@ -18,6 +18,7 @@ import { AFFILIATE_STOREFRONT_TEMPLATE_IDS } from "../shared/affiliateStorefront
 import { FREE_USAGE_KINDS } from "../shared/affiliateFreeUsage";
 import type { AffiliateSocialLink } from "../shared/affiliateSocialLinks";
 import type { AffiliateResourceMeta } from "../shared/affiliateResources";
+import { IDENTITY_LABELS, SALESPERSON_TAX_CLASSIFICATIONS } from "../shared/jobBoarding";
 
 // ─── Users ───────────────────────────────────────────────────────────────────
 
@@ -4829,3 +4830,157 @@ export const affiliateLegalSignatures = mysqlTable("affiliate_legal_signatures",
 }));
 export type AffiliateLegalSignature = typeof affiliateLegalSignatures.$inferSelect;
 export type InsertAffiliateLegalSignature = typeof affiliateLegalSignatures.$inferInsert;
+
+// ─── Salesperson Job Boarding ────────────────────────────────────────────────
+// Hand-run SQL: docs/sql/0273_salesperson_job_boarding.tidb.sql.
+// Nothing here is applied by the application.
+//
+// Four steps: contact information, a versioned non-compete (DocuSeal), a W-9
+// whose TIN is an AES-GCM envelope, and government-ID files in the private
+// bucket. The non-compete body starts as a placeholder Tom replaces by
+// publishing a new version. termYears is metadata (default 2), not contract text.
+export const salespersonOnboarding = mysqlTable("salesperson_onboarding", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull().unique(),
+  fullName: varchar("fullName", { length: 256 }),
+  email: varchar("email", { length: 320 }),
+  phone: varchar("phone", { length: 32 }),
+  businessName: varchar("businessName", { length: 256 }),
+  licenseNumber: varchar("licenseNumber", { length: 64 }),
+  address1: varchar("address1", { length: 256 }),
+  address2: varchar("address2", { length: 256 }),
+  city: varchar("city", { length: 128 }),
+  state: varchar("state", { length: 64 }),
+  postalCode: varchar("postalCode", { length: 16 }),
+  informationCompletedAt: timestamp("informationCompletedAt"),
+  verifiedAt: timestamp("verifiedAt"),
+  activatedAt: timestamp("activatedAt"),
+  // SHA-256 of the e-document verification token. The raw token is not stored.
+  verificationTokenHash: varchar("verificationTokenHash", { length: 64 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (t) => ({
+  tokenIdx: index("salesperson_onboarding_token_idx").on(t.verificationTokenHash),
+}));
+export type SalespersonOnboarding = typeof salespersonOnboarding.$inferSelect;
+export type InsertSalespersonOnboarding = typeof salespersonOnboarding.$inferInsert;
+
+export const salespersonLegalDocuments = mysqlTable("salesperson_legal_documents", {
+  id: int("id").autoincrement().primaryKey(),
+  slug: varchar("slug", { length: 80 }).notNull().unique(),
+  title: varchar("title", { length: 255 }).notNull(),
+  summary: varchar("summary", { length: 512 }),
+  // Configurable term shown beside the signature. Default is 2 years.
+  termYears: int("termYears").default(2).notNull(),
+  isActive: boolean("isActive").default(true).notNull(),
+  currentVersionId: int("currentVersionId"),
+  createdByUserId: int("createdByUserId"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type SalespersonLegalDocument = typeof salespersonLegalDocuments.$inferSelect;
+
+export const salespersonLegalDocumentVersions = mysqlTable("salesperson_legal_document_versions", {
+  id: int("id").autoincrement().primaryKey(),
+  documentId: int("documentId").notNull(),
+  version: int("version").notNull(),
+  title: varchar("title", { length: 255 }).notNull(),
+  termYears: int("termYears").default(2).notNull(),
+  kind: mysqlEnum("kind", ["markdown", "pdf"]).default("markdown").notNull(),
+  bodyMarkdown: text("bodyMarkdown"),
+  fileKey: varchar("fileKey", { length: 512 }),
+  filename: varchar("filename", { length: 255 }),
+  mimeType: varchar("mimeType", { length: 128 }),
+  sizeBytes: int("sizeBytes"),
+  contentSha256: varchar("contentSha256", { length: 64 }).notNull(),
+  docusealTemplateId: int("docusealTemplateId"),
+  publishedAt: timestamp("publishedAt"),
+  createdByUserId: int("createdByUserId"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (t) => ({
+  documentVersionUq: uniqueIndex("salesperson_legal_versions_doc_version_uq").on(t.documentId, t.version),
+  documentIdx: index("salesperson_legal_versions_document_idx").on(t.documentId),
+}));
+export type SalespersonLegalDocumentVersion = typeof salespersonLegalDocumentVersions.$inferSelect;
+
+export const salespersonLegalSigningSessions = mysqlTable("salesperson_legal_signing_sessions", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  documentId: int("documentId").notNull(),
+  documentVersionId: int("documentVersionId").notNull(),
+  provider: mysqlEnum("provider", ["docuseal"]).default("docuseal").notNull(),
+  providerSubmissionId: varchar("providerSubmissionId", { length: 64 }),
+  providerSubmitterId: varchar("providerSubmitterId", { length: 64 }),
+  status: mysqlEnum("status", ["pending", "completed", "declined", "expired"]).default("pending").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (t) => ({
+  userVersionIdx: index("salesperson_legal_sessions_user_version_idx").on(t.userId, t.documentVersionId),
+  submissionIdx: index("salesperson_legal_sessions_submission_idx").on(t.providerSubmissionId),
+}));
+export type SalespersonLegalSigningSession = typeof salespersonLegalSigningSessions.$inferSelect;
+
+export const salespersonLegalSignatures = mysqlTable("salesperson_legal_signatures", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  documentId: int("documentId").notNull(),
+  documentVersionId: int("documentVersionId").notNull(),
+  documentVersion: int("documentVersion").notNull(),
+  termYears: int("termYears").notNull(),
+  documentTitle: varchar("documentTitle", { length: 255 }).notNull(),
+  contentSha256: varchar("contentSha256", { length: 64 }).notNull(),
+  provider: mysqlEnum("provider", ["docuseal"]).default("docuseal").notNull(),
+  providerSubmissionId: varchar("providerSubmissionId", { length: 64 }).notNull(),
+  providerSubmitterId: varchar("providerSubmitterId", { length: 64 }),
+  providerEventId: varchar("providerEventId", { length: 128 }),
+  signerName: varchar("signerName", { length: 255 }),
+  signerEmail: varchar("signerEmail", { length: 320 }),
+  signedPdfKey: varchar("signedPdfKey", { length: 512 }),
+  auditLogKey: varchar("auditLogKey", { length: 512 }),
+  completedAt: timestamp("completedAt").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (t) => ({
+  userVersionUq: uniqueIndex("salesperson_legal_signatures_user_version_uq").on(t.userId, t.documentVersionId),
+  eventUq: uniqueIndex("salesperson_legal_signatures_event_uq").on(t.providerEventId),
+  userIdx: index("salesperson_legal_signatures_user_idx").on(t.userId),
+}));
+export type SalespersonLegalSignature = typeof salespersonLegalSignatures.$inferSelect;
+
+export const salespersonW9 = mysqlTable("salesperson_w9", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull().unique(),
+  legalName: varchar("legalName", { length: 256 }).notNull(),
+  businessName: varchar("businessName", { length: 256 }),
+  taxClassification: mysqlEnum("taxClassification", SALESPERSON_TAX_CLASSIFICATIONS).notNull(),
+  llcClassification: varchar("llcClassification", { length: 8 }),
+  address: varchar("address", { length: 256 }).notNull(),
+  city: varchar("city", { length: 128 }).notNull(),
+  state: varchar("state", { length: 64 }).notNull(),
+  zip: varchar("zip", { length: 16 }).notNull(),
+  // AES-GCM envelope from W9_TAX_ID_ENCRYPTION_KEY. Never a plaintext SSN/EIN.
+  tinEnvelope: varchar("tinEnvelope", { length: 512 }).notNull(),
+  tinLast4: varchar("tinLast4", { length: 4 }).notNull(),
+  tinType: mysqlEnum("tinType", ["ssn", "ein"]).notNull(),
+  signatureName: varchar("signatureName", { length: 256 }).notNull(),
+  signedOn: varchar("signedOn", { length: 10 }).notNull(),
+  submittedAt: timestamp("submittedAt").defaultNow().notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type SalespersonW9 = typeof salespersonW9.$inferSelect;
+
+export const salespersonIdentityDocuments = mysqlTable("salesperson_identity_documents", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  label: mysqlEnum("label", IDENTITY_LABELS).default("front").notNull(),
+  // Private-bucket key under salesperson-identity/. No public URL column.
+  storageKey: varchar("storageKey", { length: 512 }).notNull(),
+  mimeType: varchar("mimeType", { length: 128 }).notNull(),
+  sizeBytes: int("sizeBytes").notNull(),
+  originalName: varchar("originalName", { length: 255 }),
+  supersededAt: timestamp("supersededAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (t) => ({
+  userIdx: index("salesperson_identity_user_idx").on(t.userId, t.supersededAt),
+}));
+export type SalespersonIdentityDocument = typeof salespersonIdentityDocuments.$inferSelect;

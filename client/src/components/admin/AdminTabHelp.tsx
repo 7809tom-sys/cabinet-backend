@@ -34,6 +34,10 @@ const TAB_HELP: Record<string, { en: string; zh: string; link?: { label: string;
     en: "Preview test and fake CRM records, edit the keep list, download a CSV, then confirm deletion of that exact snapshot. Preview does not delete anything.",
     zh: "預覽測試與假的 CRM 紀錄，編輯保留清單，下載 CSV，然後確認刪除該快照。預覽不會刪除任何資料。",
   },
+  "job-boarding": {
+    en: "Review salesperson onboarding. Each row links to that person's e-documents and shows whether the non-compete is signed, the W-9 is submitted, an ID is uploaded, and verification is yes or no.",
+    zh: "審查銷售人員入職。每一列連結到該人員的電子文件，並顯示競業禁止是否已簽署、W-9 是否已提交、身分證件是否已上傳，以及驗證是否完成。",
+  },
   roles: {
     en: "Manage user roles and permissions. Promote users to admin, sales rep, or other roles to control access.",
     zh: "管理使用者角色與權限。將使用者提升為管理員、銷售代表或其他角色以控制存取權限。",

@@ -5,6 +5,7 @@ import { TRPCError } from "@trpc/server";
 import { protectedProcedure, adminProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
 import { isEnumValueError, isMissingSchemaError, ORDER_SCHEMA_MESSAGES } from "../lib/orderSchemaGuard";
+import { assertSalespersonFeatures } from "../lib/salespersonOnboardingGate";
 import { newSaleStagePresent, readOrderSchemaSupport } from "../lib/orderSchemaSupport";
 import { readDealImageCounts } from "../lib/orderSideEffects";
 import {
@@ -236,6 +237,7 @@ export async function resolveScope(
   // Internal platform CRM roles remain house-scoped when they are not linked
   // to an affiliate team invitation.
   if (ctx.user.role === "designer" || ctx.user.role === "sales_rep") {
+    if (ctx.user.role === "sales_rep") await assertSalespersonFeatures(ctx.user);
     return { kind: "house" };
   }
 
@@ -1764,6 +1766,7 @@ export const crmRouter = router({
       const conds = [];
       if (!isStaff) {
         if (ctx.user.role !== "sales_rep") return [];
+        await assertSalespersonFeatures(ctx.user);
         conds.push(eq(salesCommissions.repUserId, ctx.user.id));
       }
       const status = input?.status ?? "all";
