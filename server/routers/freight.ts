@@ -77,6 +77,7 @@ import {
 import { freightClassFromDensity, genericCabinetPackage } from "@shared/genericCabinetPackaging";
 import { isCatalogFreeShippingIdentity, loadCatalogFreeShippingIndex } from "../lib/catalogFreeShipping";
 import {
+  postalLocality,
   resolveOriginLocality,
   shopperCarrierAddress,
   type CarrierLocality,
@@ -743,9 +744,9 @@ async function resolveZipAddress(zip: string): Promise<LiveQuoteAddress | null> 
 }
 
 /**
- * Destination uses the shopper's city and state. Origin uses a warehouse
- * address for this ZIP, then the documented origin map. Google runs only
- * for the side that is still missing.
+ * Destination uses the shopper's city and state, then the offline ZIP dataset.
+ * Origin uses a warehouse address for this ZIP, then that same dataset.
+ * Google runs only for the side that is still missing.
  */
 async function resolveCarrierAddressPair(input: {
   originZip: string;
@@ -755,9 +756,10 @@ async function resolveCarrierAddressPair(input: {
 }): Promise<{ fromAddress: LiveQuoteAddress | null; toAddress: LiveQuoteAddress | null }> {
   const shopper = shopperCarrierAddress(input.deliveryAddress);
   const storedOrigin = input.originAddress ?? resolveOriginLocality({ zip: input.originZip });
+  const offlineDestination = shopper ?? postalLocality(input.destinationZip);
   const [fromAddress, toAddress] = await Promise.all([
     storedOrigin ? Promise.resolve(storedOrigin) : resolveZipAddress(input.originZip),
-    shopper ? Promise.resolve(shopper) : resolveZipAddress(input.destinationZip),
+    offlineDestination ? Promise.resolve(offlineDestination) : resolveZipAddress(input.destinationZip),
   ]);
   return { fromAddress, toAddress };
 }

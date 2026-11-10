@@ -245,32 +245,54 @@ describe("freight.estimate carrier city and state", () => {
     expect(quote.lines.some((line) => /Plan B|fixed freight/i.test(line.label))).toBe(false);
   });
 
-  it("geocodes only the side that is still missing a city and state", async () => {
-    makeRequestMock.mockImplementation(async (_path: string, params: { address?: string }) => {
-      const zip = String(params.address ?? "");
-      if (zip.startsWith("78701")) {
-        return {
-          results: [{
-            address_components: [
-              { long_name: "Austin", short_name: "Austin", types: ["locality"] },
-              { long_name: "Texas", short_name: "TX", types: ["administrative_area_level_1"] },
-            ],
-          }],
-        };
-      }
-      return { results: [] };
-    });
+  it("quotes Houston and Dallas origins without calling Google", async () => {
+    for (const [originZip, locality] of [["77064", "Houston"], ["75234", "Dallas"]] as const) {
+      wwexMock.mockClear();
+      makeRequestMock.mockClear();
+      scenario.originZip = originZip;
+      const quote = await freightRouter.createCaller(ctx()).estimate({
+        deliveryAddress,
+        items: [{ cabinetId: 501, styleId: 77, distributorId: 9, qty: 1, weightLbs: 220 }],
+        merchandiseSubtotalCents: 200000,
+      });
+      expect(makeRequestMock).not.toHaveBeenCalled();
+      const request = wwexMock.mock.calls[0]?.[1] as { fromAddress: { locality: string; region: string }; toAddress: { locality: string } };
+      expect(request.fromAddress).toMatchObject({ locality, region: "TX" });
+      expect(request.toAddress.locality).toBe("Dallas");
+      expect(quote.rateGroups?.[0]?.source).toBe("live");
+    }
+  });
+
+  it("uses the offline dataset for a ZIP-only destination and Google only when the ZIP is unknown", async () => {
     await freightRouter.createCaller(ctx()).estimate({
-      destinationZip: "78701",
+      destinationZip: "10001",
+      items: [{ cabinetId: 501, styleId: 77, distributorId: 9, qty: 1, weightLbs: 220 }],
+      merchandiseSubtotalCents: 200000,
+    });
+    expect(makeRequestMock).not.toHaveBeenCalled();
+    const offline = wwexMock.mock.calls[0]?.[1] as { fromAddress: { locality: string }; toAddress: { locality: string; region: string } };
+    expect(offline.fromAddress.locality).toBe("Mokena");
+    expect(offline.toAddress).toMatchObject({ locality: "New York", region: "NY" });
+
+    makeRequestMock.mockResolvedValue({
+      results: [{
+        address_components: [
+          { long_name: "Nowhere", short_name: "Nowhere", types: ["locality"] },
+          { long_name: "Texas", short_name: "TX", types: ["administrative_area_level_1"] },
+        ],
+      }],
+    });
+    wwexMock.mockClear();
+    await freightRouter.createCaller(ctx()).estimate({
+      destinationZip: "99999",
       items: [{ cabinetId: 501, styleId: 77, distributorId: 9, qty: 1, weightLbs: 220 }],
       merchandiseSubtotalCents: 200000,
     });
     const lookedUp = makeRequestMock.mock.calls.map((call) => String((call[1] as { address?: string }).address));
-    expect(lookedUp.some((address) => address.startsWith("78701"))).toBe(true);
+    expect(lookedUp.some((address) => address.startsWith("99999"))).toBe(true);
     expect(lookedUp.some((address) => address.startsWith("60448"))).toBe(false);
-    const request = wwexMock.mock.calls[0]?.[1] as { fromAddress: { locality: string }; toAddress: { locality: string; region: string } };
-    expect(request.fromAddress.locality).toBe("Mokena");
-    expect(request.toAddress).toMatchObject({ locality: "Austin", region: "TX" });
+    const request = wwexMock.mock.calls[0]?.[1] as { toAddress: { locality: string; region: string } };
+    expect(request.toAddress).toMatchObject({ locality: "Nowhere", region: "TX" });
   });
 
   it("sends the shopper city and state on a direct UPS rate", async () => {
