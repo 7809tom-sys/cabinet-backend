@@ -5,6 +5,7 @@ import { and, asc, desc, eq, gt, isNull, like, lte, not, notInArray, or, sql } f
 import sharp from "sharp";
 import { UNAUTHED_ERR_MSG } from "@shared/const";
 import { hiddenNumericIds, loadAffiliateCatalogGate } from "../lib/affiliateCatalogGate";
+import { guardAffiliateFeature } from "../lib/affiliateFeaturePublish";
 import { router, publicProcedure, adminProcedure, supplierProfileProcedure } from "../_core/trpc";
 import { getDb } from "../db";
 import { CATALOG_TAGS, servePublicCatalog } from "../lib/publicCatalogCache";
@@ -464,7 +465,10 @@ export const pelicanRouter = router({
         offset: z.number().min(0).default(0),
       })
     )
-    .query((opts) => servePublicCatalog({
+    .query(async (opts) => {
+      const db = await getDb();
+      if (db) await guardAffiliateFeature(db, { role: opts.ctx.user?.role, slug: opts.input.affiliateSlug, feature: "pelican_catalog" });
+      return servePublicCatalog({
       procedure: "pelican.byCategory",
       ctx: opts.ctx,
       input: opts.input,
@@ -575,10 +579,14 @@ export const pelicanRouter = router({
         subCategories: subs.map((s) => s.subCategory).filter(Boolean) as string[],
       };
       },
-    })),
+    });
+    }),
   bySlug: publicProcedure
     .input(z.object({ slug: z.string(), affiliateSlug: z.string().trim().optional() }))
-    .query((opts) => servePublicCatalog({
+    .query(async (opts) => {
+      const db = await getDb();
+      if (db) await guardAffiliateFeature(db, { role: opts.ctx.user?.role, slug: opts.input.affiliateSlug, feature: "pelican_catalog" });
+      return servePublicCatalog({
       procedure: "pelican.bySlug",
       ctx: opts.ctx,
       input: opts.input,
@@ -610,12 +618,16 @@ export const pelicanRouter = router({
         : undefined);
       return priced;
       },
-    })),
+    });
+    }),
   // Returns related products for "Complete this look" pairing (sink ↔ faucet).
   // For a faucet, returns matching sinks in the same category. For a sink, returns faucets.
   relatedProducts: publicProcedure
     .input(z.object({ slug: z.string(), affiliateSlug: z.string().trim().optional(), limit: z.number().min(1).max(12).default(4) }))
-    .query((opts) => servePublicCatalog({
+    .query(async (opts) => {
+      const db = await getDb();
+      if (db) await guardAffiliateFeature(db, { role: opts.ctx.user?.role, slug: opts.input.affiliateSlug, feature: "pelican_catalog" });
+      return servePublicCatalog({
       procedure: "pelican.relatedProducts",
       ctx: opts.ctx,
       input: opts.input,
@@ -663,7 +675,8 @@ export const pelicanRouter = router({
           : undefined))
         .filter((r) => r.sellPrice && r.sellPrice > 0);
       },
-    })),
+    });
+    }),
 
   adminList: supplierProfileProcedure
     .input(

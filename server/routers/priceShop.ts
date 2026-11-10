@@ -18,6 +18,7 @@ import { resolveStorefrontTier, visiblePricesForViewer } from "../../shared/pric
 import { sellPriceForTier } from "@shared/margins";
 import { TRPCError } from "@trpc/server";
 import { resolveAffiliateAccess } from "../lib/affiliateAccess";
+import { guardAffiliateFeature } from "../lib/affiliateFeaturePublish";
 import { resolveRequestStoreScope } from "../lib/affiliateHostScope";
 import { storagePut } from "../storage";
 import { bundlePricePairs, bundleSurfaceIds, calculateCurrentBundlePrice, publishedBundlePrice, type BundlePriceCandidate, type BundleSnapshotLike } from "../lib/bundleDealPricing";
@@ -774,6 +775,7 @@ export const priceShopRouter = router({
       // Non-admin: resolve their affiliate or distributor
       const access = await resolveAffiliateAccess(db, ctx.user);
       if (access && (access.isOwner || access.accessDesigner)) {
+        await guardAffiliateFeature(db, { role: ctx.user.role, affiliateId: access.affiliateId, feature: "kitchen_packages" });
         return withCurrentBundleHomeownerPrices(db, await db.select(selectFields).from(bundleDeals).where(eq(bundleDeals.affiliateId, access.affiliateId)).orderBy(desc(bundleDeals.createdAt)));
       }
       if (ctx.user.distributorId) {
@@ -954,9 +956,12 @@ export const priceShopRouter = router({
   // Public: list all published bundles for the storefront
   listPublishedBundles: publicProcedure
     .input(z.object({ affiliateId: z.number().optional() }).optional())
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) return [];
+      if (input?.affiliateId) {
+        await guardAffiliateFeature(db, { role: ctx.user?.role, affiliateId: input.affiliateId, feature: "kitchen_packages" });
+      }
       const conditions = [eq(bundleDeals.isPublished, true)];
       // A storefront shows only its own packages. The main site shows unscoped packages.
       conditions.push(input?.affiliateId ? eq(bundleDeals.affiliateId, input.affiliateId) : isNull(bundleDeals.affiliateId));
@@ -1014,13 +1019,16 @@ export const priceShopRouter = router({
 
   getBundleDeal: publicProcedure
     .input(z.object({ id: z.number() }))
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
       const [row] = await db.select().from(bundleDeals)
         .where(and(eq(bundleDeals.id, input.id), eq(bundleDeals.isPublished, true)))
         .limit(1);
       if (!row) throw new TRPCError({ code: "NOT_FOUND" });
+      if (row.affiliateId != null) {
+        await guardAffiliateFeature(db, { role: ctx.user?.role, affiliateId: row.affiliateId, feature: "kitchen_packages" });
+      }
       const [pricedBundle] = await withCurrentBundleHomeownerPrices(db, [row]);
       if (pricedBundle.currentPriceStatus !== "current") {
         throw new TRPCError({

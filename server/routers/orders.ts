@@ -5,6 +5,7 @@ import { publicProcedure, protectedProcedure, adminProcedure, router } from "../
 import { ensureAffiliatePipelineDeal } from "../lib/crmPipelineAttach";
 import { resolvePresentation } from "../lib/presentation";
 import { assertNoPreviewSuppliers } from "../lib/distributorPreview";
+import { guardAffiliateFeature } from "../lib/affiliateFeaturePublish";
 import { getDb, hasPositivePublishedCabinetPrice, notInConflict } from "../db";
 import {
   cabinets,
@@ -563,6 +564,7 @@ export const ordersRouter = router({
       if (!db || input.cabinetIds.length === 0) {
         return { prices: [] as { cabinetId: number; unitPrice: number | null; originalUnitPrice: number | null; promoName: string | null; myCost: number | null; freeShipping: boolean }[] };
       }
+      await guardAffiliateFeature(db, { role: ctx.user?.role, slug: input.affiliateSlug, feature: "quote" });
       const ps = await getPricingSettingsForViewer(ctx.user);
       const rows = await db
         .select({
@@ -826,6 +828,9 @@ export const ordersRouter = router({
             ? "Contractor"
             : "Homeowner";
       const scopeSlug = input.storeScope.trim().toLowerCase();
+      if (!isAdmin && scopeSlug !== "owner") {
+        await guardAffiliateFeature(db, { role: ctx.user?.role, slug: scopeSlug, feature: "quote" });
+      }
       const affiliatePricing = await loadAffiliateStorefrontPricing(scopeSlug);
       if (scopeSlug !== "owner" && !affiliatePricing) {
         throw new TRPCError({ code: "NOT_FOUND", message: "This affiliate store is not available." });

@@ -21,8 +21,27 @@ import {
   skuMasterAliases,
 } from "../../drizzle/schema";
 import { filterCabinetSourceRows, loadAffiliateCatalogGate } from "../lib/affiliateCatalogGate";
+import { guardAffiliateFeature, publishedCabinetDistributorIds } from "../lib/affiliateFeaturePublish";
 import { orderCabinetsByAliasRank, rankLoadedCabinetSearch } from "../lib/cabinetAliasSearch";
 import { resolveCanonicalCatalogSources } from "../lib/canonicalCatalogSources";
+
+async function guardStorefrontFeature(
+  role: string | null | undefined,
+  slug: string | null | undefined,
+  feature: "cabinet_catalog" | "promotions",
+  distributorId?: number,
+  styleId?: number,
+) {
+  if (!slug?.trim()) return;
+  const db = await getDb();
+  if (!db) return;
+  let pinned = distributorId;
+  if (pinned == null && feature === "cabinet_catalog" && styleId != null) {
+    const [style] = await db.select({ distributorId: doorStyles.distributorId }).from(doorStyles).where(eq(doorStyles.id, styleId)).limit(1);
+    pinned = style?.distributorId;
+  }
+  await guardAffiliateFeature(db, { role, slug, feature, distributorId: pinned });
+}
 
 // ─── Family-locked storefront browsing ─────────────────────────────────────────
 // RULE: a shopping/quote session is locked to ONE distributor + ONE cabinet
@@ -261,7 +280,9 @@ export const storefrontRouter = router({
         })
         .optional()
     )
-    .query((opts) => servePublicCatalog({
+    .query(async (opts) => {
+      await guardStorefrontFeature(opts.ctx.user?.role, opts.input?.slug, "cabinet_catalog", opts.input?.distributorId);
+      return servePublicCatalog({
       procedure: "storefront.families",
       ctx: opts.ctx,
       input: opts.input ?? null,
@@ -312,6 +333,14 @@ export const storefrontRouter = router({
           // supplier selection, only those lines appear on the public store.
           selectedDistributorIds = new Set(distributorRows.map((row) => row.distributorId));
           featuredDistributorIds = new Set(distributorRows.filter((row) => row.featured).map((row) => row.distributorId));
+          if (opts.ctx.user?.role !== "admin") {
+            const allowed = new Set(await publishedCabinetDistributorIds(db, a.id));
+            selectedDistributorIds = selectedDistributorIds.size === 0
+              ? allowed
+              : new Set(Array.from(selectedDistributorIds).filter((id) => allowed.has(id)));
+            featuredDistributorIds = new Set(Array.from(featuredDistributorIds).filter((id) => selectedDistributorIds.has(id)));
+            if (selectedDistributorIds.size === 0) return [];
+          }
         }
       }
 
@@ -386,7 +415,8 @@ export const storefrontRouter = router({
         featuredStyleIds,
       );
       },
-    })),
+    });
+    }),
 
   // The distinct door-style "types" (Shaker, Raised Panel, Slab, ...) available,
   // used as the top-level merchandising grouping on the storefront.
@@ -417,7 +447,8 @@ export const storefrontRouter = router({
   // Resolve one family by styleId (for re-hydrating a locked session).
   familyById: publicProcedure
     .input(z.object({ styleId: z.number(), slug: z.string().optional() }))
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
+      await guardStorefrontFeature(ctx.user?.role, input.slug, "cabinet_catalog", undefined, input.styleId);
       const db = await getDb();
       if (!db) return null;
       if (!await affiliateAllowsStyle(db, input.slug, input.styleId)) return null;
@@ -544,7 +575,8 @@ export const storefrontRouter = router({
         slug: z.string().optional(),
       })
     )
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
+      await guardStorefrontFeature(ctx.user?.role, input.slug, "cabinet_catalog", undefined, input.styleId);
       const db = await getDb();
       if (!db) return { items: [], total: 0 };
       if (!await affiliateAllowsStyle(db, input.slug, input.styleId)) return { items: [], total: 0 };
@@ -725,7 +757,8 @@ export const storefrontRouter = router({
         slug: z.string().optional(),
       })
     )
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
+      await guardStorefrontFeature(ctx.user?.role, input.slug, "cabinet_catalog", undefined, input.styleId);
       const db = await getDb();
       if (!db) return { intent: input.intent, items: [] as unknown[] };
       if (!await affiliateAllowsStyle(db, input.slug, input.styleId)) return { intent: input.intent, items: [] as unknown[] };
@@ -880,7 +913,8 @@ export const storefrontRouter = router({
   // separately for those, never offered as a swap here.
   glassDoorUpsell: publicProcedure
     .input(z.object({ styleId: z.number(), masterCode: z.string(), slug: z.string().optional() }))
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
+      await guardStorefrontFeature(ctx.user?.role, input.slug, "cabinet_catalog", undefined, input.styleId);
       const db = await getDb();
       if (!db) return null;
       if (!await affiliateAllowsStyle(db, input.slug, input.styleId)) return null;
@@ -1022,7 +1056,8 @@ export const storefrontRouter = router({
   // ─── Active banner + promo badges for an affiliate storefront ──────────────
   activeBannerAndPromos: publicProcedure
     .input(z.object({ slug: z.string() }))
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
+      await guardStorefrontFeature(ctx.user?.role, input.slug, "promotions");
       const db = await getDb();
       if (!db) return { banner: null, promos: [] as typeof affiliatePromoDiscounts.$inferSelect[] };
       const [aff] = await db.select({ id: affiliates.id })

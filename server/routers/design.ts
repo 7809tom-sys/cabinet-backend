@@ -34,6 +34,8 @@ import {
 } from "../lib/affiliateFreeUsage";
 import { decideAssistAccess } from "@shared/customerDirectory";
 import { filterCabinetSourceRows, loadAffiliateCatalogGate } from "../lib/affiliateCatalogGate";
+import { guardAffiliateFeature } from "../lib/affiliateFeaturePublish";
+import { DESIGNER_FEATURE_KEYS } from "@shared/affiliateFeaturePublish";
 import { canViewAffiliateDesignPriceList, affiliateCustomerPosition } from "../lib/affiliateDesignPriceList";
 import { selectExactCartPriceRows } from "../lib/cartPriceSelection";
 import { canonicalizeDesignPriceItems, normalizedDesignPriceCode, verifiedLegacyDesignPriceAliases } from "../lib/designPriceAliases";
@@ -347,6 +349,12 @@ export const designRouter = router({
     .query(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) return [];
+      await guardAffiliateFeature(db, {
+        role: ctx.user?.role,
+        slug: input?.affiliateSlug,
+        feature: DESIGNER_FEATURE_KEYS,
+        distributorId: input?.distributorId,
+      });
 
       const adminAefPreview = ctx.user?.role === "admin" && input?.distributorId != null;
       // Availability gate: a cabinet is only offered in the designer if it has
@@ -1041,6 +1049,12 @@ export const designRouter = router({
     .query(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db || input.pairs.length === 0) return [];
+      await guardAffiliateFeature(db, {
+        role: ctx.user?.role,
+        slug: input.affiliateSlug,
+        feature: DESIGNER_FEATURE_KEYS,
+        distributorId: input.distributorId,
+      });
 
       const adminAefPreview = ctx.user?.role === "admin";
 
@@ -3538,6 +3552,16 @@ Return an empty actions array ONLY if the user asked a pure question with no wal
     .query(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db || input.items.length === 0) return [];
+      const distributorIds = Array.from(new Set(
+        input.items.map((item) => item.distributorId).filter((id): id is number => typeof id === "number"),
+      ));
+      if (distributorIds.length === 0) {
+        await guardAffiliateFeature(db, { role: ctx.user?.role, slug: input.affiliateSlug, feature: "cabinet_catalog" });
+      } else {
+        for (const distributorId of distributorIds) {
+          await guardAffiliateFeature(db, { role: ctx.user?.role, slug: input.affiliateSlug, feature: "cabinet_catalog", distributorId });
+        }
+      }
       const affiliatePricing = await loadAffiliateStorefrontPricing(input.affiliateSlug);
 
       const canonicalItems = await resolveDesignPriceAliases(db, input.items);

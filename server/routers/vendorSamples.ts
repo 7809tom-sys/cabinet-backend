@@ -16,6 +16,7 @@ import {
   type OrderLineItem,
 } from "../../drizzle/schema";
 import { resolveAffiliateAccess } from "../lib/affiliateAccess";
+import { guardAffiliateFeature } from "../lib/affiliateFeaturePublish";
 import { resolveAffiliateSiteScope, rowBelongsToSite } from "../lib/affiliateSiteScope";
 import { assertVendorScope, listVendorScopes } from "../lib/vendorFulfillmentStore";
 import { distributorScope } from "../../shared/vendorFulfillment";
@@ -236,6 +237,9 @@ export const vendorSamplesRouter = router({
     const db = await requireDb();
     const actor = await actorFor(db, ctx.user);
     if (!canPlaceSampleOrder(actor)) throw new TRPCError({ code: "FORBIDDEN", message: "Sample ordering is in the admin and affiliate back office." });
+    if (actor.affiliateId != null) {
+      await guardAffiliateFeature(db, { role: actor.role, affiliateId: actor.affiliateId, feature: "samples" });
+    }
     const offers = await db.select({
       id: doorStyleSampleOffers.id,
       distributorId: doorStyleSampleOffers.distributorId,
@@ -276,6 +280,9 @@ export const vendorSamplesRouter = router({
       affiliateId = sampleOrderAffiliateId(actor, input.affiliateId);
     } catch {
       throw new TRPCError({ code: "FORBIDDEN", message: "A public customer cannot order samples." });
+    }
+    if (affiliateId != null) {
+      await guardAffiliateFeature(db, { role: actor.role, affiliateId, feature: "samples" });
     }
     const offerIds = input.lines.map((line) => line.offerId).filter((id): id is number => id != null);
     const kitIds = input.lines.map((line) => line.kitId).filter((id): id is number => id != null);
@@ -368,6 +375,9 @@ export const vendorSamplesRouter = router({
     const db = await requireDb();
     const actor = await actorFor(db, ctx.user);
     if (!canPlaceSampleOrder(actor)) return [];
+    if (actor.affiliateId != null) {
+      await guardAffiliateFeature(db, { role: actor.role, affiliateId: actor.affiliateId, feature: "samples" });
+    }
     const rows = await db.select().from(orderRequests).where(eq(orderRequests.orderKind, "sample")).orderBy(desc(orderRequests.createdAt)).limit(200);
     if (input?.adminAll && actor.role === "admin") return rows;
     if (input?.affiliateId != null || input?.slug) {

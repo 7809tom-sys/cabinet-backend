@@ -1,4 +1,5 @@
 import {
+  bigint,
   int,
   mysqlEnum,
   mysqlTable,
@@ -2424,6 +2425,25 @@ export const affiliateDistributorSelections = mysqlTable("affiliate_distributor_
 
 export type AffiliateDistributorSelection = typeof affiliateDistributorSelections.$inferSelect;
 export type InsertAffiliateDistributorSelection = typeof affiliateDistributorSelections.$inferInsert;
+
+// Affiliate Publish tab. One row per distributor or vendor and feature.
+// Created by hand in TiDB (docs/sql/0269_affiliate_feature_publish.tidb.sql).
+// A missing row means not published. This definition is for queries only.
+export const affiliateFeaturePublish = mysqlTable("affiliate_feature_publish", {
+  id: bigint("id", { mode: "number" }).autoincrement().primaryKey(),
+  subjectKind: varchar("subjectKind", { length: 16 }).notNull(),
+  subjectId: bigint("subjectId", { mode: "number" }).notNull(),
+  featureKey: varchar("featureKey", { length: 64 }).notNull(),
+  published: boolean("published").notNull(),
+  updatedByUserId: bigint("updatedByUserId", { mode: "number" }),
+  updatedByName: varchar("updatedByName", { length: 255 }),
+  updatedAt: datetime("updatedAt"),
+}, (table) => ({
+  pair: uniqueIndex("affiliate_feature_publish_pair").on(table.subjectKind, table.subjectId, table.featureKey),
+}));
+
+export type AffiliateFeaturePublish = typeof affiliateFeaturePublish.$inferSelect;
+export type InsertAffiliateFeaturePublish = typeof affiliateFeaturePublish.$inferInsert;
 
 // Products an affiliate has turned off for their public storefront.
 // Absence of a row means the product stays visible, so existing stores do not

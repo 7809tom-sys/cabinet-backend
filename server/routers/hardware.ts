@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { and, asc, count, desc, eq, like, notInArray, or } from "drizzle-orm";
 import { hiddenNumericIds, loadAffiliateCatalogGate } from "../lib/affiliateCatalogGate";
+import { guardAffiliateFeature } from "../lib/affiliateFeaturePublish";
 import { router, publicProcedure, adminProcedure, distributorProcedure } from "../_core/trpc";
 import { getDb } from "../db";
 import { affiliates, distributors, hardwareShippingProfiles, vendorProducts } from "../../drizzle/schema";
@@ -202,9 +203,10 @@ export const hardwareRouter = router({
    * deliberately obtains a current public sell price rather than trusting a
    * historical browser value.
    */
-  selected: publicProcedure.input(selectedHardwareInput).query(async ({ input }) => {
+  selected: publicProcedure.input(selectedHardwareInput).query(async ({ input, ctx }) => {
     const db = await getDb();
     if (!db) return null;
+    await guardAffiliateFeature(db, { role: ctx.user?.role, slug: input.affiliateSlug, feature: "hardware_catalog" });
     const affiliatePricing = await affiliateHardwareMarkupBps(db, input.affiliateSlug);
     const hiddenIds = hiddenNumericIds(await loadAffiliateCatalogGate(db, input.affiliateSlug), "hardware");
     const [item] = await db
@@ -235,9 +237,10 @@ export const hardwareRouter = router({
     };
   }),
 
-  listConfigurations: publicProcedure.input(configurationListInput).query(async ({ input }) => {
+  listConfigurations: publicProcedure.input(configurationListInput).query(async ({ input, ctx }) => {
     const db = await getDb();
     if (!db) return { items: [], hasMore: false, affiliateMarkupBps: 0 };
+    await guardAffiliateFeature(db, { role: ctx.user?.role, slug: input.affiliateSlug, feature: "hardware_catalog" });
     const affiliatePricing = await affiliateHardwareMarkupBps(db, input.affiliateSlug);
     const conditions = [publicHardwareConditions()];
     await excludeHiddenHardware(db, input.affiliateSlug, conditions);
@@ -281,9 +284,10 @@ export const hardwareRouter = router({
     };
   }),
 
-  list: publicProcedure.input(listInput).query(async ({ input }) => {
+  list: publicProcedure.input(listInput).query(async ({ input, ctx }) => {
     const db = await getDb();
     if (!db) return { items: [], total: 0 };
+    await guardAffiliateFeature(db, { role: ctx.user?.role, slug: input.affiliateSlug, feature: "hardware_catalog" });
     const affiliatePricing = await affiliateHardwareMarkupBps(db, input.affiliateSlug);
     const conditions = [publicHardwareConditions()];
     await excludeHiddenHardware(db, input.affiliateSlug, conditions);
@@ -348,9 +352,10 @@ export const hardwareRouter = router({
       containsKitchenMerchandise: z.boolean().default(false),
       deliveryAddress: deliveryAddressInput,
     }))
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) throw new Error("Database not available");
+      await guardAffiliateFeature(db, { role: ctx.user?.role, slug: input.affiliateSlug, feature: "hardware_catalog" });
       const { lineId, profile, vendorOriginZip } = await hardwareLineAndProfile(db);
       const affiliatePricing = await affiliateHardwareMarkupBps(db, input.affiliateSlug);
       if (!lineId) return { available: false, totalCents: 0, merchandiseCents: 0, shippingCents: null, promotionApplied: false, reason: "Hardware Resources is not configured." };
