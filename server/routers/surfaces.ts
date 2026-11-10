@@ -2,6 +2,7 @@ import { z } from "zod";
 import { inArray, and, eq, desc, asc, isNotNull, ne, or } from "drizzle-orm";
 import { router, publicProcedure, protectedProcedure } from "../_core/trpc";
 import { getDb } from "../db";
+import { guardAffiliateFeature } from "../lib/affiliateFeaturePublish";
 import { pelicanProducts } from "../../drizzle/pelicanSchema";
 import { pelicanCategoryMarkups, surfacePreviews } from "../../drizzle/schema";
 import { positiveAuthorizedSurfaceBase } from "../../shared/surfacePricing";
@@ -243,11 +244,13 @@ export const surfacesRouter = router({
       z.object({
         role: RECOMMENDED_ROLE,
         limit: z.number().int().min(1).max(FLOORING_RECOMMENDED_MAX).default(8),
+        affiliateSlug: z.string().trim().max(64).optional(),
       })
     )
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) return [] as Array<Record<string, unknown>>;
+      await guardAffiliateFeature(db, { role: ctx.user?.role, slug: input.affiliateSlug, feature: "pelican_catalog" });
       const map = await loadMarkupMap(db);
       const rows = await db
         .select()
@@ -312,10 +315,11 @@ export const surfacesRouter = router({
 
   // Fetch full product records (with sell price) for a set of ids — used by the wizard summary.
   byIds: publicProcedure
-    .input(z.object({ ids: z.array(z.number().int().positive()).max(40) }))
-    .query(async ({ input }) => {
+    .input(z.object({ ids: z.array(z.number().int().positive()).max(40), affiliateSlug: z.string().trim().max(64).optional() }))
+    .query(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db || input.ids.length === 0) return [];
+      await guardAffiliateFeature(db, { role: ctx.user?.role, slug: input.affiliateSlug, feature: "pelican_catalog" });
       const map = await loadMarkupMap(db);
       const rows = await db
         .select()
@@ -334,10 +338,11 @@ export const surfacesRouter = router({
    * than its catalog photo.
    */
   designerByIds: publicProcedure
-    .input(z.object({ ids: z.array(z.number().int().positive()).max(40) }))
-    .query(async ({ input }) => {
+    .input(z.object({ ids: z.array(z.number().int().positive()).max(40), affiliateSlug: z.string().trim().max(64).optional() }))
+    .query(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db || input.ids.length === 0) return [];
+      await guardAffiliateFeature(db, { role: ctx.user?.role, slug: input.affiliateSlug, feature: "pelican_catalog" });
       const map = await loadMarkupMap(db);
       const rows = await db
         .select()
@@ -359,10 +364,11 @@ export const surfacesRouter = router({
    * floor material, so it stays outside designerByIds' geometry/readiness gate.
    */
   designSelectionByIds: publicProcedure
-    .input(z.object({ ids: z.array(z.number().int().positive()).max(40) }))
-    .query(async ({ input }) => {
+    .input(z.object({ ids: z.array(z.number().int().positive()).max(40), affiliateSlug: z.string().trim().max(64).optional() }))
+    .query(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db || input.ids.length === 0) return [];
+      await guardAffiliateFeature(db, { role: ctx.user?.role, slug: input.affiliateSlug, feature: "pelican_catalog" });
       const map = await loadMarkupMap(db);
       const rows = await db
         .select()
@@ -385,10 +391,11 @@ export const surfacesRouter = router({
    * deliberately chosen. The query is read-only and never adds a trim item.
    */
   matchingFlooringAccessories: publicProcedure
-    .input(z.object({ flooringProductId: z.number().int().positive(), limit: z.number().int().min(1).max(40).default(12) }))
-    .query(async ({ input }) => {
+    .input(z.object({ flooringProductId: z.number().int().positive(), limit: z.number().int().min(1).max(40).default(12), affiliateSlug: z.string().trim().max(64).optional() }))
+    .query(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) return [];
+      await guardAffiliateFeature(db, { role: ctx.user?.role, slug: input.affiliateSlug, feature: "pelican_catalog" });
       const map = await loadMarkupMap(db);
       const rows = await db
         .select()

@@ -3,6 +3,7 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { affiliateInstallationEstimates, affiliateTeamMembers, affiliates, cabinets, contractorKitchenCostDefaults, crmActivities, crmDealDesigns, crmDeals, kitchenDesigns, orderRequests } from "../../drizzle/schema";
 import { getDb } from "../db";
+import { guardAffiliateFeature } from "../lib/affiliateFeaturePublish";
 import { syncStoredOrderCrm } from "../lib/orderSideEffects";
 import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
 import { calculateInstallationEstimate, INSTALLATION_ROOM_TYPES, INSTALLATION_COST_TYPES } from "../../shared/installationEstimate";
@@ -124,6 +125,9 @@ export const installationEstimatesRouter = router({
       const owner = await resolveEstimateOwner(ctx.user, input, true);
       const db = await getDb();
       if (!db) return [];
+      if (owner.kind === "affiliate") {
+        await guardAffiliateFeature(db, { role: ctx.user.role, affiliateId: owner.affiliateId, feature: "installation_estimates" });
+      }
       const scope = owner.kind === "affiliate"
         ? eq(kitchenDesigns.affiliateId, owner.affiliateId)
         : and(eq(kitchenDesigns.userId, owner.userId), isNull(kitchenDesigns.affiliateId));
@@ -153,6 +157,9 @@ export const installationEstimatesRouter = router({
       const owner = await resolveEstimateOwner(ctx.user, input);
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      if (owner.kind === "affiliate") {
+        await guardAffiliateFeature(db, { role: ctx.user.role, affiliateId: owner.affiliateId, feature: "installation_estimates" });
+      }
       const storedJson = owner.kind === "affiliate"
         ? (await db.select({ kitchenCostDefaultsJson: affiliates.kitchenCostDefaultsJson }).from(affiliates).where(eq(affiliates.id, owner.affiliateId)).limit(1))[0]?.kitchenCostDefaultsJson
         : (await db.select({ defaultsJson: contractorKitchenCostDefaults.defaultsJson }).from(contractorKitchenCostDefaults).where(eq(contractorKitchenCostDefaults.contractorUserId, owner.userId)).limit(1))[0]?.defaultsJson;
@@ -195,6 +202,9 @@ export const installationEstimatesRouter = router({
       const owner = await resolveEstimateOwner(ctx.user, input);
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      if (owner.kind === "affiliate") {
+        await guardAffiliateFeature(db, { role: ctx.user.role, affiliateId: owner.affiliateId, feature: "installation_estimates" });
+      }
       return db.select().from(affiliateInstallationEstimates)
         .where(ownerWhere(owner))
         .orderBy(desc(affiliateInstallationEstimates.updatedAt));
@@ -320,13 +330,16 @@ export const installationEstimatesRouter = router({
 
   customerDocument: publicProcedure
     .input(z.object({ token: z.string().length(32) }))
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
       const [estimate] = await db.select().from(affiliateInstallationEstimates)
         .where(and(eq(affiliateInstallationEstimates.shareToken, input.token), or(eq(affiliateInstallationEstimates.status, "shared"), eq(affiliateInstallationEstimates.status, "accepted"))))
         .limit(1);
       if (!estimate) throw new TRPCError({ code: "NOT_FOUND", message: "Installation document is not available." });
+      if (estimate.affiliateId != null) {
+        await guardAffiliateFeature(db, { role: ctx.user?.role, affiliateId: estimate.affiliateId, feature: "installation_estimates" });
+      }
       const [affiliate] = estimate.affiliateId
         ? await db.select({ storeName: affiliates.storeName, logoUrl: affiliates.logoUrl, primaryColor: affiliates.primaryColor, publicEmail: affiliates.publicEmail, publicPhone: affiliates.publicPhone })
           .from(affiliates).where(eq(affiliates.id, estimate.affiliateId)).limit(1)

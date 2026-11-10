@@ -11,6 +11,7 @@ import {
 import { getDb } from "../db";
 import { storageGetSignedUrl, storagePut } from "../storage";
 import { resolveAffiliateAccess } from "../lib/affiliateAccess";
+import { guardAffiliateFeature } from "../lib/affiliateFeaturePublish";
 import { applyAffiliateLogoWatermark } from "../lib/affiliateImageWatermark";
 import { protectedProcedure, router } from "../_core/trpc";
 import { TRPCError } from "@trpc/server";
@@ -73,6 +74,7 @@ function fallbackLogo(storeName: string) {
 export const affiliateGeneratedImagesRouter = router({
   list: protectedProcedure.query(async ({ ctx }) => {
     const { db, affiliateId } = await requireAffiliate(ctx);
+    await guardAffiliateFeature(db, { role: ctx.user.role, affiliateId, feature: "image_cabinet" });
     const [deterministic, gemini, derivatives] = await Promise.all([
       db.select({ id: designPhotoRenders.id, imageUrl: designPhotoRenders.imageUrl, kitchenDesignId: designPhotoRenders.kitchenDesignId, createdAt: designPhotoRenders.createdAt, name: kitchenDesigns.name })
         .from(designPhotoRenders).innerJoin(kitchenDesigns, eq(kitchenDesigns.id, designPhotoRenders.kitchenDesignId))

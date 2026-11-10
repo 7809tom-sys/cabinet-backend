@@ -3,6 +3,7 @@ import { and, eq, inArray, or, sql } from "drizzle-orm";
 import * as XLSX from "xlsx";
 import { TRPCError } from "@trpc/server";
 import { adminProcedure, router } from "../_core/trpc";
+import { listAffiliateFeaturePublish, setAffiliateFeaturePublish, setAffiliateFeaturePublishInput } from "../lib/affiliateFeaturePublish";
 import { buildGoLiveTerms, distributorColumns, GO_LIVE_TERMS_VERSION } from "../lib/distributorPreview";
 import { getDb, recalculateStoredTierPrices } from "../db";
 import { recomputeDesignerEligibility } from "../lib/designerEligibilityRecompute";
@@ -211,6 +212,22 @@ async function loadGoLiveTerms(db: NonNullable<Awaited<ReturnType<typeof getDb>>
 }
 
 export const distributorImportRouter = router({
+  /** Every stored Publish switch. An empty list means nothing is published for affiliates. */
+  listAffiliateFeaturePublish: adminProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) return { rows: [] };
+    return { rows: await listAffiliateFeaturePublish(db) };
+  }),
+
+  /** Upsert one distributor or vendor feature switch and stamp the signed-in admin. */
+  setAffiliateFeaturePublish: adminProcedure
+    .input(setAffiliateFeaturePublishInput)
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      return setAffiliateFeaturePublish(db, input, ctx.user);
+    }),
+
   /**
    * Master catalog export: one row per cabinet with the review columns
    * (code, description, category, subCategory, dims, doors/drawers, graphicType,

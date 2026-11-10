@@ -10,6 +10,7 @@ import { TRPCError } from "@trpc/server";
 import { getDb, notInConflict, isCanonicalCabinetMaster, hasPositivePublishedCabinetPrice, getPricingSettings, updatePricingSettings, recalculateStoredTierPrices, getPlatformPricingSettings, updatePlatformPricingSettings } from "../db";
 import { getPricingSettingsForViewer } from "../lib/affiliateContractorPricing";
 import { canSeePreviewSuppliers, distributorColumns, isPreviewSupplier, skuVisibleToViewer } from "../lib/distributorPreview";
+import { guardAffiliateFeature } from "../lib/affiliateFeaturePublish";
 import {
   cabinets,
   cabinetAliases,
@@ -1831,7 +1832,13 @@ export const cabinetsRouter = router({
         affiliateSlug: z.string().trim().max(64).optional(),
       })
     )
-    .query((opts) => servePublicCatalog({
+    .query(async (opts) => {
+      const db = await getDb();
+      if (db && opts.input.affiliateSlug) {
+        const [style] = await db.select({ distributorId: doorStyles.distributorId }).from(doorStyles).where(eq(doorStyles.id, opts.input.styleId)).limit(1);
+        await guardAffiliateFeature(db, { role: opts.ctx.user?.role, slug: opts.input.affiliateSlug, feature: "cabinet_catalog", distributorId: style?.distributorId });
+      }
+      return servePublicCatalog({
       procedure: "cabinets.listForStyle",
       ctx: opts.ctx,
       input: opts.input,
@@ -1984,7 +1991,8 @@ export const cabinetsRouter = router({
       ));
       return { items: page, total, categoryCounts };
       },
-    })),
+    });
+    }),
 
   categories: publicProcedure.query((opts) => servePublicCatalog({
     procedure: "cabinets.categories",

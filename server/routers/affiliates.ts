@@ -27,6 +27,8 @@ import { toAdminAffiliate, toPublicStorefront, toViewerAffiliate } from "../lib/
 import { encryptW9TaxId, maskW9TaxId, w9TaxIdLast4 } from "../lib/w9TaxIdCrypto";
 import { resolveConsultationViewer } from "../lib/consultationAffiliate";
 import { listAffiliateVendorProducts, setAffiliateProductVisibility, setAffiliateVendorVisibility } from "../lib/affiliateVendorCatalog";
+import { guardAffiliateFeature } from "../lib/affiliateFeaturePublish";
+import { catalogFeatureKey } from "@shared/affiliateFeaturePublish";
 import { cleanSectionLabels, parseCatalogVendorKey, storefrontEditDecision, validateWhiteLabelPatch } from "@shared/affiliateStorefrontControls";
 import { computeEarning, dollarsToCents, groupByWeek, isoWeekKey, isoWeekStart } from "@shared/earnings";
 import {
@@ -1935,6 +1937,15 @@ export const affiliatesRouter = router({
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
       const affiliateId = await assertCanEditStorefront(ctx, input.affiliateId);
+      const vendor = parseCatalogVendorKey(input.vendorKey);
+      if (vendor) {
+        await guardAffiliateFeature(db, {
+          role: ctx.user.role,
+          affiliateId,
+          feature: catalogFeatureKey(vendor.kind),
+          distributorId: vendor.kind === "cabinet" ? vendor.distributorId : undefined,
+        });
+      }
       return listAffiliateVendorProducts(db, affiliateId, input.vendorKey, input);
     }),
 
@@ -2169,6 +2180,7 @@ export const affiliatesRouter = router({
     if (!mine) return [];
     const db = await getDb();
     if (!db) return [];
+    await guardAffiliateFeature(db, { role: ctx.user.role, affiliateId: mine.id, feature: "promotions" });
     return db
       .select()
       .from(affiliateBannerSchedules)
@@ -2229,6 +2241,7 @@ export const affiliatesRouter = router({
     if (!mine) return [];
     const db = await getDb();
     if (!db) return [];
+    await guardAffiliateFeature(db, { role: ctx.user.role, affiliateId: mine.id, feature: "promotions" });
     return db
       .select()
       .from(affiliatePromoDiscounts)
