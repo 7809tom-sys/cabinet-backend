@@ -77,9 +77,11 @@ const STATE_CODES = new Set(Object.values(STATE_NAME_TO_CODE));
  *
  * A distributor warehouse address that contains the same ZIP is preferred.
  * These rows exist so a missing Google result still sends city and state.
- * They are the postal city for the ZIP, not a guessed street address.
+ * Each city is the primary place name from Zippopotam (api.zippopotam.us),
+ * not a guessed street address.
  *
- * - 60448 Monee, IL — production origin on the failed live rate request.
+ * - 60448 Mokena, IL — production origin on the failed live rate request.
+ *   Zippopotam's primary place name. Monee is 60449.
  * - 30071 Norcross, GA — U.S. Cabinet Depot Atlanta warehouse
  *   (`scripts/configure-aef-atlanta-fulfillment.ts`).
  * - 33760 Clearwater, FL — Pelican pickup origin (`PELICAN_COMPARISON_ORIGIN`).
@@ -88,7 +90,7 @@ const STATE_CODES = new Set(Object.values(STATE_NAME_TO_CODE));
  *   DL Cabinetry candidate origins (`data/distributors/dl-cabinetry/README.md`).
  */
 export const KNOWN_FREIGHT_ORIGIN_LOCALITIES: Readonly<Record<string, { locality: string; region: string }>> = {
-  "60448": { locality: "Monee", region: "IL" },
+  "60448": { locality: "Mokena", region: "IL" },
   "30071": { locality: "Norcross", region: "GA" },
   "33760": { locality: "Clearwater", region: "FL" },
   "32256": { locality: "Jacksonville", region: "FL" },

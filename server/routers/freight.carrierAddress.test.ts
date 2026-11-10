@@ -220,7 +220,7 @@ describe("freight.estimate carrier city and state", () => {
     };
     expect(request.fromZip).toBe("60448");
     expect(request.toZip).toBe("75201");
-    expect(request.fromAddress).toEqual({ locality: "Monee", region: "IL", countryCode: "US" });
+    expect(request.fromAddress).toEqual({ locality: "Mokena", region: "IL", countryCode: "US" });
     expect(request.toAddress).toMatchObject({ locality: "Dallas", region: "TX", countryCode: "US" });
     expect(request.toAddress.addressLineList).toEqual(["100 Main Street"]);
     expect(request.residential).toBe(true);
@@ -269,7 +269,7 @@ describe("freight.estimate carrier city and state", () => {
     expect(lookedUp.some((address) => address.startsWith("78701"))).toBe(true);
     expect(lookedUp.some((address) => address.startsWith("60448"))).toBe(false);
     const request = wwexMock.mock.calls[0]?.[1] as { fromAddress: { locality: string }; toAddress: { locality: string; region: string } };
-    expect(request.fromAddress.locality).toBe("Monee");
+    expect(request.fromAddress.locality).toBe("Mokena");
     expect(request.toAddress).toMatchObject({ locality: "Austin", region: "TX" });
   });
 
@@ -308,7 +308,7 @@ describe("freight.estimate carrier city and state", () => {
     };
     expect(request.fromZip).toBe("60448");
     expect(request.toZip).toBe("75201");
-    expect(request.fromAddress).toMatchObject({ locality: "Monee", region: "IL" });
+    expect(request.fromAddress).toMatchObject({ locality: "Mokena", region: "IL" });
     expect(request.toAddress).toMatchObject({ locality: "Dallas", region: "TX" });
     expect(quote.shipmentGroups?.[0]?.transportMode).toBe("parcel");
   });
