@@ -3,6 +3,7 @@ import { buildSpeedshipShopFlowPayload } from "../server/_core/worldwideexpress"
 import {
   knownOriginLocality,
   parseStoredOriginAddress,
+  postalLocality,
   resolveOriginLocality,
   shopperCarrierAddress,
 } from "./freightCarrierAddress";
@@ -63,10 +64,24 @@ describe("origin carrier city and state", () => {
 
   it("uses the documented postal city when no warehouse address is stored", () => {
     expect(knownOriginLocality("60448")).toEqual({ locality: "Mokena", region: "IL", countryCode: "US" });
+    expect(knownOriginLocality("77064")).toEqual({ locality: "Houston", region: "TX", countryCode: "US" });
+    expect(knownOriginLocality("75234")).toEqual({ locality: "Dallas", region: "TX", countryCode: "US" });
     expect(knownOriginLocality("30071")?.locality).toBe("Norcross");
     expect(knownOriginLocality("33760")?.locality).toBe("Clearwater");
     expect(resolveOriginLocality({ zip: "60448" })?.locality).toBe("Mokena");
+    expect(resolveOriginLocality({ zip: "77064" })?.locality).toBe("Houston");
+    expect(resolveOriginLocality({ zip: "75234" })?.region).toBe("TX");
     expect(resolveOriginLocality({ zip: "99999" })).toBeNull();
+  });
+});
+
+describe("offline ZIP dataset", () => {
+  it("resolves origin and destination ZIPs that are not in the named warehouse list", () => {
+    expect(postalLocality("10001")).toEqual({ locality: "New York", region: "NY", countryCode: "US" });
+    expect(postalLocality("02766")).toEqual({ locality: "Norton", region: "MA", countryCode: "US" });
+    expect(postalLocality("33054")).toEqual({ locality: "Opa Locka", region: "FL", countryCode: "US" });
+    expect(postalLocality("78701")).toEqual({ locality: "Austin", region: "TX", countryCode: "US" });
+    expect(postalLocality("99999")).toBeNull();
   });
 });
 
