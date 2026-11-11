@@ -2,7 +2,14 @@ import type { Express, Request, Response } from "express";
 import { sql } from "drizzle-orm";
 import { getDb } from "./db";
 import { storagePut } from "./storage";
-import { notifyOwner } from "./_core/notification";
+import { sendEmail } from "./email";
+
+/** Careers applications are emailed to the sales inbox (Tom, Nov 11, 2026). CAREERS_NOTIFY_EMAIL overrides it. */
+export const CAREERS_NOTIFY_EMAIL_DEFAULT = "sales@cabinetdealz.com";
+export function careersNotifyEmail(env: NodeJS.ProcessEnv = process.env): string {
+  const v = env.CAREERS_NOTIFY_EMAIL?.trim();
+  return v ? v : CAREERS_NOTIFY_EMAIL_DEFAULT;
+}
 import { invokeLLM, type InvokeResult } from "./_core/llm";
 
 /**
@@ -239,19 +246,24 @@ export function registerCareersApply(app: Express) {
            ${linkedinUrl || null}, ${resumeKey}, ${resumeFileName}, NOW())
       `);
 
-      // Best-effort alert to the internal inbox (OWNER_EMAIL); never blocks the save.
-      void notifyOwner({
-        title: `New career application: ${fullName}`,
-        content: [
-          `Name: ${fullName}`,
-          `Email: ${email}`,
-          `Phone: ${phone}`,
-          `Location: ${[city, state].filter(Boolean).join(", ")}`,
-          `Position: ${position}`,
-          `Work type: ${workType}`,
-          `Resume: ${resumeFileName ?? "none"}`,
-          "Full application is in sales_rep_applications (source = careers).",
-        ].join("\n"),
+      // Best-effort email to the sales inbox; never blocks the save.
+      const lines = [
+        `Name: ${fullName}`,
+        `Email: ${email}`,
+        `Phone: ${phone}`,
+        `Location: ${[city, state].filter(Boolean).join(", ")}`,
+        `Position: ${position}`,
+        `Work type: ${workType}`,
+        `Resume: ${resumeFileName ?? "none"}`,
+        "Full application is in sales_rep_applications (source = careers).",
+      ].join("\n");
+      const esc = (v: string) => v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      void sendEmail({
+        to: careersNotifyEmail(),
+        replyTo: email,
+        subject: `[Cabinet Dealz] New career application: ${fullName}`,
+        text: lines,
+        html: `<h3>New career application: ${esc(fullName)}</h3><div style="white-space:pre-wrap">${esc(lines)}</div>`,
       }).catch(() => undefined);
 
       return res.status(201).json({ ok: true });
