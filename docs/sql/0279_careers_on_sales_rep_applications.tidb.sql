@@ -1,0 +1,3 @@
+ALTER TABLE cabinet_dealz.sales_rep_applications MODIFY agreementVersion VARCHAR(80) NULL;
+ALTER TABLE cabinet_dealz.sales_rep_applications MODIFY agreementAcceptedAt DATETIME NULL;
+ALTER TABLE cabinet_dealz.sales_rep_applications ADD COLUMN source VARCHAR(32) NOT NULL DEFAULT 'rep_signup', ADD COLUMN city VARCHAR(128) NULL, ADD COLUMN position VARCHAR(64) NULL, ADD COLUMN workType VARCHAR(32) NULL, ADD COLUMN availableFrom DATE NULL, ADD COLUMN yearsExperience INT NULL, ADD COLUMN workHistory TEXT NULL, ADD COLUMN whyCabinetDealz TEXT NULL, ADD COLUMN heardAboutUs VARCHAR(256) NULL, ADD COLUMN linkedinUrl VARCHAR(512) NULL, ADD COLUMN resumeKey VARCHAR(512) NULL, ADD COLUMN resumeFileName VARCHAR(256) NULL, ADD COLUMN consentAt DATETIME NULL;
