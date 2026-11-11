@@ -2,6 +2,7 @@ import type { Express, Request, Response } from "express";
 import { sql } from "drizzle-orm";
 import { getDb } from "./db";
 import { storagePut } from "./storage";
+import { notifyOwner } from "./_core/notification";
 
 /**
  * Public career application endpoint: POST /api/careers/apply
@@ -110,6 +111,21 @@ export function registerCareersApply(app: Express) {
            ${availability}, ${years}, ${workHistory}, ${whyCabinetDealz}, ${heardAboutUs},
            ${linkedinUrl || null}, ${resumeKey}, ${resumeFileName}, NOW())
       `);
+
+      // Best-effort alert to the internal inbox (OWNER_EMAIL); never blocks the save.
+      void notifyOwner({
+        title: `New career application: ${fullName}`,
+        content: [
+          `Name: ${fullName}`,
+          `Email: ${email}`,
+          `Phone: ${phone}`,
+          `Location: ${[city, state].filter(Boolean).join(", ")}`,
+          `Position: ${position}`,
+          `Work type: ${workType}`,
+          `Resume: ${resumeFileName ?? "none"}`,
+          "Full application is in sales_rep_applications (source = careers).",
+        ].join("\n"),
+      }).catch(() => undefined);
 
       return res.status(201).json({ ok: true });
     } catch (error) {
