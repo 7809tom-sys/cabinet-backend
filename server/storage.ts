@@ -31,6 +31,8 @@ const PRIVATE_KEY_PREFIXES = [
   // reseller certificate). The proxy refuses this prefix as well: the only way
   // to bytes is a short-lived signed URL from an owner or admin procedure.
   "affiliate-documents/",
+  // Resumes from the public careers application. Admin-only, never public.
+  "career-resumes/",
 ];
 
 export function bucketForKey(key: string): string {

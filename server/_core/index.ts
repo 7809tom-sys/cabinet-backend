@@ -22,6 +22,7 @@ import { registerDocusealWebhook } from "../docusealWebhook";
 import { sdk } from "./sdk";
 import cron from "node-cron";
 import { corsMiddleware } from "../lib/cors";
+import { registerCareersApply } from "../careersApply";
 import { getFrontendShell } from "../lib/frontendShell";
 import { recoverDueGeminiImageTestJobs } from "../routers/designPhotoRenders";
 import { ensureUsCabinetDepotProductLines } from "../lib/uscdProductLines";
@@ -107,6 +108,8 @@ async function startServer() {
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
   registerStorageProxy(app);
+  // Public careers page application (no login). See server/careersApply.ts.
+  registerCareersApply(app);
   registerSharedRoomPreviewRoutes(app);
   registerQboRoutes(app);
   registerVendorInventorySync(app);
