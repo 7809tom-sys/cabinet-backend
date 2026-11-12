@@ -77,26 +77,25 @@ describe("doorStyles read/write surfaces carry the confirmed color source", () =
   const source = read("server/routers/catalog.ts");
   const schema = read("drizzle/schema.ts");
 
-  it("adds the three columns on door_styles in the drizzle schema", () => {
+  it("keeps the three columns OFF the main doorStyles table (they are read through doorColorSourceColumns.ts)", () => {
     const table = schema.slice(schema.indexOf('export const doorStyles = mysqlTable("door_styles"'));
     const body = table.slice(0, table.indexOf("export const", 1));
-    expect(body).toContain('doorColorSource: varchar("doorColorSource", { length: 32 })');
-    expect(body).toContain('doorColorSourceValue: json("doorColorSourceValue")');
-    expect(body).toContain('doorColorSourceUpdatedAt: timestamp("doorColorSourceUpdatedAt")');
+    expect(body).not.toContain('doorColorSource: varchar("doorColorSource"');
+    const side = read("server/lib/doorColorSourceColumns.ts");
+    expect(side).toContain('doorColorSource: varchar("doorColorSource", { length: 32 })');
+    expect(side).toContain('doorColorSourceValue: json("doorColorSourceValue")');
+    expect(side).toContain('doorColorSourceUpdatedAt: timestamp("doorColorSourceUpdatedAt")');
   });
 
-  it("projects the three columns from doorStyles.list and listForAdmin", () => {
+  it("doorStyles.list and listForAdmin attach the three columns through the tolerant reader", () => {
     const listStart = source.indexOf("  list: publicProcedure");
     const listBody = source.slice(listStart, source.indexOf("  specificationReferences:", listStart));
-    expect(listBody).toContain("doorColorSource: doorStyles.doorColorSource");
-    expect(listBody).toContain("doorColorSourceValue: doorStyles.doorColorSourceValue");
-    expect(listBody).toContain("doorColorSourceUpdatedAt: doorStyles.doorColorSourceUpdatedAt");
+    expect(listBody).toContain("withDoorColorSourceColumns(db,");
+    expect(listBody).not.toContain("doorStyles.doorColorSource");
 
     const adminStart = source.indexOf("  listForAdmin: adminProcedure");
     const adminBody = source.slice(adminStart, source.indexOf("  setFeatured:", adminStart));
-    expect(adminBody).toContain("doorColorSource: doorStyles.doorColorSource");
-    expect(adminBody).toContain("doorColorSourceValue: doorStyles.doorColorSourceValue");
-    expect(adminBody).toContain("doorColorSourceUpdatedAt: doorStyles.doorColorSourceUpdatedAt");
+    expect(adminBody).toContain("withDoorColorSourceColumns(db, rows)");
     // The Approved AI option in the editor needs these; listForAdmin did not project them.
     expect(adminBody).toContain("approvedVersionId: doorStyles.approvedVersionId");
     expect(adminBody).toContain("approvedReferenceImageUrl: doorStyles.approvedReferenceImageUrl");

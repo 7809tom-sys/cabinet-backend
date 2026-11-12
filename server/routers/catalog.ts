@@ -5,7 +5,8 @@ import { eq, and, or, like, inArray, isNotNull, sql, desc, asc, ne, type SQL } f
 import * as XLSX from "xlsx";
 import { publicProcedure, protectedProcedure, adminProcedure, router } from "../_core/trpc";
 import { CATALOG_TAGS, servePublicCatalog } from "../lib/publicCatalogCache";
-import { doorColorSourceSelectionInput, EMPTY_DOOR_COLOR_SOURCE_COLUMNS, parseDoorColorSourceSelection, selectionToColumns } from "../lib/doorColorSourceSelection";
+import { doorColorSourceSelectionInput, EMPTY_DOOR_COLOR_SOURCE_COLUMNS, parseDoorColorSourceSelection, selectionToColumns, type DoorColorSourceColumns } from "../lib/doorColorSourceSelection";
+import { DOOR_COLOR_SOURCE_NOT_READY_MESSAGE, doorColorSourceColumnsAvailable, doorStyleColorSources, withDoorColorSourceColumns } from "../lib/doorColorSourceColumns";
 import { storagePut } from "../storage";
 import { TRPCError } from "@trpc/server";
 import { getDb, notInConflict, isCanonicalCabinetMaster, hasPositivePublishedCabinetPrice, getPricingSettings, updatePricingSettings, recalculateStoredTierPrices, getPlatformPricingSettings, updatePlatformPricingSettings } from "../db";
@@ -297,9 +298,6 @@ export const doorStylesRouter = router({
         approvedReferenceImageUrl: doorStyles.approvedReferenceImageUrl,
         approvedVersionId: doorStyles.approvedVersionId,
         approvedAt: doorStyles.approvedAt,
-        doorColorSource: doorStyles.doorColorSource,
-        doorColorSourceValue: doorStyles.doorColorSourceValue,
-        doorColorSourceUpdatedAt: doorStyles.doorColorSourceUpdatedAt,
         finishCategory: doorStyles.finishCategory,
         grainLightHex: doorStyles.grainLightHex,
         grainDarkHex: doorStyles.grainDarkHex,
@@ -360,7 +358,10 @@ export const doorStylesRouter = router({
       // SCL (Syncron Slim Cava Rosales 3) is source-confirmed in the U.S.
       // Cabinet Depot AltaEuro V8.2 book and is intentionally included once
       // its published, verified AEF rows are available.
-      return filterStylesByAvailability(rows, available).map(({ distributorIsActive, ...style }) => ({
+      // The 0280 color source columns are read separately so a missing column
+      // (SQL not run yet) never breaks the list: those rows read as "nothing chosen".
+      const visible = await withDoorColorSourceColumns(db, filterStylesByAvailability(rows, available));
+      return visible.map(({ distributorIsActive, ...style }) => ({
         ...style,
         isPreview: isPreviewSupplier({ isActive: distributorIsActive }),
       }));
@@ -630,9 +631,6 @@ export const doorStylesRouter = router({
         approvedReferenceImageUrl: doorStyles.approvedReferenceImageUrl,
         approvedVersionId: doorStyles.approvedVersionId,
         approvedAt: doorStyles.approvedAt,
-        doorColorSource: doorStyles.doorColorSource,
-        doorColorSourceValue: doorStyles.doorColorSourceValue,
-        doorColorSourceUpdatedAt: doorStyles.doorColorSourceUpdatedAt,
         finishCategory: doorStyles.finishCategory,
         grainLightHex: doorStyles.grainLightHex,
         grainDarkHex: doorStyles.grainDarkHex,
@@ -698,7 +696,8 @@ export const doorStylesRouter = router({
       updatedAt: doorStyleRoomSceneGenerations.updatedAt,
     }).from(doorStyleRoomSceneGenerations).where(inArray(doorStyleRoomSceneGenerations.styleId, ids));
     const jobsByStyle = new Map(jobs.map((job) => [job.styleId, job]));
-    return rows.map((row) => ({
+    const withColorSource = await withDoorColorSourceColumns(db, rows);
+    return withColorSource.map((row) => ({
       ...withDoorStyleWarehouseCoverage(row),
       roomScenes: scenes.filter((scene) => scene.styleId === row.id),
       autoRoomScene: jobsByStyle.get(row.id) ?? null,
@@ -862,9 +861,12 @@ export const doorStylesRouter = router({
       if (fields.profileDescription !== undefined) patch.profileDescription = fields.profileDescription?.trim() || null;
       if (fields.cornerSwatchImageUrl !== undefined) patch.cornerSwatchImageUrl = fields.cornerSwatchImageUrl?.trim() || null;
       if (fields.isActive !== undefined) patch.isActive = fields.isActive;
+      // Written on its own (after the main patch) so a missing 0280 column can never
+      // block an ordinary door style edit.
+      let colorSourcePatch: DoorColorSourceColumns | null = null;
       if (fields.doorColorSourceSelection !== undefined) {
         if (fields.doorColorSourceSelection === null) {
-          Object.assign(patch, EMPTY_DOOR_COLOR_SOURCE_COLUMNS);
+          colorSourcePatch = { ...EMPTY_DOOR_COLOR_SOURCE_COLUMNS };
         } else {
           const selection = parseDoorColorSourceSelection(fields.doorColorSourceSelection);
           if (!selection) {
@@ -873,7 +875,10 @@ export const doorStylesRouter = router({
               message: "Door color source must be a confirmed choice (Original image, Approved AI image, confirmed Sherwin-Williams, or confirmed Hex).",
             });
           }
-          Object.assign(patch, selectionToColumns(selection));
+          colorSourcePatch = selectionToColumns(selection);
+        }
+        if (!(await doorColorSourceColumnsAvailable(db))) {
+          throw new TRPCError({ code: "PRECONDITION_FAILED", message: DOOR_COLOR_SOURCE_NOT_READY_MESSAGE });
         }
       }
       const currentImages = await db
@@ -902,7 +907,14 @@ export const doorStylesRouter = router({
       if (drawerVerified !== undefined) patch.drawerSampleVerified = drawerVerified;
       const submittedDoorSample = fields.doorSampleImageUrl?.trim() || currentImages[0]?.doorSampleImageUrl || null;
       if (submittedDoorSample && !currentImages[0]?.thumbnailImageUrl && !fields.thumbnailImageUrl) patch.thumbnailImageUrl = submittedDoorSample;
-      if (Object.keys(patch).length === 0) return { ok: true };
+      const writeColorSource = async () => {
+        if (!colorSourcePatch) return;
+        await db.update(doorStyleColorSources).set(colorSourcePatch).where(eq(doorStyleColorSources.id, id));
+      };
+      if (Object.keys(patch).length === 0) {
+        await writeColorSource();
+        return { ok: true };
+      }
       const needsCurrentStyle =
         (fields.roomSceneImageUrl !== undefined && !fields.roomSceneImageUrl?.trim()) ||
         fields.isActive === false;
@@ -921,6 +933,7 @@ export const doorStylesRouter = router({
         if (fields.isActive === false && current[0]?.isFeatured) patch.isFeatured = false;
       }
       await db.update(doorStyles).set(patch).where(eq(doorStyles.id, id));
+      await writeColorSource();
       if (
         fields.doorSampleImageUrl !== undefined
         || fields.drawerSampleImageUrl !== undefined
