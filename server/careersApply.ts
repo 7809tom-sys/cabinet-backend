@@ -165,6 +165,47 @@ const RESUME_FIELDS_SCHEMA = {
   },
 };
 
+const RESUME_SYSTEM_PROMPT =
+  "You extract contact and work-history fields from a resume. Return only facts clearly present in the document. Omit any field you cannot read with confidence. Never invent a name, email, phone, address, or URL. state must be a two-letter USPS code. workHistory is a short summary of 1500 characters or fewer.";
+
+const RESUME_USER_PROMPT =
+  "Extract the applicant fields from this resume. Reply with one JSON object using only these keys: fullName, email, phone, city, state, yearsExperience (integer), workHistory, linkedinUrl. Leave out any key you cannot fill.";
+
+async function geminiExtractResumeFields(pdfBase64: string): Promise<string | null> {
+  const apiKey = process.env.GEMINI_API_KEY?.trim();
+  if (!apiKey) return null;
+  const model = process.env.GEMINI_TEXT_MODEL?.trim() || "gemini-3-flash-preview";
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-goog-api-key": apiKey },
+    body: JSON.stringify({
+      systemInstruction: { parts: [{ text: RESUME_SYSTEM_PROMPT }] },
+      contents: [
+        {
+          role: "user",
+          parts: [
+            { inline_data: { mime_type: "application/pdf", data: pdfBase64 } },
+            { text: RESUME_USER_PROMPT },
+          ],
+        },
+      ],
+      generationConfig: { responseMimeType: "application/json", maxOutputTokens: 4896 },
+    }),
+  });
+  if (!response.ok) {
+    // Status only: never log the body, resume contents, or the key.
+    console.error(`[Careers] parse-resume Gemini status ${response.status}`);
+    return null;
+  }
+  const data = (await response.json()) as {
+    candidates?: { content?: { parts?: { text?: string; thought?: boolean }[] } }[];
+  };
+  const parts = data.candidates?.[0]?.content?.parts ?? [];
+  const text = parts.filter(p => !p.thought && typeof p.text === "string").map(p => p.text).join("");
+  return text || null;
+}
+
 function logParseFailure(): void {
   // Do not log the error body, resume contents, or API keys.
   console.error("[Careers] parse-resume failed");
@@ -308,30 +349,10 @@ export function registerCareersApply(app: Express) {
         return res.status(415).json(EMPTY_PARSE);
       }
 
-      const dataUrl = `data:application/pdf;base64,${resumeBase64(resume.data)}`;
-      const result = await invokeLLM({
-        messages: [
-          {
-            role: "system",
-            content:
-              "You extract contact and work-history fields from a resume. Return only facts clearly present in the document. Omit any field you cannot read with confidence. Never invent a name, email, phone, address, or URL. state must be a two-letter USPS code. workHistory is a short summary of 1500 characters or fewer.",
-          },
-          {
-            role: "user",
-            content: [
-              { type: "text", text: "Extract the applicant fields from this resume." },
-              { type: "file_url", file_url: { url: dataUrl, mime_type: "application/pdf" } },
-            ],
-          },
-        ],
-        responseFormat: {
-          type: "json_schema",
-          json_schema: RESUME_FIELDS_SCHEMA,
-        },
-        maxTokens: 800,
-      });
-
-      const text = llmMessageText(result);
+      // Gemini's OpenAI-compatible endpoint rejects the file_url content part
+      // with a 400, so the PDF goes to Gemini's native generateContent API as
+      // inline_data instead.
+      const text = await geminiExtractResumeFields(resumeBase64(resume.data));
       if (!text) {
         logParseFailure();
         return res.status(200).json(EMPTY_PARSE);
