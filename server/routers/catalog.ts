@@ -5,6 +5,7 @@ import { eq, and, or, like, inArray, isNotNull, sql, desc, asc, ne, type SQL } f
 import * as XLSX from "xlsx";
 import { publicProcedure, protectedProcedure, adminProcedure, router } from "../_core/trpc";
 import { CATALOG_TAGS, servePublicCatalog } from "../lib/publicCatalogCache";
+import { doorColorSourceSelectionInput, EMPTY_DOOR_COLOR_SOURCE_COLUMNS, parseDoorColorSourceSelection, selectionToColumns } from "../lib/doorColorSourceSelection";
 import { storagePut } from "../storage";
 import { TRPCError } from "@trpc/server";
 import { getDb, notInConflict, isCanonicalCabinetMaster, hasPositivePublishedCabinetPrice, getPricingSettings, updatePricingSettings, recalculateStoredTierPrices, getPlatformPricingSettings, updatePlatformPricingSettings } from "../db";
@@ -296,6 +297,9 @@ export const doorStylesRouter = router({
         approvedReferenceImageUrl: doorStyles.approvedReferenceImageUrl,
         approvedVersionId: doorStyles.approvedVersionId,
         approvedAt: doorStyles.approvedAt,
+        doorColorSource: doorStyles.doorColorSource,
+        doorColorSourceValue: doorStyles.doorColorSourceValue,
+        doorColorSourceUpdatedAt: doorStyles.doorColorSourceUpdatedAt,
         finishCategory: doorStyles.finishCategory,
         grainLightHex: doorStyles.grainLightHex,
         grainDarkHex: doorStyles.grainDarkHex,
@@ -623,6 +627,12 @@ export const doorStylesRouter = router({
         finish: doorStyles.finish,
         color: doorStyles.color,
         renderHex: doorStyles.renderHex,
+        approvedReferenceImageUrl: doorStyles.approvedReferenceImageUrl,
+        approvedVersionId: doorStyles.approvedVersionId,
+        approvedAt: doorStyles.approvedAt,
+        doorColorSource: doorStyles.doorColorSource,
+        doorColorSourceValue: doorStyles.doorColorSourceValue,
+        doorColorSourceUpdatedAt: doorStyles.doorColorSourceUpdatedAt,
         finishCategory: doorStyles.finishCategory,
         grainLightHex: doorStyles.grainLightHex,
         grainDarkHex: doorStyles.grainDarkHex,
@@ -813,6 +823,11 @@ export const doorStylesRouter = router({
         doorSampleVerified: z.boolean().optional(),
         drawerSampleVerified: z.boolean().optional(),
         isActive: z.boolean().optional(),
+        // Confirmed door color source only. Null clears the choice (columns go
+        // back to NULL; the door keeps its current color order). Undefined leaves
+        // the stored choice alone. Unconfirmed Sherwin-Williams or Hex picks fail
+        // validation and are never written.
+        doorColorSourceSelection: doorColorSourceSelectionInput.nullable().optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -847,6 +862,20 @@ export const doorStylesRouter = router({
       if (fields.profileDescription !== undefined) patch.profileDescription = fields.profileDescription?.trim() || null;
       if (fields.cornerSwatchImageUrl !== undefined) patch.cornerSwatchImageUrl = fields.cornerSwatchImageUrl?.trim() || null;
       if (fields.isActive !== undefined) patch.isActive = fields.isActive;
+      if (fields.doorColorSourceSelection !== undefined) {
+        if (fields.doorColorSourceSelection === null) {
+          Object.assign(patch, EMPTY_DOOR_COLOR_SOURCE_COLUMNS);
+        } else {
+          const selection = parseDoorColorSourceSelection(fields.doorColorSourceSelection);
+          if (!selection) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "Door color source must be a confirmed choice (Original image, Approved AI image, confirmed Sherwin-Williams, or confirmed Hex).",
+            });
+          }
+          Object.assign(patch, selectionToColumns(selection));
+        }
+      }
       const currentImages = await db
         .select({
           doorSampleImageUrl: doorStyles.doorSampleImageUrl,
