@@ -436,14 +436,12 @@ export const doorStyles = mysqlTable("door_styles", {
   // two columns above may drive a kitchen.
   approvedVersionId: int("approvedVersionId"),
   approvedAt: timestamp("approvedAt"),
-  // Confirmed door color source for 3D door faces and the editor preview (Tom,
-  // Nov 12 2026). NULL on all three columns means nothing was chosen, and the
-  // door keeps its current color order. Allowed doorColorSource values:
-  // original-image, approved-ai-image, sherwin-williams, hex. Only a confirmed
-  // choice is stored. Added by hand in docs/sql/0280_door_color_source.tidb.sql.
-  doorColorSource: varchar("doorColorSource", { length: 32 }),
-  doorColorSourceValue: json("doorColorSourceValue").$type<Record<string, unknown> | null>(),
-  doorColorSourceUpdatedAt: timestamp("doorColorSourceUpdatedAt"),
+  // Confirmed door color source columns (doorColorSource, doorColorSourceValue,
+  // doorColorSourceUpdatedAt) are added by hand in
+  // docs/sql/0280_door_color_source.tidb.sql. They are intentionally NOT declared
+  // here: declaring them made every door style read and insert fail with
+  // "Unknown column" until 0280 ran (Nov 12 2026). They are read and written only
+  // through server/lib/doorColorSourceColumns.ts, which checks they exist first.
   // paint = opaque tint on painted grain. stain = translucent tint over wood grain.
   // Null until a swatch reading is saved. Hickory still renders on real wood grain.
   finishCategory: varchar("finishCategory", { length: 16 }),
