@@ -7,7 +7,7 @@ import { publicProcedure, protectedProcedure, adminProcedure, router } from "../
 import { CATALOG_TAGS, servePublicCatalog } from "../lib/publicCatalogCache";
 import { doorColorSourceSelectionInput, EMPTY_DOOR_COLOR_SOURCE_COLUMNS, parseDoorColorSourceSelection, selectionToColumns, type DoorColorSourceColumns } from "../lib/doorColorSourceSelection";
 import { DOOR_COLOR_SOURCE_NOT_READY_MESSAGE, doorColorSourceColumnsAvailable, doorStyleColorSources, withDoorColorSourceColumns } from "../lib/doorColorSourceColumns";
-import { storagePut } from "../storage";
+import { storageFetchObject, storagePut } from "../storage";
 import { TRPCError } from "@trpc/server";
 import { getDb, notInConflict, isCanonicalCabinetMaster, hasPositivePublishedCabinetPrice, getPricingSettings, updatePricingSettings, recalculateStoredTierPrices, getPlatformPricingSettings, updatePlatformPricingSettings } from "../db";
 import { getPricingSettingsForViewer } from "../lib/affiliateContractorPricing";
@@ -69,7 +69,7 @@ import { isWallWineRackCabinet } from "../../shared/wallWineRack";
 import { designerCabinetReadinessBySku } from "../lib/designerCabinetReadiness";
 import { designerReadinessForMasterCodes } from "../lib/designerReadinessLookup";
 import { buildDoorProfilePatch } from "../lib/doorProfileAccess";
-import { analyzeSwatchBuffer, fetchSwatchBuffer, swatchBufferFromDataUrl } from "../lib/analyzeSwatchImage";
+import { analyzeSwatchBuffer, fetchSwatchBuffer, swatchBufferFromDataUrl, storedMediaKeyFromUrl } from "../lib/analyzeSwatchImage";
 import { recomputeDesignerEligibility } from "../lib/designerEligibilityRecompute";
 import { hasConfirmedLandedCostRule, landedCostFromList, landedCostMultiplier } from "../lib/distributorCostMultiplier";
 import { loadCodeEquivalenceGroups } from "../lib/codeEquivalenceLoader";
@@ -768,9 +768,16 @@ export const doorStylesRouter = router({
       imageUrl: z.string().max(512).optional(),
     }).refine((value) => Boolean(value.imageDataUrl || value.imageUrl), "Provide a swatch image."))
     .mutation(async ({ input }) => {
+      // A stored door sample ("/manus-storage/...") is read through the storage
+      // adapter, exactly like the image generator reads its references.
+      const storedKey = input.imageDataUrl ? null : storedMediaKeyFromUrl(input.imageUrl);
       const buffer = input.imageDataUrl
         ? swatchBufferFromDataUrl(input.imageDataUrl)
-        : await fetchSwatchBuffer(input.imageUrl ?? "");
+        : storedKey
+          ? await storageFetchObject(storedKey)
+              .then(async (response) => (response.ok ? Buffer.from(await response.arrayBuffer()) : null))
+              .catch(() => null)
+          : await fetchSwatchBuffer(input.imageUrl ?? "");
       if (!buffer) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "That swatch image could not be read." });
       }
