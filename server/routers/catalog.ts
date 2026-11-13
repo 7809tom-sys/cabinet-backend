@@ -6,7 +6,8 @@ import * as XLSX from "xlsx";
 import { publicProcedure, protectedProcedure, adminProcedure, router } from "../_core/trpc";
 import { CATALOG_TAGS, servePublicCatalog } from "../lib/publicCatalogCache";
 import { doorColorSourceSelectionInput, EMPTY_DOOR_COLOR_SOURCE_COLUMNS, parseDoorColorSourceSelection, selectionToColumns, type DoorColorSourceColumns } from "../lib/doorColorSourceSelection";
-import { DOOR_COLOR_SOURCE_NOT_READY_MESSAGE, doorColorSourceColumnsAvailable, doorStyleColorSources, withDoorColorSourceColumns } from "../lib/doorColorSourceColumns";
+// main renamed the refusal message helper; this branch adds the stored-photo read.
+import { doorColorSourceColumnsAvailable, doorColorSourceNotReadyMessage, doorStyleColorSources, withDoorColorSourceColumns } from "../lib/doorColorSourceColumns";
 import { storageFetchObject, storagePut } from "../storage";
 import { TRPCError } from "@trpc/server";
 import { getDb, notInConflict, isCanonicalCabinetMaster, hasPositivePublishedCabinetPrice, getPricingSettings, updatePricingSettings, recalculateStoredTierPrices, getPlatformPricingSettings, updatePlatformPricingSettings } from "../db";
@@ -885,7 +886,9 @@ export const doorStylesRouter = router({
           colorSourcePatch = selectionToColumns(selection);
         }
         if (!(await doorColorSourceColumnsAvailable(db))) {
-          throw new TRPCError({ code: "PRECONDITION_FAILED", message: DOOR_COLOR_SOURCE_NOT_READY_MESSAGE });
+          // Say which database was checked and where the columns do exist, so
+          // "it says not done" is actionable instead of a bare refusal.
+          throw new TRPCError({ code: "PRECONDITION_FAILED", message: await doorColorSourceNotReadyMessage(db) });
         }
       }
       const currentImages = await db

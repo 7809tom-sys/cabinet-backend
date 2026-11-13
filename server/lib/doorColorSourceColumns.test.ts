@@ -3,8 +3,10 @@ import { getTableColumns } from "drizzle-orm";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { doorStyles } from "../../drizzle/schema";
 import {
+  DOOR_COLOR_SOURCE_NOT_READY_MESSAGE,
   MISSING_COLUMNS_RECHECK_MS,
   doorColorSourceColumnsAvailable,
+  doorColorSourceNotReadyMessage,
   resetDoorColorSourceColumnsCache,
   withDoorColorSourceColumns,
 } from "./doorColorSourceColumns";
@@ -83,5 +85,36 @@ describe("doorColorSourceColumnsAvailable", () => {
   it("a probe error reads as missing", async () => {
     const db = { execute: vi.fn(async () => { throw new Error("boom"); }) };
     expect(await doorColorSourceColumnsAvailable(db, 0)).toBe(false);
+  });
+});
+
+describe("doorColorSourceNotReadyMessage", () => {
+  it("names the database that was checked and the schema the column really lives in", async () => {
+    const probeDb = { execute: vi.fn(async () => [[{ dbName: "cabinet_dealz_live", columnCount: 0 }], []]) };
+    expect(await doorColorSourceColumnsAvailable(probeDb, 0)).toBe(false);
+    const messageDb = { execute: vi.fn(async () => [[{ schemaName: "cabinet_dealz_live" }, { schemaName: "cabinet_dealz" }], []]) };
+    const message = await doorColorSourceNotReadyMessage(messageDb);
+    expect(message).toContain("Run docs/sql/0280");
+    expect(message).toContain("cabinet_dealz_live");
+    expect(message).toContain("0 of 3 columns");
+    expect(message).toContain("cabinet_dealz");
+  });
+
+  it("asks for the count when the column exists nowhere else", async () => {
+    const probeDb = { execute: vi.fn(async () => [[{ dbName: "cabinet_dealz", columnCount: 1 }], []]) };
+    expect(await doorColorSourceColumnsAvailable(probeDb, 0)).toBe(false);
+    const messageDb = { execute: vi.fn(async () => [[], []]) };
+    const message = await doorColorSourceNotReadyMessage(messageDb);
+    expect(message).toContain("1 of 3 columns");
+    expect(message).toContain("SELECT COUNT(*) FROM information_schema.columns");
+  });
+
+  it("falls back to the plain refusal when no probe has run, and never throws on a failed lookup", async () => {
+    resetDoorColorSourceColumnsCache();
+    const failing = { execute: vi.fn(async () => { throw new Error("boom"); }) };
+    expect(await doorColorSourceNotReadyMessage(failing)).toBe(DOOR_COLOR_SOURCE_NOT_READY_MESSAGE);
+    const probeDb = { execute: vi.fn(async () => [[{ dbName: "cabinet_dealz", columnCount: 0 }], []]) };
+    await doorColorSourceColumnsAvailable(probeDb, 0);
+    expect(await doorColorSourceNotReadyMessage(failing)).toContain("cabinet_dealz");
   });
 });
