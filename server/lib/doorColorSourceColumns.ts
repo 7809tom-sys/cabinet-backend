@@ -37,16 +37,39 @@ let cache: { available: boolean; checkedAt: number } | null = null;
 
 export function resetDoorColorSourceColumnsCache(): void {
   cache = null;
+  lastProbe = null;
+}
+
+/** First row of a drizzle execute result, whatever driver shape it came in. */
+function firstRow(result: unknown): Record<string, unknown> | null {
+  const rows = Array.isArray(result) && Array.isArray(result[0]) ? result[0] : result;
+  const first = Array.isArray(rows) ? rows[0] : null;
+  return first && typeof first === "object" ? (first as Record<string, unknown>) : null;
 }
 
 function countFromExecuteResult(result: unknown): number {
-  // mysql2 drizzle returns [rows, fields]; other drivers return rows directly.
-  const rows = Array.isArray(result) && Array.isArray(result[0]) ? result[0] : result;
-  const first = Array.isArray(rows) ? rows[0] : null;
-  if (!first || typeof first !== "object") return 0;
-  const value = (first as Record<string, unknown>).columnCount ?? Object.values(first as Record<string, unknown>)[0];
+  const first = firstRow(result);
+  if (!first) return 0;
+  const value = first.columnCount ?? Object.values(first)[0];
   const n = Number(value);
   return Number.isFinite(n) ? n : 0;
+}
+
+/**
+ * What the last column probe saw. Only used to make the "run 0280" refusal
+ * specific: which database was checked and how many columns were there.
+ */
+export type DoorColorSourceProbe = {
+  /** The connection's default database at probe time (null when none is selected). */
+  schema: string | null;
+  /** How many of the three columns exist in that schema. */
+  columns: number;
+};
+
+let lastProbe: DoorColorSourceProbe | null = null;
+
+export function lastDoorColorSourceProbe(): DoorColorSourceProbe | null {
+  return lastProbe;
 }
 
 /**
@@ -59,19 +82,25 @@ export async function doorColorSourceColumnsAvailable(db: ExecDb, now: number = 
   if (cache?.available) return true;
   if (cache && now - cache.checkedAt < MISSING_COLUMNS_RECHECK_MS) return false;
   let available = false;
+  let schema: string | null = null;
+  let columns = 0;
   try {
     const result = await db.execute(sql`
-      SELECT COUNT(*) AS columnCount
+      SELECT DATABASE() AS dbName, COUNT(*) AS columnCount
       FROM information_schema.columns
       WHERE table_schema = DATABASE()
         AND table_name = 'door_styles'
         AND column_name IN ('doorColorSource', 'doorColorSourceValue', 'doorColorSourceUpdatedAt')
     `);
-    available = countFromExecuteResult(result) >= DOOR_COLOR_SOURCE_COLUMN_NAMES.length;
+    const found = firstRow(result);
+    schema = typeof found?.dbName === "string" && found.dbName ? found.dbName : null;
+    columns = countFromExecuteResult(result);
+    available = columns >= DOOR_COLOR_SOURCE_COLUMN_NAMES.length;
   } catch (error) {
     console.warn("[door color source] column probe failed; treating columns as missing", error);
     available = false;
   }
+  lastProbe = { schema, columns };
   cache = { available, checkedAt: now };
   return available;
 }
@@ -134,3 +163,42 @@ export async function withDoorColorSourceColumns<T extends { id: number }>(
 /** Thrown message when an admin saves a choice before 0280 has run. */
 export const DOOR_COLOR_SOURCE_NOT_READY_MESSAGE =
   "The door color source columns are not in the database yet. Run docs/sql/0280_door_color_source.tidb.sql, then save again. Nothing else on this door was blocked.";
+
+/**
+ * The refusal, made specific: which database the probe looked in, how many of
+ * the three columns it found there, and — when the column exists elsewhere — the
+ * schema it does exist in. That turns "it says not done" into one readable line.
+ *
+ * Never throws: a diagnostic query that fails only shortens the message.
+ */
+export async function doorColorSourceNotReadyMessage(db: ExecDb): Promise<string> {
+  const probe = lastProbe;
+  if (!probe) return DOOR_COLOR_SOURCE_NOT_READY_MESSAGE;
+  const checked = probe.schema
+    ? `It checked the app's default database "${probe.schema}" and found ${probe.columns} of ${DOOR_COLOR_SOURCE_COLUMN_NAMES.length} columns there.`
+    : "The app's connection has no default database selected, so the columns could not be found.";
+  let elsewhere: string[] = [];
+  try {
+    const result = await db.execute(sql`
+      SELECT DISTINCT table_schema AS schemaName
+      FROM information_schema.columns
+      WHERE table_name = 'door_styles'
+        AND column_name = 'doorColorSource'
+      LIMIT 5
+    `);
+    const rows = Array.isArray(result) && Array.isArray(result[0]) ? result[0] : result;
+    if (Array.isArray(rows)) {
+      elsewhere = rows
+        .map((row) => (row && typeof row === "object" ? (row as Record<string, unknown>).schemaName : null))
+        .filter((name): name is string => typeof name === "string" && name.length > 0 && name !== probe.schema);
+    }
+  } catch {
+    elsewhere = [];
+  }
+  const hint = elsewhere.length
+    ? ` The column does exist in ${elsewhere.map((name) => `"${name}"`).join(", ")} — run 0280 in "${probe.schema ?? "the app's database"}" or point DATABASE_URL at the database that already has it.`
+    : probe.schema
+      ? ` Confirm with: SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = '${probe.schema}' AND table_name = 'door_styles' AND column_name LIKE 'doorColorSource%';`
+      : "";
+  return `${DOOR_COLOR_SOURCE_NOT_READY_MESSAGE} ${checked}${hint}`;
+}
