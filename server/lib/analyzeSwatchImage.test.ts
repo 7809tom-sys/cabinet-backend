@@ -1,3 +1,4 @@
+import { storedMediaKeyFromUrl } from "./analyzeSwatchImage";
 import { describe, expect, it } from "vitest";
 import sharp from "sharp";
 import { analyzeSwatchBuffer, publicSwatchUrl } from "./analyzeSwatchImage";
@@ -30,5 +31,20 @@ describe("publicSwatchUrl", () => {
     expect(publicSwatchUrl("http://127.0.0.1/secret.jpg")).toBeNull();
     expect(publicSwatchUrl("file:///etc/passwd")).toBeNull();
     expect(publicSwatchUrl("https://169.254.169.254/latest")).toBeNull();
+  });
+});
+
+describe("stored media-library door samples", () => {
+  it("reads a stored path as the object key the storage adapter wants", () => {
+    expect(storedMediaKeyFromUrl("/manus-storage/media-library/1785509155920_platinum_shaker_door_95fb6af8")).toBe(
+      "media-library/1785509155920_platinum_shaker_door_95fb6af8",
+    );
+    expect(storedMediaKeyFromUrl("manus-storage/a/b.png?x=1")).toBe("a/b.png");
+  });
+
+  it("leaves a public URL or an empty value alone", () => {
+    expect(storedMediaKeyFromUrl("https://cdn.example/door.jpg")).toBeNull();
+    expect(storedMediaKeyFromUrl("")).toBeNull();
+    expect(storedMediaKeyFromUrl(null)).toBeNull();
   });
 });

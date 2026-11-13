@@ -42,6 +42,17 @@ export function publicSwatchUrl(value: string): string | null {
   return url.toString();
 }
 
+/**
+ * A stored media-library path ("/manus-storage/…") as the object key the storage
+ * adapter wants. Door samples are stored, not public URLs, so the colour audit
+ * has to read them the same way the image generator does.
+ */
+export function storedMediaKeyFromUrl(value: string | null | undefined): string | null {
+  const path = (value ?? "").trim().split("?")[0];
+  const match = /^\/?manus-storage\/(.+)$/.exec(path);
+  return match ? decodeURIComponent(match[1]!) : null;
+}
+
 export async function fetchSwatchBuffer(imageUrl: string): Promise<Buffer | null> {
   const url = publicSwatchUrl(imageUrl);
   if (!url) return null;
