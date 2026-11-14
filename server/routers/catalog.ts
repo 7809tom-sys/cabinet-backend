@@ -8,6 +8,7 @@ import { CATALOG_TAGS, servePublicCatalog } from "../lib/publicCatalogCache";
 import { doorColorSourceSelectionInput, EMPTY_DOOR_COLOR_SOURCE_COLUMNS, parseDoorColorSourceSelection, selectionToColumns, type DoorColorSourceColumns } from "../lib/doorColorSourceSelection";
 // main renamed the refusal message helper; this branch adds the stored-photo read.
 import { doorColorSourceColumnsAvailable, doorColorSourceNotReadyMessage, doorStyleColorSources, withDoorColorSourceColumns } from "../lib/doorColorSourceColumns";
+import { syncSupplierDoorSamples } from "../lib/supplierDoorSamples";
 import { withAiDoorProfileColumns, writeAiDoorProfile } from "../lib/aiDoorProfileColumns";
 import { storageFetchObject, storagePut } from "../storage";
 import { TRPCError } from "@trpc/server";
@@ -773,6 +774,29 @@ export const doorStylesRouter = router({
         throw new TRPCError({ code: "PRECONDITION_FAILED", message: (error as Error).message });
       }
       return { ok: true };
+    }),
+
+  // Admin: pull each Preston style's door photo AND colour from the manufacturer's
+  // catalog. "Milestone is truth" (owner, Nov 13 2026): the image has to come from
+  // the supplier too, or the colour and the texture disagree. dryRun reports what
+  // it would change and touches nothing.
+  importSupplierSamples: adminProcedure
+    .input(z.object({
+      dryRun: z.boolean().default(true),
+      ids: z.array(z.number().int().positive()).max(200).optional(),
+    }).optional())
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      const dryRun = input?.dryRun ?? true;
+      const results = await syncSupplierDoorSamples(db, { dryRun, ids: input?.ids });
+      return {
+        dryRun,
+        total: results.length,
+        written: results.filter((row) => row.ok).length,
+        failed: results.filter((row) => !row.ok).length,
+        results,
+      };
     }),
 
   // Admin: set (or clear) the white-label display name for a featured style.
