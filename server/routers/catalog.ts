@@ -8,6 +8,7 @@ import { CATALOG_TAGS, servePublicCatalog } from "../lib/publicCatalogCache";
 import { doorColorSourceSelectionInput, EMPTY_DOOR_COLOR_SOURCE_COLUMNS, parseDoorColorSourceSelection, selectionToColumns, type DoorColorSourceColumns } from "../lib/doorColorSourceSelection";
 // main renamed the refusal message helper; this branch adds the stored-photo read.
 import { doorColorSourceColumnsAvailable, doorColorSourceNotReadyMessage, doorStyleColorSources, withDoorColorSourceColumns } from "../lib/doorColorSourceColumns";
+import { withAiDoorProfileColumns, writeAiDoorProfile } from "../lib/aiDoorProfileColumns";
 import { storageFetchObject, storagePut } from "../storage";
 import { TRPCError } from "@trpc/server";
 import { getDb, notInConflict, isCanonicalCabinetMaster, hasPositivePublishedCabinetPrice, getPricingSettings, updatePricingSettings, recalculateStoredTierPrices, getPlatformPricingSettings, updatePlatformPricingSettings } from "../db";
@@ -698,7 +699,10 @@ export const doorStylesRouter = router({
     }).from(doorStyleRoomSceneGenerations).where(inArray(doorStyleRoomSceneGenerations.styleId, ids));
     const jobsByStyle = new Map(jobs.map((job) => [job.styleId, job]));
     const withColorSource = await withDoorColorSourceColumns(db, rows);
-    return withColorSource.map((row) => ({
+    // The AI door profile chosen in the editor (0281 columns), so every browser and
+    // the Designer see the official choice instead of one browser's localStorage.
+    const withProfile = await withAiDoorProfileColumns(db, withColorSource);
+    return withProfile.map((row) => ({
       ...withDoorStyleWarehouseCoverage(row),
       roomScenes: scenes.filter((scene) => scene.styleId === row.id),
       autoRoomScene: jobsByStyle.get(row.id) ?? null,
@@ -742,6 +746,31 @@ export const doorStylesRouter = router({
           .update(doorStyles)
           .set({ isFeatured: false })
           .where(eq(doorStyles.id, input.id));
+      }
+      return { ok: true };
+    }),
+
+  // Admin: persist the AI door profile chosen in the editor (model, its stated
+  // description and its generated door image) on the style itself. Tom, Nov 13
+  // 2026: "its not save the AI Generated images even if i save".
+  saveAiProfile: adminProcedure
+    .input(z.object({
+      id: z.number().int().positive(),
+      model: z.enum(["gpt", "claude", "gemini"]).nullable(),
+      text: z.string().max(4000).nullable(),
+      imageUrl: z.string().max(1024).nullable(),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      try {
+        await writeAiDoorProfile(db, input.id, {
+          model: input.model,
+          text: input.text?.trim() || null,
+          imageUrl: input.imageUrl?.trim() || null,
+        });
+      } catch (error) {
+        throw new TRPCError({ code: "PRECONDITION_FAILED", message: (error as Error).message });
       }
       return { ok: true };
     }),
