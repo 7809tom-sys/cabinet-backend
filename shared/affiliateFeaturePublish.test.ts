@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   AFFILIATE_FEATURE_KEYS,
+  AFFILIATE_PUBLISH_WRITE_KEYS,
+  GLOBAL_SUBJECT_ID,
+  GLOBAL_SUBJECT_KIND,
+  SUBJECT_KILL_FEATURE_KEY,
+  isOffEverywhere,
+  isSubjectShutOff,
   catalogFeatureKey,
   decideAffiliateFeatureRead,
   publishFlagOn,
@@ -8,6 +14,33 @@ import {
 } from "./affiliateFeaturePublish";
 
 const row = (patch: Partial<PublishFlag> & Pick<PublishFlag, "subjectKind" | "subjectId" | "featureKey" | "published">): PublishFlag => patch;
+
+describe("the admin shut-off switches", () => {
+  it("a distributor all row stored as 0 turns every feature off", () => {
+    const rows: PublishFlag[] = [
+      row({ subjectKind: "distributor", subjectId: 270001, featureKey: "kitchen_designer", published: true }),
+      row({ subjectKind: "distributor", subjectId: 270001, featureKey: SUBJECT_KILL_FEATURE_KEY, published: false }),
+    ];
+    expect(publishFlagOn(rows, { kind: "distributor", id: 270001 }, ["kitchen_designer"])).toBe(false);
+    expect(isSubjectShutOff(rows, { kind: "distributor", id: 270001 })).toBe(true);
+  });
+
+  it("the global row stored as 0 turns that feature off everywhere", () => {
+    const rows: PublishFlag[] = [
+      row({ subjectKind: "distributor", subjectId: 270001, featureKey: "kitchen_designer", published: true }),
+      row({ subjectKind: GLOBAL_SUBJECT_KIND, subjectId: GLOBAL_SUBJECT_ID, featureKey: "kitchen_designer", published: false }),
+    ];
+    expect(publishFlagOn(rows, { kind: "distributor", id: 270001 }, ["kitchen_designer"])).toBe(false);
+    expect(isOffEverywhere(rows, "kitchen_designer")).toBe(true);
+    expect(isOffEverywhere(rows, "quote")).toBe(false);
+  });
+
+  it("accepts the two switch keys the admin writes and still rejects a typo", () => {
+    expect(AFFILIATE_PUBLISH_WRITE_KEYS).toContain(SUBJECT_KILL_FEATURE_KEY);
+    expect(AFFILIATE_PUBLISH_WRITE_KEYS).toContain("kitchen_designer");
+    expect((AFFILIATE_PUBLISH_WRITE_KEYS as readonly string[]).includes("kitchen_cabinets")).toBe(false);
+  });
+});
 
 describe("affiliate feature publish decision", () => {
   it("lists the feature keys the Publish tab saves", () => {
