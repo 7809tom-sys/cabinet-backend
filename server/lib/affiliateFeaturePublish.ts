@@ -3,6 +3,8 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import {
   AFFILIATE_FEATURE_KEYS,
+  AFFILIATE_PUBLISH_WRITE_KEYS,
+  SUBJECT_KILL_FEATURE_KEY,
   AFFILIATE_FEATURE_UNPUBLISHED,
   decideAffiliateFeatureRead,
   publishFlagOn,
@@ -23,9 +25,11 @@ import { approvedVendorLinkedDistributorIds } from "./approvedVendorAccess";
 type Database = NonNullable<Awaited<ReturnType<typeof import("../db").getDb>>>;
 
 export const setAffiliateFeaturePublishInput = z.object({
-  subjectKind: z.enum(["distributor", "vendor"]),
-  subjectId: z.number().int().positive(),
-  featureKey: z.enum(AFFILIATE_FEATURE_KEYS),
+  // "global" with subjectId 0 is the Off everywhere row, which the admin writes.
+  subjectKind: z.enum(["distributor", "vendor", "global"]),
+  subjectId: z.number().int().min(0),
+  // "all" is the row that turns every feature off for one distributor or vendor.
+  featureKey: z.enum(AFFILIATE_PUBLISH_WRITE_KEYS),
   published: z.boolean(),
 });
 
@@ -42,7 +46,8 @@ function asIso(value: unknown): string | null {
 }
 
 function asKind(value: unknown): PublishSubjectKind | null {
-  return value === "distributor" || value === "vendor" ? value : null;
+  if (value === "distributor" || value === "vendor" || value === "global") return value;
+  return null;
 }
 
 export function toAffiliateFeaturePublishRow(row: {
@@ -55,7 +60,9 @@ export function toAffiliateFeaturePublishRow(row: {
 }): AffiliateFeaturePublishRow | null {
   const subjectKind = asKind(row.subjectKind);
   const subjectId = Number(row.subjectId);
-  if (!subjectKind || !Number.isInteger(subjectId) || subjectId <= 0) return null;
+  // The "Off everywhere" row is global with subjectId 0; every other subject needs a real id.
+  if (!subjectKind || !Number.isInteger(subjectId)) return null;
+  if (subjectId <= 0 && subjectKind !== "global") return null;
   const featureKey = typeof row.featureKey === "string" ? row.featureKey : "";
   if (!featureKey) return null;
   return {
@@ -157,7 +164,9 @@ async function loadPublishFlags(db: Database, featureKeys: readonly string[]): P
         published: affiliateFeaturePublish.published,
       })
       .from(affiliateFeaturePublish)
-      .where(inArray(affiliateFeaturePublish.featureKey, [...featureKeys]));
+      // The "all" rows and the global rows decide a switch too, so they must come back
+      // with the feature rows they override.
+      .where(inArray(affiliateFeaturePublish.featureKey, [...new Set([...featureKeys, SUBJECT_KILL_FEATURE_KEY])]));
     return rows.flatMap((row) => {
       const subjectKind = asKind(row.subjectKind);
       const subjectId = Number(row.subjectId);

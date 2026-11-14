@@ -35,7 +35,17 @@ export const DESIGNER_FEATURE_KEYS = [
   "other_room_designer",
 ] as const satisfies readonly AffiliateFeatureKey[];
 
-export type PublishSubjectKind = "distributor" | "vendor";
+/** One row that turns every feature off for a single distributor or vendor. */
+export const SUBJECT_KILL_FEATURE_KEY = "all";
+
+/** One row that turns a feature off everywhere (subjectKind global, subjectId 0). */
+export const GLOBAL_SUBJECT_KIND = "global" as const;
+export const GLOBAL_SUBJECT_ID = 0;
+
+/** Every feature key, plus the row that turns all of them off. */
+export const AFFILIATE_PUBLISH_WRITE_KEYS = [...AFFILIATE_FEATURE_KEYS, SUBJECT_KILL_FEATURE_KEY] as const;
+
+export type PublishSubjectKind = "distributor" | "vendor" | "global";
 
 export type PublishSubject = {
   kind: PublishSubjectKind;
@@ -62,11 +72,39 @@ export type PublishFlag = {
   published: boolean;
 };
 
+/** True when this subject's "all" row is stored as published 0. A missing row is not off. */
+export function isSubjectShutOff(
+  rows: readonly PublishFlag[],
+  subject: PublishSubject,
+): boolean {
+  return rows.some((row) =>
+    row.published === false
+    && row.featureKey === SUBJECT_KILL_FEATURE_KEY
+    && row.subjectKind === subject.kind
+    && Number(row.subjectId) === subject.id,
+  );
+}
+
+/** True when a feature is off everywhere (subjectKind global, subjectId 0, published 0). */
+export function isOffEverywhere(rows: readonly PublishFlag[], featureKey: string): boolean {
+  return rows.some((row) =>
+    row.published === false
+    && row.featureKey === featureKey
+    && row.subjectKind === GLOBAL_SUBJECT_KIND
+    && Number(row.subjectId) === GLOBAL_SUBJECT_ID,
+  );
+}
+
 export function publishFlagOn(
   rows: readonly PublishFlag[],
   subject: PublishSubject,
   featureKeys: readonly string[],
 ): boolean {
+  // The admin can shut a whole subject off with one "all" row, and a feature can be
+  // off everywhere with a global row. Both outrank a published feature row; before
+  // this, the switches saved nothing because the write was rejected (Nov 14 2026).
+  if (isSubjectShutOff(rows, subject)) return false;
+  if (featureKeys.some((key) => isOffEverywhere(rows, key))) return false;
   return rows.some((row) =>
     row.published === true
     && featureKeys.includes(row.featureKey)
