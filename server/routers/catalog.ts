@@ -5,6 +5,7 @@ import { eq, and, or, like, inArray, isNotNull, sql, desc, asc, ne, type SQL } f
 import * as XLSX from "xlsx";
 import { publicProcedure, protectedProcedure, adminProcedure, router } from "../_core/trpc";
 import { CATALOG_TAGS, servePublicCatalog } from "../lib/publicCatalogCache";
+import { leadTimeLabelsById } from "../lib/distributorLeadTimeLabel";
 import { doorColorSourceSelectionInput, EMPTY_DOOR_COLOR_SOURCE_COLUMNS, parseDoorColorSourceSelection, selectionToColumns, type DoorColorSourceColumns } from "../lib/doorColorSourceSelection";
 // main renamed the refusal message helper; this branch adds the stored-photo read.
 import { doorColorSourceColumnsAvailable, doorColorSourceNotReadyMessage, doorStyleColorSources, withDoorColorSourceColumns } from "../lib/doorColorSourceColumns";
@@ -176,6 +177,8 @@ export const distributorsRouter = router({
         sql`(COALESCE(${distributorSkus.listPrice}, 0) > 0 OR COALESCE(${distributorSkus.yourCost}, 0) > 0)`,
       ));
     const publicLineIds = new Set(publicLineRows.map((row) => row.distributorId));
+    // The human lead time ("6-8 weeks") beside the numeric days; absent until 0282 runs.
+    const leadTimeLabels = await leadTimeLabelsById(db, rows.map((row) => row.id));
     // Resolve the customer-facing label per line; never leak hidden supplier names.
     return rows.filter((d) =>
       ctx.user?.role === "admin"
@@ -191,6 +194,7 @@ export const distributorsRouter = router({
         displayMode: p.displayMode,
         seriesName: d.seriesName,
         leadTimeDays: d.leadTimeDays,
+        leadTimeLabel: leadTimeLabels.get(d.id) ?? null,
         isActive: d.isActive,
         // Only ever true for admins: offline suppliers are not returned to anyone else.
         isPreview: isPreviewSupplier(d),
