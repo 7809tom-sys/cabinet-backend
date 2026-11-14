@@ -11,7 +11,8 @@
  * analyser the swatch tool uses, stores the image, and writes both fields. Run it
  * with dryRun first: it reports what it would change and touches nothing.
  */
-import { sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
+import { doorStyles } from "../../drizzle/schema";
 import { analyzeSwatchBuffer, publicSwatchUrl } from "./analyzeSwatchImage";
 import { storagePut } from "../storage";
 
@@ -114,6 +115,23 @@ export async function syncSupplierDoorSample(
   if (options.dryRun) {
     return { id: sample.id, name: sample.name, ok: true, hex: color.hex, imageUrl: null, note: `dry run: would store ${buffer.length} bytes and set color ${color.hex}` };
   }
+  // Tom, Nov 14 2026: "if we see the wrong image on the door we can manually add
+  // the correct information". So the sync only fills what a person has not set.
+  // A sample a human picked is a /manus-storage path that is not ours; a colour a
+  // human set is a hex. Both are left alone and reported.
+  const [current] = await (db as unknown as { select: (...a: unknown[]) => any })
+    .select({ doorSampleImageUrl: sql<string | null>`doorSampleImageUrl`, color: sql<string | null>`color` })
+    .from(doorStyles)
+    .where(eq(doorStyles.id, sample.id))
+    .limit(1) as Array<{ doorSampleImageUrl: string | null; color: string | null }>;
+  const currentSample = (current?.doorSampleImageUrl ?? "").trim();
+  const currentColor = (current?.color ?? "").trim();
+  const keepSample = currentSample.length > 0 && !currentSample.startsWith("/door-samples/");
+  const keepColor = /^#[0-9a-f]{6}$/i.test(currentColor);
+  if (keepSample && keepColor) {
+    return { id: sample.id, name: sample.name, ok: true, hex: currentColor, imageUrl: currentSample, note: "kept the hand-set sample and colour" };
+  }
+
   const contentType = response.headers.get("content-type") || "image/jpeg";
   const stored = await storagePut(
     `door-samples/milestone/${sample.id}.${extensionFor(contentType)}`,
@@ -122,11 +140,23 @@ export async function syncSupplierDoorSample(
   );
   await db.execute(sql`
     UPDATE door_styles
-    SET doorSampleImageUrl = ${stored.url},
-        color = ${color.hex}
+    SET doorSampleImageUrl = ${keepSample ? currentSample : stored.url},
+        color = ${keepColor ? currentColor : color.hex}
     WHERE id = ${sample.id}
   `);
-  return { id: sample.id, name: sample.name, ok: true, hex: color.hex, imageUrl: stored.url, note: "sample and colour written from the supplier image" };
+  const kept: string[] = [];
+  if (keepSample) kept.push("sample");
+  if (keepColor) kept.push("colour");
+  return {
+    id: sample.id,
+    name: sample.name,
+    ok: true,
+    hex: keepColor ? currentColor : color.hex,
+    imageUrl: keepSample ? currentSample : stored.url,
+    note: kept.length
+      ? `written from the supplier image; kept the hand-set ${kept.join(" and ")}`
+      : "sample and colour written from the supplier image",
+  };
 }
 
 /** Run the whole crosswalk. Stops nothing on a single failure; reports every row. */
