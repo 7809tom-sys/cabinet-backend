@@ -12,6 +12,8 @@
 // including an approved contractor. Volume thresholds are assignment guidance
 // only. They never change a price by themselves.
 
+import { AFFILIATE_DEFAULT_FEE_BPS, defaultAffiliateCostCents } from "./affiliateDefaultPricing";
+
 export const ATTACH_PLATFORM_MARKUP_SHARE_BPS = 4000;
 export const ATTACH_AFFILIATE_MARKUP_SHARE_BPS = 6000;
 
@@ -40,8 +42,12 @@ export interface AffiliateCostInput {
   referenceRetailCents?: number | null;
   productClass?: AffiliateProductClass;
   tier?: AffiliatePricingTierRule | null;
-  /** Used when no active tier applies. Same basis points as pricing_settings.affiliateMarkupBps. */
-  platformAffiliateMarkupBps: number;
+  /**
+   * Legacy platform fee input (platform_pricing_settings.affiliateMarkupBps).
+   * No longer used for cabinets: with no active tier the site-wide default
+   * fee AFFILIATE_DEFAULT_FEE_BPS applies. Kept so callers stay compatible.
+   */
+  platformAffiliateMarkupBps?: number;
 }
 
 export interface AffiliateCostResult {
@@ -86,7 +92,8 @@ export function classifyAffiliateProduct(category: string | null | undefined): A
 
 /**
  * The affiliate's Cabinetdealz cost for one item.
- * Cabinets use the assigned tier, or the platform affiliate markup when no
+ * Cabinets use the assigned tier (a per-affiliate override), or the site-wide
+ * default fee (business cost × 1.10, see affiliateDefaultPricing.ts) when no
  * active tier is assigned. Flooring and appliances ignore the cabinet tier
  * and use the 40/60 markup split against the reference retail price.
  */
@@ -106,32 +113,23 @@ export function resolveAffiliateTierCost(input: AffiliateCostInput): AffiliateCo
     return { affiliateCostCents: yourCost + platformShare, source: "attach_split" };
   }
 
+  // Owner rule (Nov 16 2026): affiliate prices always come from business
+  // cost, never from list. A legacy list_discount tier is ignored here and the
+  // store falls back to the site default cost. Only a cost multiplier tier is
+  // honoured as an override.
   const tier = input.tier;
   const tierBps = tier ? wholeBps(tier.basisPoints) : null;
-  if (tier && tierBps != null) {
-    if (tier.basis === "cost_multiplier" && tierBps >= 1 && tierBps <= MAX_MULTIPLIER_BPS) {
-      if (yourCost == null) return { affiliateCostCents: null, source: "unavailable" };
-      return {
-        affiliateCostCents: Math.round((yourCost * tierBps) / 10000),
-        source: "tier_cost_multiplier",
-      };
-    }
-    if (tier.basis === "list_discount" && tierBps >= 0 && tierBps < 10000) {
-      if (list != null) {
-        const payBps = 10000 - tierBps;
-        return {
-          affiliateCostCents: Math.round((list * payBps) / 10000),
-          source: "tier_list_discount",
-        };
-      }
-    }
+  if (tier && tierBps != null && tier.basis === "cost_multiplier" && tierBps >= 1 && tierBps <= MAX_MULTIPLIER_BPS) {
+    if (yourCost == null) return { affiliateCostCents: null, source: "unavailable" };
+    return {
+      affiliateCostCents: Math.round((yourCost * tierBps) / 10000),
+      source: "tier_cost_multiplier",
+    };
   }
 
   if (yourCost == null) return { affiliateCostCents: null, source: "unavailable" };
-  const platformBps = wholeBps(input.platformAffiliateMarkupBps) ?? 0;
-  const safeBps = Math.min(MAX_MULTIPLIER_BPS, Math.max(0, platformBps));
   return {
-    affiliateCostCents: yourCost + Math.round((yourCost * safeBps) / 10000),
+    affiliateCostCents: defaultAffiliateCostCents(yourCost),
     source: "platform_default",
   };
 }
@@ -143,16 +141,16 @@ export function validateAffiliateTierDraft(
   if (!tierName || tierName.length > 128) {
     return { ok: false, message: "Enter a tier name up to 128 characters." };
   }
-  if (draft.basis !== "cost_multiplier" && draft.basis !== "list_discount") {
-    return { ok: false, message: "Choose a cost multiplier or a discount off list." };
+  if (draft.basis === "list_discount") {
+    return { ok: false, message: "Affiliate tiers must be a multiple of Cabinetdealz cost. Pricing from list is not allowed." };
+  }
+  if (draft.basis !== "cost_multiplier") {
+    return { ok: false, message: "Choose a cost multiplier." };
   }
   const basisPoints = wholeBps(draft.basisPoints);
   if (basisPoints == null) return { ok: false, message: "Enter a numeric tier value." };
-  if (draft.basis === "cost_multiplier" && (basisPoints < 1 || basisPoints > MAX_MULTIPLIER_BPS)) {
-    return { ok: false, message: "Cost multiplier must be between 0.01 and 20.00." };
-  }
-  if (draft.basis === "list_discount" && (basisPoints < 0 || basisPoints >= 10000)) {
-    return { ok: false, message: "Discount off list must be from 0% up to, but not including, 100%." };
+  if (basisPoints < 10000 || basisPoints > MAX_MULTIPLIER_BPS) {
+    return { ok: false, message: "Cost multiplier must be between 1.00 and 20.00. Customer prices are never below cost × 1.15." };
   }
   const volume = draft.volumeThresholdCents;
   if (volume != null && (!Number.isFinite(volume) || volume < 0 || Math.round(volume) > MAX_VOLUME_CENTS)) {
@@ -231,7 +229,7 @@ export function unassignedAffiliateTier(): AffiliateTierDashboard {
     assigned: false,
     inactive: false,
     tierName: null,
-    summary: "No pricing tier assigned. Cabinet cost uses the platform affiliate markup until an administrator assigns a tier.",
+    summary: `No pricing tier assigned. Cabinet cost uses the site default: business cost + ${AFFILIATE_DEFAULT_FEE_BPS / 100}% fees, until an administrator assigns a tier.`,
     examplePlaceholder: false,
     volumeLabel: null,
   };

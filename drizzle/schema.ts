@@ -2202,7 +2202,8 @@ export const affiliates = mysqlTable("affiliates", {
   // per-category overrides live in affiliateStyleBranding / as JSON below.
   // New affiliates start at 40% (4000 bps) and may change it themselves.
   defaultMarkupBps: int("defaultMarkupBps").default(4000).notNull(), // 40% default
-  // Assigned affiliate buy-cost tier. Null keeps the platform affiliate markup.
+  // Assigned affiliate buy-cost tier. Null keeps the site default affiliate
+  // cost (business cost × 1.10, shared/affiliateDefaultPricing.ts).
   // The tier row lives in affiliate_pricing_tiers. Hand-run SQL adds the column.
   pricingTierId: int("pricingTierId"),
   // Separate list-price markup for Decorative Hardware. It never participates in

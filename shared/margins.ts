@@ -4,6 +4,7 @@
 // All markups are basis points where 10000 = no change (×1.0), 11500 = +15%.
 
 import { classifyAffiliateProduct, resolveAffiliateTierCost } from "./affiliatePricingTier";
+import { clampToAffiliateFloorCents } from "./affiliateDefaultPricing";
 
 export type PricingTier = "homeowner" | "contractor" | "wholesale";
 
@@ -195,7 +196,9 @@ export function contractorPriceOverAffiliateCost(
   });
   if (resolved.affiliateCostCents == null) return null;
   const multiplierBps = clampBps(NEUTRAL_BPS + context.markupBps);
-  return Math.round((resolved.affiliateCostCents * multiplierBps) / NEUTRAL_BPS) / 100;
+  const priceCents = Math.round((resolved.affiliateCostCents * multiplierBps) / NEUTRAL_BPS);
+  // Same floor as every affiliate price: never below business cost × 1.15.
+  return clampToAffiliateFloorCents(priceCents, dollarsToPositiveCents(row.yourCost)) / 100;
 }
 
 /**

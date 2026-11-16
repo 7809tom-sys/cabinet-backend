@@ -67,7 +67,7 @@ export function pricingSettingsWithAffiliateContractorMarkup<T extends TierMarku
 
 /**
  * Contractor sell price over the affiliate's cost.
- * With no tier and a zero platform affiliate markup, that cost equals Cabinet Dealz cost.
+ * With no tier, that cost is the site default: Cabinet Dealz business cost × 1.10.
  */
 export function affiliateContractorSellPrice(
   row: CostBaseRow,

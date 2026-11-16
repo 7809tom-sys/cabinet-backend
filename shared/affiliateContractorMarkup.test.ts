@@ -39,10 +39,11 @@ describe("affiliate contractor markup", () => {
 
   it("prices a contractor SKU over the affiliate's cost and leaves other tiers alone", () => {
     const row = { yourCost: 100, wholesalePrice: 80, listPrice: 90 };
-    // No tier and no platform markup: the affiliate's cost equals Cabinet Dealz cost.
-    expect(affiliateContractorSellPrice(row, SETTINGS, 29)).toBe(129);
-    expect(affiliateContractorSellPrice(row, SETTINGS, 0)).toBe(100);
-    expect(affiliateContractorSellPrice(row, SETTINGS, 200)).toBe(300);
+    // No tier: the affiliate's cost is the site default, $100 × 1.10 = $110.
+    expect(affiliateContractorSellPrice(row, SETTINGS, 29)).toBe(141.9);
+    // 0% over $110 is $110, below the $115 floor (cost × 1.15), so it is clamped.
+    expect(affiliateContractorSellPrice(row, SETTINGS, 0)).toBe(115);
+    expect(affiliateContractorSellPrice(row, SETTINGS, 200)).toBe(330);
     expect(sellPriceForTier(row, SETTINGS, "contractor")).toBe(129);
     expect(sellPriceForTier(row, SETTINGS, "homeowner")).toBe(158);
     const overridden = pricingSettingsWithAffiliateContractorMarkup(SETTINGS, 5000);
@@ -75,7 +76,7 @@ describe("affiliate contractor markup", () => {
     expect(sellPriceForTier({ ...row, retailPriceBasis: "source_list" }, settings, "contractor")).toBe(154.8);
   });
 
-  it("uses the platform affiliate markup when the store has no active tier", () => {
+  it("uses the site default affiliate fee when the store has no active tier", () => {
     const settings = {
       ...SETTINGS,
       affiliateContractorCost: {
@@ -84,11 +85,11 @@ describe("affiliate contractor markup", () => {
         platformAffiliateMarkupBps: 500,
       },
     };
-    // $100 Cabinet Dealz cost × 1.05 = $105 affiliate cost. 29% over that is $135.45.
-    expect(sellPriceForTier({ yourCost: 100, category: "Base" }, settings, "contractor")).toBe(135.45);
+    // $100 Cabinet Dealz cost × 1.10 = $110 affiliate cost (legacy 5% ignored). 29% over that is $141.90.
+    expect(sellPriceForTier({ yourCost: 100, category: "Base" }, settings, "contractor")).toBe(141.9);
   });
 
-  it("prices a list-discount store from list, then applies the contractor markup", () => {
+  it("ignores a list-discount store tier and prices from cost, then applies the contractor markup", () => {
     const settings = {
       ...SETTINGS,
       affiliateContractorCost: {
@@ -97,8 +98,8 @@ describe("affiliate contractor markup", () => {
         platformAffiliateMarkupBps: 500,
       },
     };
-    // 10% off a $200 list is a $180 affiliate cost. 29% over that is $232.20.
-    expect(sellPriceForTier({ yourCost: 100, listPrice: 200, category: "Base" }, settings, "contractor")).toBe(232.2);
+    // List is never a basis: $100 cost × 1.10 = $110 affiliate cost. 29% over that is $141.90.
+    expect(sellPriceForTier({ yourCost: 100, listPrice: 200, category: "Base" }, settings, "contractor")).toBe(141.9);
   });
 
   it("prices flooring and appliances from the 40/60 split, ignoring the cabinet tier", () => {
