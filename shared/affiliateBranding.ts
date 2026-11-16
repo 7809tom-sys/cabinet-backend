@@ -26,7 +26,7 @@ import {
   type AffiliatePricingTierRule,
   type AffiliateProductClass,
 } from "./affiliatePricingTier";
-import { AFFILIATE_DEFAULT_MARKUP_BPS, applyAffiliateMarkupCents } from "./affiliateDefaultPricing";
+import { AFFILIATE_DEFAULT_MARKUP_BPS, applyAffiliateMarkupCents, clampToAffiliateFloorCents } from "./affiliateDefaultPricing";
 
 /** A single brand-name override row for one affiliate. */
 export interface BrandNameOverride {
@@ -123,7 +123,8 @@ export function resolveAffiliateRetail(
  * Affiliate cost comes from the assigned pricing tier when one is passed.
  * With no tier, it is the site-wide default: business cost (yourCost) × 1.10.
  * With the default 40% markup the customer price is business cost × 1.54
- * (see affiliateDefaultPricing.ts). Per-affiliate tier and markup win.
+ * (see affiliateDefaultPricing.ts). Per-affiliate tier and markup win, but the
+ * result is never below business cost × 1.15 (AFFILIATE_FLOOR_BPS).
  * A list price is only the basis for a list-discount tier or the attach
  * 40/60 split. It is never itself the customer price. The affiliate's saved
  * markup still applies on top. Supplier cost stays server-only.
@@ -153,8 +154,13 @@ export function resolveAffiliateStorefrontSale(
   });
   const affiliateCostCents = resolved.affiliateCostCents
     ?? priceLadder(source, platformSettings).affiliateCents;
+  const retail = resolveAffiliateRetail(affiliateCostCents, markup, opts);
+  // Floor: never below business cost × 1.15, whatever the overrides say.
+  const retailCents = clampToAffiliateFloorCents(retail.retailCents, source);
   return {
-    ...resolveAffiliateRetail(affiliateCostCents, markup, opts),
+    ...retail,
+    retailCents,
+    profitCents: retailCents - retail.affiliateCostCents,
     costSource: resolved.source,
   };
 }

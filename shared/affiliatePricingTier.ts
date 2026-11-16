@@ -113,25 +113,18 @@ export function resolveAffiliateTierCost(input: AffiliateCostInput): AffiliateCo
     return { affiliateCostCents: yourCost + platformShare, source: "attach_split" };
   }
 
+  // Owner rule (Nov 16 2026): affiliate prices always come from business
+  // cost, never from list. A legacy list_discount tier is ignored here and the
+  // store falls back to the site default cost. Only a cost multiplier tier is
+  // honoured as an override.
   const tier = input.tier;
   const tierBps = tier ? wholeBps(tier.basisPoints) : null;
-  if (tier && tierBps != null) {
-    if (tier.basis === "cost_multiplier" && tierBps >= 1 && tierBps <= MAX_MULTIPLIER_BPS) {
-      if (yourCost == null) return { affiliateCostCents: null, source: "unavailable" };
-      return {
-        affiliateCostCents: Math.round((yourCost * tierBps) / 10000),
-        source: "tier_cost_multiplier",
-      };
-    }
-    if (tier.basis === "list_discount" && tierBps >= 0 && tierBps < 10000) {
-      if (list != null) {
-        const payBps = 10000 - tierBps;
-        return {
-          affiliateCostCents: Math.round((list * payBps) / 10000),
-          source: "tier_list_discount",
-        };
-      }
-    }
+  if (tier && tierBps != null && tier.basis === "cost_multiplier" && tierBps >= 1 && tierBps <= MAX_MULTIPLIER_BPS) {
+    if (yourCost == null) return { affiliateCostCents: null, source: "unavailable" };
+    return {
+      affiliateCostCents: Math.round((yourCost * tierBps) / 10000),
+      source: "tier_cost_multiplier",
+    };
   }
 
   if (yourCost == null) return { affiliateCostCents: null, source: "unavailable" };
@@ -148,16 +141,16 @@ export function validateAffiliateTierDraft(
   if (!tierName || tierName.length > 128) {
     return { ok: false, message: "Enter a tier name up to 128 characters." };
   }
-  if (draft.basis !== "cost_multiplier" && draft.basis !== "list_discount") {
-    return { ok: false, message: "Choose a cost multiplier or a discount off list." };
+  if (draft.basis === "list_discount") {
+    return { ok: false, message: "Affiliate tiers must be a multiple of Cabinetdealz cost. Pricing from list is not allowed." };
+  }
+  if (draft.basis !== "cost_multiplier") {
+    return { ok: false, message: "Choose a cost multiplier." };
   }
   const basisPoints = wholeBps(draft.basisPoints);
   if (basisPoints == null) return { ok: false, message: "Enter a numeric tier value." };
-  if (draft.basis === "cost_multiplier" && (basisPoints < 1 || basisPoints > MAX_MULTIPLIER_BPS)) {
-    return { ok: false, message: "Cost multiplier must be between 0.01 and 20.00." };
-  }
-  if (draft.basis === "list_discount" && (basisPoints < 0 || basisPoints >= 10000)) {
-    return { ok: false, message: "Discount off list must be from 0% up to, but not including, 100%." };
+  if (basisPoints < 10000 || basisPoints > MAX_MULTIPLIER_BPS) {
+    return { ok: false, message: "Cost multiplier must be between 1.00 and 20.00. Customer prices are never below cost × 1.15." };
   }
   const volume = draft.volumeThresholdCents;
   if (volume != null && (!Number.isFinite(volume) || volume < 0 || Math.round(volume) > MAX_VOLUME_CENTS)) {

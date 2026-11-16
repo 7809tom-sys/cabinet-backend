@@ -30,14 +30,14 @@ describe("resolveAffiliateTierCost", () => {
     expect(cost).toEqual({ affiliateCostCents: 12_500, source: "tier_cost_multiplier" });
   });
 
-  it("prices a list-discount tier from list, not from the platform markup", () => {
+  it("ignores a list-discount tier: affiliate cost always comes from business cost", () => {
     const cost = resolveAffiliateTierCost({
       yourCostCents: 10_000,
       listPriceCents: 20_000,
       platformAffiliateMarkupBps: 500,
       tier: { basis: "list_discount", basisPoints: 1_000 },
     });
-    expect(cost).toEqual({ affiliateCostCents: 18_000, source: "tier_list_discount" });
+    expect(cost).toEqual({ affiliateCostCents: 11_000, source: "platform_default" });
   });
 
   it("falls back to the site default fee when a list-discount tier has no list", () => {

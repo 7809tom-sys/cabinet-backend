@@ -1,8 +1,15 @@
 import { and, eq } from "drizzle-orm";
+import { TRPCError } from "@trpc/server";
 import { affiliates, affiliatePricingTiers, affiliateStyleBranding } from "../../drizzle/schema";
 import { getDb, getPlatformPricingSettings } from "../db";
 import type { AffiliateMarkup } from "@shared/affiliateBranding";
-import { AFFILIATE_DEFAULT_FEE_BPS, AFFILIATE_DEFAULT_MARKUP_BPS } from "@shared/affiliateDefaultPricing";
+import {
+  AFFILIATE_DEFAULT_FEE_BPS,
+  AFFILIATE_DEFAULT_MARKUP_BPS,
+  AFFILIATE_FLOOR_BPS,
+  affiliateOverrideMeetsFloor,
+  minimumMarkupBpsForFloor,
+} from "@shared/affiliateDefaultPricing";
 import {
   affiliateTierDashboard,
   affiliateTierRule,
@@ -154,4 +161,30 @@ export async function loadAffiliatePricingById(
 export async function loadAffiliateTierDashboard(affiliateId: number): Promise<AffiliateTierDashboard> {
   const pricing = await loadAffiliatePricingById(affiliateId);
   return pricing?.tierDashboard ?? { assigned: false, inactive: false, tierName: null, summary: `No pricing tier assigned. Cabinet cost uses the site default: business cost + ${AFFILIATE_DEFAULT_FEE_BPS / 100}% fees, until an administrator assigns a tier.`, examplePlaceholder: false, volumeLabel: null };
+}
+
+/**
+ * Reject an affiliate markup save that would put a cabinet price below the
+ * floor (business cost × 1.15). The store's affiliate cost is its active
+ * cost-multiplier tier, or the site default fee when it has none.
+ * Pricing also clamps to the floor; this check stops the save up front.
+ */
+export async function assertAffiliateMarkupsMeetFloor(
+  affiliateId: number,
+  markups: Array<number | null | undefined>,
+): Promise<void> {
+  const values = markups.filter((m): m is number => typeof m === "number" && Number.isFinite(m));
+  if (values.length === 0) return;
+  const pricing = await loadAffiliatePricingById(affiliateId);
+  const costMultiplierBps = pricing?.tier?.basis === "cost_multiplier"
+    ? pricing.tier.basisPoints
+    : 10000 + AFFILIATE_DEFAULT_FEE_BPS;
+  const failing = values.find((m) => !affiliateOverrideMeetsFloor(costMultiplierBps, m));
+  if (failing !== undefined) {
+    const minimumBps = minimumMarkupBpsForFloor(costMultiplierBps);
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: `A ${failing / 100}% markup would price below Cabinetdealz cost × ${(10000 + AFFILIATE_FLOOR_BPS) / 10000}. The lowest markup for this store is ${minimumBps / 100}%.`,
+    });
+  }
 }

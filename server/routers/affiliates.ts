@@ -20,7 +20,7 @@ import { resendConfigured, sendEmail } from "../email";
 import { buildSalesDemoInvite, deliverInviteThenGrant, SALES_DEMO_AFFILIATE_SLUG, SALES_DEMO_TEAM_ACCESS } from "../salesDemoInvite";
 import { buildAffiliateSetupInvite } from "../affiliateSetupInvite";
 import { resolveAffiliateAccess } from "../lib/affiliateAccess";
-import { loadAffiliatePricingById } from "../lib/affiliateStorefrontPricing";
+import { assertAffiliateMarkupsMeetFloor, loadAffiliatePricingById } from "../lib/affiliateStorefrontPricing";
 import { affiliateTierDashboard, affiliateTierView, checkedTierDraft, nextTierCode } from "../lib/affiliateTierPricing";
 import { unassignedAffiliateTier } from "@shared/affiliatePricingTier";
 import { toAdminAffiliate, toPublicStorefront, toViewerAffiliate } from "../lib/affiliatePrivacy";
@@ -1346,6 +1346,7 @@ export const affiliatesRouter = router({
       if (!mine) throw new TRPCError({ code: "FORBIDDEN", message: "No affiliate account linked to you." });
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      await assertAffiliateMarkupsMeetFloor(mine.id, [input.defaultMarkupBps, ...Object.values(input.categoryMarkup ?? {})]);
       const set: Record<string, unknown> = {};
       if (input.defaultMarkupBps !== undefined) set.defaultMarkupBps = input.defaultMarkupBps;
       if (input.categoryMarkup !== undefined) set.categoryMarkupJson = JSON.stringify(input.categoryMarkup);
@@ -1386,6 +1387,7 @@ export const affiliatesRouter = router({
       if (!mine) throw new TRPCError({ code: "FORBIDDEN", message: "No affiliate account linked to you." });
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      await assertAffiliateMarkupsMeetFloor(mine.id, [input.markupBps]);
       const existing = await db
         .select()
         .from(affiliateStyleBranding)
@@ -1514,6 +1516,7 @@ export const affiliatesRouter = router({
     .mutation(async ({ input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      await assertAffiliateMarkupsMeetFloor(input.affiliateId, [input.defaultMarkupBps, ...Object.values(input.categoryMarkup ?? {})]);
       const set: Record<string, unknown> = {};
       if (input.defaultMarkupBps !== undefined) set.defaultMarkupBps = input.defaultMarkupBps;
       if (input.categoryMarkup !== undefined) set.categoryMarkupJson = JSON.stringify(input.categoryMarkup);
@@ -1544,6 +1547,7 @@ export const affiliatesRouter = router({
     .mutation(async ({ input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      await assertAffiliateMarkupsMeetFloor(input.affiliateId, [input.markupBps]);
       const existing = await db
         .select()
         .from(affiliateStyleBranding)

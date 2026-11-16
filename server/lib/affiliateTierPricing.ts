@@ -43,7 +43,9 @@ export type AffiliateTierView = {
 
 export function affiliateTierRule(row: StoredAffiliateTier | null | undefined): AffiliatePricingTierRule | null {
   if (!row?.activeFlag) return null;
-  if (row.basisKind !== "cost_multiplier" && row.basisKind !== "list_discount") return null;
+  // Affiliate prices always come from cost. A legacy list_discount row is
+  // never applied; the store uses the site default until it is replaced.
+  if (row.basisKind !== "cost_multiplier") return null;
   return { basis: row.basisKind, basisPoints: row.basisPoints };
 }
 
@@ -73,6 +75,16 @@ export function affiliateTierView(row: StoredAffiliateTier): AffiliateTierView {
 export function affiliateTierDashboard(row: StoredAffiliateTier | null | undefined): AffiliateTierDashboard {
   if (!row) return unassignedAffiliateTier();
   const view = affiliateTierView(row);
+  if (row.activeFlag && row.basisKind !== "cost_multiplier") {
+    return {
+      assigned: true,
+      inactive: true,
+      tierName: row.tierName,
+      summary: `${view.summary}. Not used: affiliate prices come from Cabinetdealz cost, never list. The site default applies until a cost-multiplier tier is assigned.`,
+      examplePlaceholder: row.examplePlaceholder,
+      volumeLabel: formatVolumeThreshold(row.volumeThresholdCents),
+    };
+  }
   if (!row.activeFlag) {
     return {
       assigned: true,
