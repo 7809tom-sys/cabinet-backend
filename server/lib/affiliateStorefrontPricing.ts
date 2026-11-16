@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { affiliates, affiliatePricingTiers, affiliateStyleBranding } from "../../drizzle/schema";
 import { getDb, getPlatformPricingSettings } from "../db";
 import type { AffiliateMarkup } from "@shared/affiliateBranding";
+import { AFFILIATE_DEFAULT_FEE_BPS, AFFILIATE_DEFAULT_MARKUP_BPS } from "@shared/affiliateDefaultPricing";
 import {
   affiliateTierDashboard,
   affiliateTierRule,
@@ -71,7 +72,7 @@ async function pricingForAffiliate(
   return {
     affiliateId: affiliate.id,
     markup: {
-      globalMarkupBps: affiliate.defaultMarkupBps ?? 0,
+      globalMarkupBps: affiliate.defaultMarkupBps ?? AFFILIATE_DEFAULT_MARKUP_BPS,
       categoryMarkupBps: parseCategoryMarkup(affiliate.categoryMarkupJson),
       styleMarkupBps,
     },
@@ -152,5 +153,5 @@ export async function loadAffiliatePricingById(
 
 export async function loadAffiliateTierDashboard(affiliateId: number): Promise<AffiliateTierDashboard> {
   const pricing = await loadAffiliatePricingById(affiliateId);
-  return pricing?.tierDashboard ?? { assigned: false, inactive: false, tierName: null, summary: "No pricing tier assigned. Cabinet cost uses the platform affiliate markup until an administrator assigns a tier.", examplePlaceholder: false, volumeLabel: null };
+  return pricing?.tierDashboard ?? { assigned: false, inactive: false, tierName: null, summary: `No pricing tier assigned. Cabinet cost uses the site default: business cost + ${AFFILIATE_DEFAULT_FEE_BPS / 100}% fees, until an administrator assigns a tier.`, examplePlaceholder: false, volumeLabel: null };
 }

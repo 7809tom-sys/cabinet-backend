@@ -26,6 +26,7 @@ import {
   type AffiliatePricingTierRule,
   type AffiliateProductClass,
 } from "./affiliatePricingTier";
+import { AFFILIATE_DEFAULT_MARKUP_BPS, applyAffiliateMarkupCents } from "./affiliateDefaultPricing";
 
 /** A single brand-name override row for one affiliate. */
 export interface BrandNameOverride {
@@ -64,7 +65,8 @@ function isUsableBps(v: number | null | undefined): v is number {
 /**
  * Pick the effective markup bps for a given category + style using the
  * style > category > global precedence. Returns the affiliate global default
- * when no more-specific override is set.
+ * when no more-specific override is set, and the site-wide default markup
+ * (AFFILIATE_DEFAULT_MARKUP_BPS, 40%) when the affiliate has no usable value.
  */
 export function resolveMarkupBps(
   markup: AffiliateMarkup,
@@ -79,7 +81,7 @@ export function resolveMarkupBps(
     const c = markup.categoryMarkupBps[categoryKey];
     if (isUsableBps(c)) return c;
   }
-  return isUsableBps(markup.globalMarkupBps) ? markup.globalMarkupBps : 0;
+  return isUsableBps(markup.globalMarkupBps) ? markup.globalMarkupBps : AFFILIATE_DEFAULT_MARKUP_BPS;
 }
 
 export interface AffiliateRetailResult {
@@ -106,7 +108,7 @@ export function resolveAffiliateRetail(
 ): AffiliateRetailResult {
   const cost = roundCents(Math.max(0, affiliateCostCents));
   const markupBps = resolveMarkupBps(markup, opts);
-  const retailCents = cost + applyBps(cost, markupBps);
+  const retailCents = applyAffiliateMarkupCents(cost, markupBps);
   return {
     affiliateCostCents: cost,
     markupBps,
@@ -119,7 +121,9 @@ export function resolveAffiliateRetail(
  * The only customer-facing price calculation for an affiliate storefront.
  *
  * Affiliate cost comes from the assigned pricing tier when one is passed.
- * With no tier, it stays the platform affiliate markup over supplier cost.
+ * With no tier, it is the site-wide default: business cost (yourCost) × 1.10.
+ * With the default 40% markup the customer price is business cost × 1.54
+ * (see affiliateDefaultPricing.ts). Per-affiliate tier and markup win.
  * A list price is only the basis for a list-discount tier or the attach
  * 40/60 split. It is never itself the customer price. The affiliate's saved
  * markup still applies on top. Supplier cost stays server-only.

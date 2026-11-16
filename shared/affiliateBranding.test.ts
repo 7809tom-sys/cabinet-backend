@@ -96,9 +96,10 @@ describe("resolveAffiliateStorefrontSale", () => {
       { globalMarkupBps: 2_000 },
       { categoryKey: "Base", styleId: 42 },
     );
-    // $100 source cost → $105 protected affiliate cost → $126 customer sale.
-    expect(sale.affiliateCostCents).toBe(10_500);
-    expect(sale.retailCents).toBe(12_600);
+    // $100 source cost → $110 default affiliate cost (the legacy 5% platform
+    // value is ignored) → 20% affiliate markup → $132 customer sale.
+    expect(sale.affiliateCostCents).toBe(11_000);
+    expect(sale.retailCents).toBe(13_200);
     expect(sale.retailCents).toBeGreaterThanOrEqual(sale.affiliateCostCents);
   });
 

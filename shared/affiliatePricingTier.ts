@@ -12,6 +12,8 @@
 // including an approved contractor. Volume thresholds are assignment guidance
 // only. They never change a price by themselves.
 
+import { AFFILIATE_DEFAULT_FEE_BPS, defaultAffiliateCostCents } from "./affiliateDefaultPricing";
+
 export const ATTACH_PLATFORM_MARKUP_SHARE_BPS = 4000;
 export const ATTACH_AFFILIATE_MARKUP_SHARE_BPS = 6000;
 
@@ -40,8 +42,12 @@ export interface AffiliateCostInput {
   referenceRetailCents?: number | null;
   productClass?: AffiliateProductClass;
   tier?: AffiliatePricingTierRule | null;
-  /** Used when no active tier applies. Same basis points as pricing_settings.affiliateMarkupBps. */
-  platformAffiliateMarkupBps: number;
+  /**
+   * Legacy platform fee input (platform_pricing_settings.affiliateMarkupBps).
+   * No longer used for cabinets: with no active tier the site-wide default
+   * fee AFFILIATE_DEFAULT_FEE_BPS applies. Kept so callers stay compatible.
+   */
+  platformAffiliateMarkupBps?: number;
 }
 
 export interface AffiliateCostResult {
@@ -86,7 +92,8 @@ export function classifyAffiliateProduct(category: string | null | undefined): A
 
 /**
  * The affiliate's Cabinetdealz cost for one item.
- * Cabinets use the assigned tier, or the platform affiliate markup when no
+ * Cabinets use the assigned tier (a per-affiliate override), or the site-wide
+ * default fee (business cost × 1.10, see affiliateDefaultPricing.ts) when no
  * active tier is assigned. Flooring and appliances ignore the cabinet tier
  * and use the 40/60 markup split against the reference retail price.
  */
@@ -128,10 +135,8 @@ export function resolveAffiliateTierCost(input: AffiliateCostInput): AffiliateCo
   }
 
   if (yourCost == null) return { affiliateCostCents: null, source: "unavailable" };
-  const platformBps = wholeBps(input.platformAffiliateMarkupBps) ?? 0;
-  const safeBps = Math.min(MAX_MULTIPLIER_BPS, Math.max(0, platformBps));
   return {
-    affiliateCostCents: yourCost + Math.round((yourCost * safeBps) / 10000),
+    affiliateCostCents: defaultAffiliateCostCents(yourCost),
     source: "platform_default",
   };
 }
@@ -231,7 +236,7 @@ export function unassignedAffiliateTier(): AffiliateTierDashboard {
     assigned: false,
     inactive: false,
     tierName: null,
-    summary: "No pricing tier assigned. Cabinet cost uses the platform affiliate markup until an administrator assigns a tier.",
+    summary: `No pricing tier assigned. Cabinet cost uses the site default: business cost + ${AFFILIATE_DEFAULT_FEE_BPS / 100}% fees, until an administrator assigns a tier.`,
     examplePlaceholder: false,
     volumeLabel: null,
   };

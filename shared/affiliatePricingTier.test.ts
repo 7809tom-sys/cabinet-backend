@@ -10,14 +10,14 @@ import {
 } from "./affiliatePricingTier";
 
 describe("resolveAffiliateTierCost", () => {
-  it("keeps the platform affiliate markup when no tier is assigned", () => {
+  it("uses the site default fee (business cost × 1.10) when no tier is assigned", () => {
     const cost = resolveAffiliateTierCost({
       yourCostCents: 10_000,
       listPriceCents: 40_000,
       platformAffiliateMarkupBps: 500,
       tier: null,
     });
-    expect(cost).toEqual({ affiliateCostCents: 10_500, source: "platform_default" });
+    expect(cost).toEqual({ affiliateCostCents: 11_000, source: "platform_default" });
   });
 
   it("multiplies Cabinetdealz cost by the assigned tier", () => {
@@ -40,7 +40,7 @@ describe("resolveAffiliateTierCost", () => {
     expect(cost).toEqual({ affiliateCostCents: 18_000, source: "tier_list_discount" });
   });
 
-  it("falls back to the platform markup when a list-discount tier has no list", () => {
+  it("falls back to the site default fee when a list-discount tier has no list", () => {
     const cost = resolveAffiliateTierCost({
       yourCostCents: 10_000,
       listPriceCents: null,
@@ -48,7 +48,7 @@ describe("resolveAffiliateTierCost", () => {
       tier: { basis: "list_discount", basisPoints: 1_000 },
     });
     expect(cost.source).toBe("platform_default");
-    expect(cost.affiliateCostCents).toBe(10_500);
+    expect(cost.affiliateCostCents).toBe(11_000);
   });
 
   it("splits attach-product markup 40/60 and ignores the cabinet tier", () => {

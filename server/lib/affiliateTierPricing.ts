@@ -78,7 +78,7 @@ export function affiliateTierDashboard(row: StoredAffiliateTier | null | undefin
       assigned: true,
       inactive: true,
       tierName: row.tierName,
-      summary: `${view.summary}. Platform affiliate markup is used until an active tier is assigned.`,
+      summary: `${view.summary}. The site default (business cost + 10% fees) is used until an active tier is assigned.`,
       examplePlaceholder: row.examplePlaceholder,
       volumeLabel: formatVolumeThreshold(row.volumeThresholdCents),
     };
