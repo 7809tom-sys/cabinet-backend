@@ -91,6 +91,11 @@ export function composeOrderReceipt(order: ReceiptOrder, notifyEmail: string, sh
     summary.discountCents != null && summary.discountCents > 0 ? `Discounts: -${formatUsdFromCents(summary.discountCents)}` : null,
     summary.totalCents == null ? "Total: could not be confirmed because shipping was not stored" : `Total: ${formatUsdFromCents(summary.totalCents)}`,
     "",
+    // Every paying customer gets the invoice page (Tom, Nov 19 2026). This receipt is
+    // built from an order request, which has no invoice number, so the link is plain:
+    // the customer types the number they were given rather than landing on a dead link.
+    "Track your shipment or report any damage: https://cabinetdealz.com/invoice",
+    "",
     "Cabinet Dealz",
   ].filter((line): line is string => line != null);
   const text = textLines.join("\n");
@@ -110,6 +115,7 @@ export function composeOrderReceipt(order: ReceiptOrder, notifyEmail: string, sh
     ${summary.shippingAmountCents == null ? "Shipping: not stored on this order" : `Shipping: ${formatUsdFromCents(summary.shippingAmountCents)}`}<br>
     Sales tax: ${formatUsdFromCents(summary.taxAmountCents)}<br>
     ${summary.totalCents == null ? "Total: could not be confirmed because shipping was not stored" : `<strong>Total: ${formatUsdFromCents(summary.totalCents)}</strong>`}</p>
+    <p><a href="https://cabinetdealz.com/invoice">Track your shipment or report any damage</a></p>
     </body></html>`;
   return {
     to,
