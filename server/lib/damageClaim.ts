@@ -19,8 +19,55 @@
  */
 import { sql } from "drizzle-orm";
 import { storagePut } from "../storage";
+import { sendEmail } from "../email";
 import { lookupInvoice, normalizeEmail, normalizeZip } from "./invoiceLookup";
 
+export const CLAIMS_NOTIFY_EMAIL_DEFAULT = "sales@cabinetdealz.com";
+export function claimsNotifyEmail(env: NodeJS.ProcessEnv = process.env): string {
+  const value = env.CLAIMS_NOTIFY_EMAIL?.trim();
+  return value ? value : CLAIMS_NOTIFY_EMAIL_DEFAULT;
+}
+
+/** The team needs to know a claim landed; a failure here must not fail the claim. */
+async function notifyClaimRaised(payload: {
+  claimId: number;
+  invoiceNumber: string;
+  orderId: number;
+  description: string;
+  stage: string | null;
+  contactEmail: string;
+  lines: Array<{ sku: string; quantity: number }>;
+  photoCount: number;
+}): Promise<void> {
+  const itemLines = payload.lines.map((line) => "- " + line.sku + " x" + line.quantity).join("\n");
+  const text = [
+    "A damage claim was submitted.",
+    "",
+    "Invoice: " + payload.invoiceNumber,
+    "Order id: " + payload.orderId,
+    "Claim #: " + payload.claimId,
+    "Contact: " + payload.contactEmail,
+    "Noticed: " + (payload.stage ?? "not stated"),
+    "Photos: " + payload.photoCount,
+    "",
+    "Items:",
+    itemLines,
+    "",
+    "What happened:",
+    payload.description,
+    "",
+    "Review it in admin: https://cabinetdealz.com/admin?tab=orders&orderId=" + payload.orderId,
+  ].join("\n");
+  try {
+    await sendEmail({
+      to: claimsNotifyEmail(),
+      subject: "Damage claim #" + payload.claimId + " on invoice " + payload.invoiceNumber,
+      text,
+    });
+  } catch (error) {
+    console.error("[damageClaim] notification failed", error);
+  }
+}
 export const MAX_PHOTOS_PER_CLAIM = 8;
 export const MAX_PHOTO_BYTES = 8 * 1024 * 1024;
 export const MIN_DESCRIPTION_CHARS = 12;
@@ -196,6 +243,20 @@ export async function createDamageClaim(db: Db, input: ClaimInput): Promise<Clai
     console.error("[damageClaim] submission failed", error);
     return { ok: false, status: 500, message: "The claim could not be saved. Try again in a moment." };
   }
+
+  await notifyClaimRaised({
+    claimId,
+    invoiceNumber,
+    orderId,
+    description: claim.description,
+    stage: claim.discoveredStage,
+    contactEmail,
+    lines: claim.items.map((item) => ({
+      sku: ordered.get(item.orderItemId)?.sku ?? "",
+      quantity: item.damagedQuantity,
+    })),
+    photoCount: claim.photos.length,
+  });
 
   return {
     ok: true,
