@@ -23,6 +23,7 @@ import { sdk } from "./sdk";
 import cron from "node-cron";
 import { corsMiddleware } from "../lib/cors";
 import { registerCareersApply } from "../careersApply";
+import { registerInvoiceLookup } from "../invoiceLookupRoute";
 import { getFrontendShell } from "../lib/frontendShell";
 import { recoverDueGeminiImageTestJobs } from "../routers/designPhotoRenders";
 import { ensureUsCabinetDepotProductLines } from "../lib/uscdProductLines";
@@ -110,6 +111,8 @@ async function startServer() {
   registerStorageProxy(app);
   // Public careers page application (no login). See server/careersApply.ts.
   registerCareersApply(app);
+// Public invoice lookup (no login): invoice number + email or ZIP on the order.
+registerInvoiceLookup(app);
   registerSharedRoomPreviewRoutes(app);
   registerQboRoutes(app);
   registerVendorInventorySync(app);

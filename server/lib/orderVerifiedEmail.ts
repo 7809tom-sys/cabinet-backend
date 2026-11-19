@@ -108,16 +108,30 @@ export function composeOrderVerifiedEmail(input: {
   const contactLine = phone
     ? `Any questions, feel free to contact ${brand} at ${phone}.`
     : `Any questions, feel free to contact ${brand}.`;
+  // The invoice page (Tom, Nov 19 2026): one click to the live invoice and its
+  // tracking. The email or ZIP is the verification key, so build the pre-filled link
+  // only when the order carries an invoice number; otherwise send them to the page
+  // to type it rather than to a link that cannot work.
+  const invoiceNumber = String((input.order as { invoiceNumber?: string | null }).invoiceNumber ?? "").trim();
+  const invoiceBase = "https://cabinetdealz.com/invoice";
+  const invoiceLink = invoiceNumber
+    ? invoiceBase + "?invoice=" + encodeURIComponent(invoiceNumber) + "&key=" + encodeURIComponent(to)
+    : invoiceBase;
+  const invoiceLine = invoiceNumber
+    ? "Track your shipment and report any damage on your invoice: " + invoiceLink
+    : "Track your shipment and report any damage on your invoice: " + invoiceLink,
   const text = [
     greeting,
     verifiedLine,
     contactLine,
+    invoiceLine,
     `Thank you for your order.\n${brand}`,
   ].join("\n\n");
   const html = `<!doctype html><html><body style="font-family:Arial,sans-serif;color:#1a2b4a">
     <p>${escapeHtml(greeting)}</p>
     <p>Your order <strong>#${escapeHtml(orderNumber)}</strong> has been verified by ${escapeHtml(brand)}. Look for further information soon with your shipping details.</p>
     <p>${escapeHtml(contactLine)}</p>
+    <p><a href="${escapeHtml(invoiceLink)}">Track your shipment and report any damage</a></p>
     <p>Thank you for your order.<br>${escapeHtml(brand)}</p>
     </body></html>`;
   return {
