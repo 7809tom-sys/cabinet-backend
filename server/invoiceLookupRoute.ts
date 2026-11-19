@@ -13,6 +13,7 @@
 import type { Express, Request, Response } from "express";
 import { getDb } from "./db";
 import { invoiceLookupAllowed, lookupInvoice } from "./lib/invoiceLookup";
+import { createDamageClaim, MAX_PHOTOS_PER_CLAIM } from "./lib/damageClaim";
 
 const TOO_MANY =
   "Too many invoice lookups from this device or for this invoice. Wait a few minutes and try again.";
@@ -25,6 +26,38 @@ function clientIp(req: Request): string | null {
 }
 
 export function registerInvoiceLookup(app: Express): void {
+  /**
+   * POST /api/invoices/claim - report damaged items.
+   * Proves invoice access with the same pair as the lookup, then validates items,
+   * quantities, description and photos server-side (damageClaim.ts).
+   */
+  app.post("/api/invoices/claim", async (req: Request, res: Response) => {
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const photos = Array.isArray(body.photos) ? body.photos : [];
+    if (photos.length > MAX_PHOTOS_PER_CLAIM) {
+      res.status(400).json({ ok: false, message: "Add up to " + MAX_PHOTOS_PER_CLAIM + " photos." });
+      return;
+    }
+    if (!invoiceLookupAllowed({ ip: clientIp(req), invoiceNumber: String(body.invoiceNumber ?? "") })) {
+      res.status(429).json({ ok: false, message: TOO_MANY });
+      return;
+    }
+    try {
+      const result = await createDamageClaim(getDb() as never, {
+        invoiceNumber: String(body.invoiceNumber ?? ""),
+        emailOrZip: String(body.emailOrZip ?? ""),
+        description: String(body.description ?? ""),
+        discoveredStage: typeof body.discoveredStage === "string" ? body.discoveredStage : null,
+        contactEmail: typeof body.contactEmail === "string" ? body.contactEmail : null,
+        items: Array.isArray(body.items) ? (body.items as never) : [],
+        photos: photos as never,
+      });
+      res.status(result.ok ? 200 : result.status).json(result);
+    } catch (error) {
+      console.error("[damageClaim] route failed", error);
+      res.status(500).json({ ok: false, message: "The claim could not be saved. Try again in a moment." });
+    }
+  });
   app.post("/api/invoices/lookup", async (req: Request, res: Response) => {
     const body = (req.body ?? {}) as { invoiceNumber?: unknown; emailOrZip?: unknown };
     const invoiceNumber = typeof body.invoiceNumber === "string" ? body.invoiceNumber.trim() : "";

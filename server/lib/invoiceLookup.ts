@@ -157,7 +157,7 @@ export async function lookupInvoice(db: Db, input: InvoiceLookupInput): Promise<
   const orderId = Number(header.id);
 
   const items = rows(await db.execute(sql`
-    SELECT id, cabinetCode AS sku, description AS name, quantity
+    SELECT id, COALESCE(platformSku, distributorSku) AS sku, description AS name, quantity
     FROM order_items WHERE orderId = ${orderId} ORDER BY id
   `)).map((row) => ({
     id: Number(row.id),
