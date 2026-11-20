@@ -65,6 +65,7 @@ import { joinUniqueLabels } from "../lib/orderMoney";
 import { persistOrderCostSnapshot, withDistributorCostSnapshots } from "../lib/orderCostSnapshot";
 import { orderSchemaProcedureError } from "../lib/orderSchemaGuard";
 import { canAccessOrderPalletPhoto, readPalletPhotoForOrder, storeOrderPalletPhoto } from "../lib/orderPalletPhoto";
+import { verifiedEmailResponseFields } from "../lib/orderVerifiedEmailResponse";
 import { adminMarkOrderPaid, attachOrderFulfillmentOverlay, backfillOrderCrm, markOrderShipped, markOrderSigned, markOrderVerified, notifyOrderDistributors, onOrderPlaced } from "../lib/orderSideEffects";
 import { readStripeChargeFacts } from "../lib/stripeChargeFacts";
 import { choosePromotedPrice, type PricedCandidate } from "@shared/vendorPromotions";
@@ -1836,9 +1837,12 @@ export const ordersRouter = router({
   markVerified: adminProcedure
     .input(z.object({ id: z.number().int().positive() }))
     .mutation(async ({ input, ctx }) => {
-      const failure = orderSchemaProcedureError(await markOrderVerified(input.id, ctx.user.name || "Admin"));
+      const result = await markOrderVerified(input.id, ctx.user.name || "Admin");
+      const failure = orderSchemaProcedureError(result);
       if (failure) throw failure;
-      return { id: input.id };
+      // The admin panel reads these two to report the thank-you email separately
+      // from the status change, so a mail problem never looks like a failed verify.
+      return { id: input.id, ...verifiedEmailResponseFields(result.customerEmail) };
     }),
 
   markShipped: adminProcedure
