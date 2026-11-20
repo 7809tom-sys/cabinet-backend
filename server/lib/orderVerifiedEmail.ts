@@ -117,9 +117,7 @@ export function composeOrderVerifiedEmail(input: {
   const invoiceLink = invoiceNumber
     ? invoiceBase + "?invoice=" + encodeURIComponent(invoiceNumber) + "&key=" + encodeURIComponent(to)
     : invoiceBase;
-  const invoiceLine = invoiceNumber
-    ? "Track your shipment and report any damage on your invoice: " + invoiceLink
-    : "Track your shipment and report any damage on your invoice: " + invoiceLink,
+  const invoiceLine = "Track your shipment and report any damage on your invoice: " + invoiceLink;
   const text = [
     greeting,
     verifiedLine,
