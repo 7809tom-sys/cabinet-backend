@@ -132,7 +132,7 @@ export const AI_DOOR_PROFILE_NOT_READY_MESSAGE =
 export async function writeAiDoorProfile(
   db: ExecDb & { insert?: unknown },
   styleId: number,
-  profile: { model: string | null; text: string | null; imageUrl: string | null },
+  profile: { model: string | null; text: string | null; imageUrl: string | null; renderHex?: string | null },
 ): Promise<void> {
   if (!(await aiDoorProfileColumnsAvailable(db))) {
     throw new Error(AI_DOOR_PROFILE_NOT_READY_MESSAGE);
@@ -142,7 +142,11 @@ export async function writeAiDoorProfile(
       UPDATE door_styles
       SET aiProfileModel = ${profile.model},
           aiProfileText = ${profile.text},
-          aiProfileImageUrl = ${profile.imageUrl}
+          aiProfileImageUrl = ${profile.imageUrl},
+          -- The approved image's own colour, sampled when the admin accepts it.
+          -- Without this the Designer keeps painting the catalog colour, which is
+          -- exactly the "own colour" Tom saw on Slate Gray (Nov 20 2026).
+          renderHex = COALESCE(${profile.renderHex ?? null}, renderHex)
       WHERE id = ${styleId}
     `);
   } catch (error) {
