@@ -11,6 +11,7 @@ import { doorColorSourceSelectionInput, EMPTY_DOOR_COLOR_SOURCE_COLUMNS, parseDo
 import { doorColorSourceColumnsAvailable, doorColorSourceNotReadyMessage, doorStyleColorSources, withDoorColorSourceColumns } from "../lib/doorColorSourceColumns";
 import { syncSupplierDoorSamples } from "../lib/supplierDoorSamples";
 import { withAiDoorProfileColumns, writeAiDoorProfile } from "../lib/aiDoorProfileColumns";
+import { backfillAiProfileHex } from "../lib/aiProfileHexBackfill";
 import { storageFetchObject, storagePut } from "../storage";
 import { TRPCError } from "@trpc/server";
 import { getDb, notInConflict, isCanonicalCabinetMaster, hasPositivePublishedCabinetPrice, getPricingSettings, updatePricingSettings, recalculateStoredTierPrices, getPlatformPricingSettings, updatePlatformPricingSettings } from "../db";
@@ -758,6 +759,25 @@ export const doorStylesRouter = router({
   // Admin: persist the AI door profile chosen in the editor (model, its stated
   // description and its generated door image) on the style itself. Tom, Nov 13
   // 2026: "its not save the AI Generated images even if i save".
+  // Admin: give every already-approved AI image the colour the Designer needs.
+  // Sampled from the stored image with sharp; dryRun reports without touching a row.
+  backfillAiProfileHex: adminProcedure
+    .input(z.object({
+      dryRun: z.boolean().default(true),
+      ids: z.array(z.number().int().positive()).max(500).optional(),
+      /** Replace an existing colour. Off by default: a typed or synced hex is not ours to overwrite. */
+      overwrite: z.boolean().default(false),
+    }).optional())
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      return backfillAiProfileHex(db as never, {
+        dryRun: input?.dryRun ?? true,
+        ids: input?.ids,
+        overwrite: input?.overwrite ?? false,
+      });
+    }),
+
   saveAiProfile: adminProcedure
     .input(z.object({
       id: z.number().int().positive(),
