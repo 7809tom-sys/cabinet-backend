@@ -908,7 +908,14 @@ async function stampOrderTrail(orderId: number, patch: Record<string, string | n
   }
 }
 
-export async function markOrderVerified(orderId: number, by: string): Promise<OrderSchemaActionResult> {
+/**
+ * A verification result plus what happened to the customer's thank-you email,
+ * so the admin panel can say "verified, email sent to …" or "verified, but the
+ * email was not sent: …". Only present when the trail write succeeded.
+ */
+export type MarkOrderVerifiedResult = OrderSchemaActionResult & { customerEmail?: OrderVerifiedEmailResult };
+
+export async function markOrderVerified(orderId: number, by: string): Promise<MarkOrderVerifiedResult> {
   const at = new Date().toISOString();
   const result = await stampOrderTrail(
     orderId,
@@ -916,8 +923,9 @@ export async function markOrderVerified(orderId: number, by: string): Promise<Or
     "verified",
     `Order verified by ${by}.`,
   );
-  if (result.ok) await notifyCustomerOrderVerified(orderId);
-  return result;
+  if (!result.ok) return result;
+  const customerEmail = await notifyCustomerOrderVerified(orderId);
+  return { ...result, customerEmail };
 }
 
 /**
