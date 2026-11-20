@@ -89,7 +89,7 @@ function storageKeyOf(url: string): string {
   return url.replace(/^https?:\/\/[^/]+/i, "").replace(/^\/manus-storage\//, "").replace(/^\//, "");
 }
 
-export async function backfillAiProfileHex(db: Db, options: { dryRun: boolean; ids?: number[] }): Promise<{
+export async function backfillAiProfileHex(db: Db, options: { dryRun: boolean; ids?: number[]; overwrite?: boolean }): Promise<{
   total: number;
   written: number;
   skipped: number;
@@ -99,7 +99,7 @@ export async function backfillAiProfileHex(db: Db, options: { dryRun: boolean; i
     ? sql`AND id IN ${sql.raw(`(${options.ids.join(",")})`)}`
     : sql``;
   const styles = rows(await db.execute(sql`
-    SELECT id, ourName, doorStyle, aiProfileImageUrl, renderHex
+    SELECT id, ourName, doorStyle, aiProfileImageUrl, renderHex, approvedVersionId
     FROM door_styles
     WHERE aiProfileImageUrl IS NOT NULL AND aiProfileImageUrl <> '' ${filter}
     ORDER BY id
@@ -115,6 +115,21 @@ export async function backfillAiProfileHex(db: Db, options: { dryRun: boolean; i
     try {
       const response = await storageFetchObject(storageKeyOf(imageUrl));
       if (!response.ok) { skipped += 1; results.push({ id, name, imageUrl, hex: null, reason: `image fetch ${response.status}` }); continue; }
+      // An accepted render is the authority: its hex is what the Designer already
+      // paints, and this backfill exists for styles that never had a render.
+      if (style.approvedVersionId != null) {
+        skipped += 1;
+        results.push({ id, name, imageUrl, hex: null, reason: "an accepted render already sets this colour" });
+        continue;
+      }
+      // A style that already carries a hex was set deliberately (admin, supplier sync or
+      // an earlier backfill). Only replace it when the caller asks to.
+      const existingHex = String(style.renderHex ?? "").trim();
+      if (existingHex && !options.overwrite) {
+        skipped += 1;
+        results.push({ id, name, imageUrl, hex: existingHex, reason: "already has a colour; pass overwrite to replace it" });
+        continue;
+      }
       const hex = await sampleImageHex(Buffer.from(await response.arrayBuffer()));
       if (!hex) { skipped += 1; results.push({ id, name, imageUrl, hex: null, reason: "could not sample the door colour" }); continue; }
       if (!options.dryRun) {

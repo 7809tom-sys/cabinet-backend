@@ -765,11 +765,17 @@ export const doorStylesRouter = router({
     .input(z.object({
       dryRun: z.boolean().default(true),
       ids: z.array(z.number().int().positive()).max(500).optional(),
+      /** Replace an existing colour. Off by default: a typed or synced hex is not ours to overwrite. */
+      overwrite: z.boolean().default(false),
     }).optional())
     .mutation(async ({ input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
-      return backfillAiProfileHex(db as never, { dryRun: input?.dryRun ?? true, ids: input?.ids });
+      return backfillAiProfileHex(db as never, {
+        dryRun: input?.dryRun ?? true,
+        ids: input?.ids,
+        overwrite: input?.overwrite ?? false,
+      });
     }),
 
   saveAiProfile: adminProcedure
