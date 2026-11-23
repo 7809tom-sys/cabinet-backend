@@ -12,6 +12,7 @@ import {
 } from "../../drizzle/schema";
 import { getDb } from "../db";
 import { adminProcedure, router } from "../_core/trpc";
+import { storageGetSignedUrl } from "../storage";
 
 const generatedImageSourceSchema = z.enum(["deterministic", "gemini"]);
 type GeneratedImageSource = z.infer<typeof generatedImageSourceSchema>;
@@ -31,6 +32,8 @@ type GeneratedImageEntry = {
   provenance: GeneratedImageProvenance | null;
   generationMethod: string | null;
   createdAt: Date;
+  /** Storage key of the locked source photo the generator was given (Gemini jobs only). */
+  sourceImageKey: string | null;
 };
 
 function generatedImageSourceKey(source: GeneratedImageSource, sourceId: number) {
@@ -83,6 +86,7 @@ export const generatedDesignImagesRouter = router({
           sceneSignature: designGeminiImageTestJobs.sceneSignature,
           imageUrl: designGeminiImageTestJobs.imageUrl,
           provenance: designGeminiImageTestJobs.provenance,
+          sourceImageKey: designGeminiImageTestJobs.sourceImageKey,
           createdAt: designGeminiImageTestJobs.completedAt,
         }).from(designGeminiImageTestJobs)
           .where(and(eq(designGeminiImageTestJobs.status, "completed"),))
@@ -101,6 +105,7 @@ export const generatedDesignImagesRouter = router({
           provenance: row.provenance,
           generationMethod: row.generationMethod,
           createdAt: row.createdAt,
+          sourceImageKey: null,
         })),
         ...geminiRows.filter((row): row is typeof row & { imageUrl: string; createdAt: Date } => Boolean(row.imageUrl && row.createdAt)).map((row) => ({
           source: "gemini" as const,
@@ -112,6 +117,7 @@ export const generatedDesignImagesRouter = router({
           provenance: row.provenance,
           generationMethod: "manual-final-review-gemini-nano-banana-v1",
           createdAt: row.createdAt,
+          sourceImageKey: row.sourceImageKey ?? null,
         })),
       ].sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime()).slice(0, limit);
 
@@ -150,6 +156,17 @@ export const generatedDesignImagesRouter = router({
         }
       }
 
+      // The source photo is stored at queue time (sourceImageKey) but was never
+      // returned, so the review library showed only the output. Sign it here.
+      const sourcePhotoUrls = new Map<string, string | null>();
+      await Promise.all(generated.filter((entry) => entry.sourceImageKey).map(async (entry) => {
+        try {
+          sourcePhotoUrls.set(generatedImageSourceKey(entry.source, entry.sourceId), await storageGetSignedUrl(entry.sourceImageKey!, 3600));
+        } catch {
+          sourcePhotoUrls.set(generatedImageSourceKey(entry.source, entry.sourceId), null);
+        }
+      }));
+
       return {
         total: generated.length,
         items: generated.map((entry) => {
@@ -166,6 +183,7 @@ export const generatedDesignImagesRouter = router({
             sourceKey,
             sourceLabel: sourceLabel(entry.source, entry.generationMethod),
             imageUrl: entry.imageUrl,
+            sourcePhotoUrl: sourcePhotoUrls.get(sourceKey) ?? null,
             createdAt: entry.createdAt,
             designId,
             designName: design?.name ?? "Current design snapshot",
