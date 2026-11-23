@@ -7,7 +7,9 @@
  *   original-image      supplier-uploaded door photo
  *   approved-ai-image   the accepted AI render
  *   sherwin-williams    a confirmed Sherwin-Williams chip (code, name, hex, …)
- *   hex                 a confirmed hand-picked hex
+ *   hex                 a confirmed hand-picked hex. A paint-brand match
+ *                       (kind, brand, code, name, hex) is stored on this same
+ *                       hex source, not as its own mode.
  *
  * NULL columns mean "nothing chosen": the door keeps its current color order.
  * This module never starts or changes AI image generation.
@@ -19,9 +21,27 @@ export type DoorColorSourceOption = (typeof DOOR_COLOR_SOURCES)[number];
 
 const HEX = /^#[0-9a-f]{6}$/i;
 
+/** Brands the door editor can confirm. Spelling is exact, including "Clark + Kensington". */
+export const PAINT_BRANDS = [
+  "Sherwin-Williams",
+  "Behr",
+  "Benjamin Moore",
+  "Valspar",
+  "PPG",
+  "Clark + Kensington",
+] as const;
+export type PaintBrand = (typeof PAINT_BRANDS)[number];
+
+/** Trimmed color code stored beside a paint-brand hex. */
+export const PAINT_BRAND_CODE_MAX = 32;
+/** Trimmed color name stored beside a paint-brand hex. */
+export const PAINT_BRAND_NAME_MAX = 64;
+
 function normalizeHex(value: string): string {
   return value.toLowerCase();
 }
+
+const shortText = (max: number) => z.string().trim().min(1).max(max);
 
 const sherwinColorSchema = z.object({
   finish: z.enum(["stain", "paint"]),
@@ -33,7 +53,31 @@ const sherwinColorSchema = z.object({
   profileImageUrl: z.string().nullable(),
 });
 
-/** Admin write payload. Unconfirmed Sherwin-Williams or Hex picks are rejected. */
+/**
+ * Admin write payload. Unconfirmed Sherwin-Williams or Hex picks are rejected.
+ * A paint brand rides on the hex choice: kind, brand, code, and name are
+ * optional, and they are kept only as a complete set.
+ */
+const hexSelectionInput = z
+  .object({
+    source: z.literal("hex"),
+    confirmed: z.literal(true),
+    chosenAt: z.string().optional(),
+    hex: z.string().regex(HEX).transform(normalizeHex),
+    kind: z.literal("paint-brand").optional(),
+    brand: z.enum(PAINT_BRANDS).optional(),
+    code: shortText(PAINT_BRAND_CODE_MAX).optional(),
+    name: shortText(PAINT_BRAND_NAME_MAX).optional(),
+  })
+  .superRefine((value, ctx) => {
+    const present = [value.kind, value.brand, value.code, value.name].filter((part) => part != null);
+    if (present.length === 0 || present.length === 4) return;
+    ctx.addIssue({
+      code: "custom",
+      message: "A paint brand needs kind, brand, code, and name together.",
+    });
+  });
+
 export const doorColorSourceSelectionInput = z.discriminatedUnion("source", [
   z.object({
     source: z.literal("original-image"),
@@ -43,12 +87,7 @@ export const doorColorSourceSelectionInput = z.discriminatedUnion("source", [
     source: z.literal("approved-ai-image"),
     chosenAt: z.string().optional(),
   }),
-  z.object({
-    source: z.literal("hex"),
-    confirmed: z.literal(true),
-    chosenAt: z.string().optional(),
-    hex: z.string().regex(HEX).transform(normalizeHex),
-  }),
+  hexSelectionInput,
   z.object({
     source: z.literal("sherwin-williams"),
     confirmed: z.literal(true),
@@ -136,9 +175,19 @@ export function selectionToColumns(
 ): DoorColorSourceColumns {
   const updatedAt = toDate(selection.chosenAt, now);
   if (selection.source === "hex") {
+    const paintBrand =
+      selection.kind === "paint-brand" && selection.brand && selection.code && selection.name
+        ? {
+            kind: "paint-brand" as const,
+            brand: selection.brand,
+            code: selection.code,
+            name: selection.name,
+            hex: selection.hex,
+          }
+        : null;
     return {
       doorColorSource: "hex",
-      doorColorSourceValue: { hex: selection.hex },
+      doorColorSourceValue: paintBrand ?? { hex: selection.hex },
       doorColorSourceUpdatedAt: updatedAt,
     };
   }
