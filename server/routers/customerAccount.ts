@@ -18,6 +18,7 @@ import {
 import { canDeleteCustomerDesign, canEditCustomerProject, normalizeEmail } from "@shared/customerDirectory";
 import { planRevert, snapshotDesign } from "@shared/designAssist";
 import { resolveRequestStoreScope, type ResolvedHostScope } from "../lib/affiliateHostScope";
+import { stampCrmDealsForDesignSave } from "../lib/crmDesignSavedStamps";
 import {
   assertFreeUsageAvailable,
   attachFreeUsageRef,
@@ -252,6 +253,8 @@ export const customerAccountRouter = router({
       }
       const copyId = insertId(result);
       await attachFreeUsageRef(db, usageClaim, copyId).catch(() => undefined);
+      // A copy is a newly saved design for the same contact(s) as the original.
+      await stampCrmDealsForDesignSave(db, design.id);
       return { id: copyId, usage: usagePayload({ ...usageGate, snapshot: usageClaim.snapshot }) };
     }),
 
@@ -316,6 +319,7 @@ export const customerAccountRouter = router({
         assistLabel: null,
         recordKind: "customer",
       }).where(and(eq(kitchenDesigns.id, design.id), eq(kitchenDesigns.userId, ctx.user.id)));
+      await stampCrmDealsForDesignSave(db, design.id);
       return { ok: true };
     }),
 

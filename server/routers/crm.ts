@@ -7,6 +7,7 @@ import { getDb } from "../db";
 import { isEnumValueError, isMissingSchemaError, ORDER_SCHEMA_MESSAGES } from "../lib/orderSchemaGuard";
 import { newSaleStagePresent, readOrderSchemaSupport } from "../lib/orderSchemaSupport";
 import { readDealImageCounts } from "../lib/orderSideEffects";
+import { stampCrmDealsFromLinkedDesigns, withCrmDesignSavedStamps } from "../lib/crmDesignSavedStamps";
 import {
   crmDeals,
   crmActivities,
@@ -494,7 +495,9 @@ export const crmRouter = router({
     }
     const orderIds = deals.map((deal) => deal.orderRequestId).filter((id): id is number => id != null);
     const imageCounts = await readDealImageCounts(db, orderIds);
-    const decoratedDeals = deals.map((deal) => {
+    // Read-only, automatic first/last design-saved dates (NULL until 0284 runs).
+    const stampedDeals = await withCrmDesignSavedStamps(db, deals);
+    const decoratedDeals = stampedDeals.map((deal) => {
       const extra = deal.orderRequestId == null ? undefined : imageCounts.get(deal.orderRequestId);
       return {
         ...deal,
@@ -757,7 +760,8 @@ export const crmRouter = router({
         contactEmail: deal.contactEmail,
         orderRequestId: deal.orderRequestId,
       });
-      return { deal, activities, linkedDesigns, emails, invoiceBrand, invoicePrefill, invoiceRecipient, laborEstimates };
+      const [stampedDeal] = await withCrmDesignSavedStamps(db, [deal]);
+      return { deal: stampedDeal ?? { ...deal, firstDesignSavedAt: null, lastDesignSavedAt: null }, activities, linkedDesigns, emails, invoiceBrand, invoicePrefill, invoiceRecipient, laborEstimates };
     }),
 
   // ── Saved designs compatible with this CRM scope/deal ──────────────────────
@@ -856,6 +860,7 @@ export const crmRouter = router({
         linkedByUserId: ctx.user.id,
       });
       await db.update(crmDeals).set({ updatedAt: new Date() }).where(eq(crmDeals.id, deal.id));
+      await stampCrmDealsFromLinkedDesigns(db, [deal.id]);
 	    await db.insert(crmActivities).values({
 	      dealId: deal.id,
 	      authorUserId: ctx.user.id,
@@ -1661,6 +1666,7 @@ export const crmRouter = router({
         designName: design.name,
         linkedByUserId: ctx.user.id,
       });
+      await stampCrmDealsFromLinkedDesigns(db, [dealId]);
 
             return { id: dealId, reused: false };
     }),
@@ -1750,6 +1756,7 @@ export const crmRouter = router({
         designName: design.name,
         linkedByUserId: ctx.user.id,
       });
+      await stampCrmDealsFromLinkedDesigns(db, [dealId]);
       return { dealId, created: true, verification: check };
     }),
 
