@@ -6,6 +6,7 @@ import { getDb } from "../db";
 import { cabinets, doorStyles, cabinet3dPreviews } from "../../drizzle/schema";
 import { generateImage } from "../_core/imageGeneration";
 import { storagePut } from "../storage";
+import { doorGroundTruthBlock } from "../lib/doorBlueprintFacts";
 
 /**
  * Build a photorealistic prompt for a single cabinet in a specific door style/color.
@@ -24,6 +25,7 @@ function buildCabinet3dPrompt(cabinet: {
   cornerType: string | null;
 }, style: {
   ourName: string;
+  distributorName?: string | null;
   doorStyle: string | null;
   finish: string | null;
   color: string | null;
@@ -82,6 +84,17 @@ function buildCabinet3dPrompt(cabinet: {
     "Cabinet shown with brushed nickel bar pulls on doors and drawers.",
     "No room context, no countertop, no wall — isolated product shot.",
     "Professional catalog photography style, sharp focus, 4K quality."
+  );
+
+  parts.push(
+    doorGroundTruthBlock({
+      ourName: style.ourName,
+      distributorName: style.distributorName,
+      doorStyle: style.doorStyle,
+      woodSpecies: style.woodSpecies,
+      color: style.color,
+      finish: style.finish,
+    }).replace(/\n/g, " "),
   );
 
   return parts.join(" ");
@@ -167,6 +180,7 @@ export const cabinet3dPreviewRouter = router({
         },
         {
           ourName: style.ourName,
+          distributorName: style.distributorName,
           doorStyle: style.doorStyle,
           finish: style.finish,
           color: style.color,
