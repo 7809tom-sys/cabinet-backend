@@ -73,6 +73,13 @@ function blueprintLine(input: DoorGroundTruthInput): string {
   return "Blueprint: this is not a plain shaker, so the DL Shaker blueprint does not apply. Describe its construction only as seen in the photo, and do not call it a shaker.";
 }
 
+function mustNotContradict(family: DoorBlueprintFamily): string {
+  if (family === "shaker") {
+    return "You must not contradict this ground truth. Do not add or remove panels, and do not describe a raised panel, a two-panel door, a bevel, a bead or any other profile that the blueprint does not have. Within it, describe only the color, the grain and the finish as you see them.";
+  }
+  return "You must not contradict this ground truth. Do not call the door a different profile than the catalog says, and do not add panels or profile features that the photo does not show. Within it, describe only what you see.";
+}
+
 /** The GROUND TRUTH block appended to every door description or door image prompt. */
 export function doorGroundTruthBlock(input: DoorGroundTruthInput = {}): string {
   const ourName = clean(input.ourName) || clean(input.doorName);
@@ -88,7 +95,7 @@ export function doorGroundTruthBlock(input: DoorGroundTruthInput = {}): string {
     `- Color: ${clean(input.color) || "not supplied"}`,
     `- Finish: ${clean(input.finish) || "not supplied"}`,
     `- ${blueprintLine(input)}`,
-    "You must not contradict this ground truth. Do not add or remove panels, and do not describe a raised panel, a two-panel door, a bevel, a bead or any other profile that the blueprint does not have. Within it, describe only the color, the grain and the finish as you see them.",
+    mustNotContradict(doorBlueprintFamily(input)),
   ];
   return lines.join("\n");
 }
