@@ -104,7 +104,7 @@ describe("each column calls its own provider with its own prompt", () => {
     expect(new Headers(seen!.init.headers).get("authorization")).toBe("Bearer sk-test-openai");
     const body = JSON.parse(String(seen!.init.body)) as { model: string; messages: { content: { text?: string }[] }[] };
     expect(body.model).toBe("gpt-test");
-    expect(body.messages[0]!.content[0]!.text).toBe(AI_DOOR_PROMPTS.gpt);
+    expect(body.messages[0]!.content[0]!.text).toMatch(new RegExp(`^${AI_DOOR_PROMPTS.gpt.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\n\\nGROUND TRUTH`));
     expect(result).toMatchObject({
       status: "ok",
       model: "gpt",
@@ -135,7 +135,7 @@ describe("each column calls its own provider with its own prompt", () => {
     expect(headers.get("anthropic-version")).toBe("2023-06-01");
     const body = JSON.parse(String(seen!.init.body)) as { model: string; messages: { content: { type: string; text?: string }[] }[] };
     expect(body.model).toBe("claude-test");
-    expect(body.messages[0]!.content[0]).toEqual({ type: "text", text: AI_DOOR_PROMPTS.claude });
+    expect(body.messages[0]!.content[0]!.text!.startsWith(`${AI_DOOR_PROMPTS.claude.trim()}\n\nGROUND TRUTH`)).toBe(true);
     expect(result).toMatchObject({ status: "ok", description: "Style family: raised panel." });
   });
 

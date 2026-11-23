@@ -12,6 +12,10 @@
  * it cannot be used as a general-purpose model proxy.
  */
 import { z } from "zod";
+import { eq } from "drizzle-orm";
+import { getDb } from "../db";
+import { doorStyles } from "../../drizzle/schema";
+import type { DoorGroundTruthInput } from "../lib/doorBlueprintFacts";
 import { adminProcedure, router } from "../_core/trpc";
 import { AI_DOOR_MODELS } from "../../shared/aiDoorPrompts";
 import {
@@ -35,7 +39,44 @@ const describeInput = z.object({
   finish: z.string().max(200).nullable().optional(),
   /** The plain-text color description, used only to brief the image model. */
   colorDescription: z.string().max(600).nullable().optional(),
+  /** Optional catalog facts. When styleId is given the server reads them itself, so the caller need not send these. */
+  ourName: z.string().max(200).nullable().optional(),
+  distributorName: z.string().max(200).nullable().optional(),
+  doorStyle: z.string().max(200).nullable().optional(),
+  woodSpecies: z.string().max(100).nullable().optional(),
+  color: z.string().max(200).nullable().optional(),
 });
+
+/** Catalog facts for the GROUND TRUTH block: the saved style row wins over anything the browser sent. */
+async function groundTruthFor(input: z.infer<typeof describeInput>): Promise<DoorGroundTruthInput> {
+  const sent: DoorGroundTruthInput = {
+    ourName: input.ourName, distributorName: input.distributorName, doorStyle: input.doorStyle,
+    woodSpecies: input.woodSpecies, color: input.color,
+  };
+  if (!input.styleId) return sent;
+  try {
+    const db = await getDb();
+    if (!db) return sent;
+    const [row] = await db
+      .select({
+        ourName: doorStyles.ourName, distributorName: doorStyles.distributorName, doorStyle: doorStyles.doorStyle,
+        woodSpecies: doorStyles.woodSpecies, color: doorStyles.color, finish: doorStyles.finish,
+        railWidth: doorStyles.railWidth, stileWidth: doorStyles.stileWidth,
+      })
+      .from(doorStyles)
+      .where(eq(doorStyles.id, input.styleId))
+      .limit(1);
+    if (!row) return sent;
+    return {
+      ourName: row.ourName ?? sent.ourName, distributorName: row.distributorName ?? sent.distributorName,
+      doorStyle: row.doorStyle ?? sent.doorStyle, woodSpecies: row.woodSpecies ?? sent.woodSpecies,
+      color: row.color ?? sent.color, finish: row.finish ?? input.finish,
+      railWidthIn: row.railWidth ?? row.stileWidth,
+    };
+  } catch {
+    return sent;
+  }
+}
 
 export const aiDoorDescriptionRouter = router({
   /**
@@ -68,6 +109,7 @@ export const aiDoorDescriptionRouter = router({
         doorName: input.doorName ?? null,
         finish: input.finish ?? null,
         colorDescription: input.colorDescription ?? null,
+        groundTruth: await groundTruthFor(input),
       });
     }),
 });

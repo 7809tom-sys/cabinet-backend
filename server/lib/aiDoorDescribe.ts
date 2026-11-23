@@ -34,6 +34,7 @@ import type { AiDoorModel } from "../../shared/aiDoorPrompts";
 import { AI_DOOR_IMAGE_FAILED_MESSAGE, AI_DOOR_IMAGE_PLANS } from "../../shared/aiDoorImage";
 import { ENV } from "../_core/env";
 import { storageFetchObject } from "../storage";
+import { withDoorGroundTruth, type DoorGroundTruthInput } from "./doorBlueprintFacts";
 import { paintDoorImage, type DoorImageInput, type DoorImageResult } from "./aiDoorImage";
 
 /** Longest prompt this endpoint will forward. The shipped prompts are ~1.2 KB. */
@@ -217,10 +218,12 @@ export function aiDoorProviderRequest(args: {
   prompt: string;
   photoDataUrl: string | null;
   image: AiDoorDescribeImage | null;
+  /** What the catalog knows about this door; becomes the GROUND TRUTH block in the prompt. */
+  groundTruth?: DoorGroundTruthInput | null;
   env?: ProviderEnv;
 }): ProviderRequest {
   const env = args.env ?? providerEnv();
-  const text = args.prompt.trim();
+  const text = withDoorGroundTruth(args.prompt, args.groundTruth);
   const dataUrl = args.photoDataUrl;
   if (args.model === "claude") {
     const content: Record<string, unknown>[] = [{ type: "text", text }];
@@ -339,6 +342,8 @@ export async function describeDoorWithAi(args: {
   doorName?: string | null;
   finish?: string | null;
   colorDescription?: string | null;
+  /** Catalog facts (style names, species, color, finish, profile) for the GROUND TRUTH block. */
+  groundTruth?: DoorGroundTruthInput | null;
   env?: ProviderEnv;
   fetchImpl?: typeof fetch;
   loadPhoto?: (image: AiDoorDescribeImage | null | undefined) => Promise<string | null>;
@@ -367,7 +372,12 @@ export async function describeDoorWithAi(args: {
   }
 
   const photo = await (args.loadPhoto ?? loadDoorPhotoDataUrl)(args.image ?? null);
-  const request = aiDoorProviderRequest({ model, prompt, photoDataUrl: photo, image: args.image ?? null, env });
+  const groundTruth: DoorGroundTruthInput = {
+    doorName: args.doorName ?? null,
+    finish: args.finish ?? null,
+    ...(args.groundTruth ?? {}),
+  };
+  const request = aiDoorProviderRequest({ model, prompt, photoDataUrl: photo, image: args.image ?? null, groundTruth, env });
   const fetchImpl = args.fetchImpl ?? globalThis.fetch;
 
   let description: string | null = null;
@@ -417,6 +427,7 @@ export async function describeDoorWithAi(args: {
       doorName: args.doorName ?? null,
       finish: args.finish ?? null,
       colorDescription: args.colorDescription ?? null,
+      groundTruth,
       env: { openaiApiKey: env.openaiApiKey, geminiApiKey: env.geminiApiKey },
       fetchImpl,
     });

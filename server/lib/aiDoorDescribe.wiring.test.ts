@@ -76,6 +76,7 @@ describe("aiDoorDescription is mounted where the contract says", () => {
       doorName: "Ashford",
       finish: null,
       colorDescription: null,
+      groundTruth: expect.any(Object),
     });
     expect(result).toMatchObject({ status: "ok", description: "Style family: shaker." });
   });

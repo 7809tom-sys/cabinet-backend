@@ -24,6 +24,7 @@
  * and the provider's own error body, so an operator can see why an image did not
  * arrive instead of reading "try again" forever.
  */
+import { doorGroundTruthBlock, type DoorGroundTruthInput } from "./doorBlueprintFacts";
 import { storagePut } from "../storage";
 
 /** The OpenAI image model a door is drawn with. Overridable without a deploy. */
@@ -53,6 +54,8 @@ export type DoorImageInput = {
   /** The style's finish and color words, when the editor has them. */
   finish?: string | null;
   colorDescription?: string | null;
+  /** Catalog facts for the GROUND TRUTH block in the drawing brief. */
+  groundTruth?: DoorGroundTruthInput | null;
   env?: {
     openaiApiKey?: string;
     geminiApiKey?: string;
@@ -91,6 +94,7 @@ export function doorImagePrompt(args: {
   doorName?: string | null;
   finish?: string | null;
   colorDescription?: string | null;
+  groundTruth?: DoorGroundTruthInput | null;
   hasPhoto: boolean;
 }): string {
   const name = args.doorName?.trim();
@@ -110,6 +114,7 @@ export function doorImagePrompt(args: {
   lines.push(
     "One door only: the front face, square to the camera, filling the frame, on a neutral mid-grey studio background with soft even light and a gentle shadow.",
     "No kitchen, no cabinets around it, no hardware, no people, no text, no labels, no watermark.",
+    doorGroundTruthBlock({ doorName: args.doorName, finish: args.finish, ...(args.groundTruth ?? {}) }),
     "Description of the door:",
     args.description.trim(),
   );
@@ -197,6 +202,7 @@ export async function paintDoorImage(args: DoorImageInput): Promise<DoorImageRes
     doorName: args.doorName ?? null,
     finish: args.finish ?? null,
     colorDescription: args.colorDescription ?? null,
+    groundTruth: args.groundTruth ?? null,
     hasPhoto: Boolean(args.photoDataUrl),
   });
 
