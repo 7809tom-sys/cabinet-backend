@@ -23,13 +23,13 @@ describe("public hardware catalog contract", () => {
     expect(listSelect).not.toContain("pkgLength:");
   });
 
-  it("keeps standalone checkout profile-gated while signing a distinct bundled-free hardware quote", () => {
-    expect(source).toContain("hardwareProfileIsComplete(profile)");
+  it("signs a free hardware shipping quote under the site policy", () => {
     expect(source).toContain("hardwareCheckoutEligibility");
     expect(source).toContain("vendorProductId: item.vendorProductId");
     expect(source).toContain('quoteKind: "hardware"');
-    expect(source).toContain('hardwareShippingMode: eligibility.promotionApplied ? "bundled_free" : "standalone_profile"');
-    expect(source).toContain("...(eligibility.promotionApplied ? {} : { profileRevision: profile?.profileRevision ?? 0 })");
+    expect(source).toContain('hardwareShippingMode: "policy_free"');
+    expect(source).toContain("Hardware ships free.");
+    expect(source).toContain("const shippingCents = 0;");
   });
 
   it("uses the hardware vendor's profile ZIP and one package, without a per-handle package cap", () => {

@@ -8,7 +8,13 @@ import { TRPCError } from "@trpc/server";
 import { and, eq } from "drizzle-orm";
 import { adminProcedure, publicProcedure, router, supplierProfileProcedure } from "../_core/trpc";
 import { getDb } from "../db";
-import { distributorIntegrations, distributors, vendorLines } from "../../drizzle/schema";
+import { distributorIntegrations, distributors, orderRequests, vendorLines } from "../../drizzle/schema";
+import { notifyOwner } from "../_core/notification";
+import {
+  AWAITING_MANUAL_SHIPPING_QUOTE_STATUS,
+  AWAITING_SHIPPING_ESTIMATE_STATUS,
+} from "../../shared/shippingRules";
+import { buildShippingPathOwnerEmail } from "../lib/shippingQuotePaths";
 import { pelicanProducts, pelicanShippingProfiles } from "../../drizzle/pelicanSchema";
 import { approvedVendorLinkedDistributorIds, approvedVendorMatchesDistributor } from "../lib/approvedVendorAccess";
 import { encryptDistributorSecret } from "../lib/distributorIntegrationCrypto";
@@ -36,6 +42,80 @@ import {
 } from "../../shared/shippingQuote";
 
 const quoteLimiter = createShippingQuoteRateLimiter();
+
+const shippingPathRequestSchema = z.object({
+  path: z.enum(["estimate", "manual"]),
+  originatorName: z.string().max(256).optional(),
+  originatorEmail: z.string().email().max(320),
+  originatorPhone: z.string().max(32).optional(),
+  deliveryAddress: z.object({
+    line1: z.string().trim().min(3).max(256),
+    line2: z.string().max(256).nullable().optional(),
+    city: z.string().trim().min(2).max(128),
+    state: z.string().trim().min(2).max(64),
+    zip: z.string().trim().min(5).max(16),
+  }),
+  orderRequestId: z.number().int().positive().nullable().optional(),
+  requestNumber: z.string().max(64).nullable().optional(),
+  pendingCategories: z.array(z.string().max(64)).max(20),
+  knownShippingCents: z.number().int().min(0).max(100_000_000),
+  pendingLabels: z.array(z.string().max(240)).max(20),
+  lineSummary: z.string().max(8000),
+  notes: z.string().max(2000).nullable().optional(),
+});
+
+const pathRequestLimiter = createShippingQuoteRateLimiter();
+
+export function resetShippingPathRateLimitForTests() {
+  // Recreate by allowing a well-known key at time 0 is not enough; the limiter
+  // is a sliding window. Tests use a unique email per case or this hook.
+  (pathRequestLimiter as { resetForTests?: () => void }).resetForTests?.();
+}
+
+async function handleShippingPathRequest(
+  ctx: { user?: { id?: number; role?: string } | null },
+  input: z.infer<typeof shippingPathRequestSchema>,
+  keyPrefix: string,
+) {
+  if (!pathRequestLimiter.allow(`${keyPrefix}:${input.originatorEmail.toLowerCase()}`, Date.now())) {
+    throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "Too many shipping requests. Wait a minute and try again." });
+  }
+  const email = buildShippingPathOwnerEmail(input);
+  const emailed = await notifyOwner(email);
+  const status = input.path === "manual"
+    ? AWAITING_MANUAL_SHIPPING_QUOTE_STATUS
+    : AWAITING_SHIPPING_ESTIMATE_STATUS;
+  let updatedOrder = false;
+  if (input.orderRequestId) {
+    const db = await getDb();
+    if (db) {
+      const rows = await db.select().from(orderRequests).where(eq(orderRequests.id, input.orderRequestId)).limit(1);
+      const order = rows[0];
+      const callerId = ctx.user?.id;
+      const allowed = Boolean(order) && (
+        ctx.user?.role === "admin"
+        || (callerId != null && order.userId === callerId)
+        || (order.originatorEmail ?? "").trim().toLowerCase() === input.originatorEmail.trim().toLowerCase()
+      );
+      if (order && allowed) {
+        const patch = input.path === "manual"
+          ? {
+              shippingQuoteStatus: status,
+              manualShippingQuoteRequestedAt: new Date(),
+              pendingShippingCategories: input.pendingCategories.join(",") || null,
+            }
+          : {
+              shippingQuoteStatus: status,
+              shippingEstimateRequestedAt: new Date(),
+              pendingShippingCategories: input.pendingCategories.join(",") || null,
+            };
+        await db.update(orderRequests).set(patch).where(eq(orderRequests.id, order.id));
+        updatedOrder = true;
+      }
+    }
+  }
+  return { ok: true, emailed, status, updatedOrder };
+}
 
 const quoteItemSchema = z.object({
   kind: z.enum(["pelican", "cabinet", "vendor_product"]),
@@ -320,4 +400,28 @@ export const shippingQuotesRouter = router({
       mismatches: comparePelicanProfileWeights(saved, catalog).slice(0, 100),
     };
   }),
+
+  /**
+   * Customer requests a shipping estimate. Emails OWNER_EMAIL through notifyOwner
+   * and, when an order id is supplied, marks it awaiting_shipping_estimate.
+   * The customer can still place or save the order with shipping pending.
+   */
+  requestEstimate: publicProcedure
+    .input(shippingPathRequestSchema)
+    .mutation(async ({ ctx, input }) => {
+      if (input.path !== "estimate") {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Use the estimate path to request a shipping estimate." });
+      }
+      return handleShippingPathRequest(ctx, { ...input, path: "estimate" }, "estimate");
+    }),
+
+  /**
+   * Customer sends the whole invoice for a manual team quote. Emails
+   * OWNER_EMAIL and holds payment capture until the team quotes it.
+   */
+  requestManualQuote: publicProcedure
+    .input(shippingPathRequestSchema)
+    .mutation(async ({ ctx, input }) => {
+      return handleShippingPathRequest(ctx, { ...input, path: "manual" }, "manual");
+    }),
 });
