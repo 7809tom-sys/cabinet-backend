@@ -1836,6 +1836,8 @@ export type OrderLineItem = {
   distributorId?: number | null;
   /** Non-cabinet catalog products use their own verified shipping contracts. */
   productKind?: "surface" | "hardware" | "sample" | null;
+  /** Catalog category, used to apply per-lane shipping rules. */
+  category?: string | null;
   /** Back-office sample order. Not a public catalog row. */
   sampleOfferId?: number | null;
   sampleKitId?: number | null;
@@ -1947,6 +1949,17 @@ export const orderRequests = mysqlTable("order_requests", {
   // QuickBooks Online sync: invoice ID returned by QBO after push.
   qboInvoiceId: varchar("qboInvoiceId", { length: 64 }),
   qboSyncedAt: timestamp("qboSyncedAt"),
+  // Rate-source path for this invoice: fixed/quoted, estimate pending, or a
+  // manual team quote that holds payment capture.
+  shippingQuoteStatus: mysqlEnum("shippingQuoteStatus", [
+    "none",
+    "quoted",
+    "awaiting_shipping_estimate",
+    "awaiting_manual_shipping_quote",
+  ]).default("none").notNull(),
+  shippingEstimateRequestedAt: timestamp("shippingEstimateRequestedAt"),
+  manualShippingQuoteRequestedAt: timestamp("manualShippingQuoteRequestedAt"),
+  pendingShippingCategories: varchar("pendingShippingCategories", { length: 255 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 }, (t) => ({

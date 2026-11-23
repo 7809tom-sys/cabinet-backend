@@ -25,7 +25,7 @@ export type FreightQuoteTokenPayload = {
   /** Distinguishes a normal carrier quote from the Hardware Resources shipment quote. */
   quoteKind?: "freight" | "hardware";
   /** Hardware-only shipping authorization; bundled-free still requires verified kitchen freight at order submission. */
-  hardwareShippingMode?: "standalone_profile" | "bundled_free";
+  hardwareShippingMode?: "standalone_profile" | "bundled_free" | "policy_free";
   /** Hardware-only, server-resolved vendor profile origin. Never supplied by the browser. */
   originZip?: string;
   /** Hardware Resources profile revision when the token was issued. */

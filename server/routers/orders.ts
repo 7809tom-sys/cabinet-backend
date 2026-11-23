@@ -59,6 +59,12 @@ import { isCatalogFreeShippingIdentity, loadCatalogFreeShippingIndex } from "../
 import { CabinetFreeShippingSchemaError, isMissingFreeShippingColumn } from "../lib/cabinetFreeShippingSchema";
 import { isStagingTestHost } from "@shared/stagingTestMode";
 import { HARDWARE_LINE_CODE, hardwareProfileIsComplete, hardwareRetailCents, hardwareVendorOriginZip } from "@shared/hardwareCommerce";
+import {
+  itemUsesExistingCarrierQuote,
+  quoteShippingByRules,
+  type ShippingItemInput,
+} from "@shared/shippingRules";
+import { canCaptureShippingPayment, resolveShippingQuoteStatus } from "../lib/shippingQuotePaths";
 import { callerCanReadOrder, generateOrderAccessToken } from "../lib/orderAccess";
 import { enrichAdminOrderRows, loadAdminOrderDetail } from "../lib/adminOrderRead";
 import { joinUniqueLabels } from "../lib/orderMoney";
@@ -255,6 +261,7 @@ const lineItemInput = z.object({
   styleId: z.number().nullable().optional(),
   distributorId: z.number().int().positive().nullable().optional(),
   productKind: z.enum(["surface", "hardware"]).nullable().optional(),
+  category: z.string().max(128).nullable().optional(),
   pelicanProductId: z.number().int().positive().nullable().optional(),
   vendorProductId: z.number().int().positive().nullable().optional(),
   tier: tierEnum.nullable().optional(),
@@ -793,6 +800,9 @@ export const ordersRouter = router({
         liftgateRequired: z.boolean().optional(),
         freightQuoteToken: z.string().max(4096).optional(),
         hardwareFreightQuoteToken: z.string().max(4096).optional(),
+        shippingQuotePath: z.enum(["fixed", "estimate", "manual"]).optional(),
+        pendingShippingCategories: z.array(z.string().max(64)).max(20).optional(),
+        knownShippingCents: z.number().int().min(0).max(100_000_000).optional(),
         pickupDistributorId: z.number().int().positive().nullable().optional(),
         /** 2-letter US state code for sales tax calculation */
         taxState: z.string().length(2).optional(),
@@ -847,6 +857,7 @@ export const ordersRouter = router({
           styleId: l.styleId ?? input.styleId ?? null,
           distributorId: l.distributorId ?? null,
           productKind: l.productKind ?? null,
+          category: l.category ?? null,
           vendorProductId: l.vendorProductId ?? null,
           tier: l.tier ?? input.tier,
           matched: l.matched,
@@ -1072,11 +1083,30 @@ export const ordersRouter = router({
       const quotedMerchandiseLines = nonHardwareOrderLines.filter(
         (line) => !isCatalogFreeShippingIdentity(line, catalogFreeShippingIndex),
       );
-      const linesThatNeedACarrierQuote = quotedMerchandiseLines.filter(
+      const shippingDestination = {
+        state: deliveryAddress?.state ?? input.shippingState ?? input.taxState ?? "",
+        zip: deliveryAddress?.zip ?? input.zip ?? "",
+      };
+      const toShippingItem = (line: { productKind?: string | null; category?: string | null; description?: string | null; qty: number }): ShippingItemInput => ({
+        productKind: line.productKind ?? null,
+        category: line.category ?? null,
+        name: line.description,
+        qty: line.qty,
+      });
+      const ruleQuote = quoteShippingByRules(input.lineItems.map(toShippingItem), shippingDestination);
+      const carrierMerchandiseLines = quotedMerchandiseLines.filter((line) => (
+        itemUsesExistingCarrierQuote(toShippingItem({
+          productKind: line.productKind,
+          category: (line as { category?: string | null }).category,
+          description: line.description,
+          qty: line.qty,
+        }), shippingDestination)
+      ));
+      const linesThatNeedACarrierQuote = carrierMerchandiseLines.filter(
         (line) => !isTemporaryOneDollarCheckoutTestItem(line),
       );
       const quotedMerchandiseCents = Math.max(0, Math.round(
-        quotedMerchandiseLines.reduce((sum, line) => sum + (line.linePrice ?? 0), 0) * 100,
+        carrierMerchandiseLines.reduce((sum, line) => sum + (line.linePrice ?? 0), 0) * 100,
       ));
       if (deliveryMethod === "ship" && linesThatNeedACarrierQuote.length > 0 && input.freightQuoteToken) {
         let quote;
@@ -1088,7 +1118,7 @@ export const ordersRouter = router({
             message: error instanceof Error ? error.message : "Freight quote is invalid.",
           });
         }
-        const expectedItemsHash = freightItemsHash(freightQuoteItemsForOrder(quotedMerchandiseLines));
+        const expectedItemsHash = freightItemsHash(freightQuoteItemsForOrder(carrierMerchandiseLines));
         const quoteMatchesOrder =
           quote.quoteKind !== "hardware" &&
           quote.destinationAddressHash === expectedAddressHash &&
@@ -1154,6 +1184,9 @@ export const ordersRouter = router({
         const [currentHardwareProfile] = hardwareLine
           ? await db.select().from(hardwareShippingProfiles).where(eq(hardwareShippingProfiles.distributorId, hardwareLine.id)).limit(1)
           : [];
+        const isPolicyFreeHardwareQuote = hardwareQuote.quoteKind === "hardware"
+          && hardwareQuote.hardwareShippingMode === "policy_free"
+          && hardwareQuote.totalCents === 0;
         const isBundledFreeHardwareQuote = hardwareQuote.quoteKind === "hardware"
           && hardwareQuote.hardwareShippingMode === "bundled_free";
         const isStandaloneHardwareQuote = hardwareQuote.quoteKind === "hardware"
@@ -1165,22 +1198,34 @@ export const ordersRouter = router({
           && hardwareQuote.liftgate === false
           && hardwareQuote.itemsHash === expectedItemsHash
           && (
-            (isBundledFreeHardwareQuote && hasVerifiedKitchenFreight && hardwareQuote.totalCents === 0)
+            isPolicyFreeHardwareQuote
+            || (isBundledFreeHardwareQuote && hasVerifiedKitchenFreight && hardwareQuote.totalCents === 0)
             || (
               isStandaloneHardwareQuote
               && hardwareProfileIsComplete(currentHardwareProfile ?? null)
               && hardwareQuote.profileRevision === (currentHardwareProfile?.profileRevision ?? -1)
             )
           )
-          && hardwareQuote.originZip === hardwareVendorOriginZip(hardwareLine?.warehouseZips);
+          && (isPolicyFreeHardwareQuote || hardwareQuote.originZip === hardwareVendorOriginZip(hardwareLine?.warehouseZips));
         if (!quoteMatchesOrder) {
           throw new TRPCError({ code: "BAD_REQUEST", message: "The Hardware Resources shipping quote no longer matches this order. Request a new quote." });
         }
-        freightQuoteCents += hardwareQuote.totalCents;
+        freightQuoteCents += isPolicyFreeHardwareQuote ? 0 : hardwareQuote.totalCents;
         freightQuoteVerified = true;
         shippingCarrier = joinUniqueLabels(shippingCarrier, hardwareQuote.carrier);
         shippingService = joinUniqueLabels(shippingService, hardwareQuote.service);
       }
+      if (deliveryMethod === "ship") {
+        freightQuoteCents += ruleQuote.knownRuleShippingCents;
+        if (ruleQuote.knownRuleShippingCents > 0 && linesThatNeedACarrierQuote.length === 0) {
+          freightQuoteVerified = true;
+        }
+      }
+      const shippingQuoteStatus = resolveShippingQuoteStatus({
+        path: input.shippingQuotePath,
+        hasPendingEstimate: ruleQuote.hasPendingEstimate,
+        manualQuoteRequested: input.shippingQuotePath === "manual",
+      });
       // Affiliate attribution: if a referral code was supplied, resolve the
       // active affiliate it belongs to and tag this request.
       let affiliateId: number | null = null;
@@ -1329,6 +1374,10 @@ export const ordersRouter = router({
         liftgateRequired: deliveryMethod === "ship" && liftgateRequired,
         freightQuoteCents,
         freightQuoteVerified,
+        shippingQuoteStatus,
+        shippingEstimateRequestedAt: shippingQuoteStatus === "awaiting_shipping_estimate" ? new Date() : null,
+        manualShippingQuoteRequestedAt: shippingQuoteStatus === "awaiting_manual_shipping_quote" ? new Date() : null,
+        pendingShippingCategories: (input.pendingShippingCategories ?? ruleQuote.categories.filter((row) => row.pendingLabel).map((row) => row.category)).join(",") || null,
         pickupDistributorId: deliveryMethod === "pickup" ? input.pickupDistributorId ?? null : null,
         taxState,
         taxRate: calculatedTax ? String(calculatedTax.taxRate) : null,
@@ -2230,6 +2279,12 @@ export const ordersRouter = router({
       }
       if (order.status !== "submitted") {
         throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Submit the order for review before opening secure checkout." });
+      }
+      if (!canCaptureShippingPayment(order.shippingQuoteStatus)) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "Payment is on hold until the team returns a manual shipping quote for this invoice.",
+        });
       }
 
       const lineItems = (order.lineItems as OrderLineItem[]) ?? [];

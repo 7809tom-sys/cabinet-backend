@@ -380,13 +380,17 @@ export const hardwareRouter = router({
         if (retailCents == null) return { available: false, totalCents: 0, merchandiseCents: 0, shippingCents: null, promotionApplied: false, reason: "One or more selected hardware items are no longer available at a current price." };
         merchandiseCents += retailCents * item.qty;
       }
-      const eligibility = hardwareCheckoutEligibility({
-        profile,
-        vendorOriginZip,
-        hardwareUnits: input.items.reduce((sum, item) => sum + item.qty, 0),
-        containsKitchenMerchandise: input.containsKitchenMerchandise,
-      });
-      const shippingCents = eligibility.shippingCents ?? 0;
+      const units = input.items.reduce((sum, item) => sum + item.qty, 0);
+      // Site policy: hardware (knobs, pulls, hinges, and other hardware) ships free.
+      const eligibility = units > 0
+        ? { eligible: true, shippingCents: 0, promotionApplied: true, reason: "Hardware ships free." }
+        : hardwareCheckoutEligibility({
+            profile,
+            vendorOriginZip,
+            hardwareUnits: units,
+            containsKitchenMerchandise: input.containsKitchenMerchandise,
+          });
+      const shippingCents = 0;
       const quoteToken = eligibility.eligible
           ? createFreightQuoteToken({
             totalCents: shippingCents,
@@ -395,18 +399,17 @@ export const hardwareRouter = router({
             residential: false,
             liftgate: false,
             quoteKind: "hardware",
-            hardwareShippingMode: eligibility.promotionApplied ? "bundled_free" : "standalone_profile",
+            hardwareShippingMode: "policy_free",
             originZip: vendorOriginZip ?? undefined,
-            ...(eligibility.promotionApplied ? {} : { profileRevision: profile?.profileRevision ?? 0 }),
             items: input.items.map((item) => ({ vendorProductId: item.vendorProductId, qty: item.qty })),
           })
         : null;
       return {
         available: eligibility.eligible,
         merchandiseCents,
-        shippingCents: eligibility.shippingCents,
+        shippingCents,
         totalCents: eligibility.eligible ? merchandiseCents + shippingCents : 0,
-        promotionApplied: eligibility.promotionApplied,
+        promotionApplied: true,
         reason: eligibility.reason,
         quoteToken,
         shipment: eligibility.eligible ? {
