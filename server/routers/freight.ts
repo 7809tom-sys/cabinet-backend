@@ -85,6 +85,7 @@ import {
 import { freightClassFromDensity, genericCabinetPackage } from "@shared/genericCabinetPackaging";
 import { isCatalogFreeShippingIdentity, loadCatalogFreeShippingIndex } from "../lib/catalogFreeShipping";
 import {
+  lookupZipLocality,
   postalLocality,
   resolveOriginLocality,
   shopperCarrierAddress,
@@ -1876,6 +1877,15 @@ function affiliateLiveRateUnavailable(billableWeightLbs: number, shipmentGroups?
 }
 
 export const freightRouter = router({
+  /**
+   * Public read-only city and state for a US ZIP. Checkout autofill calls this
+   * so the ZIP table stays on the server and is not shipped to the browser.
+   * No auth and no database. Unknown or unusable input returns null.
+   */
+  lookupZip: publicProcedure
+    .input(z.object({ zip: z.string().max(20) }))
+    .query(({ input }) => lookupZipLocality(input.zip)),
+
   // ─── Public: estimate/quote freight for a cart ──────────────────────────────
   estimate: publicProcedure
     .input(
