@@ -200,6 +200,21 @@ describe("resolveDistributorPoLine", () => {
     expect(JSON.stringify(view)).not.toContain("Cabinet Dealz pull");
   });
 
+  it("uses this style's own name when color and finish are empty", () => {
+    const indexed = indexDistributorCatalog({
+      skus: [{ distributorId: 4, cabinetId: 9, styleId: 390009, distributorSku: "B24", supplierCabinetName: "Base 24" }],
+      styles: [{ id: 390009, ourName: "Treasure Chest", aliasName: "Treasure Chest", color: null, finish: null }],
+    });
+    const view = resolveDistributorPoLine({
+      cabinetId: 9,
+      styleId: 390009,
+      masterCode: "B24",
+      doorStyle: "Shaker White",
+      qty: 1,
+    }, 4, indexed);
+    expect(view.doorStyle).toBe("Treasure Chest");
+  });
+
   it("does not guess when one code matches two cabinets", () => {
     const indexed = indexDistributorCatalog({
       skus: [

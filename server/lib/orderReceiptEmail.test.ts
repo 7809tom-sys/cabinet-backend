@@ -121,6 +121,20 @@ describe("paid order receipt", () => {
     expect(message.html).toContain("$520.00");
     expect(message.text).toContain("Order number: CD-520");
   });
+
+  it("prints each line's own style and color", () => {
+    const message = composeOrderReceipt({
+      ...paidOrder,
+      lineItems: [
+        { ...paidOrder.lineItems![0], doorStyle: "Shaker White", qty: 2, linePrice: 200 },
+        { ...paidOrder.lineItems![0], masterCode: "W3030", description: "Wall 30", doorStyle: "Treasure Chest", qty: 1, linePrice: 180 },
+      ],
+    }, "sales@cabinetdealz.com");
+    expect(message.text).toContain("3 drawer base — Shaker White");
+    expect(message.text).toContain("Wall 30 — Treasure Chest");
+    expect(message.html).toContain("Shaker White");
+    expect(message.html).toContain("Treasure Chest");
+  });
 });
 
 describe("paid order receipt wiring", () => {

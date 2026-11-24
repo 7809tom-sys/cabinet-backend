@@ -5,12 +5,12 @@ import {
   crmDeals,
   distributorSkus,
   distributors,
-  doorStyles,
   orderRequests,
   users,
   type OrderLineItem,
 } from "../../drizzle/schema";
 import { distributorFacingName, resolveDistributorPoLine } from "@shared/distributorPoLine";
+import { loadDoorStyleLabels } from "./doorStyleLabels";
 import { getDb } from "../db";
 import { sendEmail } from "../email";
 import { insertCrmEmailLog } from "./crmCustomerMail";
@@ -633,9 +633,10 @@ async function loadPortions(db: Database, order: typeof orderRequests.$inferSele
     if (!skuDistributor.has(key)) skuDistributor.set(key, row.distributorId);
   }
   let fallback = order.distributorId ?? null;
-  if (fallback == null && order.styleId) {
-    const [style] = await db.select({ distributorId: doorStyles.distributorId }).from(doorStyles).where(eq(doorStyles.id, order.styleId)).limit(1);
-    fallback = style?.distributorId ?? null;
+  if (fallback == null && styleIds.size > 0) {
+    const styles = await loadDoorStyleLabels(db, Array.from(styleIds));
+    const suppliers = Array.from(new Set(Array.from(styles.values()).map((style) => style.distributorId)));
+    if (suppliers.length === 1) fallback = suppliers[0];
   }
   const groups = assignLinesToDistributors(lines.map((line) => ({
     distributorId: line.distributorId,

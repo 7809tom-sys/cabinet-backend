@@ -93,7 +93,7 @@ describe("orders.createRequest affiliate alias submission", () => {
         .limit(1);
       expect(saved[0]?.status).toBe("submitted");
       expect(saved[0]?.styleName).toBe(TEST_ALIAS);
-      expect(saved[0]?.lineItems[0]?.doorStyle).toBe(TEST_ALIAS);
+      expect(saved[0]?.lineItems[0]?.doorStyle ?? "").toContain(TEST_ALIAS);
 
       const deals = await db
         .select({ id: crmDeals.id, affiliateId: crmDeals.affiliateId, orderRequestId: crmDeals.orderRequestId, contactEmail: crmDeals.contactEmail })

@@ -49,6 +49,8 @@ import { verifyUsAddress, formatEnteredAddress } from "../lib/addressVerificatio
 import { buildCrmInvoiceEmailHtml, createCrmInvoicePdf } from "../crmInvoicePdf";
 import { usableInvoicePrefill, verifiedFreightInvoicePrefill } from "../crmInvoicePrefill";
 import { groupedDesignInvoiceMaterials } from "../crmDesignInvoice";
+import { loadDoorStyleLabels } from "../lib/doorStyleLabels";
+import { positiveStyleId } from "@shared/orderStyleLabel";
 import { crmCustomerImportIdentities, prepareCrmCustomerImport } from "@shared/crmCustomerListImport";
 import { sendEmail } from "../email";
 import { loadCrmOutboundPlan } from "../lib/crmOutboundMail";
@@ -600,6 +602,19 @@ export const crmRouter = router({
           .from(affiliates)
           .where(inArray(affiliates.id, linkedAffiliateIds));
       const linkedAffiliateById = new Map(linkedAffiliateRows.map((affiliate) => [affiliate.id, affiliate]));
+      const invoiceStyleIds: number[] = [];
+      for (const design of savedDesignRows) {
+        const selected = positiveStyleId(design.selectedStyleId);
+        if (selected != null) invoiceStyleIds.push(selected);
+        if (!Array.isArray(design.placedCabinets)) continue;
+        for (const placement of design.placedCabinets) {
+          if (placement && typeof placement === "object" && "styleId" in placement) {
+            const styleId = positiveStyleId((placement as { styleId?: unknown }).styleId);
+            if (styleId != null) invoiceStyleIds.push(styleId);
+          }
+        }
+      }
+      const invoiceStyles = await loadDoorStyleLabels(db, invoiceStyleIds);
       let linkedDesigns = linkedDesignRows.flatMap((link) => {
         const savedDesign = savedDesignById.get(link.designId);
 	      if (!savedDesign || savedDesign.affiliateId !== deal.affiliateId) return [];
@@ -633,7 +648,7 @@ export const crmRouter = router({
             : submittedOrderValue > 0
               ? "Submitted order value"
               : "No verified plan price yet",
-          materialLines: groupedDesignInvoiceMaterials(savedDesign?.placedCabinets),
+          materialLines: groupedDesignInvoiceMaterials(savedDesign?.placedCabinets, invoiceStyles, savedDesign?.selectedStyleId),
 	      }];
       });
       const emails = await db

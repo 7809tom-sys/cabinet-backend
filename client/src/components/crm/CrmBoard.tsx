@@ -147,7 +147,7 @@ type LinkedInvoiceDesign = {
 	selectedSurfaces: unknown;
   catalogSubtotal: string | number | null;
   catalogSubtotalSource: string | null;
-  materialLines: { description: string; quantity: number }[];
+  materialLines: { description: string; quantity: number; styleName?: string | null; color?: string | null }[];
 };
 
 const priorityColor: Record<CrmPriority, string> = {
@@ -1152,11 +1152,15 @@ function QuickInvoiceDialog({
       kitchenDesign.amount,
     );
     const includedMaterials = selectedDesignCharge && selectedDesign
-      ? selectedDesign.materialLines.map((line) => ({
-        description: `${label("Included material", "Material incluido")} · ${line.quantity} × ${line.description}`,
-        amount: 0,
-        kind: "included" as const,
-      }))
+      ? selectedDesign.materialLines.map((line) => {
+        const style = [line.styleName, line.color].filter((part): part is string => Boolean(part?.trim())).join(" · ");
+        const detail = (style || line.description).replace(/<img\b[^>]*>/gi, "").replace(/https?:\/\/\S+/gi, "").trim();
+        return {
+          description: `${label("Included material", "Material incluido")} · ${line.quantity} × ${detail}`,
+          amount: 0,
+          kind: "included" as const,
+        };
+      })
       : [];
     return [
       lineFor(cabinetOrder.enabled, label("Cabinet Order", "Pedido de gabinetes"), cabinetOrder.amount),

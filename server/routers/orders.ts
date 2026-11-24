@@ -32,6 +32,8 @@ import { fetchDistributorPoCatalog } from "../lib/distributorPoCatalog";
 import { resolveLineDistributorId } from "../lib/distributorOrderEmail";
 import { emitCrmEvent } from "../_core/crmWebhook";
 import { validateFamilyLock } from "@shared/familyLock";
+import { checkoutLineDescription, composeDoorStyleLabel, doorStyleOwnName, lineColorFinishLabel, orderStyleSummary } from "@shared/orderStyleLabel";
+import { loadDoorStyleLabels } from "../lib/doorStyleLabels";
 import {
   buildCodeIndex,
   matchCode,
@@ -851,6 +853,7 @@ export const ordersRouter = router({
         const unitPrice = l.unitPrice ?? null;
         const linePrice =
           l.linePrice ?? (unitPrice !== null ? Number((unitPrice * l.qty).toFixed(2)) : null);
+        const nonCabinet = l.productKind === "surface" || l.productKind === "hardware";
         return {
           cabinetId: l.cabinetId,
           masterCode: l.masterCode,
@@ -859,8 +862,8 @@ export const ordersRouter = router({
           qty: l.qty,
           unitPrice,
           linePrice,
-          doorStyle: l.doorStyle ?? input.styleName ?? null,
-          styleId: l.styleId ?? input.styleId ?? null,
+          doorStyle: nonCabinet ? null : (l.doorStyle ?? null),
+          styleId: nonCabinet ? null : (l.styleId ?? input.styleId ?? null),
           distributorId: l.distributorId ?? null,
           productKind: l.productKind ?? null,
           category: l.category ?? null,
@@ -874,6 +877,13 @@ export const ordersRouter = router({
       await assertNoPreviewSuppliers(db, {
         distributorIds: normalizedLines.map((line) => line.distributorId),
         styleIds: [input.styleId, ...normalizedLines.map((line) => line.styleId)],
+      });
+      const doorStyleById = await loadDoorStyleLabels(db, normalizedLines.map((line) => line.styleId));
+      normalizedLines = normalizedLines.map((line) => {
+        if (line.productKind === "surface" || line.productKind === "hardware") return line;
+        if (line.distributorId != null || line.styleId == null) return line;
+        const supplierId = doorStyleById.get(line.styleId)?.distributorId ?? null;
+        return supplierId == null ? line : { ...line, distributorId: supplierId };
       });
       if (affiliatePricing) {
         const cabinetLines = normalizedLines.filter((line) => line.productKind !== "surface" && line.productKind !== "hardware");
@@ -1113,13 +1123,15 @@ export const ordersRouter = router({
       }
       const hasOnlyTemporaryFreeShippingItems = isTemporaryOneDollarFreeShippingOrder(normalizedLines);
 
-      // Family-lock: a single order must stay within one door-style family.
-      // Only enforced on submit (a draft may still be mid-review with mixed lines).
+      // Supplier lock: one supplier per submitted order. Colors and door styles
+      // from that supplier stay together. Drafts may still be mid-review.
       if (input.submit) {
-        const lock = validateFamilyLock(
-          normalizedLines.map((l) => ({ styleId: l.styleId, masterCode: l.masterCode })),
-          input.styleId ?? null
-        );
+        const lock = validateFamilyLock(normalizedLines.map((l) => ({
+          styleId: l.styleId,
+          distributorId: l.distributorId,
+          productKind: l.productKind,
+          masterCode: l.masterCode,
+        })));
         if (!lock.ok) {
           throw new TRPCError({ code: "BAD_REQUEST", message: lock.reason });
         }
@@ -1383,8 +1395,30 @@ export const ordersRouter = router({
         lines: normalizedLines,
         aliases: affiliateStyleAliases,
       });
-      const resolvedOrderStyleName = orderAliasPersistence.styleName;
-      const resolvedLines = orderAliasPersistence.lineItems;
+      const resolvedLines = orderAliasPersistence.lineItems.map((line) => {
+        if (line.productKind === "surface" || line.productKind === "hardware") {
+          return { ...line, styleId: null, doorStyle: null };
+        }
+        const style = line.styleId == null ? undefined : doorStyleById.get(line.styleId);
+        if (!style) return line;
+        return {
+          ...line,
+          doorStyle: composeDoorStyleLabel(style, line.styleId == null ? null : affiliateStyleAliases.get(line.styleId) ?? null),
+        };
+      });
+      const cabinetStyleIds = Array.from(new Set(
+        resolvedLines
+          .filter((line) => line.productKind !== "surface" && line.productKind !== "hardware")
+          .map((line) => line.styleId)
+          .filter((styleId): styleId is number => typeof styleId === "number" && styleId > 0),
+      ));
+      const persistedStyleId = cabinetStyleIds.length === 1 ? cabinetStyleIds[0] : null;
+      const persistedStyleName = cabinetStyleIds.length === 0
+        ? null
+        : cabinetStyleIds.length === 1
+          ? orderAliasPersistence.styleName
+          : orderStyleSummary(cabinetStyleIds.map((styleId) => resolvedLines.find((line) => line.styleId === styleId)?.doorStyle));
+      const resolvedOrderStyleName = persistedStyleName;
 
       if (input.submit && affiliateId) {
         const targetStyleIds = new Set<number>();
@@ -1446,7 +1480,7 @@ export const ordersRouter = router({
         shippingState: input.shippingState ?? null,
         source: input.source,
         status: input.submit ? "submitted" : "draft",
-        styleId: input.styleId ?? null,
+        styleId: persistedStyleId,
         styleName: resolvedOrderStyleName,
         tier: resolvedTier,
         lineItems: persistedLines,
@@ -1555,7 +1589,7 @@ export const ordersRouter = router({
             source: input.source,
             kitchenDesignId,
             tier: input.tier,
-            styleName: orderAliasPersistence.crmData.styleName,
+            styleName: persistedStyleName,
             itemCount,
             totalAmount: total > 0 ? Number(total.toFixed(2)) : null,
             deliveryMethod: input.deliveryMethod ?? "ship",
@@ -1645,13 +1679,23 @@ export const ordersRouter = router({
       if (order.orderRailStatus !== "affiliate_review") {
         throw new TRPCError({ code: "CONFLICT", message: "This order is not awaiting affiliate review." });
       }
-      const [style] = order.styleId
-        ? await db.select({ distributorId: doorStyles.distributorId }).from(doorStyles).where(eq(doorStyles.id, order.styleId)).limit(1)
-        : [];
-      if (!style?.distributorId) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "No distributor line could be resolved for this order." });
+      const lineStyleIds = ((order.lineItems ?? []) as OrderLineItem[])
+        .filter((line) => line.productKind !== "surface" && line.productKind !== "hardware")
+        .map((line) => line.styleId ?? order.styleId);
+      const explicitSupplierIds = ((order.lineItems ?? []) as OrderLineItem[])
+        .filter((line) => line.productKind !== "surface" && line.productKind !== "hardware")
+        .map((line) => line.distributorId)
+        .filter((id): id is number => typeof id === "number" && id > 0);
+      const styleSuppliers = await loadDoorStyleLabels(db, lineStyleIds);
+      const supplierIds = Array.from(new Set([
+        ...explicitSupplierIds,
+        ...Array.from(styleSuppliers.values()).map((style) => style.distributorId),
+      ]));
+      const distributorId = supplierIds.length === 1 ? supplierIds[0] : (order.distributorId ?? null);
+      if (!distributorId) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "No distributor line could be resolved for this order." });
       const now = new Date();
       await db.update(orderRequests).set({
-        distributorId: style.distributorId,
+        distributorId,
         orderRailStatus: "distributor_inventory_check",
         affiliateReviewedAt: now,
         affiliateReviewedByUserId: ctx.user.id,
@@ -1831,29 +1875,34 @@ export const ordersRouter = router({
       }
       const skuDistributor = new Map<string, number>();
       for (const [key, sku] of skuMap) skuDistributor.set(key, sku.distributorId);
-      const poLines = filtered.flatMap((row) => ((row.lineItems ?? []) as OrderLineItem[]).map((line) => ({
-        cabinetId: line.cabinetId,
-        styleId: line.styleId ?? row.styleId,
-        masterCode: line.masterCode,
-        rawCode: line.rawCode,
-        description: line.description,
-        qty: line.qty,
-        doorStyle: line.doorStyle ?? row.styleName,
-        distributorSku: line.distributorSku,
-        productKind: line.productKind,
-        vendorProductId: line.vendorProductId,
-      })));
+      const poLines = filtered.flatMap((row) => ((row.lineItems ?? []) as OrderLineItem[]).map((line) => {
+        const nonCabinet = line.productKind === "surface" || line.productKind === "hardware";
+        return {
+          cabinetId: line.cabinetId,
+          styleId: nonCabinet ? null : (line.styleId ?? row.styleId),
+          masterCode: line.masterCode,
+          rawCode: line.rawCode,
+          description: line.description,
+          qty: line.qty,
+          doorStyle: nonCabinet ? null : (line.doorStyle ?? null),
+          distributorSku: line.distributorSku,
+          productKind: line.productKind,
+          vendorProductId: line.vendorProductId,
+        };
+      }));
       const distributorCatalog = await fetchDistributorPoCatalog(db, poLines);
 
       // Per-style color/finish + owning distributor (for the internal build sheet).
       // The invoice is ADMIN-ONLY, so we surface the REAL supplier identity here.
       type StyleMeta = {
         distributorId: number;
+        ourName: string | null;
+        aliasName: string | null;
+        distributorName: string;
         doorStyle: string | null;
         finish: string | null;
         color: string | null;
         woodSpecies: string | null;
-        distributorName: string;
         distributorCode: string;
       };
       const styleMetaMap = new Map<number, StyleMeta>();
@@ -1862,6 +1911,8 @@ export const ordersRouter = router({
           .select({
             id: doorStyles.id,
             distributorId: doorStyles.distributorId,
+            ourName: doorStyles.ourName,
+            aliasName: doorStyles.aliasName,
             doorStyle: doorStyles.doorStyle,
             finish: doorStyles.finish,
             color: doorStyles.color,
@@ -1876,6 +1927,8 @@ export const ordersRouter = router({
         for (const r of styleRows) {
           styleMetaMap.set(r.id, {
             distributorId: r.distributorId,
+            ourName: r.ourName,
+            aliasName: r.aliasName,
             doorStyle: r.doorStyle,
             finish: r.finish,
             color: r.color,
@@ -1890,10 +1943,10 @@ export const ordersRouter = router({
       // Enrich each order's line items with a formatted poSku + color/finish, and
       // resolve the order's owning distributor (most common across lines).
       const withPoSkus = filtered.map((row) => {
-        const styleId = row.styleId;
         const distCount = new Map<number, number>();
         const enrichedLines = ((row.lineItems ?? []) as OrderLineItem[]).map((l) => {
-          const sid = l.styleId ?? styleId ?? null;
+          const nonCabinet = l.productKind === "surface" || l.productKind === "hardware";
+          const sid = nonCabinet ? null : (l.styleId ?? row.styleId ?? null);
           const key: SkuKey | null = l.cabinetId && sid ? `${l.cabinetId}-${sid}` : null;
           const sku = key ? skuMap.get(key) : undefined;
           if (sku) distCount.set(sku.distributorId, (distCount.get(sku.distributorId) ?? 0) + 1);
@@ -1901,15 +1954,13 @@ export const ordersRouter = router({
             ? `${sku.distributorCode.toLowerCase()}-${sku.styleCode.toLowerCase()}-${sku.distributorSku.toLowerCase()}`
             : null;
           const meta = sid ? styleMetaMap.get(sid) : undefined;
-          const colorFinish =
-            meta && (meta.color || meta.finish)
-              ? [meta.color, meta.finish].filter(Boolean).join(" · ")
-              : null;
+          const colorFinish = lineColorFinishLabel(meta);
           const lineDistributorId = resolveLineDistributorId({
             distributorId: l.distributorId,
             cabinetId: l.cabinetId,
             styleId: sid,
-          }, skuDistributor, row.distributorId ?? (styleId ? styleMetaMap.get(styleId)?.distributorId ?? null : null));
+          }, skuDistributor, row.distributorId ?? (meta?.distributorId ?? null));
+          const ownStyleName = doorStyleOwnName(meta);
           const distributorLine = lineDistributorId == null ? null : resolveDistributorPoLine({
             cabinetId: l.cabinetId,
             styleId: sid,
@@ -1917,7 +1968,7 @@ export const ordersRouter = router({
             rawCode: l.rawCode,
             description: l.description,
             qty: l.qty,
-            doorStyle: l.doorStyle ?? row.styleName,
+            doorStyle: nonCabinet ? null : (ownStyleName ?? l.doorStyle ?? null),
             distributorSku: l.distributorSku,
             productKind: l.productKind,
             vendorProductId: l.vendorProductId,
@@ -1942,7 +1993,10 @@ export const ordersRouter = router({
             orderDistId = id;
           }
         }
-        if (orderDistId == null && styleId) orderDistId = styleMetaMap.get(styleId)?.distributorId ?? null;
+        if (orderDistId == null) {
+          const fromLine = enrichedLines.find((line) => line.productKind !== "surface" && line.productKind !== "hardware" && line.styleId);
+          orderDistId = fromLine?.styleId ? styleMetaMap.get(fromLine.styleId)?.distributorId ?? null : null;
+        }
         const orderDistName =
           (orderDistId != null
             ? Array.from(styleMetaMap.values()).find((m) => m.distributorId === orderDistId)?.distributorName
@@ -2403,12 +2457,15 @@ export const ordersRouter = router({
       if (lineItems.length === 0) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Order has no line items" });
       }
+      const checkoutStyles = await loadDoorStyleLabels(db, lineItems.map((line) => line.styleId));
 
-      // Build Stripe line items from the order
+      // Build Stripe line items from the order. Each cabinet line names its own style.
       const stripeLines: import("../stripe").CheckoutLineItem[] = lineItems
         .filter((l) => l.linePrice != null && l.linePrice > 0)
         .map((l) => ({
-          description: `${l.masterCode ?? l.rawCode ?? "Cabinet"} — ${l.description ?? ""}`.trim(),
+          description: checkoutLineDescription(l, l.productKind === "surface" || l.productKind === "hardware"
+            ? null
+            : (l.styleId != null ? composeDoorStyleLabel(checkoutStyles.get(l.styleId)) : l.doorStyle)),
           quantity: l.qty,
           unitPriceCents: Math.round(((l.unitPrice ?? l.linePrice! / l.qty) * 100)),
           platformSku: l.masterCode ?? undefined,
