@@ -1,10 +1,11 @@
 import { z } from "zod";
-import { and, asc, count, desc, eq, like, notInArray, or } from "drizzle-orm";
+import { and, asc, count, eq, like, notInArray, or, sql } from "drizzle-orm";
+import { TRPCError } from "@trpc/server";
 import { hiddenNumericIds, loadAffiliateCatalogGate } from "../lib/affiliateCatalogGate";
 import { guardAffiliateFeature } from "../lib/affiliateFeaturePublish";
 import { router, publicProcedure, adminProcedure, distributorProcedure } from "../_core/trpc";
 import { getDb } from "../db";
-import { affiliates, distributors, hardwareShippingProfiles, vendorProducts } from "../../drizzle/schema";
+import { affiliates, distributors, hardwareCategoryAffiliateMarkups, hardwareShippingProfiles, vendorProducts } from "../../drizzle/schema";
 import {
   HARDWARE_LINE_CODE,
   hardwareCheckoutEligibility,
@@ -452,5 +453,107 @@ export const hardwareRouter = router({
       if (profile) await db.update(hardwareShippingProfiles).set(values).where(eq(hardwareShippingProfiles.id, profile.id));
       else await db.insert(hardwareShippingProfiles).values({ distributorId: lineId, ...values });
       return { checkoutEnabled: hardwareProfileIsComplete(values) && Boolean(vendorOriginZip) };
+    }),
+
+  getAffiliateMarkups: adminProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) return [] as Array<{ category: string; productCount: number; avgCost: number | null; affiliateMarkupBps: number | null }>;
+    const [stats, stored] = await Promise.all([
+      db.select({
+        category: vendorProducts.category,
+        productCount: count(),
+        avgCost: sql<number>`avg(case when ${vendorProducts.yourCost} > 0 then ${vendorProducts.yourCost} when ${vendorProducts.listPrice} > 0 then ${vendorProducts.listPrice} else null end)`,
+      })
+        .from(vendorProducts)
+        .innerJoin(distributors, eq(vendorProducts.distributorId, distributors.id))
+        .where(publicHardwareConditions())
+        .groupBy(vendorProducts.category)
+        .orderBy(asc(vendorProducts.category)),
+      db.select({
+        category: hardwareCategoryAffiliateMarkups.category,
+        affiliateMarkupBps: hardwareCategoryAffiliateMarkups.affiliateMarkupBps,
+      }).from(hardwareCategoryAffiliateMarkups),
+    ]);
+    const affiliateByCategory = new Map(stored.map((row) => [row.category, row.affiliateMarkupBps]));
+    return stats
+      .filter((row): row is typeof row & { category: string } => Boolean(row.category?.trim()))
+      .map((row) => ({
+        category: row.category,
+        productCount: Number(row.productCount),
+        avgCost: row.avgCost == null ? null : Number(row.avgCost),
+        affiliateMarkupBps: affiliateByCategory.get(row.category) ?? null,
+      }));
+  }),
+
+  setAffiliateMarkup: adminProcedure
+    .input(z.object({
+      category: z.string().trim().min(1).max(128),
+      affiliateMarkupBps: z.number().int().min(0).max(100000).nullable(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) return { success: false } as const;
+      await db.insert(hardwareCategoryAffiliateMarkups).values({
+        category: input.category,
+        affiliateMarkupBps: input.affiliateMarkupBps,
+        updatedByOpenId: ctx.user.openId,
+      }).onDuplicateKeyUpdate({
+        set: {
+          affiliateMarkupBps: input.affiliateMarkupBps,
+          updatedByOpenId: ctx.user.openId,
+        },
+      });
+      return { success: true } as const;
+    }),
+
+  setAffiliateSalePrice: adminProcedure
+    .input(z.object({
+      id: z.number().int().positive(),
+      affiliateSalePrice: z.number().positive().max(99_999_999.99).nullable(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) return { success: false } as const;
+      const [existing] = await db
+        .select({ id: vendorProducts.id })
+        .from(vendorProducts)
+        .innerJoin(distributors, eq(vendorProducts.distributorId, distributors.id))
+        .where(and(eq(vendorProducts.id, input.id), eq(distributors.code, HARDWARE_LINE_CODE)))
+        .limit(1);
+      if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "Hardware product not found." });
+      await db.update(vendorProducts).set({
+        affiliateSalePrice: input.affiliateSalePrice == null ? null : input.affiliateSalePrice.toFixed(2),
+        affiliateSalePriceUpdatedAt: new Date(),
+        affiliateSalePriceUpdatedByOpenId: ctx.user.openId,
+      }).where(eq(vendorProducts.id, input.id));
+      return { success: true } as const;
+    }),
+
+  adminSearchAffiliateSale: adminProcedure
+    .input(z.object({
+      query: z.string().trim().min(1).max(120),
+      limit: z.number().int().min(1).max(20).default(8),
+    }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return [];
+      const q = `%${input.query}%`;
+      return db.select({
+        id: vendorProducts.id,
+        vendorSku: vendorProducts.vendorSku,
+        name: vendorProducts.name,
+        category: vendorProducts.category,
+        yourCost: vendorProducts.yourCost,
+        listPrice: vendorProducts.listPrice,
+        affiliateSalePrice: vendorProducts.affiliateSalePrice,
+      })
+        .from(vendorProducts)
+        .innerJoin(distributors, eq(vendorProducts.distributorId, distributors.id))
+        .where(and(
+          eq(distributors.code, HARDWARE_LINE_CODE),
+          or(like(vendorProducts.vendorSku, q), like(vendorProducts.name, q), like(vendorProducts.category, q)),
+        ))
+        .orderBy(asc(vendorProducts.vendorSku))
+        .limit(input.limit);
     }),
 });

@@ -902,6 +902,7 @@ export const pelicanRouter = router({
         category: string;
         markupBps: number;
         isDefault: boolean;
+        affiliateMarkupBps: number | null;
         productCount: number;
         avgCost: number | null;
       }[];
@@ -916,24 +917,94 @@ export const pelicanRouter = router({
       .where(eq(pelicanProducts.isActive, true))
       .groupBy(pelicanProducts.category)
       .orderBy(desc(sql`count(*)`));
+    const storedAffiliate = await db
+      .select({
+        category: pelicanCategoryMarkups.category,
+        affiliateMarkupBps: pelicanCategoryMarkups.affiliateMarkupBps,
+      })
+      .from(pelicanCategoryMarkups);
+    const affiliateByCategory = new Map(storedAffiliate.map((row) => [row.category, row.affiliateMarkupBps]));
     return stats.map((s) => ({
       category: s.category,
       markupBps: markupBpsFor(markupMap, s.category),
       isDefault: markupMap[s.category] === undefined,
+      affiliateMarkupBps: affiliateByCategory.get(s.category) ?? null,
       productCount: Number(s.productCount),
       avgCost: s.avgCost == null ? null : Number(s.avgCost),
     }));
   }),
   setMarkup: adminProcedure
-    .input(z.object({ category: z.string().min(1), markupBps: z.number().int().min(0).max(100000) }))
+    .input(z.object({
+      category: z.string().min(1).max(64),
+      markupBps: z.number().int().min(0).max(100000),
+      /** Null clears the category affiliate percent. Omit to leave it unchanged. */
+      affiliateMarkupBps: z.number().int().min(0).max(100000).nullable().optional(),
+    }))
     .mutation(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) return { success: false } as const;
+      const affiliatePatch = input.affiliateMarkupBps === undefined ? {} : {
+        affiliateMarkupBps: input.affiliateMarkupBps,
+        affiliateMarkupUpdatedAt: new Date(),
+        affiliateMarkupUpdatedByOpenId: ctx.user.openId,
+      };
       await db
         .insert(pelicanCategoryMarkups)
-        .values({ category: input.category, markupBps: input.markupBps, updatedByOpenId: ctx.user.openId })
-        .onDuplicateKeyUpdate({ set: { markupBps: input.markupBps, updatedByOpenId: ctx.user.openId } });
+        .values({
+          category: input.category,
+          markupBps: input.markupBps,
+          updatedByOpenId: ctx.user.openId,
+          ...affiliatePatch,
+        })
+        .onDuplicateKeyUpdate({
+          set: { markupBps: input.markupBps, updatedByOpenId: ctx.user.openId, ...affiliatePatch },
+        });
       return { success: true } as const;
+    }),
+  setAffiliateSalePrice: adminProcedure
+    .input(z.object({
+      id: z.number().int().positive(),
+      affiliateSalePrice: z.number().positive().max(99_999_999.99).nullable(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) return { success: false } as const;
+      const [existing] = await db.select({ id: pelicanProducts.id }).from(pelicanProducts).where(eq(pelicanProducts.id, input.id)).limit(1);
+      if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "Surface product not found." });
+      await db.update(pelicanProducts).set({
+        affiliateSalePrice: input.affiliateSalePrice == null ? null : input.affiliateSalePrice.toFixed(2),
+        affiliateSalePriceUpdatedAt: new Date(),
+        affiliateSalePriceUpdatedByOpenId: ctx.user.openId,
+      }).where(eq(pelicanProducts.id, input.id));
+      return { success: true } as const;
+    }),
+  adminSearchAffiliateSale: adminProcedure
+    .input(z.object({
+      query: z.string().trim().min(1).max(120),
+      limit: z.number().int().min(1).max(20).default(8),
+    }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return [];
+      const q = `%${input.query}%`;
+      return db
+        .select({
+          id: pelicanProducts.id,
+          pelicanCode: pelicanProducts.pelicanCode,
+          name: pelicanProducts.name,
+          category: pelicanProducts.category,
+          yourCost: pelicanProducts.yourCost,
+          listPrice: pelicanProducts.listPrice,
+          affiliateSalePrice: pelicanProducts.affiliateSalePrice,
+        })
+        .from(pelicanProducts)
+        .where(or(
+          like(pelicanProducts.name, q),
+          like(pelicanProducts.pelicanCode, q),
+          like(pelicanProducts.category, q),
+        ))
+        .orderBy(asc(pelicanProducts.name), asc(pelicanProducts.id))
+        .limit(input.limit);
     }),
 
   setPopular: supplierProfileProcedure

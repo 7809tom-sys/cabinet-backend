@@ -64,6 +64,11 @@ export const pelicanProducts = mysqlTable("pelican_products", {
   // Administrator-entered, supplier/fabricator-verified maximum unsupported
   // countertop overhang for this exact material. Null means not verified.
   unsupportedOverhangLimitIn: decimal("unsupportedOverhangLimitIn", { precision: 6, scale: 3 }),
+  // Optional fixed affiliate checkout price. Null keeps the category percent
+  // or the automatic product price. Added by docs/sql/0281_affiliate_catalog_sale_overrides.tidb.sql.
+  affiliateSalePrice: decimal("affiliateSalePrice", { precision: 10, scale: 2 }),
+  affiliateSalePriceUpdatedAt: timestamp("affiliateSalePriceUpdatedAt"),
+  affiliateSalePriceUpdatedByOpenId: varchar("affiliateSalePriceUpdatedByOpenId", { length: 64 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 }, (table) => ({
   // Shopper category pages filter on these columns and then order by popularity.
