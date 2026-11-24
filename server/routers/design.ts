@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { recordOutreachDesignStart } from "../lib/outreach/runtime";
 import { skuVisibleToViewer } from "../lib/distributorPreview";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { eq, and, inArray, desc, like, sql, or, isNull, ne, gt } from "drizzle-orm";
@@ -2405,6 +2406,9 @@ export const designRouter = router({
 
       const userId = ctx.user?.id ?? null;
       const emailLower = input.email.trim().toLowerCase();
+      // Outreach signal (design started). Fire-and-forget and a no-op unless
+      // OUTREACH_ENABLED=true; it never changes or delays this response.
+      if (input.interaction !== "contact_update") recordOutreachDesignStart(emailLower);
       const name = input.name?.trim() || null;
       const phone = input.phone?.trim() || null;
       const roomType = input.roomType?.trim() || null;

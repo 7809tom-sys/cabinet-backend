@@ -27,6 +27,8 @@ import { registerInvoiceLookup } from "../invoiceLookupRoute";
 import { getFrontendShell } from "../lib/frontendShell";
 import { recoverDueGeminiImageTestJobs } from "../routers/designPhotoRenders";
 import { ensureUsCabinetDepotProductLines } from "../lib/uscdProductLines";
+import { registerOutreachPublicRoutes, registerOutreachWebhooks } from "../outreachHttp";
+import { runScheduledOutreach } from "../lib/outreach/runtime";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -105,12 +107,16 @@ async function startServer() {
   registerVendorInboundWebhook(app);
   // DocuSeal signs its webhook body with an HMAC, so it needs the raw bytes too.
   registerDocusealWebhook(app);
+  // Outreach reply + delivery webhooks need the raw body (signature checks).
+  registerOutreachWebhooks(app);
   // Configure body parser with larger size limit for file uploads
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
   registerStorageProxy(app);
   // Public careers page application (no login). See server/careersApply.ts.
   registerCareersApply(app);
+  // Outreach unsubscribe (link + one-click) and tracked links. Work even while outreach is off.
+  registerOutreachPublicRoutes(app);
 // Public invoice lookup (no login): invoice number + email or ZIP on the order.
 registerInvoiceLookup(app);
   registerSharedRoomPreviewRoutes(app);
@@ -218,6 +224,21 @@ registerInvoiceLookup(app);
       }
     },
     { timezone: "America/Chicago", noOverlap: true },
+  );
+
+  // AI follow-up outreach. Every 15 minutes; returns immediately unless
+  // OUTREACH_ENABLED=true AND the admin switch is on. Caps, suppression and
+  // approval are enforced inside the tick, so a missed tick only delays mail.
+  cron.schedule(
+    "*/15 * * * *",
+    async () => {
+      try {
+        await runScheduledOutreach();
+      } catch (error) {
+        console.error("[Outreach] Scheduled tick failed", error instanceof Error ? error.name : "unknown error");
+      }
+    },
+    { timezone: "America/New_York", noOverlap: true },
   );
 }
 
