@@ -843,7 +843,9 @@ async function resolveOriginZip(
     openZips.map(async (zip) => ({ zip, coord: await geocodeZip(zip) }))
   );
   const nearest = pickNearestWarehouseZip(customer, warehouses);
-  return { zip: nearest ?? openZips[0], allWarehousesClosed: false };
+  // An unplaced destination is not a reason to ship from the first open warehouse ZIP.
+  const fallback = closedWarehouseFallbackZip(fallbackZip, closed) ?? "";
+  return { zip: nearest ?? fallback, allWarehousesClosed: false };
 }
 
 export function normalizedDoorStyleOriginZips(
@@ -864,7 +866,14 @@ async function chooseNearestDoorStyleOriginZip(
   const warehouses: WarehouseRef[] = await Promise.all(
     originZips.map(async (zip) => ({ zip, coord: await geocodeZip(zip) })),
   );
-  return pickNearestWarehouseZip(customer, warehouses) ?? originZips[0];
+  const nearest = pickNearestWarehouseZip(customer, warehouses);
+  if (!nearest) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "Could not choose the nearest shipping origin for this delivery ZIP. Check the ZIP and the style's warehouse ZIPs.",
+    });
+  }
+  return nearest;
 }
 
 type StyleFreightGroup = {

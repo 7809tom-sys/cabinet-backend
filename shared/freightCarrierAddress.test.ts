@@ -71,6 +71,10 @@ describe("origin carrier city and state", () => {
     expect(resolveOriginLocality({ zip: "60448" })?.locality).toBe("Mokena");
     expect(resolveOriginLocality({ zip: "77064" })?.locality).toBe("Houston");
     expect(resolveOriginLocality({ zip: "75234" })?.region).toBe("TX");
+    expect(resolveOriginLocality({ zip: "32824" })).toEqual({ locality: "Orlando", region: "FL", countryCode: "US" });
+    expect(resolveOriginLocality({ zip: "43213" })?.locality).toBe("Columbus");
+    expect(resolveOriginLocality({ zip: "27406" })?.region).toBe("NC");
+    expect(resolveOriginLocality({ zip: "95691" })?.locality).toBe("West Sacramento");
     expect(resolveOriginLocality({ zip: "99999" })).toBeNull();
   });
 });
