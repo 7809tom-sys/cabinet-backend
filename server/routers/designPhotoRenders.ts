@@ -3,6 +3,7 @@ import sharp from "sharp";
 import { and, desc, eq, inArray, isNull, lte, or } from "drizzle-orm";
 import { z } from "zod";
 import { affiliateGeneratedImages, affiliateStyleBranding, crmActivities, crmDealDesigns, crmDeals, designGeminiImageTestJobs, designImageRequests, designPhotoRenders, doorStyles, kitchenDesigns, notificationSettings } from "../../drizzle/schema";
+import { stampCrmDealsFromLinkedDesigns } from "../lib/crmDesignSavedStamps";
 import { pelicanProducts } from "../../drizzle/pelicanSchema";
 import { getDb } from "../db";
 import { emitCrmEvent } from "../_core/crmWebhook";
@@ -626,6 +627,7 @@ async function ensureManualAiReviewCrmDeal(
     designName: design.name,
     linkedByUserId: request.userId,
   });
+  await stampCrmDealsFromLinkedDesigns(db, [dealId]);
   await db.insert(crmActivities).values({
     dealId,
     authorUserId: null,

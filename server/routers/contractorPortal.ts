@@ -4,6 +4,7 @@ import { z } from "zod";
 import { contractorCustomers, crmDealDesigns, crmDeals, kitchenDesigns } from "../../drizzle/schema";
 import { getDb } from "../db";
 import { requireContractorRecordUserId } from "../lib/contractorRecordScope";
+import { stampCrmDealsFromLinkedDesigns } from "../lib/crmDesignSavedStamps";
 import { protectedProcedure, router } from "../_core/trpc";
 
 const contractorViewInput = z.object({
@@ -129,6 +130,7 @@ export const contractorPortalRouter = router({
           designName: named?.name ?? "Saved design",
           linkedByUserId: ctx.user.id,
         });
+        await stampCrmDealsFromLinkedDesigns(db, [dealId]);
       }
       return { ok: true as const, designId: input.designId, customerId: input.customerId };
     }),

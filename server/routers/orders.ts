@@ -3,6 +3,7 @@ import { eq, and, or, desc, inArray, like, sql, isNull } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { publicProcedure, protectedProcedure, adminProcedure, router } from "../_core/trpc";
 import { ensureAffiliatePipelineDeal } from "../lib/crmPipelineAttach";
+import { stampCrmDealsFromLinkedDesigns } from "../lib/crmDesignSavedStamps";
 import { resolvePresentation } from "../lib/presentation";
 import { assertNoPreviewSuppliers } from "../lib/distributorPreview";
 import { getDb, hasPositivePublishedCabinetPrice, notInConflict } from "../db";
@@ -1445,6 +1446,7 @@ export const ordersRouter = router({
                 designName: savedDesign.name,
                 linkedByUserId: ctx.user?.id ?? null,
               });
+              await stampCrmDealsFromLinkedDesigns(db, [ensuredDeal.id]);
             }
           }
         }

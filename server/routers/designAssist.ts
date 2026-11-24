@@ -4,6 +4,7 @@ import { TRPCError } from "@trpc/server";
 import { protectedProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
 import { resolveAffiliateAccess } from "../lib/affiliateAccess";
+import { stampCrmDealsForDesignSave } from "../lib/crmDesignSavedStamps";
 import {
   assertFreeUsageAvailable,
   attachFreeUsageRef,
@@ -161,6 +162,7 @@ export const designAssistRouter = router({
         roomType: plan.live.roomType,
         assistLabel: plan.assistLabel,
       }).where(eq(kitchenDesigns.id, design.id));
+      await stampCrmDealsForDesignSave(db, design.id);
       await logAssist(db, {
         designId: design.id,
         affiliateId: design.affiliateId,
@@ -217,6 +219,8 @@ export const designAssistRouter = router({
       }
       const copyId = insertId(result);
       await attachFreeUsageRef(db, usageClaim, copyId).catch(() => undefined);
+      // The suggestion is a newly saved design for the original's contact(s).
+      await stampCrmDealsForDesignSave(db, design.id);
       const links = await db.select().from(customerProjectDesigns).where(eq(customerProjectDesigns.kitchenDesignId, design.id));
       for (const link of links) {
         await db.insert(customerProjectDesigns).values({ projectId: link.projectId, kitchenDesignId: copyId });

@@ -2,6 +2,7 @@ import { and, desc, eq, inArray, isNull, or } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { affiliateInstallationEstimates, affiliateTeamMembers, affiliates, cabinets, contractorKitchenCostDefaults, crmActivities, crmDealDesigns, crmDeals, kitchenDesigns, orderRequests } from "../../drizzle/schema";
+import { stampCrmDealsFromLinkedDesigns } from "../lib/crmDesignSavedStamps";
 import { getDb } from "../db";
 import { guardAffiliateFeature } from "../lib/affiliateFeaturePublish";
 import { syncStoredOrderCrm } from "../lib/orderSideEffects";
@@ -307,6 +308,10 @@ export const installationEstimatesRouter = router({
         }
         return { id: estimateId, shareToken, crmDealId, kitchenDesignId, cabinetBreakdown, ...totals };
       });
+      // Stamped after the transaction commits, from the linked plan's own save time.
+      if (result.crmDealId != null && result.kitchenDesignId != null) {
+        await stampCrmDealsFromLinkedDesigns(db, [result.crmDealId]);
+      }
       if (input.orderRequestId) {
         try {
           await syncStoredOrderCrm(input.orderRequestId, { preferredDealId: result.crmDealId });

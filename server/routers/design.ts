@@ -11,6 +11,7 @@ import { distributorCabinetOverrides, cabinets, cabinetAliases, skuMasterAliases
 import { notifyOwner } from "../_core/notification";
 import { emitCrmEvent } from "../_core/crmWebhook";
 import { ensureAffiliatePipelineDeal } from "../lib/crmPipelineAttach";
+import { stampCrmDealsDesignSaved, stampCrmDealsForDesignSave } from "../lib/crmDesignSavedStamps";
 import { invokeLLM } from "../_core/llm";
 import { generateRoomSceneImage, photorealRoomScenePrompt } from "../lib/roomScenePromptRules";
 import { autoFillSpan, type FillCabinet, type FillMode } from "../../shared/fillEngine";
@@ -261,6 +262,10 @@ async function linkDesignToCrmDeal(a: {
     : {};
   await db.update(crmDeals).set({ ...customerFields, ...valueFields }).where(eq(crmDeals.id, dealId));
   await db.update(designLeads).set({ name: c.name.trim(), phone: c.phone.trim() }).where(and(eq(designLeads.email, email), affiliateId != null ? eq(designLeads.affiliateId, affiliateId) : isNull(designLeads.affiliateId)));
+  // Automatic CRM dates: firstDesignSavedAt is set once (the contact's initial
+  // design), lastDesignSavedAt moves on every save. Database clock only. Skipped
+  // quietly until 0284 has added the columns; never blocks the save.
+  await stampCrmDealsDesignSaved(db, [dealId]);
   return dealId;
 }
 
@@ -2021,6 +2026,9 @@ export const designRouter = router({
         trimSettings: input.trimSettings ?? null,
         roomType: input.roomType ?? null,
       }).where(ownership);
+      // Autosave never changes which contact the design belongs to, but it is a
+      // save: move the linked contacts' "last design saved" date (server time).
+      await stampCrmDealsForDesignSave(db, input.id);
 
       return { id: input.id };
     }),
