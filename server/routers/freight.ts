@@ -25,6 +25,14 @@ import {
   pickNearestWarehouseZip,
   type WarehouseRef,
 } from "../../shared/availability";
+import {
+  AllWarehousesClosedError,
+  allWarehousesClosedLabel,
+  allWarehousesClosedMessage,
+  chooseOpenOriginZips,
+  closedWarehouseFallbackZip,
+} from "@shared/warehouseOpen";
+import { closedWarehouseZipsByDistributor } from "../lib/warehouseRecords";
 import { makeRequest, type GeocodingResult, type LatLng } from "../_core/map";
 import {
   type FreightSettings,
@@ -809,10 +817,10 @@ async function resolveOriginZip(
   destinationZip: string,
   distributorId: number | null,
   fallbackZip: string
-): Promise<string> {
-  if (distributorId == null) return fallbackZip;
+): Promise<{ zip: string; allWarehousesClosed: boolean }> {
+  if (distributorId == null) return { zip: fallbackZip, allWarehousesClosed: false };
   const db = await getDb();
-  if (!db) return fallbackZip;
+  if (!db) return { zip: fallbackZip, allWarehousesClosed: false };
   const rows = await db
     .select({ warehouseZips: distributors.warehouseZips })
     .from(distributors)
@@ -822,15 +830,22 @@ async function resolveOriginZip(
   const normalized = zips
     .map((z) => normalizeZip(z))
     .filter((z): z is string => !!z);
-  if (normalized.length === 0) return fallbackZip;
+  const closed = (await closedWarehouseZipsByDistributor(db, [distributorId])).get(distributorId) ?? new Set<string>();
+  const openZips = normalized.filter((zip) => !closed.has(zip));
+  const allWarehousesClosed = normalized.length > 0 && openZips.length === 0;
+  if (openZips.length === 0) {
+    const fallback = closedWarehouseFallbackZip(fallbackZip, closed) ?? "";
+    return { zip: fallback, allWarehousesClosed };
+  }
 
   const customer = await geocodeZip(normalizeZip(destinationZip) ?? destinationZip);
   const warehouses: WarehouseRef[] = await Promise.all(
-    normalized.map(async (zip) => ({ zip, coord: await geocodeZip(zip) }))
+    openZips.map(async (zip) => ({ zip, coord: await geocodeZip(zip) }))
   );
   const nearest = pickNearestWarehouseZip(customer, warehouses);
-  // An unplaced destination is not a reason to ship from the first warehouse ZIP.
-  return nearest ?? fallbackZip;
+  // An unplaced destination is not a reason to ship from the first open warehouse ZIP.
+  const fallback = closedWarehouseFallbackZip(fallbackZip, closed) ?? "";
+  return { zip: nearest ?? fallback, allWarehousesClosed: false };
 }
 
 export function normalizedDoorStyleOriginZips(
@@ -1076,6 +1091,15 @@ async function resolveStyleFreightGroups(input: {
   // colors, and styles. Keep separate groups only when the physical pickup
   // origin differs; the pallet builder then mixes all same-origin lines and
   // uses the fewest pallets allowed by weight/cube limits.
+  const closedDistributorIds = new Set<number>();
+  for (const style of Array.from(styleById.values())) closedDistributorIds.add(style.distributorId);
+  for (const candidates of Array.from(candidatesByCabinet.values())) {
+    for (const style of candidates) closedDistributorIds.add(style.distributorId);
+  }
+  if (input.explicitDistributorId) closedDistributorIds.add(input.explicitDistributorId);
+  const closedByDistributor = db
+    ? await closedWarehouseZipsByDistributor(db, Array.from(closedDistributorIds))
+    : new Map<number, Set<string>>();
   const groups = new Map<string, StyleFreightGroup>();
   for (const item of input.items) {
     if (item.productKind === "surface") {
@@ -1153,17 +1177,50 @@ async function resolveStyleFreightGroups(input: {
     const distributorOriginZips = matchedStyle?.distributorWarehouseZips?.filter(
       (zip): zip is string => typeof zip === "string" && /^\d{5}$/.test(zip),
     ) ?? [];
-    const originZips = styleOriginZips.length > 0 ? styleOriginZips : distributorOriginZips;
+    // Style origins win when the style lists any. Closed warehouses are removed
+    // before nearest-ZIP selection, so a closed origin is never the ship-from.
+    const closedZips = distributorId != null
+      ? closedByDistributor.get(distributorId) ?? new Set<string>()
+      : new Set<string>();
+    const openOriginChoice = chooseOpenOriginZips({
+      styleOriginZips,
+      distributorOriginZips,
+      closedZips,
+    });
+    const originZips = openOriginChoice.originZips;
+    const allListedWarehousesClosed = openOriginChoice.allListedWarehousesClosed;
+    const styleName = matchedStyle?.aliasName || matchedStyle?.ourName || "This style";
+    const closedFallbackZip = allListedWarehousesClosed && input.allowMissingStyleOriginFallback
+      ? closedWarehouseFallbackZip(input.fallbackOriginZip, closedZips)
+      : null;
+    if (allListedWarehousesClosed && !closedFallbackZip) {
+      const message = allWarehousesClosedMessage(styleName, openOriginChoice.closedListedZips);
+      throw new TRPCError({
+        code: "PRECONDITION_FAILED",
+        message,
+        cause: new AllWarehousesClosedError(message),
+      });
+    }
     const usedOperationsOriginFallback = Boolean(matchedStyle && originZips.length === 0);
-    if (matchedStyle && originZips.length === 0 && !input.allowMissingStyleOriginFallback) {
+    if (matchedStyle && originZips.length === 0 && !allListedWarehousesClosed && !input.allowMissingStyleOriginFallback) {
       throw new TRPCError({
         code: "BAD_REQUEST",
-        message: `${matchedStyle.aliasName || matchedStyle.ourName} does not have a Shipping Origin ZIP in Featured Door Styles.`,
+        message: `${styleName} does not have a Shipping Origin ZIP in Featured Door Styles.`,
       });
     }
     const originZip = originZips.length > 0
       ? await chooseNearestDoorStyleOriginZip(input.destinationZip, originZips)
-      : await resolveOriginZip(input.destinationZip, distributorId, input.fallbackOriginZip);
+      : allListedWarehousesClosed
+        ? closedFallbackZip ?? ""
+        : (await resolveOriginZip(input.destinationZip, distributorId, input.fallbackOriginZip)).zip;
+    if (!originZip) {
+      const message = allWarehousesClosedMessage(styleName, openOriginChoice.closedListedZips);
+      throw new TRPCError({
+        code: "PRECONDITION_FAILED",
+        message,
+        cause: new AllWarehousesClosedError(message),
+      });
+    }
     const key = `distributor:${distributorId ?? "global"}:${originZip}`;
     const existing = groups.get(key);
     if (existing) {
@@ -1188,7 +1245,7 @@ async function resolveStyleFreightGroups(input: {
         }, input.destinationZip, input.merchandiseSubtotalCents);
     groups.set(key, {
       key,
-      label: `${distributorLabel} · ${usedOperationsOriginFallback ? "Operations test origin" : "origin"} ${originZip}`,
+      label: `${distributorLabel} · ${allListedWarehousesClosed ? allWarehousesClosedLabel(originZip) : usedOperationsOriginFallback ? `Operations test origin ${originZip}` : `origin ${originZip}`}`,
       vendorName: distributorLabel,
       originZip,
       flatFreightFeeCents: input.ignorePostedFreightRules ? null : matchedStyle?.flatFreightFeeCents ?? null,
@@ -1200,7 +1257,7 @@ async function resolveStyleFreightGroups(input: {
         warehouseAddress: matchedStyle?.warehouseAddress,
         pickupAddress: matchedStyle?.pickupAddress,
       }),
-      missingOriginStyle: usedOperationsOriginFallback && matchedStyle
+      missingOriginStyle: usedOperationsOriginFallback && !allListedWarehousesClosed && matchedStyle
         ? {
             id: matchedStyle.id,
             name: matchedStyle.aliasName || matchedStyle.ourName,
@@ -1984,6 +2041,23 @@ export const freightRouter = router({
             ignorePostedFreightRules: affiliateCheckout,
           });
         } catch (error) {
+          // A closed warehouse is never used as the origin. The shopper sees why
+          // instead of a quote that silently ships from that ZIP.
+          if (error instanceof TRPCError && error.cause instanceof AllWarehousesClosedError) {
+            return {
+              available: false,
+              zoneName: null,
+              billableWeightLbs: 0,
+              lines: [],
+              freightBeforeMarkupCents: 0,
+              markupCents: 0,
+              damageFeeCents: 0,
+              totalCents: 0,
+              freeFreightApplied: false,
+              reason: error.message,
+              warehousesClosed: true,
+            };
+          }
           // A missing origin or unmatched style must not fall through to a flat
           // or weight-table price on an affiliate checkout.
           if (affiliateCheckout && error instanceof TRPCError) {

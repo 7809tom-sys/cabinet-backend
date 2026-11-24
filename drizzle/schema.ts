@@ -410,6 +410,30 @@ export const distributors = mysqlTable("distributors", {
 
 export type Distributor = typeof distributors.$inferSelect;
 
+/**
+ * One physical warehouse for a distributor, keyed by ZIP. Open/closed is
+ * independent of the origin ZIP lists on distributors and door styles: closing
+ * a warehouse keeps the record and removes that ZIP from freight origin
+ * selection. Added by hand in docs/sql/0287_warehouses_open_closed.tidb.sql.
+ * Reads go through server/lib/warehouseRecords.ts, which treats a missing
+ * table as "every warehouse is open" until that file has been run.
+ */
+export const warehouses = mysqlTable("warehouses", {
+  id: int("id").autoincrement().primaryKey(),
+  distributorId: int("distributorId").notNull(),
+  zip: varchar("zip", { length: 5 }).notNull(),
+  name: varchar("name", { length: 128 }).notNull(),
+  address: varchar("address", { length: 512 }),
+  isOpen: boolean("isOpen").default(true).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  distributorZipUq: uniqueIndex("warehouses_distributor_zip_uq").on(table.distributorId, table.zip),
+  distributorOpenIdx: index("warehouses_distributor_open_idx").on(table.distributorId, table.isOpen),
+}));
+
+export type Warehouse = typeof warehouses.$inferSelect;
+
 // ─── Door Styles ──────────────────────────────────────────────────────────────
 
 export const doorStyles = mysqlTable("door_styles", {
@@ -1906,7 +1930,7 @@ export const orderRequests = mysqlTable("order_requests", {
   orderKind: varchar("orderKind", { length: 16 }).default("standard").notNull(),
   projectLabel: varchar("projectLabel", { length: 256 }),
   status: mysqlEnum("status", ["draft", "submitted", "confirmed", "cancelled"]).default("draft").notNull(),
-  styleId: int("styleId"), // default door style applied across lines
+  styleId: int("styleId"), // set when every cabinet line shares one door style; null when colors are mixed
   styleName: varchar("styleName", { length: 128 }),
   tier: mysqlEnum("tier", ["Wholesale", "Contractor", "Homeowner"]).default("Homeowner").notNull(),
   // Affiliate attribution: which affiliate referred this order (if any)

@@ -1,63 +1,74 @@
 import { describe, it, expect } from "vitest";
 import { validateFamilyLock, canAddToCart } from "./familyLock";
 
-describe("validateFamilyLock", () => {
-  it("passes when all priced lines share one style", () => {
+describe("validateFamilyLock (submit lock = one supplier, colors mix freely)", () => {
+  it("passes when all cabinet lines share one supplier and one style", () => {
     const r = validateFamilyLock([
-      { styleId: 5, masterCode: "B-24" },
-      { styleId: 5, masterCode: "W-30-30" },
+      { styleId: 5, distributorId: 180001, masterCode: "B-24" },
+      { styleId: 5, distributorId: 180001, masterCode: "W-30-30" },
     ]);
     expect(r.ok).toBe(true);
+    expect(r.distributorId).toBe(180001);
     expect(r.styleId).toBe(5);
     expect(r.distinctStyleIds).toEqual([5]);
   });
 
-  it("rejects when lines mix two styles", () => {
+  it("passes when two styles belong to the same supplier", () => {
     const r = validateFamilyLock([
-      { styleId: 5, masterCode: "B-24" },
-      { styleId: 8, masterCode: "W-30-30" },
+      { styleId: 390001, distributorId: 180001, masterCode: "B-24" },
+      { styleId: 390009, distributorId: 180001, masterCode: "W-30-30" },
     ]);
-    expect(r.ok).toBe(false);
+    expect(r.ok).toBe(true);
+    expect(r.distributorId).toBe(180001);
     expect(r.styleId).toBeNull();
-    expect(r.distinctStyleIds).toEqual([5, 8]);
-    expect(r.reason).toMatch(/single door-style family/i);
+    expect(r.distinctStyleIds).toEqual([390001, 390009]);
+    expect(r.distinctDistributorIds).toEqual([180001]);
   });
 
-  it("ignores unmatched (null styleId) lines when locking", () => {
+  it("rejects when lines mix two suppliers", () => {
     const r = validateFamilyLock([
-      { styleId: 5, masterCode: "B-24" },
-      { styleId: null, masterCode: "???-7" }, // still in review
+      { styleId: 390001, distributorId: 180001, masterCode: "B-24" },
+      { styleId: 330005, distributorId: 210001, masterCode: "W-30-30" },
+    ]);
+    expect(r.ok).toBe(false);
+    expect(r.distributorId).toBeNull();
+    expect(r.distinctDistributorIds).toEqual([180001, 210001]);
+    expect(r.reason).toMatch(/single supplier/i);
+    expect(r.reason).toMatch(/180001, 210001/);
+  });
+
+  it("ignores Pelican and hardware lines that carry no style or supplier", () => {
+    const r = validateFamilyLock([
+      { styleId: 390001, distributorId: 180001, masterCode: "B-24" },
+      { styleId: 390009, distributorId: 180001, masterCode: "W3030" },
+      { styleId: null, distributorId: null, productKind: "surface", masterCode: "PEL-1" },
+      { styleId: null, distributorId: null, productKind: "hardware", masterCode: "PULL" },
     ]);
     expect(r.ok).toBe(true);
-    expect(r.styleId).toBe(5);
+    expect(r.distributorId).toBe(180001);
+    expect(r.distinctStyleIds).toEqual([390001, 390009]);
   });
 
-  it("passes (locks to order style) when no priced line carries a style yet", () => {
-    const r = validateFamilyLock([{ styleId: null }], 9);
+  it("does not let a null-style accessory line with a stray supplier fail the order", () => {
+    const r = validateFamilyLock([
+      { styleId: 390001, distributorId: 180001 },
+      { styleId: null, distributorId: 999, productKind: "hardware" },
+    ]);
     expect(r.ok).toBe(true);
-    expect(r.styleId).toBe(9);
-    expect(r.distinctStyleIds).toEqual([]);
+    expect(r.distributorId).toBe(180001);
   });
 
-  it("rejects when priced lines disagree with the order-level style", () => {
-    const r = validateFamilyLock(
-      [{ styleId: 5, masterCode: "B-24" }],
-      9 // order claims style 9 but the line is style 5
-    );
-    expect(r.ok).toBe(false);
-    expect(r.reason).toMatch(/style 5/);
-    expect(r.reason).toMatch(/style 9/);
-  });
-
-  it("passes when priced lines agree with the order-level style", () => {
-    const r = validateFamilyLock([{ styleId: 7 }, { styleId: 7 }], 7);
+  it("passes when no cabinet line has a supplier yet", () => {
+    const r = validateFamilyLock([{ styleId: null, distributorId: null, masterCode: "???" }]);
     expect(r.ok).toBe(true);
-    expect(r.styleId).toBe(7);
+    expect(r.distributorId).toBeNull();
+    expect(r.styleId).toBeNull();
   });
 
   it("treats an empty order as a no-op pass", () => {
     const r = validateFamilyLock([]);
     expect(r.ok).toBe(true);
+    expect(r.distributorId).toBeNull();
     expect(r.styleId).toBeNull();
   });
 });

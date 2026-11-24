@@ -30,6 +30,8 @@ export type OrderMoneyLine = {
   productKind?: string | null;
   vendorProductId?: number | null;
   pelicanProductId?: number | null;
+  /** Resolved per-line finish. Receipt text reads this; it is not an amount. */
+  doorStyle?: string | null;
 };
 
 export type OrderMoneyInput = {
