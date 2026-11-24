@@ -1,8 +1,10 @@
 import { eq, sql } from "drizzle-orm";
+import { resolvedLineStyleLabel } from "@shared/orderStyleLabel";
 import { orderRequests, type OrderLineItem } from "../../drizzle/schema";
 import { getDb } from "../db";
 import { sendEmail, type SendEmailOptions, type SendEmailResult } from "../email";
 import { sendCrmCustomerEmail } from "./crmCustomerMail";
+import { loadDoorStyleLabels } from "./doorStyleLabels";
 import { readOrderCostSnapshots } from "./orderCostSnapshot";
 import { dollarsToCents, formatUsdFromCents, summarizeAdminOrder, type OrderMoneyInput } from "./orderMoney";
 import { onOrderPaid } from "./orderSideEffects";
@@ -78,11 +80,12 @@ export function composeOrderReceipt(order: ReceiptOrder, notifyEmail: string, sh
     "Items:",
     ...(lines.length > 0 ? lines.map((line) => {
       const name = line.description?.trim() || line.masterCode || "Item";
+      const style = line.doorStyle?.trim() || "";
       const code = line.distributorSku || line.masterCode || line.rawCode || "";
       const qty = line.qty ?? 1;
       const lineCents = dollarsToCents(line.linePrice);
       const total = lineCents == null ? "—" : formatUsdFromCents(lineCents);
-      return `- ${name}${code ? ` (${code})` : ""} × ${qty} — ${total}`;
+      return `- ${name}${style ? ` — ${style}` : ""}${code ? ` (${code})` : ""} × ${qty} — ${total}`;
     }) : ["- No line items were stored."]),
     "",
     `Subtotal: ${formatUsdFromCents(summary.subtotalCents)}`,
@@ -101,10 +104,11 @@ export function composeOrderReceipt(order: ReceiptOrder, notifyEmail: string, sh
   const text = textLines.join("\n");
   const itemRows = lines.map((line) => {
     const name = escapeHtml(line.description?.trim() || line.masterCode || "Item");
+    const style = escapeHtml(line.doorStyle?.trim() || "");
     const code = escapeHtml(line.distributorSku || line.masterCode || line.rawCode || "");
     const lineCents = dollarsToCents(line.linePrice);
     const total = lineCents == null ? "—" : formatUsdFromCents(lineCents);
-    return `<tr><td>${name}${code ? ` (${code})` : ""}</td><td>${line.qty ?? 1}</td><td>${total}</td></tr>`;
+    return `<tr><td>${name}${style ? ` — ${style}` : ""}${code ? ` (${code})` : ""}</td><td>${line.qty ?? 1}</td><td>${total}</td></tr>`;
   }).join("");
   const html = `<!doctype html><html><body style="font-family:Arial,sans-serif;color:#1a2b4a">
     ${customerEmailMissing ? `<p><strong>Customer email was missing or invalid.</strong> This receipt was not delivered to the customer.</p>` : `<p>Thank you for your order.</p>`}
@@ -294,8 +298,14 @@ export async function sendPaidOrderReceipt(orderId: number, env: NodeJS.ProcessE
   }
   const snapshots = await readOrderCostSnapshots(db, [orderId]);
   const commerce = snapshots.commerce.find((row) => row.orderRequestId === orderId);
+  const storedLines = (order.lineItems ?? []) as OrderLineItem[];
+  const styles = await loadDoorStyleLabels(db, storedLines.map((line) => line.styleId));
+  const lineItems = storedLines.map((line) => ({
+    ...line,
+    doorStyle: resolvedLineStyleLabel(line, styles),
+  }));
   const result = await deliverOrderReceipt({
-    order: { ...order, lineItems: (order.lineItems ?? []) as OrderLineItem[] },
+    order: { ...order, lineItems },
     notifyEmail: orderNotifyEmail(env),
     shipping: { carrier: commerce?.shippingCarrier ?? null, method: commerce?.shippingService ?? null },
     claim: () => claimOrderReceipt(db, orderId),

@@ -217,6 +217,11 @@ function doorStyleLabel(line: DistributorPoLineInput, style: DistributorStyleRec
   const physical = [style?.doorStyle, style?.color, style?.finish].map((part) => clean(part)).filter(Boolean);
   const unique = Array.from(new Set(physical));
   if (unique.length) return unique.join(" ");
+  // Color and finish are empty and the supplier did not store its own style
+  // name. Use this style's catalog name. Do not substitute a different
+  // order-level finish that was copied onto the line.
+  const own = clean(style?.aliasName) || clean(style?.ourName);
+  if (own) return own;
   const stored = clean(line.doorStyle);
   if (!stored) return null;
   const blocked = new Set([style?.aliasName, style?.ourName].map((value) => clean(value).toLowerCase()).filter(Boolean));

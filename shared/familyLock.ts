@@ -1,87 +1,86 @@
-// Family-lock rule (pure, testable).
+// Supplier lock (pure, testable).
 //
-// Business rule: a single order must stay within ONE cabinet family — i.e. one
-// door style (styleId) sourced from one supply line (distributorId). Mixing
-// families on a single order forces multiple shipments and breaks pricing/finish
-// consistency, so the backend rejects it.
+// A single order must stay with ONE supplier (distributorId). Colors and door
+// styles from that supplier mix freely — a two-tone kitchen is one order.
+// Mixing suppliers would split freight, pricing, and the purchase order, so
+// submit rejects it.
 //
-// Only *matched, priced* lines are constrained: a line with no resolved styleId
-// (e.g. an unmatched OCR line still in review) does not break the lock — it
-// simply isn't covered yet. The order-level styleId, when supplied, defines the
-// canonical family every priced line must agree with.
+// Pelican surface lines and hardware lines carry no door style and no supplier
+// constraint. A cabinet line with no distributor yet does not, by itself, fail
+// the lock.
 
 export interface FamilyLockLine {
-  /** Resolved door-style id for this line, or null if not yet matched/priced. */
+  /** Door style on this line. Several styles are allowed. */
   styleId?: number | null;
+  /** Supplier for this line. The order may contain only one. */
+  distributorId?: number | null;
+  /** surface and hardware lines are not cabinet-supplier lines. */
+  productKind?: string | null;
   /** Optional human label, used only for error messages. */
   masterCode?: string | null;
 }
 
 export interface FamilyLockResult {
   ok: boolean;
-  /** The single styleId the order is locked to, when resolvable. */
+  /** The single supplier the order is locked to, when one is present. */
+  distributorId: number | null;
+  /** Distinct supplier ids on cabinet lines (sorted ascending). */
+  distinctDistributorIds: number[];
+  /** Set only when every cabinet line shares one door style. */
   styleId: number | null;
-  /** Distinct styleIds seen across priced lines (sorted ascending). */
+  /** Distinct door styles on cabinet lines (sorted ascending). */
   distinctStyleIds: number[];
   /** Human-readable reason when ok = false. */
   reason?: string;
 }
 
+function positiveId(value: number | null | undefined): number | null {
+  if (value == null) return null;
+  const id = Number(value);
+  return Number.isInteger(id) && id > 0 ? id : null;
+}
+
+function cabinetLines(lines: FamilyLockLine[]): FamilyLockLine[] {
+  return lines.filter((line) => line.productKind !== "surface" && line.productKind !== "hardware");
+}
+
 /**
- * Validate that every priced line in an order belongs to one door-style family.
- *
- * @param lines         order lines (each may carry a styleId once priced)
- * @param orderStyleId  optional order-level family the lines must match
+ * Validate that every cabinet line in an order comes from one supplier.
+ * Different door styles from that supplier are allowed.
  */
-export function validateFamilyLock(
-  lines: FamilyLockLine[],
-  orderStyleId?: number | null
-): FamilyLockResult {
-  const styleIds = lines
-    .map((l) => (l.styleId == null ? null : Number(l.styleId)))
-    .filter((s): s is number => s != null && Number.isFinite(s));
+export function validateFamilyLock(lines: FamilyLockLine[]): FamilyLockResult {
+  const cabinets = cabinetLines(lines);
+  const distributorIds = cabinets
+    .map((line) => positiveId(line.distributorId))
+    .filter((id): id is number => id != null);
+  const distinctDistributorIds = Array.from(new Set(distributorIds)).sort((a, b) => a - b);
+  const styleIds = cabinets
+    .map((line) => positiveId(line.styleId))
+    .filter((id): id is number => id != null);
+  const distinctStyleIds = Array.from(new Set(styleIds)).sort((a, b) => a - b);
+  const singleStyleId = distinctStyleIds.length === 1 ? distinctStyleIds[0] : null;
 
-  const distinct = Array.from(new Set(styleIds)).sort((a, b) => a - b);
-
-  // No priced line carries a style yet — nothing to enforce. Lock to the
-  // order-level style if one was provided.
-  if (distinct.length === 0) {
-    return {
-      ok: true,
-      styleId: orderStyleId ?? null,
-      distinctStyleIds: [],
-    };
-  }
-
-  // More than one style across priced lines → mixed family, reject.
-  if (distinct.length > 1) {
+  if (distinctDistributorIds.length > 1) {
     return {
       ok: false,
+      distributorId: null,
+      distinctDistributorIds,
       styleId: null,
-      distinctStyleIds: distinct,
+      distinctStyleIds,
       reason:
-        "An order must stay within a single door-style family. " +
-        `This order mixes ${distinct.length} different styles (ids: ${distinct.join(", ")}). ` +
-        "Please split it into one order per door style.",
+        "An order must stay with a single supplier. " +
+        `This order mixes ${distinctDistributorIds.length} suppliers (ids: ${distinctDistributorIds.join(", ")}). ` +
+        "Please split it into one order per supplier.",
     };
   }
 
-  const single = distinct[0];
-
-  // If the order declares a family, every priced line must match it.
-  if (orderStyleId != null && Number(orderStyleId) !== single) {
-    return {
-      ok: false,
-      styleId: null,
-      distinctStyleIds: distinct,
-      reason:
-        `Line items belong to door style ${single}, ` +
-        `but the order is set to style ${orderStyleId}. ` +
-        "All items must share one door-style family.",
-    };
-  }
-
-  return { ok: true, styleId: single, distinctStyleIds: distinct };
+  return {
+    ok: true,
+    distributorId: distinctDistributorIds[0] ?? null,
+    distinctDistributorIds,
+    styleId: singleStyleId,
+    distinctStyleIds,
+  };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

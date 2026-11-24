@@ -1906,7 +1906,7 @@ export const orderRequests = mysqlTable("order_requests", {
   orderKind: varchar("orderKind", { length: 16 }).default("standard").notNull(),
   projectLabel: varchar("projectLabel", { length: 256 }),
   status: mysqlEnum("status", ["draft", "submitted", "confirmed", "cancelled"]).default("draft").notNull(),
-  styleId: int("styleId"), // default door style applied across lines
+  styleId: int("styleId"), // set when every cabinet line shares one door style; null when colors are mixed
   styleName: varchar("styleName", { length: 128 }),
   tier: mysqlEnum("tier", ["Wholesale", "Contractor", "Homeowner"]).default("Homeowner").notNull(),
   // Affiliate attribution: which affiliate referred this order (if any)
