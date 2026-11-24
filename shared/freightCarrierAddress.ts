@@ -223,6 +223,23 @@ export function postalLocality(zip: string): CarrierLocality | null {
   return { locality, region, countryCode: "US" };
 }
 
+export type ZipLookup = {
+  city: string;
+  state: string;
+};
+
+/**
+ * City and state for a shopper ZIP. Accepts five digits or ZIP+4 and uses the
+ * first five. Unknown and unusable values are null. Named freight origins and
+ * the offline US ZIP list are read by {@link postalLocality}; this does not
+ * call a database or a geocoder.
+ */
+export function lookupZipLocality(zip: string | null | undefined): ZipLookup | null {
+  const place = postalLocality(zip ?? "");
+  if (!place) return null;
+  return { city: place.locality, state: place.region };
+}
+
 export function knownOriginLocality(zip: string): CarrierLocality | null {
   return postalLocality(zip);
 }

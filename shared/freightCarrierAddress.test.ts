@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildSpeedshipShopFlowPayload } from "../server/_core/worldwideexpress";
 import {
   knownOriginLocality,
+  lookupZipLocality,
   parseStoredOriginAddress,
   postalLocality,
   resolveOriginLocality,
@@ -76,6 +77,29 @@ describe("origin carrier city and state", () => {
     expect(resolveOriginLocality({ zip: "27406" })?.region).toBe("NC");
     expect(resolveOriginLocality({ zip: "95691" })?.locality).toBe("West Sacramento");
     expect(resolveOriginLocality({ zip: "99999" })).toBeNull();
+  });
+});
+
+describe("checkout ZIP lookup", () => {
+  it("returns the city and state for a known 5-digit ZIP", () => {
+    expect(lookupZipLocality("10001")).toEqual({ city: "New York", state: "NY" });
+  });
+
+  it("uses the first five digits of a ZIP+4", () => {
+    expect(lookupZipLocality("10001-1234")).toEqual({ city: "New York", state: "NY" });
+    expect(lookupZipLocality("100011234")).toEqual({ city: "New York", state: "NY" });
+  });
+
+  it("returns null when the ZIP is not in the list", () => {
+    expect(lookupZipLocality("99999")).toBeNull();
+  });
+
+  it("returns null for bad input", () => {
+    expect(lookupZipLocality("")).toBeNull();
+    expect(lookupZipLocality("1234")).toBeNull();
+    expect(lookupZipLocality("nope")).toBeNull();
+    expect(lookupZipLocality("ABCDE")).toBeNull();
+    expect(lookupZipLocality(null)).toBeNull();
   });
 });
 
