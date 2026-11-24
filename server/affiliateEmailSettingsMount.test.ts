@@ -41,6 +41,7 @@ describe("affiliateEmailSettings contract is mounted", () => {
   it("does not leak a slug-addressed variant the server would have to trust", () => {
     const emailProcedures = names.filter((name) => name.startsWith("affiliateEmailSettings."));
     expect(emailProcedures.sort()).toEqual([
+      "affiliateEmailSettings.domainRecords",
       "affiliateEmailSettings.get",
       "affiliateEmailSettings.sendTest",
       "affiliateEmailSettings.update",

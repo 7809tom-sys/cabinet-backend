@@ -125,3 +125,22 @@ any store that has not configured its own mailbox.
 `server/routers/affiliateEmailSettingsContract.test.ts` run with nodemailer
 stubbed and an in-memory database: no SMTP server, no database, no mailbox is
 contacted.
+
+## Domain mailbox setup and graceful failure (draft branch feat/affiliate-email-domain-setup)
+
+- `affiliateEmailSettings.get` no longer throws a raw "Failed query" when
+  `affiliate_email_settings` cannot be read (for example migration 0231 has not
+  run). `loadSenderRowSafe` logs the real database error server-side with the
+  prefix `[affiliate-email-settings]` and the view comes back with
+  `unavailable: true`. `crm.emailSetup.get` does the same. The view also carries
+  `customDomain` (from `affiliates.customDomain`, migration 0230) so the Email
+  page can show own-domain instructions.
+- `affiliateEmailSettings.domainRecords` is a read-only public DNS check (SPF at
+  the domain, DMARC at `_dmarc.<domain>`, and the DKIM selectors named in each
+  provider's docs). The domain is taken from the saved mailbox address or the
+  store's custom domain on the server, never from the client. It does not
+  connect to any mail server and sends nothing.
+- The instruction text and values live in the frontend
+  `shared/affiliateEmailSettings.ts` (`DOMAIN_MAIL_HOST_GUIDES`) with the
+  provider help URLs next to them. No new SQL: the live fix is still migration
+  0231 (see the idempotent SQL already given to the owner).
