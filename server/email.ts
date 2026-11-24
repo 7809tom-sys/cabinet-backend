@@ -43,6 +43,8 @@ export interface SendEmailOptions {
   sender?: AffiliateSmtpSender | null;
   /** Explicit From header. Ignored by the Resend path, which uses ORDER_EMAIL_FROM. */
   from?: string;
+  /** Extra message headers (e.g. List-Unsubscribe). Passed to Resend and SMTP as-is. */
+  headers?: Record<string, string>;
 }
 
 export interface SendEmailResult {
@@ -165,6 +167,7 @@ export async function sendViaResend(
         html: opts.html,
         reply_to: replyTo,
         attachments,
+        ...(opts.headers && Object.keys(opts.headers).length ? { headers: opts.headers } : {}),
       }),
     });
     const body = await response.json().catch(() => ({})) as { id?: string; message?: string };
@@ -199,6 +202,7 @@ async function sendViaSmtp(config: SmtpConfig, opts: SendEmailOptions): Promise<
     html: opts.html,
     replyTo: opts.replyTo,
     attachments: opts.attachments,
+    ...(opts.headers ? { headers: opts.headers } : {}),
   });
   return { success: true, messageId: info.messageId, transport: "smtp", from: opts.from || config.from };
 }
@@ -245,6 +249,7 @@ export async function sendViaAffiliateSmtp(
       html: opts.html,
       replyTo: opts.replyTo ?? from,
       attachments: opts.attachments,
+      ...(opts.headers ? { headers: opts.headers } : {}),
     });
     return { success: true, messageId: info.messageId, transport: "affiliate_smtp", from: opts.from || from };
   } catch (error) {
