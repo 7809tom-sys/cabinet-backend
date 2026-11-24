@@ -4901,3 +4901,158 @@ export const backupSettings = mysqlTable("backup_settings", {
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
 export type BackupSettings = typeof backupSettings.$inferSelect;
+
+// ─── CRM customer list import + AI follow-up outreach ─────────────────────────
+// docs/sql/0286_crm_customer_import_outreach.tidb.sql creates these tables.
+// crm_deals is not altered: an imported customer is an ordinary house CRM
+// contact (crm_deals row), and the import facts live in the side tables below.
+
+// One row per uploaded file (e.g. the New Hampshire legacy customer list).
+export const crmContactImports = mysqlTable("crm_contact_imports", {
+  id: int("id").autoincrement().primaryKey(),
+  sourceTag: varchar("sourceTag", { length: 128 }).notNull(),
+  fileName: varchar("fileName", { length: 256 }).default("").notNull(),
+  importedByUserId: int("importedByUserId"),
+  totalRows: int("totalRows").default(0).notNull(),
+  importedCount: int("importedCount").default(0).notNull(),
+  duplicateCount: int("duplicateCount").default(0).notNull(),
+  skippedCount: int("skippedCount").default(0).notNull(),
+  status: mysqlEnum("status", ["running", "finished"]).default("running").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  finishedAt: timestamp("finishedAt"),
+});
+export type CrmContactImport = typeof crmContactImports.$inferSelect;
+
+// One row per imported customer: the extra columns a legacy list carries that
+// crm_deals has no column for. dealId is unique so a contact is tagged once.
+export const crmContactImportRows = mysqlTable("crm_contact_import_rows", {
+  id: int("id").autoincrement().primaryKey(),
+  importId: int("importId").notNull(),
+  dealId: int("dealId").notNull(),
+  email: varchar("email", { length: 320 }).notNull(),
+  sourceTag: varchar("sourceTag", { length: 128 }).notNull(),
+  address: varchar("address", { length: 512 }),
+  city: varchar("city", { length: 128 }),
+  state: varchar("state", { length: 64 }),
+  zip: varchar("zip", { length: 16 }),
+  lastPurchaseDate: varchar("lastPurchaseDate", { length: 32 }),
+  importedAt: timestamp("importedAt").defaultNow().notNull(),
+}, (t) => ({
+  dealUq: uniqueIndex("crm_contact_import_rows_deal_uq").on(t.dealId),
+  emailIdx: index("crm_contact_import_rows_email_idx").on(t.email),
+  tagIdx: index("crm_contact_import_rows_tag_idx").on(t.sourceTag, t.importedAt),
+}));
+export type CrmContactImportRow = typeof crmContactImportRows.$inferSelect;
+
+// Single settings row (id = 1). Everything starts OFF and in preview mode.
+export const outreachSettings = mysqlTable("outreach_settings", {
+  id: int("id").primaryKey(),
+  enabled: boolean("enabled").default(false).notNull(),
+  mode: mysqlEnum("mode", ["preview", "approval", "auto"]).default("preview").notNull(),
+  dailyCap: int("dailyCap").default(25).notNull(),
+  perContactCap: int("perContactCap").default(3).notNull(),
+  senderName: varchar("senderName", { length: 128 }).default("Tom at CabinetDealz").notNull(),
+  sequence: json("sequence"),
+  updatedByUserId: int("updatedByUserId"),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type OutreachSettingsRow = typeof outreachSettings.$inferSelect;
+
+export const outreachEnrollments = mysqlTable("outreach_enrollments", {
+  id: int("id").autoincrement().primaryKey(),
+  dealId: int("dealId").notNull(),
+  email: varchar("email", { length: 320 }).notNull(),
+  status: mysqlEnum("status", [
+    "active",
+    "paused",
+    "completed",
+    "replied",
+    "unsubscribed",
+    "bounced",
+    "needs_owner",
+    "stopped",
+  ]).default("active").notNull(),
+  currentStep: int("currentStep").default(0).notNull(),
+  nextSendAt: timestamp("nextSendAt"),
+  sentCount: int("sentCount").default(0).notNull(),
+  lastSentAt: timestamp("lastSentAt"),
+  unsubscribeToken: varchar("unsubscribeToken", { length: 64 }).notNull(),
+  stopReason: varchar("stopReason", { length: 256 }),
+  lockedUntil: timestamp("lockedUntil"),
+  enrolledByUserId: int("enrolledByUserId"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (t) => ({
+  dealUq: uniqueIndex("outreach_enrollments_deal_uq").on(t.dealId),
+  tokenUq: uniqueIndex("outreach_enrollments_token_uq").on(t.unsubscribeToken),
+  emailIdx: index("outreach_enrollments_email_idx").on(t.email),
+  dueIdx: index("outreach_enrollments_due_idx").on(t.status, t.nextSendAt),
+}));
+export type OutreachEnrollment = typeof outreachEnrollments.$inferSelect;
+
+// Every drafted email: the approval queue, the preview log and the send log.
+export const outreachMessages = mysqlTable("outreach_messages", {
+  id: int("id").autoincrement().primaryKey(),
+  enrollmentId: int("enrollmentId").notNull(),
+  dealId: int("dealId").notNull(),
+  stepIndex: int("stepIndex").notNull(),
+  toEmail: varchar("toEmail", { length: 320 }).notNull(),
+  subject: varchar("subject", { length: 256 }).notNull(),
+  bodyText: text("bodyText").notNull(),
+  draftSource: mysqlEnum("draftSource", ["ai", "fallback"]).default("ai").notNull(),
+  status: mysqlEnum("status", [
+    "preview",
+    "pending_approval",
+    "approved",
+    "sending",
+    "sent",
+    "failed",
+    "rejected",
+    "skipped",
+  ]).notNull(),
+  providerMessageId: varchar("providerMessageId", { length: 256 }),
+  transport: varchar("transport", { length: 32 }),
+  fromAddress: varchar("fromAddress", { length: 320 }),
+  error: varchar("error", { length: 1000 }),
+  approvedByUserId: int("approvedByUserId"),
+  approvedAt: timestamp("approvedAt"),
+  sentAt: timestamp("sentAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (t) => ({
+  enrollmentIdx: index("outreach_messages_enrollment_idx").on(t.enrollmentId, t.stepIndex),
+  statusIdx: index("outreach_messages_status_idx").on(t.status, t.createdAt),
+  sentIdx: index("outreach_messages_sent_idx").on(t.sentAt),
+  providerIdx: index("outreach_messages_provider_idx").on(t.providerMessageId),
+}));
+export type OutreachMessage = typeof outreachMessages.$inferSelect;
+
+// Addresses that must never get outreach mail. Always checked before a send.
+export const outreachSuppressions = mysqlTable("outreach_suppressions", {
+  id: int("id").autoincrement().primaryKey(),
+  email: varchar("email", { length: 320 }).notNull(),
+  reason: mysqlEnum("reason", ["unsubscribe", "bounce", "complaint", "manual", "reply_stop"]).notNull(),
+  source: varchar("source", { length: 128 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (t) => ({
+  emailUq: uniqueIndex("outreach_suppressions_email_uq").on(t.email),
+}));
+export type OutreachSuppression = typeof outreachSuppressions.$inferSelect;
+
+// Append-only audit log: every send, failure, unsubscribe, bounce, reply,
+// click, approval and settings change.
+export const outreachEvents = mysqlTable("outreach_events", {
+  id: int("id").autoincrement().primaryKey(),
+  eventType: varchar("eventType", { length: 48 }).notNull(),
+  enrollmentId: int("enrollmentId"),
+  messageId: int("messageId"),
+  dealId: int("dealId"),
+  email: varchar("email", { length: 320 }),
+  actorUserId: int("actorUserId"),
+  detail: json("detail"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (t) => ({
+  typeIdx: index("outreach_events_type_idx").on(t.eventType, t.createdAt),
+  enrollmentIdx: index("outreach_events_enrollment_idx").on(t.enrollmentId),
+}));
+export type OutreachEvent = typeof outreachEvents.$inferSelect;

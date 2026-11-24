@@ -72,6 +72,7 @@ import { persistOrderCostSnapshot, withDistributorCostSnapshots } from "../lib/o
 import { orderSchemaProcedureError } from "../lib/orderSchemaGuard";
 import { canAccessOrderPalletPhoto, readPalletPhotoForOrder, storeOrderPalletPhoto } from "../lib/orderPalletPhoto";
 import { verifiedEmailResponseFields } from "../lib/orderVerifiedEmailResponse";
+import { queuePelicanSlabQuoteEmails } from "../lib/pelicanSlabQuoteEmail";
 import { adminMarkOrderPaid, attachOrderFulfillmentOverlay, backfillOrderCrm, markOrderShipped, markOrderSigned, markOrderVerified, notifyOrderDistributors, onOrderPlaced } from "../lib/orderSideEffects";
 import { readStripeChargeFacts } from "../lib/stripeChargeFacts";
 import { choosePromotedPrice, type PricedCandidate } from "@shared/vendorPromotions";
@@ -1482,6 +1483,31 @@ export const ordersRouter = router({
         } catch (error) {
           console.error(`[OrderEmail] Submitted order ${insertId} was saved, but the distributor email step failed: ${error instanceof Error ? error.message : String(error)}`);
         }
+        // Florida slab orders: email the supplier's slab quote contact
+        // (PELICAN_QUOTE_EMAIL) the customer details and the $50/slab quote.
+        // Fire-and-forget; a mail failure is logged and never fails the order.
+        queuePelicanSlabQuoteEmails({
+          orderRequestId: insertId,
+          requestNumber,
+          submittedAt: new Date(),
+          deliveryMethod,
+          deliveryLocationType,
+          liftgateRequired: deliveryMethod === "ship" && liftgateRequired,
+          customer: {
+            name: input.originatorName ?? ctx.user?.name ?? null,
+            email: input.originatorEmail ?? ctx.user?.email ?? null,
+            phone: input.originatorPhone ?? null,
+          },
+          address: {
+            line1: deliveryAddress?.line1 ?? input.shippingAddressLine1 ?? null,
+            line2: deliveryAddress?.line2 ?? input.shippingAddressLine2 ?? null,
+            city: deliveryAddress?.city ?? input.shippingCity ?? null,
+            state: shippingDestination.state || null,
+            zip: shippingDestination.zip || null,
+          },
+          notes: input.notes ?? null,
+          lines: resolvedLines,
+        });
       }
       return { id: insertId, requestNumber, freightCents: freightQuoteCents, accessToken };
     }),
