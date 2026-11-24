@@ -47,6 +47,16 @@ export type AffiliateEmailSettingsView = {
   canEdit: boolean;
   lastTestedAt: string | null;
   lastTestOk: boolean | null;
+  /**
+   * The store's own domain (affiliates.customDomain), when it has one. Lets the
+   * Email page show domain mailbox instructions without a second request.
+   */
+  customDomain?: string | null;
+  /**
+   * True when the settings table could not be read (for example a migration has
+   * not been applied). The page shows a plain notice instead of a raw SQL error.
+   */
+  unavailable?: boolean;
 };
 
 /** The exact payload `affiliateEmailSettings.update` accepts. */

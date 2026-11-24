@@ -106,6 +106,46 @@ export async function loadSenderRow(db: Database, affiliateId: number): Promise<
   return row ?? null;
 }
 
+/**
+ * Same read as `loadSenderRow`, but a database failure (typically a column that
+ * a migration has not added yet) is logged here with the real error and reported
+ * as `unavailable` instead of reaching the browser as a raw "Failed query".
+ */
+export async function loadSenderRowSafe(
+  db: Database,
+  affiliateId: number,
+): Promise<{ row: SenderRow | null; unavailable: boolean }> {
+  try {
+    return { row: await loadSenderRow(db, affiliateId), unavailable: false };
+  } catch (error) {
+    const cause = (error as { cause?: { message?: string } } | null)?.cause?.message;
+    console.error(
+      `[affiliate-email-settings] could not read affiliate_email_settings for affiliate ${affiliateId}: ` +
+      `${error instanceof Error ? error.message : String(error)}${cause ? ` | cause: ${cause}` : ""}. ` +
+      "Most likely a pending migration (drizzle/0231_affiliate_outbound_sender.sql).",
+    );
+    return { row: null, unavailable: true };
+  }
+}
+
+/** The store's own domain, or null. Never throws: a missing column reads as no domain. */
+export async function loadAffiliateCustomDomain(db: Database, affiliateId: number): Promise<string | null> {
+  try {
+    const [row] = await db
+      .select({ customDomain: affiliates.customDomain })
+      .from(affiliates)
+      .where(eq(affiliates.id, affiliateId))
+      .limit(1);
+    return row?.customDomain?.trim() || null;
+  } catch (error) {
+    console.error(
+      `[affiliate-email-settings] could not read affiliates.customDomain for affiliate ${affiliateId}: ` +
+      `${error instanceof Error ? error.message : String(error)}`,
+    );
+    return null;
+  }
+}
+
 /** The response shape the CRM setup screen reads. */
 export async function loadSenderSetupForCrm(ctx: SenderCtx, requestedAffiliateId?: number) {
   const db = await getDb();
@@ -119,15 +159,19 @@ export async function loadSenderSetupForCrm(ctx: SenderCtx, requestedAffiliateId
       settings: null,
       invoiceCopyDefault: platformCopy,
       platformFallbackAvailable,
+      customDomain: null as string | null,
+      unavailable: true,
     };
   }
-  const row = await loadSenderRow(db, target);
+  const { row, unavailable } = await loadSenderRowSafe(db, target);
   return {
     mode: "affiliate" as const,
     affiliateId: target,
     settings: row ? toPublicAffiliateEmailSettings(row) : null,
     invoiceCopyDefault: platformCopy,
     platformFallbackAvailable,
+    customDomain: await loadAffiliateCustomDomain(db, target),
+    unavailable,
   };
 }
 
@@ -263,8 +307,12 @@ export async function loadSenderSettingsView(
 ): Promise<AffiliateEmailSettingsView> {
   const db = await getDb();
   const affiliateId = await resolveSenderTargetAffiliateId(ctx, requestedAffiliateId);
-  const row = db ? await loadSenderRow(db, affiliateId) : null;
-  return toAffiliateEmailSettingsView(row, { affiliateId, canEdit: true });
+  const { row, unavailable } = db ? await loadSenderRowSafe(db, affiliateId) : { row: null, unavailable: true };
+  return {
+    ...toAffiliateEmailSettingsView(row, { affiliateId, canEdit: true }),
+    customDomain: db ? await loadAffiliateCustomDomain(db, affiliateId) : null,
+    unavailable,
+  };
 }
 
 /**

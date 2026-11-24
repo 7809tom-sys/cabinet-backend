@@ -8,7 +8,12 @@ import {
   loadSenderSettingsView,
   runSenderTestFromContract,
   updateSenderSettingsFromContract,
+  loadAffiliateCustomDomain,
+  loadSenderRowSafe,
+  resolveSenderTargetAffiliateId,
 } from "../lib/affiliateSenderSettings";
+import { ownMailDomain } from "@shared/affiliateEmailDomain";
+import { checkMailDomainRecords } from "../lib/emailDomainRecords";
 
 // The affiliate dashboard (cabinet-frontend PR 232) calls these three names with
 // its own field vocabulary. They are thin aliases of `crm.emailSetup.*`: both
@@ -68,5 +73,24 @@ export const affiliateEmailSettingsRouter = router({
         throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
       }
       return runSenderTestFromContract(ctx, input.affiliateId);
+    }),
+
+  // Read-only public DNS check (SPF, DKIM, DMARC) for the store's own mail
+  // domain. The domain comes from the saved mailbox address or the store's
+  // custom domain, never from the client, so this cannot be pointed at an
+  // arbitrary host. Nothing is sent and no mail server is contacted.
+  domainRecords: protectedProcedure
+    .input(affiliateIdInput)
+    .query(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+      }
+      const affiliateId = await resolveSenderTargetAffiliateId(ctx, input.affiliateId);
+      const { row } = await loadSenderRowSafe(db, affiliateId);
+      const customDomain = await loadAffiliateCustomDomain(db, affiliateId);
+      const domain = ownMailDomain(row?.contactEmail, row?.smtpFrom, row?.smtpUser) ?? ownMailDomain(`x@${customDomain ?? ""}`);
+      if (!domain) return { domain: null, spf: false, dmarc: false, dkimSelector: null, reliable: true };
+      return checkMailDomainRecords(domain);
     }),
 });
