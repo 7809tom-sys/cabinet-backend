@@ -6,14 +6,14 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { parseArgs, loadEnv } from "./lib.mjs";
+import { parseArgs, loadEnv, DEFAULT_BACKUP_API_URL } from "./lib.mjs";
 import { DEFAULT_SCHEDULE, isBackupDue, isValidDailyTime, isValidTimezone, isValidRetentionDays } from "./schedule.mjs";
 
 const args = parseArgs(process.argv.slice(2));
 const here = path.dirname(fileURLToPath(import.meta.url));
 const cacheFile = args.cache && args.cache !== true ? args.cache : path.join(here, "schedule-cache.json");
 const env = loadEnv(args.env);
-const apiBase = (env.BACKUP_API_URL || "https://api.cabinetdealz.com").replace(/\/+$/, "");
+const apiBase = (env.BACKUP_API_URL || DEFAULT_BACKUP_API_URL).replace(/\/+$/, "");
 
 function validSchedule(s) {
   return s && isValidDailyTime(s.dailyTime) && isValidTimezone(s.timezone) && isValidRetentionDays(s.retentionDays);

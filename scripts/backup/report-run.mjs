@@ -6,12 +6,12 @@
 //   node report-run.mjs finish --env F --run-id N --machine NAME --dest PATH --scope ... --status success|partial|failed --snapshot DIR --error "text"
 import fs from "node:fs";
 import path from "node:path";
-import { parseArgs, loadEnv } from "./lib.mjs";
+import { parseArgs, loadEnv, DEFAULT_BACKUP_API_URL } from "./lib.mjs";
 
 const args = parseArgs(process.argv.slice(2));
 const event = args._[0];
 const env = loadEnv(args.env);
-const apiBase = (env.BACKUP_API_URL || "https://api.cabinetdealz.com").replace(/\/+$/, "");
+const apiBase = (env.BACKUP_API_URL || DEFAULT_BACKUP_API_URL).replace(/\/+$/, "");
 const str = (v) => (v && v !== true ? String(v) : "");
 
 const body = {

@@ -3,7 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 // @ts-expect-error plain .mjs helper
-import { chicagoDate, snapshotDay, groupForDay, planRotation, safeRelPath, joinInside, parseEnvText, parseArgs } from "../../scripts/backup/lib.mjs";
+import { DEFAULT_BACKUP_API_URL, chicagoDate, snapshotDay, groupForDay, planRotation, safeRelPath, joinInside, parseEnvText, parseArgs } from "../../scripts/backup/lib.mjs";
 
 describe("backup helpers (no network)", () => {
   it("uses America/Chicago dates", () => {
@@ -64,5 +64,17 @@ describe("retention beyond 90 days", () => {
     const plan = planRotation(["2026-11-23", "2026-07-01", "2026-01-01"], "2026-11-23", 180);
     expect(plan["days-91-plus"].map((s: any) => s.name)).toEqual(["2026-07-01"]);
     expect(plan["older-than-90"].map((s: any) => s.name)).toEqual(["2026-01-01"]);
+  });
+});
+
+describe("backup API address", () => {
+  it("defaults to the www host that Vercel rewrites to Railway, never the old api host", () => {
+    expect(DEFAULT_BACKUP_API_URL).toBe("https://www.cabinetdealz.com");
+    for (const f of ["check-due.mjs", "report-run.mjs", "lib.mjs"]) {
+      const src = fs.readFileSync(path.resolve(process.cwd(), "scripts/backup", f), "utf8");
+      expect(src.includes('"https://api.cabinetdealz.com"')).toBe(false);
+    }
+    const example = fs.readFileSync(path.resolve(process.cwd(), ".env.example"), "utf8");
+    expect(example).toContain("# BACKUP_API_URL=https://www.cabinetdealz.com");
   });
 });

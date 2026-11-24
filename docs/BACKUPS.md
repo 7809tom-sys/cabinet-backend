@@ -189,7 +189,7 @@ DATABASE_URL=<only for the optional database dump>
 2. Add it on Railway to the **backend** service as `BACKUP_REPORT_TOKEN`. Railway restarts the service.
 3. Put the same value in the PC key file as `BACKUP_REPORT_TOKEN=...`.
 4. If it is not set on Railway, the backup endpoints answer 503 and the PC falls back to its cached or default schedule; backups still run.
-5. Optional in the PC key file: `BACKUP_API_URL=https://api.cabinetdealz.com` (this is the default).
+5. Optional in the PC key file: `BACKUP_API_URL=https://www.cabinetdealz.com` (this is the default; the website forwards `/api/*` to the live backend). Do **not** use `api.cabinetdealz.com`: its DNS still points at the old host, so the token would go to the wrong server.
 6. Right-click the key file, Properties, Security: only your Windows user should read it.
 7. The scripts never print the keys. Backup folders hold file names and hashes only. The report to the website contains the machine name, drive path, counts and sizes, and no customer data.
 8. If the PC is lost, rotate the Supabase service role key and `BACKUP_REPORT_TOKEN`, and update Railway.
@@ -198,7 +198,7 @@ DATABASE_URL=<only for the optional database dump>
 
 1. Check Node: open PowerShell and run `node -v`. It must show v18 or newer. If not, install from nodejs.org.
 2. Plug in the 2 TB flash drive. Note its letter. Turn on BitLocker To Go.
-3. Create `C:\CabinetDealzBackup\backup.env` (section 10).
+3. Create `C:\CabinetDealzBackup\backup.env` (section 10). The scripts send `BACKUP_REPORT_TOKEN` only to `https://www.cabinetdealz.com` unless you set `BACKUP_API_URL`.
 4. Get the backend repo onto the PC (clone or download), then in PowerShell from its folder run:
    ```
    powershell -ExecutionPolicy Bypass -File scripts\backup\windows\install-scheduled-task.ps1 -Dest "E:\CabinetDealzBackups" -EnvFile "C:\CabinetDealzBackup\backup.env"

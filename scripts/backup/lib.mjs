@@ -2,6 +2,8 @@
 import fs from "node:fs";
 import path from "node:path";
 
+// Vercel rewrites /api/* on www to the live Railway backend. Do NOT use api.cabinetdealz.com: its DNS points at the old Manus host.
+export const DEFAULT_BACKUP_API_URL = "https://www.cabinetdealz.com";
 export const TIME_ZONE = "America/New_York"; // default; Tom's schedule can change it
 export const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 export const GROUPS = [
