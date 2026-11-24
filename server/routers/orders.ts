@@ -21,8 +21,11 @@ import {
   crmDeals,
   vendorProducts,
   hardwareShippingProfiles,
+  hardwareCategoryAffiliateMarkups,
+  pelicanCategoryMarkups,
   type OrderLineItem,
 } from "../../drizzle/schema";
+import { pelicanProducts } from "../../drizzle/pelicanSchema";
 import { normalizeReferralCode } from "@shared/affiliate";
 import { NO_DISTRIBUTOR_SKU_MAPPED, resolveDistributorPoLine } from "@shared/distributorPoLine";
 import { fetchDistributorPoCatalog } from "../lib/distributorPoCatalog";
@@ -60,6 +63,7 @@ import { isCatalogFreeShippingIdentity, loadCatalogFreeShippingIndex } from "../
 import { CabinetFreeShippingSchemaError, isMissingFreeShippingColumn } from "../lib/cabinetFreeShippingSchema";
 import { isStagingTestHost } from "@shared/stagingTestMode";
 import { HARDWARE_LINE_CODE, hardwareProfileIsComplete, hardwareRetailCents, hardwareVendorOriginZip } from "@shared/hardwareCommerce";
+import { affiliateHardwareUnitPrice, affiliatePelicanUnitPrice, pelicanRecordIsOrderable } from "../lib/affiliateNonCabinetPrice";
 import {
   itemUsesExistingCarrierQuote,
   quoteShippingByRules,
@@ -860,6 +864,7 @@ export const ordersRouter = router({
           distributorId: l.distributorId ?? null,
           productKind: l.productKind ?? null,
           category: l.category ?? null,
+          pelicanProductId: l.pelicanProductId ?? null,
           vendorProductId: l.vendorProductId ?? null,
           tier: l.tier ?? input.tier,
           matched: l.matched,
@@ -871,11 +876,12 @@ export const ordersRouter = router({
         styleIds: [input.styleId, ...normalizedLines.map((line) => line.styleId)],
       });
       if (affiliatePricing) {
+        const cabinetLines = normalizedLines.filter((line) => line.productKind !== "surface" && line.productKind !== "hardware");
         const masterCodes = Array.from(new Set(
-          normalizedLines.map((line) => line.masterCode?.trim().toUpperCase()).filter((code): code is string => Boolean(code)),
+          cabinetLines.map((line) => line.masterCode?.trim().toUpperCase()).filter((code): code is string => Boolean(code)),
         ));
         const styleIds = Array.from(new Set(
-          normalizedLines.map((line) => line.styleId ?? input.styleId ?? null).filter((styleId): styleId is number => typeof styleId === "number"),
+          cabinetLines.map((line) => line.styleId ?? input.styleId ?? null).filter((styleId): styleId is number => typeof styleId === "number"),
         ));
         const saleByLine = new Map<string, number>();
         if (masterCodes.length > 0 && styleIds.length > 0) {
@@ -907,6 +913,7 @@ export const ordersRouter = router({
           }
         }
         normalizedLines = normalizedLines.map((line) => {
+          if (line.productKind === "surface" || line.productKind === "hardware") return line;
           const styleId = line.styleId ?? input.styleId ?? null;
           const key = line.masterCode && styleId != null ? `${line.masterCode.trim().toUpperCase()}:${styleId}` : null;
           const sale = key ? saleByLine.get(key) : null;
@@ -936,8 +943,10 @@ export const ordersRouter = router({
             vendorSku: vendorProducts.vendorSku,
             name: vendorProducts.name,
             description: vendorProducts.description,
+            category: vendorProducts.category,
             listPrice: vendorProducts.listPrice,
             yourCost: vendorProducts.yourCost,
+            affiliateSalePrice: affiliatePricing ? vendorProducts.affiliateSalePrice : sql<string | null>`NULL`,
           })
           .from(vendorProducts)
           .innerJoin(distributors, eq(vendorProducts.distributorId, distributors.id))
@@ -950,16 +959,36 @@ export const ordersRouter = router({
             eq(vendorProducts.isAvailable, true),
           ));
         const productById = new Map(products.map((product) => [product.id, product]));
+        const hardwareAffiliateBps = new Map<string, number>();
+        if (affiliatePricing) {
+          const markupRows = await db
+            .select({
+              category: hardwareCategoryAffiliateMarkups.category,
+              affiliateMarkupBps: hardwareCategoryAffiliateMarkups.affiliateMarkupBps,
+            })
+            .from(hardwareCategoryAffiliateMarkups);
+          for (const row of markupRows) {
+            if (row.affiliateMarkupBps != null) hardwareAffiliateBps.set(row.category, row.affiliateMarkupBps);
+          }
+        }
         const markupBps = Math.max(0, affiliatePricing?.hardwareMarkupBps ?? 0);
         normalizedLines = normalizedLines.map((line) => {
           if (line.productKind !== "hardware") return line;
           const product = line.vendorProductId == null ? null : productById.get(line.vendorProductId);
-          const unitCents = product ? hardwareRetailCents(product.listPrice, markupBps) : null;
           const costCents = product?.yourCost == null ? null : Math.round(Number(product.yourCost) * 100);
-          if (!product || unitCents == null || costCents == null || costCents < 0) {
+          const automaticCents = product ? hardwareRetailCents(product.listPrice, markupBps) : null;
+          const unitPrice = !product
+            ? null
+            : affiliatePricing
+              ? affiliateHardwareUnitPrice(
+                product,
+                markupBps,
+                product.category ? hardwareAffiliateBps.get(product.category) ?? null : null,
+              )
+              : automaticCents == null ? null : automaticCents / 100;
+          if (!product || unitPrice == null || unitPrice <= 0 || costCents == null || costCents < 0) {
             throw new TRPCError({ code: "PRECONDITION_FAILED", message: `A current approved Hardware Resources price is unavailable for ${line.masterCode}.` });
           }
-          const unitPrice = unitCents / 100;
           return {
             ...line,
             masterCode: product.vendorSku,
@@ -975,6 +1004,61 @@ export const ordersRouter = router({
             matched: true,
           };
         });
+      }
+      if (affiliatePricing) {
+        const surfaceLines = normalizedLines.filter((line) => line.productKind === "surface");
+        if (surfaceLines.length > 0) {
+          if (surfaceLines.some((line) => typeof line.pelicanProductId !== "number" || !Number.isInteger(line.pelicanProductId) || line.pelicanProductId <= 0)) {
+            throw new TRPCError({ code: "BAD_REQUEST", message: "Every Pelican line must carry its exact catalog product identity." });
+          }
+          const pelicanIds = Array.from(new Set(surfaceLines.map((line) => line.pelicanProductId!)));
+          const [products, markupRows] = await Promise.all([
+            db.select({
+              id: pelicanProducts.id,
+              category: pelicanProducts.category,
+              listPrice: pelicanProducts.listPrice,
+              yourCost: pelicanProducts.yourCost,
+              retailPrice: pelicanProducts.retailPrice,
+              isActive: pelicanProducts.isActive,
+              showInCatalog: pelicanProducts.showInCatalog,
+              showInDesigner: pelicanProducts.showInDesigner,
+              affiliateSalePrice: pelicanProducts.affiliateSalePrice,
+            }).from(pelicanProducts).where(inArray(pelicanProducts.id, pelicanIds)),
+            db.select({
+              category: pelicanCategoryMarkups.category,
+              markupBps: pelicanCategoryMarkups.markupBps,
+              affiliateMarkupBps: pelicanCategoryMarkups.affiliateMarkupBps,
+            }).from(pelicanCategoryMarkups),
+          ]);
+          const productById = new Map(products.map((product) => [product.id, product]));
+          const retailMarkupByCategory: Record<string, number> = {};
+          const pelicanAffiliateBps = new Map<string, number>();
+          for (const row of markupRows) {
+            retailMarkupByCategory[row.category] = row.markupBps;
+            if (row.affiliateMarkupBps != null) pelicanAffiliateBps.set(row.category, row.affiliateMarkupBps);
+          }
+          normalizedLines = normalizedLines.map((line) => {
+            if (line.productKind !== "surface") return line;
+            const product = line.pelicanProductId == null ? null : productById.get(line.pelicanProductId);
+            const unitPrice = product && pelicanRecordIsOrderable(product)
+              ? affiliatePelicanUnitPrice(product, retailMarkupByCategory, pelicanAffiliateBps.get(product.category) ?? null)
+              : null;
+            if (!product || unitPrice == null || unitPrice <= 0) {
+              throw new TRPCError({
+                code: "PRECONDITION_FAILED",
+                message: `A current approved Pelican price is unavailable for ${line.masterCode ?? "a surface line"}.`,
+              });
+            }
+            return {
+              ...line,
+              pelicanProductId: product.id,
+              unitPrice,
+              linePrice: Number((unitPrice * line.qty).toFixed(2)),
+              tier: "Homeowner",
+              matched: true,
+            };
+          });
+        }
       }
       // Vendor promotions are an additional discount on the CabinetDealz sell
       // price. Affiliate storefront prices stay on their protected markup path.

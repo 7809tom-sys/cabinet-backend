@@ -1267,6 +1267,11 @@ export const vendorProducts = mysqlTable("vendor_products", {
   isAvailable: boolean("isAvailable").default(true).notNull(),
   status: mysqlEnum("status", ["approved", "pending", "rejected"]).default("pending").notNull(),
   isPublished: boolean("isPublished").default(false).notNull(),
+  // Optional fixed affiliate checkout price. Null keeps the category percent
+  // or the existing list-plus-store-markup price. docs/sql/0281.
+  affiliateSalePrice: decimal("affiliateSalePrice", { precision: 10, scale: 2 }),
+  affiliateSalePriceUpdatedAt: timestamp("affiliateSalePriceUpdatedAt"),
+  affiliateSalePriceUpdatedByOpenId: varchar("affiliateSalePriceUpdatedByOpenId", { length: 64 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 }, (t) => ({
@@ -1281,6 +1286,20 @@ export const vendorProducts = mysqlTable("vendor_products", {
 }));
 
 export type VendorProduct = typeof vendorProducts.$inferSelect;
+
+// Platform affiliate percent for one Hardware Resources category.
+// Separate from affiliates.hardwareMarkupBps (that store's above-list markup).
+// Null affiliateMarkupBps means the category override is unset.
+// Added by docs/sql/0281_affiliate_catalog_sale_overrides.tidb.sql.
+export const hardwareCategoryAffiliateMarkups = mysqlTable("hardware_category_affiliate_markups", {
+  id: int("id").autoincrement().primaryKey(),
+  category: varchar("category", { length: 128 }).notNull().unique(),
+  affiliateMarkupBps: int("affiliateMarkupBps"),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  updatedByOpenId: varchar("updatedByOpenId", { length: 64 }),
+});
+
+export type HardwareCategoryAffiliateMarkup = typeof hardwareCategoryAffiliateMarkups.$inferSelect;
 
 // ─── Hardware Resources commerce controls ───────────────────────────────────
 // Decorative hardware is a separate product class. It receives one explicit,
@@ -3505,6 +3524,11 @@ export const pelicanCategoryMarkups = mysqlTable("pelican_category_markups", {
   markupBps: int("markupBps").default(0).notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   updatedByOpenId: varchar("updatedByOpenId", { length: 64 }),
+  // Separate from markupBps. Null means no category affiliate percent is set.
+  // docs/sql/0281_affiliate_catalog_sale_overrides.tidb.sql.
+  affiliateMarkupBps: int("affiliateMarkupBps"),
+  affiliateMarkupUpdatedAt: timestamp("affiliateMarkupUpdatedAt"),
+  affiliateMarkupUpdatedByOpenId: varchar("affiliateMarkupUpdatedByOpenId", { length: 64 }),
 });
 export type PelicanCategoryMarkup = typeof pelicanCategoryMarkups.$inferSelect;
 export type InsertPelicanCategoryMarkup = typeof pelicanCategoryMarkups.$inferInsert;
