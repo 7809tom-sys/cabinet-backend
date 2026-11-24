@@ -442,6 +442,11 @@ export const doorStyles = mysqlTable("door_styles", {
   // here: declaring them made every door style read and insert fail with
   // "Unknown column" until 0280 ran (Nov 12 2026). They are read and written only
   // through server/lib/doorColorSourceColumns.ts, which checks they exist first.
+  // AI profile columns (aiProfileModel, aiProfileText, aiProfileImageUrl,
+  // aiProfileRenderHex, aiColumns) are added by hand in
+  // docs/sql/0281_ai_door_profile.tidb.sql and are also intentionally NOT
+  // declared here. They are read and written only through
+  // server/lib/aiDoorProfileColumns.ts, which checks they exist first.
   // paint = opaque tint on painted grain. stain = translucent tint over wood grain.
   // Null until a swatch reading is saved. Hickory still renders on real wood grain.
   finishCategory: varchar("finishCategory", { length: 16 }),

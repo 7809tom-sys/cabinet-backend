@@ -10,7 +10,13 @@ import { doorColorSourceSelectionInput, EMPTY_DOOR_COLOR_SOURCE_COLUMNS, parseDo
 // main renamed the refusal message helper; this branch adds the stored-photo read.
 import { doorColorSourceColumnsAvailable, doorColorSourceNotReadyMessage, doorStyleColorSources, withDoorColorSourceColumns } from "../lib/doorColorSourceColumns";
 import { syncSupplierDoorSamples } from "../lib/supplierDoorSamples";
-import { withAiDoorProfileColumns, writeAiDoorProfile } from "../lib/aiDoorProfileColumns";
+import {
+  AI_DOOR_COLUMNS_NOT_READY_MESSAGE,
+  AI_DOOR_STYLE_NOT_FOUND_MESSAGE,
+  withAiDoorProfileColumns,
+  writeAiDoorColumn,
+  writeAiDoorProfile,
+} from "../lib/aiDoorProfileColumns";
 import { backfillAiProfileHex } from "../lib/aiProfileHexBackfill";
 import { storageFetchObject, storagePut } from "../storage";
 import { TRPCError } from "@trpc/server";
@@ -707,6 +713,8 @@ export const doorStylesRouter = router({
     const withColorSource = await withDoorColorSourceColumns(db, rows);
     // The AI door profile chosen in the editor (0281 columns), so every browser and
     // the Designer see the official choice instead of one browser's localStorage.
+    // aiColumns is null when that JSON column is missing or the row has none.
+    // The read never throws, so a database that has not run 0281 still lists.
     const withProfile = await withAiDoorProfileColumns(db, withColorSource);
     return withProfile.map((row) => ({
       ...withDoorStyleWarehouseCoverage(row),
@@ -784,6 +792,8 @@ export const doorStylesRouter = router({
       model: z.enum(["gpt", "claude", "gemini"]).nullable(),
       text: z.string().max(4000).nullable(),
       imageUrl: z.string().max(1024).nullable(),
+      // Sampled colour of the image being chosen. Omitted leaves the stored hex alone.
+      renderHex: z.string().max(16).nullable().optional(),
     }))
     .mutation(async ({ input }) => {
       const db = await getDb();
@@ -793,11 +803,48 @@ export const doorStylesRouter = router({
           model: input.model,
           text: input.text?.trim() || null,
           imageUrl: input.imageUrl?.trim() || null,
+          renderHex: input.renderHex,
         });
       } catch (error) {
         throw new TRPCError({ code: "PRECONDITION_FAILED", message: (error as Error).message });
       }
       return { ok: true };
+    }),
+
+  // Admin: keep one provider's generated door (gpt, claude, or gemini) on the
+  // style. Merges that key into aiColumns and leaves the other two alone.
+  // Generate itself only stores the PNG; this is the write that follows it.
+  saveAiColumn: adminProcedure
+    .input(z.object({
+      doorStyleId: z.number().int().positive(),
+      column: z.enum(["gpt", "claude", "gemini"]),
+      imageUrl: z.string().max(1024).nullable().optional(),
+      model: z.string().max(128).nullable().optional(),
+      text: z.string().max(4000).nullable().optional(),
+      renderHex: z.string().max(16).nullable().optional(),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      try {
+        const aiColumns = await writeAiDoorColumn(db, input.doorStyleId, {
+          column: input.column,
+          imageUrl: input.imageUrl,
+          model: input.model,
+          text: input.text,
+          renderHex: input.renderHex,
+        });
+        return { ok: true as const, aiColumns };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        if (message === AI_DOOR_COLUMNS_NOT_READY_MESSAGE) {
+          throw new TRPCError({ code: "PRECONDITION_FAILED", message });
+        }
+        if (message === AI_DOOR_STYLE_NOT_FOUND_MESSAGE) {
+          throw new TRPCError({ code: "NOT_FOUND", message });
+        }
+        throw error;
+      }
     }),
 
   // Admin: pull each Preston style's door photo AND colour from the manufacturer's
