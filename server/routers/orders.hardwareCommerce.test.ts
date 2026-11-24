@@ -22,7 +22,8 @@ describe("Hardware Resources checkout contract", () => {
     expect(orders).toContain("hardwareQuote.totalCents === 0");
     expect(orders).toContain("hardwareProfileIsComplete(currentHardwareProfile ?? null)");
     expect(orders).toContain("hardwareQuote.profileRevision === (currentHardwareProfile?.profileRevision ?? -1)");
-    expect(orders).toContain("hardwareQuote.originZip === hardwareVendorOriginZip(hardwareLine?.warehouseZips)");
+    expect(orders).toContain("hardwareQuote.originZip === hardwareVendorOriginZip(openHardwareZips)");
+    expect(orders).toContain("filterOpenOriginZips(hardwareLine?.warehouseZips, closedHardwareZips)");
   });
 
   it("requires every shipping authorization to match the submitted complete delivery address", () => {

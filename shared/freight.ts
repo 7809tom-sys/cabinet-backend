@@ -140,6 +140,8 @@ export interface FreightQuote {
   totalCents: number;
   freeFreightApplied: boolean;
   reason?: string; // populated when available=false
+  /** Every warehouse for a quoted style is closed, so no origin was selected. */
+  warehousesClosed?: boolean;
   rateGroups?: FreightRateGroup[];
   /** Some origin groups are quoted, but at least one retained shipment is unavailable. Never checkout-ready. */
   partial?: boolean;

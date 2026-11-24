@@ -15,6 +15,8 @@ import {
 } from "@shared/hardwareCommerce";
 import { groupHardwareConfigurations } from "@shared/hardwareCatalogGrouping";
 import { createFreightQuoteToken } from "../_core/freightQuoteToken";
+import { filterOpenOriginZips } from "@shared/warehouseOpen";
+import { closedWarehouseZipsByDistributor } from "../lib/warehouseRecords";
 
 const listInput = z.object({
   category: z.string().trim().min(1).max(128).optional(),
@@ -83,9 +85,11 @@ async function hardwareLineAndProfile(db: NonNullable<Awaited<ReturnType<typeof 
     .from(hardwareShippingProfiles)
     .where(eq(hardwareShippingProfiles.distributorId, line.id))
     .limit(1);
+  const closed = (await closedWarehouseZipsByDistributor(db, [line.id])).get(line.id) ?? new Set<string>();
+  const openWarehouseZips = filterOpenOriginZips(line.warehouseZips, closed);
   return {
     lineId: line.id,
-    vendorOriginZip: hardwareVendorOriginZip(line.warehouseZips),
+    vendorOriginZip: hardwareVendorOriginZip(openWarehouseZips),
     profile: profile ?? null,
   };
 }

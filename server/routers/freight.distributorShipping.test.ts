@@ -6,7 +6,9 @@ const source = readFileSync(new URL("./freight.ts", import.meta.url), "utf8");
 describe("freight distributor shipping overlay", () => {
   it("uses distributor warehouse origins when a style has none", () => {
     expect(source).toContain("distributorWarehouseZips: distributors.warehouseZips");
-    expect(source).toContain("const originZips = styleOriginZips.length > 0 ? styleOriginZips : distributorOriginZips");
+    expect(source).toContain("chooseOpenOriginZips({");
+    expect(source).toContain("styleOriginZips,");
+    expect(source).toContain("distributorOriginZips,");
   });
 
   it("uses an explicit distributor fixed or threshold rule before a carrier call", () => {

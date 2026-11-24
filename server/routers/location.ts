@@ -14,6 +14,8 @@ import {
   DEFAULT_SERVICE_RADIUS_MI,
 } from "../../shared/availability";
 import { resolvePickupOriginZip, type PickupCandidate } from "../../shared/netsuiteOrder";
+import { filterOpenOriginZips, normalizeOriginZip as normalizeWarehouseZip } from "@shared/warehouseOpen";
+import { closedWarehouseZipsByDistributor } from "../lib/warehouseRecords";
 import { resolvePresentation } from "../lib/presentation";
 import { verifyUsAddress } from "../lib/addressVerification";
 
@@ -89,10 +91,14 @@ export const locationRouter = router({
         .from(distributors)
         .where(eq(distributors.isActive, true));
 
+      const closedByDistributor = await closedWarehouseZipsByDistributor(db, rows.map((row) => row.id));
       const lines = await Promise.all(
         rows.map(async (r) => {
-          const zips = (r.warehouseZips ?? []) as string[];
-          // Resolve each warehouse zip to a coordinate (offline-first, geocode fallback).
+          const listed = (r.warehouseZips ?? []) as string[];
+          const closed = closedByDistributor.get(r.id) ?? new Set<string>();
+          const zips = filterOpenOriginZips(listed, closed);
+          const allWarehousesClosed = listed.some((zip) => normalizeWarehouseZip(zip)) && zips.length === 0;
+          // Resolve each open warehouse zip to a coordinate (offline-first, geocode fallback).
           const coords = await Promise.all(zips.map((z) => geocodeZip(normalizeZip(z) ?? z)));
           const nearest = nearestWarehouseMiles(customer, coords);
           const inRange = nearest !== null && nearest <= radius;
@@ -101,6 +107,7 @@ export const locationRouter = router({
             inRange,
             nearestMiles: nearest === null ? null : Math.round(nearest),
             leadTimeDays: r.leadTimeDays ?? null,
+            allWarehousesClosed,
           };
         })
       );
@@ -134,9 +141,13 @@ export const locationRouter = router({
         .from(distributors)
         .where(eq(distributors.isActive, true));
 
+      const closedByDistributor = await closedWarehouseZipsByDistributor(db, rows.map((row) => row.id));
       const options: PickupOptionOut[] = [];
       for (const r of rows) {
         if (!r.pickupEnabled) continue;
+        const closed = closedByDistributor.get(r.id) ?? new Set<string>();
+        const explicitPickup = normalizeWarehouseZip(r.pickupZip);
+        if (explicitPickup && closed.has(explicitPickup)) continue;
         const candidate: PickupCandidate = {
           distributorId: r.id,
           displayName: resolvePresentation(r).displayName,
@@ -144,7 +155,7 @@ export const locationRouter = router({
           pickupRadiusMiles: r.pickupRadiusMiles ?? 100,
           pickupZip: r.pickupZip,
           pickupAddress: r.pickupAddress,
-          warehouseZips: (r.warehouseZips ?? []) as string[],
+          warehouseZips: filterOpenOriginZips((r.warehouseZips ?? []) as string[], closed),
         };
         const originZip = resolvePickupOriginZip(candidate);
         if (!originZip) continue;
