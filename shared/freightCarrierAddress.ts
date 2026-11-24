@@ -90,6 +90,8 @@ const STATE_CODES = new Set(Object.values(STATE_NAME_TO_CODE));
  * - DL Cabinetry candidates (`data/distributors/dl-cabinetry/README.md`):
  *   32256 Jacksonville, FL; 78754 Austin, TX; 37086 La Vergne, TN;
  *   70126 New Orleans, LA; 32822 Orlando, FL; 33634 Tampa, FL.
+ * - Additional chart origins: 32824 Orlando, FL; 43213 Columbus, OH;
+ *   27406 Greensboro, NC; 95691 West Sacramento, CA.
  * - Seeded warehouse examples in `shared/availability.ts`:
  *   30024 Suwanee, GA; 85040 Phoenix, AZ; 60638 Chicago, IL; 75247 Dallas, TX;
  *   98032 Kent, WA; 33054 Opa Locka, FL; 19153 Philadelphia, PA;
@@ -113,7 +115,11 @@ export const KNOWN_FREIGHT_ORIGIN_LOCALITIES: Readonly<Record<string, { locality
   "37086": { locality: "La Vergne", region: "TN" },
   "70126": { locality: "New Orleans", region: "LA" },
   "32822": { locality: "Orlando", region: "FL" },
+  "32824": { locality: "Orlando", region: "FL" },
   "33634": { locality: "Tampa", region: "FL" },
+  "43213": { locality: "Columbus", region: "OH" },
+  "27406": { locality: "Greensboro", region: "NC" },
+  "95691": { locality: "West Sacramento", region: "CA" },
   "30024": { locality: "Suwanee", region: "GA" },
   "85040": { locality: "Phoenix", region: "AZ" },
   "60638": { locality: "Chicago", region: "IL" },
