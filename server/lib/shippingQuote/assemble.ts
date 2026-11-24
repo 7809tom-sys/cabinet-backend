@@ -29,6 +29,8 @@ import { ENV } from "../../_core/env";
 import { makeRequest, type GeocodingResult } from "../../_core/map";
 import type { LiveQuoteAddress } from "../../_core/easypost";
 import { decryptDistributorSecret } from "../distributorIntegrationCrypto";
+import { filterOpenOriginZips, normalizeOriginZip } from "../../../shared/warehouseOpen";
+import { closedWarehouseZipsByDistributor } from "../warehouseRecords";
 import {
   distributorIntegrations,
   distributors,
@@ -240,6 +242,7 @@ export async function loadShippingQuoteLines(db: Database, items: ShippingQuoteR
       pkgWeight: distributorSkus.pkgWeight,
       masterCode: cabinets.masterCode,
       warehouseZip: doorStyles.warehouseZip,
+      warehouseZips: doorStyles.warehouseZips,
       name: distributors.name,
     }).from(distributorSkus)
       .leftJoin(cabinets, eq(cabinets.id, distributorSkus.cabinetId))
@@ -249,6 +252,8 @@ export async function loadShippingQuoteLines(db: Database, items: ShippingQuoteR
       .limit(1);
     const [row] = await query;
     if (!row) throw new Error("That cabinet was not found for the selected supplier.");
+    const closed = (await closedWarehouseZipsByDistributor(db, [row.distributorId])).get(row.distributorId) ?? new Set<string>();
+    const openStyleZips = filterOpenOriginZips([...(row.warehouseZips ?? []), row.warehouseZip], closed);
     loaded.push({
       index,
       kind: "cabinet",
@@ -265,7 +270,7 @@ export async function loadShippingQuoteLines(db: Database, items: ShippingQuoteR
         heightIn: num(row.pkgHeight),
         freightClass: null,
         evidence: "missing",
-        shipFromZip: zip5(row.warehouseZip),
+          shipFromZip: openStyleZips[0] ?? null,
         transportMode: null,
         comparisonRuleId: null,
       },
@@ -385,7 +390,9 @@ export async function quoteLoadedLines(input: {
     let distributorRule: DistributorShippingRule | null = null;
     let hardwareCents: number | null = null;
     let warehouseZip: string | null = null;
+    let closedOriginZips = new Set<string>();
     if (distributorId != null) {
+      closedOriginZips = (await closedWarehouseZipsByDistributor(input.db, [distributorId])).get(distributorId) ?? new Set<string>();
       const [distributor] = await input.db.select({
         shippingRuleMode: distributors.shippingRuleMode,
         shippingFlatFreightFeeCents: distributors.shippingFlatFreightFeeCents,
@@ -396,7 +403,7 @@ export async function quoteLoadedLines(input: {
       }).from(distributors).where(eq(distributors.id, distributorId)).limit(1);
       if (distributor) {
         distributorRule = postedRule(distributor);
-        warehouseZip = zip5(distributor.warehouseZips?.[0]);
+        warehouseZip = filterOpenOriginZips(distributor.warehouseZips, closedOriginZips)[0] ?? null;
       }
       const hardwareOnly = rows.every((row) => row.kind === "vendor_product");
       if (hardwareOnly) {
@@ -406,15 +413,18 @@ export async function quoteLoadedLines(input: {
           originZip: hardwareShippingProfiles.originZip,
         }).from(hardwareShippingProfiles).where(eq(hardwareShippingProfiles.distributorId, distributorId)).limit(1);
         if (hardware?.enabled && hardware.cents != null) hardwareCents = hardware.cents;
-        warehouseZip = zip5(hardware?.originZip) ?? warehouseZip;
+        const hardwareOrigin = normalizeOriginZip(hardware?.originZip);
+        warehouseZip = hardwareOrigin && !closedOriginZips.has(hardwareOrigin) ? hardwareOrigin : warehouseZip;
       }
     }
+    const openConnectionZip = normalizeOriginZip(connection.shipFromZip);
+    const connectionShipFromZip = openConnectionZip && !closedOriginZips.has(openConnectionZip) ? openConnectionZip : null;
     const lines = rows.map((row) => ({
       ...row.line,
-      shipFromZip: row.line.shipFromZip ?? connection.shipFromZip ?? warehouseZip,
+      shipFromZip: row.line.shipFromZip ?? connectionShipFromZip ?? warehouseZip,
       freightClass: row.line.freightClass ?? connection.freightClass,
     }));
-    const shipFromZip = connection.shipFromZip ?? lines.find((line) => line.shipFromZip)?.shipFromZip ?? warehouseZip;
+    const shipFromZip = connectionShipFromZip ?? lines.find((line) => line.shipFromZip)?.shipFromZip ?? warehouseZip;
     const quoteCarrier = async (call: { destinationZip: string; shipFromZip: string | null; freightClass: string | null; items: ShippingQuoteLine[] }) => {
       const fromZip = call.shipFromZip ?? shipFromZip ?? "";
       const [fromAddress, toAddress] = await Promise.all([

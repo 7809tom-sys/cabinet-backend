@@ -34,7 +34,8 @@ describe("public hardware catalog contract", () => {
 
   it("uses the hardware vendor's profile ZIP and one package, without a per-handle package cap", () => {
     expect(source).toContain("warehouseZips: distributors.warehouseZips");
-    expect(source).toContain("hardwareVendorOriginZip(line.warehouseZips)");
+    expect(source).toContain("hardwareVendorOriginZip(openWarehouseZips)");
+    expect(source).toContain("filterOpenOriginZips(line.warehouseZips, closed)");
     expect(source).toContain("vendorOriginZip,");
     expect(source).toContain("originZip: vendorOriginZip ?? undefined");
     expect(source).toContain("packageCount: 1");

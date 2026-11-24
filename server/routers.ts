@@ -46,6 +46,7 @@ import { ocrRouter } from "./routers/ocr";
 import { assistantRouter } from "./routers/assistant";
 import { skuImagesRouter } from "./routers/skuImages";
 import { freightRouter } from "./routers/freight";
+import { warehousesRouter } from "./routers/warehouses";
 import { pantryRouter } from "./routers/pantry";
 import { paymentsRouter } from "./routers/payments";
 import { consultationsRouter } from "./routers/consultations";
@@ -211,6 +212,7 @@ export const appRouter = router({
   assistant: assistantRouter,
   skuImages: skuImagesRouter,
   freight: freightRouter,
+  warehouses: warehousesRouter,
   pantry: pantryRouter,
   payments: paymentsRouter,
   consultations: consultationsRouter,

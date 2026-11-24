@@ -65,6 +65,8 @@ import { isCatalogFreeShippingIdentity, loadCatalogFreeShippingIndex } from "../
 import { CabinetFreeShippingSchemaError, isMissingFreeShippingColumn } from "../lib/cabinetFreeShippingSchema";
 import { isStagingTestHost } from "@shared/stagingTestMode";
 import { HARDWARE_LINE_CODE, hardwareProfileIsComplete, hardwareRetailCents, hardwareVendorOriginZip } from "@shared/hardwareCommerce";
+import { filterOpenOriginZips } from "@shared/warehouseOpen";
+import { closedWarehouseZipsByDistributor } from "../lib/warehouseRecords";
 import { affiliateHardwareUnitPrice, affiliatePelicanUnitPrice, pelicanRecordIsOrderable } from "../lib/affiliateNonCabinetPrice";
 import {
   itemUsesExistingCarrierQuote,
@@ -1279,6 +1281,10 @@ export const ordersRouter = router({
           .from(distributors)
           .where(eq(distributors.code, HARDWARE_LINE_CODE))
           .limit(1);
+        const closedHardwareZips = hardwareLine
+          ? (await closedWarehouseZipsByDistributor(db, [hardwareLine.id])).get(hardwareLine.id) ?? new Set<string>()
+          : new Set<string>();
+        const openHardwareZips = filterOpenOriginZips(hardwareLine?.warehouseZips, closedHardwareZips);
         const [currentHardwareProfile] = hardwareLine
           ? await db.select().from(hardwareShippingProfiles).where(eq(hardwareShippingProfiles.distributorId, hardwareLine.id)).limit(1)
           : [];
@@ -1304,7 +1310,7 @@ export const ordersRouter = router({
               && hardwareQuote.profileRevision === (currentHardwareProfile?.profileRevision ?? -1)
             )
           )
-          && (isPolicyFreeHardwareQuote || hardwareQuote.originZip === hardwareVendorOriginZip(hardwareLine?.warehouseZips));
+          && (isPolicyFreeHardwareQuote || hardwareQuote.originZip === hardwareVendorOriginZip(openHardwareZips));
         if (!quoteMatchesOrder) {
           throw new TRPCError({ code: "BAD_REQUEST", message: "The Hardware Resources shipping quote no longer matches this order. Request a new quote." });
         }
