@@ -1,17 +1,18 @@
 #!/usr/bin/env node
 // Optional: dumps schema cabinet_dealz to <dest>/daily/YYYY-MM-DD/database/cabinet_dealz.sql.gz using mysqldump
 // (--single-transaction, no table locks). Skips with a message if mysqldump is not installed. Installs nothing.
-// Usage: node scripts/backup/backup-tidb.mjs --dest "E:\CabinetDealzBackups" [--env "C:\path\backup.env"] [--date YYYY-MM-DD]
+// Usage: node scripts/backup/backup-tidb.mjs --dest "E:\CabinetDealzBackups" [--env "C:\path\backup.env"] [--date YYYY-MM-DD] [--tz America/New_York]
 import fs from "node:fs";
 import path from "node:path";
 import zlib from "node:zlib";
 import { spawn, spawnSync } from "node:child_process";
 import { pipeline } from "node:stream/promises";
-import { chicagoDate, parseArgs, loadEnv, DATE_RE } from "./lib.mjs";
+import { zonedDate, parseArgs, loadEnv, DATE_RE } from "./lib.mjs";
 
 const args = parseArgs(process.argv.slice(2));
+const tzArg = args.tz && args.tz !== true ? args.tz : "America/New_York";
 if (!args.dest || args.dest === true) { console.error("Missing --dest"); process.exit(2); }
-const date = args.date && args.date !== true ? args.date : chicagoDate();
+const date = args.date && args.date !== true ? args.date : zonedDate(new Date(), tzArg);
 if (!DATE_RE.test(date)) { console.error("--date must be YYYY-MM-DD"); process.exit(2); }
 
 const probe = spawnSync("mysqldump", ["--version"], { encoding: "utf8" });

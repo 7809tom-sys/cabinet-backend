@@ -4869,3 +4869,35 @@ export const affiliateLegalSignatures = mysqlTable("affiliate_legal_signatures",
 }));
 export type AffiliateLegalSignature = typeof affiliateLegalSignatures.$inferSelect;
 export type InsertAffiliateLegalSignature = typeof affiliateLegalSignatures.$inferInsert;
+
+// Backup log: one row per run of the PC backup script (reported through /api/backups/report).
+// `scope` is a comma list of the parts that ran: supabase_storage, database, code.
+export const backupRuns = mysqlTable("backup_runs", {
+  id: int("id").autoincrement().primaryKey(),
+  startedAt: timestamp("startedAt").notNull(),
+  finishedAt: timestamp("finishedAt"),
+  machineName: varchar("machineName", { length: 128 }).default("").notNull(),
+  destination: varchar("destination", { length: 512 }).default("").notNull(),
+  scope: varchar("scope", { length: 128 }).default("").notNull(),
+  status: mysqlEnum("status", ["running", "success", "partial", "failed"]).default("running").notNull(),
+  fileCount: int("fileCount").default(0).notNull(),
+  totalBytes: bigint("totalBytes", { mode: "number" }).default(0).notNull(),
+  snapshotFolder: varchar("snapshotFolder", { length: 512 }).default("").notNull(),
+  errorSummary: varchar("errorSummary", { length: 2000 }).default("").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (t) => ({
+  startedIdx: index("backup_runs_started_idx").on(t.startedAt),
+  statusStartedIdx: index("backup_runs_status_started_idx").on(t.status, t.startedAt),
+}));
+export type BackupRun = typeof backupRuns.$inferSelect;
+
+// Backup schedule: a single row with id = 1.
+export const backupSettings = mysqlTable("backup_settings", {
+  id: int("id").primaryKey(),
+  dailyTime: varchar("dailyTime", { length: 5 }).default("03:00").notNull(),
+  timezone: varchar("timezone", { length: 64 }).default("America/New_York").notNull(),
+  retentionDays: int("retentionDays").default(90).notNull(),
+  updatedBy: int("updatedBy"),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type BackupSettings = typeof backupSettings.$inferSelect;

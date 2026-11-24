@@ -2,7 +2,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
-export const TIME_ZONE = "America/Chicago";
+export const TIME_ZONE = "America/New_York"; // default; Tom's schedule can change it
 export const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 export const GROUPS = [
   { name: "days-01-30", from: 1, to: 30 },
@@ -10,14 +10,15 @@ export const GROUPS = [
   { name: "days-61-90", from: 61, to: 90 },
 ];
 
-/** YYYY-MM-DD for a moment in America/Chicago. */
-export function chicagoDate(now = new Date()) {
+/** YYYY-MM-DD for a moment in a time zone (default America/New_York). */
+export function zonedDate(now = new Date(), timeZone = TIME_ZONE) {
   const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: TIME_ZONE, year: "numeric", month: "2-digit", day: "2-digit",
+    timeZone, year: "numeric", month: "2-digit", day: "2-digit",
   }).formatToParts(now);
   const get = (t) => parts.find((p) => p.type === t).value;
   return `${get("year")}-${get("month")}-${get("day")}`;
 }
+export const chicagoDate = (now = new Date()) => zonedDate(now, "America/Chicago");
 
 function dayNumber(dateStr) {
   const [y, m, d] = dateStr.split("-").map(Number);
@@ -29,19 +30,21 @@ export function snapshotDay(snapshotDate, today) {
   return dayNumber(today) - dayNumber(snapshotDate) + 1;
 }
 
-export function groupForDay(day) {
+/** retention: days to keep (default 90). Days 91..retention (only when retention > 90) go in "days-91-plus". */
+export function groupForDay(day, retention = 90) {
   if (day < 1) return "future";
   const g = GROUPS.find((x) => day >= x.from && day <= x.to);
-  return g ? g.name : "older-than-90";
+  if (g) return g.name;
+  return day <= retention ? "days-91-plus" : "older-than-90";
 }
 
 /** Plan the 90-day layout. Names that are not YYYY-MM-DD are ignored (never touched). */
-export function planRotation(names, today) {
+export function planRotation(names, today, retention = 90) {
   const valid = names.filter((n) => DATE_RE.test(n)).sort().reverse();
-  const plan = { "days-01-30": [], "days-31-60": [], "days-61-90": [], "older-than-90": [], future: [], ignored: names.filter((n) => !DATE_RE.test(n)) };
+  const plan = { "days-01-30": [], "days-31-60": [], "days-61-90": [], "days-91-plus": [], "older-than-90": [], future: [], ignored: names.filter((n) => !DATE_RE.test(n)) };
   for (const name of valid) {
     const day = snapshotDay(name, today);
-    plan[groupForDay(day)].push({ name, day });
+    plan[groupForDay(day, retention)].push({ name, day });
   }
   return plan;
 }

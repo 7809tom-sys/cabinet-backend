@@ -58,3 +58,11 @@ describe("backup helpers (no network)", () => {
     expect(fs.existsSync(path.join(dest, "daily", "keepme"))).toBe(true);
   });
 });
+
+describe("retention beyond 90 days", () => {
+  it("keeps days 91..retention in their own group", () => {
+    const plan = planRotation(["2026-11-23", "2026-07-01", "2026-01-01"], "2026-11-23", 180);
+    expect(plan["days-91-plus"].map((s: any) => s.name)).toEqual(["2026-07-01"]);
+    expect(plan["older-than-90"].map((s: any) => s.name)).toEqual(["2026-01-01"]);
+  });
+});

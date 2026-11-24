@@ -1,20 +1,21 @@
 #!/usr/bin/env node
 // Downloads every object from every Supabase Storage bucket into <dest>/daily/YYYY-MM-DD/<bucket>/<path>.
 // READ-ONLY on Supabase: only list and download calls are made. Nothing is deleted, moved or overwritten there.
-// Usage: node scripts/backup/backup-supabase-storage.mjs --dest "E:\CabinetDealzBackups" [--env "C:\path\backup.env"] [--date YYYY-MM-DD] [--concurrency 4]
+// Usage: node scripts/backup/backup-supabase-storage.mjs --dest "E:\CabinetDealzBackups" [--env "C:\path\backup.env"] [--date YYYY-MM-DD] [--tz America/New_York] [--concurrency 4]
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
-import { chicagoDate, parseArgs, loadEnv, supabaseConfig, safeRelPath, joinInside, formatBytes, DATE_RE } from "./lib.mjs";
+import { zonedDate, parseArgs, loadEnv, supabaseConfig, safeRelPath, joinInside, formatBytes, DATE_RE } from "./lib.mjs";
 
 const args = parseArgs(process.argv.slice(2));
+const tzArg = args.tz && args.tz !== true ? args.tz : "America/New_York";
 if (!args.dest || args.dest === true) {
   console.error('Missing --dest. Example: --dest "E:\\CabinetDealzBackups"');
   process.exit(2);
 }
-const date = args.date && args.date !== true ? args.date : chicagoDate();
+const date = args.date && args.date !== true ? args.date : zonedDate(new Date(), tzArg);
 if (!DATE_RE.test(date)) { console.error("--date must be YYYY-MM-DD"); process.exit(2); }
 const concurrency = Math.max(1, Number(args.concurrency) || 4);
 
@@ -104,7 +105,7 @@ for (const must of ["site-media", "private-files"]) {
   if (!buckets.some((b) => b.name === must)) { failures.push(`Expected bucket missing: ${must}`); log(`WARNING: expected bucket ${must} not found`); }
 }
 
-const manifest = { date, time_zone: "America/Chicago", generated_at: new Date().toISOString(), buckets: {}, totals: { objects: 0, bytes: 0, failed: 0 } };
+const manifest = { date, time_zone: tzArg, generated_at: new Date().toISOString(), buckets: {}, totals: { objects: 0, bytes: 0, failed: 0 } };
 for (const b of buckets) {
   log(`Listing ${b.name} ...`);
   let objects = [];
@@ -128,7 +129,7 @@ for (const b of buckets) {
 fs.writeFileSync(path.join(snapDir, "manifest.json"), JSON.stringify(manifest, null, 2));
 const lines = [
   "Cabinet Dealz Supabase file backup",
-  `Date (America/Chicago): ${date}`,
+  `Date (${tzArg}): ${date}`,
   `Finished: ${new Date().toISOString()}`,
   ...Object.entries(manifest.buckets).map(([n, v]) => `  ${n}: ${v.objects} of ${v.listed} files, ${formatBytes(v.bytes)}, failed ${v.failed}`),
   `TOTAL: ${manifest.totals.objects} files, ${formatBytes(manifest.totals.bytes)}`,
