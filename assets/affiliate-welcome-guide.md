@@ -10,7 +10,7 @@ The moment your account was created, Cabinet Dealz built a fully branded storefr
 
 > **cabinetdealz.com/store/YOUR-STORE-SLUG**
 
-This is your website. You do not need to buy a domain, set up hosting, or write a single line of code. Your storefront includes:
+This is your website. You are a contractor first, with the same trade work and the same contractor treatment. The difference is that you also own a website, and that website is expected to bring in homeowners and designs, so you are expected to sell more than a typical contractor. You do not need to buy a domain, set up hosting, or write a single line of code. Your storefront includes:
 
 - Your store name and logo displayed prominently
 - Your choice of four professionally designed templates (Classic, Showcase, Minimal, Craftsman)
