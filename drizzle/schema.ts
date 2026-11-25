@@ -5130,3 +5130,60 @@ export const designerSubscriptions = mysqlTable("designer_subscriptions", {
   userIdx: index("designer_subscriptions_user_idx").on(t.userId, t.status),
 }));
 export type DesignerSubscription = typeof designerSubscriptions.$inferSelect;
+
+export const kitchenRules = mysqlTable("kitchen_rules", {
+  id: int("id").autoincrement().primaryKey(),
+  ruleCode: varchar("ruleCode", { length: 80 }).notNull().unique(),
+  category: varchar("category", { length: 80 }).notNull(),
+  title: varchar("title", { length: 255 }).notNull(),
+  ruleDescription: text("ruleDescription").notNull(),
+  parameterJson: text("parameterJson").notNull(),
+  enforcementKind: varchar("enforcementKind", { length: 32 }).notNull(),
+  sourceText: varchar("sourceText", { length: 512 }).notNull(),
+  implementationStatus: varchar("implementationStatus", { length: 32 }).notNull(),
+  enabledFlag: boolean("enabledFlag").default(true).notNull(),
+  notesText: text("notesText"),
+  readsParameters: boolean("readsParameters").default(false).notNull(),
+  updatedByName: varchar("updatedByName", { length: 255 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
+});
+
+export type KitchenRule = typeof kitchenRules.$inferSelect;
+
+/**
+ * Kitchen rule settings: the values the auto-designer reads.
+ *
+ * Deliberately a different table from `kitchenRules` above. That one is the
+ * documented catalog, and it groups rules that share a `parameterJson` block,
+ * so editing one rule rewrote the parameters of every rule pointing at the same
+ * key and several rules ended up showing the same number. Here `settingKey` is
+ * UNIQUE and one setting belongs to exactly one rule.
+ *
+ * `valueText` NULL means "no override": the Designer reads the code default in
+ * client/src/lib/kitchenRuleRegistry.ts. Every built-in row is seeded that way,
+ * so running docs/sql/0254_kitchen_rule_settings.tidb.sql changes no design.
+ *
+ * `lockedFlag` marks a rule Tom made mandatory (bridge above the range, faucet
+ * at the sink, window never moves). The router refuses to disable or retarget a
+ * locked rule, and `parameters` never returns its stored value.
+ */
+export const kitchenRuleSettings = mysqlTable("kitchen_rule_settings", {
+  id: int("id").autoincrement().primaryKey(),
+  settingKey: varchar("settingKey", { length: 80 }).notNull().unique(),
+  title: varchar("title", { length: 255 }).notNull(),
+  description: text("description").notNull(),
+  category: varchar("category", { length: 80 }).notNull(),
+  valueType: varchar("valueType", { length: 16 }).notNull(),
+  valueText: text("valueText"),
+  defaultValueText: text("defaultValueText").notNull(),
+  enabledFlag: boolean("enabledFlag").default(true).notNull(),
+  lockedFlag: boolean("lockedFlag").default(false).notNull(),
+  isBuiltIn: boolean("isBuiltIn").default(true).notNull(),
+  deletedAt: timestamp("deletedAt"),
+  updatedBy: varchar("updatedBy", { length: 255 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
+});
+
+export type KitchenRuleSetting = typeof kitchenRuleSettings.$inferSelect;
