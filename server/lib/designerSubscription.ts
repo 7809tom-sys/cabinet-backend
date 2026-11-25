@@ -1,9 +1,11 @@
 /**
- * Designer subscriptions: $11.99/month Designer + Website (purchasing club
- * included) and $15.99/month Designer only. Requested by Tom on Nov 25, 2026.
+ * Designer subscriptions: $1,199/year Designer + Website (purchasing club
+ * included) and $1,599/year Designer only. Requested by Tom on Nov 25, 2026
+ * (corrected from monthly to yearly at 9:53 AM CT).
  *
- * Billing follows the affiliate monthly membership pattern exactly: a hosted
- * Stripe Checkout in mode "subscription" with an inline recurring `price_data`.
+ * Billing follows the affiliate monthly membership pattern: a hosted Stripe
+ * Checkout in mode "subscription" with an inline recurring `price_data`, here
+ * with interval "year" so Stripe renews it every 12 months.
  * No Stripe Price or Product has to be created in the dashboard; the amount
  * comes from shared/designerSubscriptionTiers.ts on every Checkout.
  *
@@ -54,7 +56,7 @@ export function isDesignerSubscriptionMetadata(metadata: Record<string, string> 
 }
 
 export function designerSubscriptionProductName(tier: DesignerSubscriptionTier): string {
-  return `Cabinet Dealz ${DESIGNER_SUBSCRIPTION_TIERS[tier].name} — monthly`;
+  return `Cabinet Dealz ${DESIGNER_SUBSCRIPTION_TIERS[tier].name} — yearly`;
 }
 
 export function buildDesignerSubscriptionCheckoutParams(input: {
@@ -81,10 +83,10 @@ export function buildDesignerSubscriptionCheckoutParams(input: {
         price_data: {
           currency: "usd",
           unit_amount: option.amountCents,
-          recurring: { interval: "month", interval_count: 1 },
+          recurring: { interval: "year", interval_count: 1 },
           product_data: {
             name: productName,
-            description: `${option.includes.join(", ")}. Billed monthly. Cancel any time; access runs to the end of the paid month.`,
+            description: `${option.includes.join(", ")}. Billed yearly. Cancel any time; access runs to the end of the paid year.`,
             metadata: { designer_tier: option.id },
           },
         },
@@ -229,7 +231,9 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promis
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   const createdMs = typeof session.created === "number" ? session.created * 1000 : Date.now();
-  const periodEnd = new Date(addMonthsUtc(createdMs, 1));
+  // Yearly plan: the first paid period is 12 months. invoice.paid then sets
+  // the exact period end Stripe billed, which wins over this estimate.
+  const periodEnd = new Date(addMonthsUtc(createdMs, 12));
   const written = await safeWrite("activate", () =>
     db
       .insert(designerSubscriptions)
@@ -340,7 +344,7 @@ export async function handleDesignerSubscriptionStripeEvent(event: Stripe.Event)
 // ─── Cancel ──────────────────────────────────────────────────────────────────
 
 /**
- * Stop billing at the end of the month already paid. Access runs to
+ * Stop billing at the end of the year already paid. Access runs to
  * currentPeriodEnd; customer.subscription.deleted marks the row cancelled.
  */
 export async function cancelDesignerSubscriptionAtPeriodEnd(db: Db, userId: number): Promise<{ ok: boolean; accessUntil: string | null; reason?: string }> {

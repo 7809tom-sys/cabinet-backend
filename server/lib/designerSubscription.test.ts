@@ -20,19 +20,19 @@ const base = {
 };
 
 describe("designer subscription checkout", () => {
-  it("bills Designer + Website at 1199 cents a month", () => {
+  it("bills Designer + Website at 119900 cents a year", () => {
     const params = buildDesignerSubscriptionCheckoutParams({ ...base, tier: "designer_website" });
     expect(params.mode).toBe("subscription");
     const price = params.line_items?.[0]?.price_data;
-    expect(price?.unit_amount).toBe(1199);
-    expect(price?.recurring).toEqual({ interval: "month", interval_count: 1 });
+    expect(price?.unit_amount).toBe(119900);
+    expect(price?.recurring).toEqual({ interval: "year", interval_count: 1 });
     expect(params.metadata?.designer_tier).toBe("designer_website");
     expect(params.subscription_data?.metadata?.purpose).toBe("designer_subscription");
   });
 
-  it("bills Designer only at 1599 cents a month", () => {
+  it("bills Designer only at 159900 cents a year", () => {
     const params = buildDesignerSubscriptionCheckoutParams({ ...base, tier: "designer_only" });
-    expect(params.line_items?.[0]?.price_data?.unit_amount).toBe(1599);
+    expect(params.line_items?.[0]?.price_data?.unit_amount).toBe(159900);
   });
 
   it("is never mistaken for the affiliate membership", () => {

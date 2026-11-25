@@ -91,7 +91,7 @@ export function registerStripeWebhook(app: Express): void {
                 ? session.payment_intent
                 : session.payment_intent?.id ?? null;
 
-            // A designer subscription Checkout ($11.99 / $15.99) carries
+            // A designer subscription Checkout ($1,199 / $1,599 a year) carries
             // purpose=designer_subscription. Like a membership, it never creates
             // or fulfills an order, so it is handled before the order path.
             const designerPlan = await handleDesignerSubscriptionStripeEvent(event);

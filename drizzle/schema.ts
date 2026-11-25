@@ -5105,7 +5105,7 @@ export const outreachEvents = mysqlTable("outreach_events", {
 }));
 export type OutreachEvent = typeof outreachEvents.$inferSelect;
 
-// ─── Designer subscriptions ($11.99 Designer + Website, $15.99 Designer only) ─
+// ─── Designer subscriptions ($1,199/yr Designer + Website, $1,599/yr Designer only)
 // One row per Stripe subscription. Created by hand with
 // docs/sql/0288_designer_subscriptions.tidb.sql; until that file is run the
 // pricing page still shows, checkout still opens, and the webhook logs the

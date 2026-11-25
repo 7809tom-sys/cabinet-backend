@@ -3,9 +3,9 @@
 -- Every table is cabinet_dealz.<table>.
 --
 -- What it does: adds ONE new table, designer_subscriptions, for the two
--- monthly designer plans Tom set on Nov 25, 2026:
---   designer_website  $11.99/month  Designer + custom website + purchasing club
---   designer_only     $15.99/month  Designer only
+-- yearly designer plans Tom set on Nov 25, 2026 (9:53 AM CT):
+--   designer_website  $1,199/year   Designer + custom website + purchasing club
+--   designer_only     $1,599/year   Designer only
 -- Add-only. No existing table, column, or price is changed. The affiliate
 -- membership ($169/month or $1,195/year) is untouched. Until this file is run,
 -- the pricing page still shows both plans and Stripe Checkout still opens; the
