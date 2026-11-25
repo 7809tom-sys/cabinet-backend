@@ -51,6 +51,7 @@ import { pantryRouter } from "./routers/pantry";
 import { paymentsRouter } from "./routers/payments";
 import { consultationsRouter } from "./routers/consultations";
 import { affiliateMembershipRouter } from "./routers/affiliateMembership";
+import { designerSubscriptionRouter } from "./routers/designerSubscription";
 import { affiliateStorefrontNameRouter } from "./routers/affiliateStorefrontName";
 import { siteSettingsRouter } from "./routers/siteSettings";
 import { skuAdminRouter } from "./routers/skuAdmin";
@@ -217,6 +218,7 @@ export const appRouter = router({
   payments: paymentsRouter,
   consultations: consultationsRouter,
   affiliateMembership: affiliateMembershipRouter,
+  designerSubscription: designerSubscriptionRouter,
   // Final onboarding step: the affiliate claims the website name that publishes
   // their storefront at /store/<slug>. Backend for the frontend onboarding wizard.
   affiliateStorefrontName: affiliateStorefrontNameRouter,

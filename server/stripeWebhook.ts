@@ -17,6 +17,7 @@ import { flagOrderCrmRefund } from "./lib/orderSideEffects";
 import { rememberOrderStripePayout } from "./lib/orderStripePayout";
 import { createDbPaymentLinkContext, createDrizzleStripePaymentStore } from "./stripePaymentStore";
 import { handleMembershipStripeEvent } from "./lib/affiliateMembershipWebhook";
+import { handleDesignerSubscriptionStripeEvent } from "./lib/designerSubscription";
 import {
   configuredWebhookSecrets,
   recordStripeWebhookEvent,
@@ -89,6 +90,17 @@ export function registerStripeWebhook(app: Express): void {
               typeof session.payment_intent === "string"
                 ? session.payment_intent
                 : session.payment_intent?.id ?? null;
+
+            // A designer subscription Checkout ($1,199 / $1,599 a year) carries
+            // purpose=designer_subscription. Like a membership, it never creates
+            // or fulfills an order, so it is handled before the order path.
+            const designerPlan = await handleDesignerSubscriptionStripeEvent(event);
+            if (designerPlan.handled) {
+              console.log(
+                `[Stripe Webhook] Designer subscription ${designerPlan.action} for user ${designerPlan.userId ?? "unknown"} (session ${session.id})`,
+              );
+              break;
+            }
 
             // A membership Checkout carries purpose=affiliate_membership. It never
             // creates or fulfills an order, so it is handled before the order path.
@@ -169,6 +181,11 @@ export function registerStripeWebhook(app: Express): void {
           case "invoice.paid":
           case "invoice.payment_failed":
           case "customer.subscription.deleted": {
+            const designerPlan = await handleDesignerSubscriptionStripeEvent(event);
+            if (designerPlan.handled) {
+              console.log(`[Stripe Webhook] Designer subscription ${designerPlan.action} (${event.type})`);
+              break;
+            }
             const membership = await handleMembershipStripeEvent(event);
             if (membership.handled) {
               console.log(
