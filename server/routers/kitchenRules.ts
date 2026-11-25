@@ -209,6 +209,120 @@ async function settingRow(db: Awaited<ReturnType<typeof database>>, settingKey: 
   return found[0] ?? null;
 }
 
+// ── Questions for Rich ───────────────────────────────────────────────────────
+//
+// The "Questions for Rich" rows (docs/sql/0238) are questions, and Rich's answer
+// is the row's Notes (notesText). An answer is a NOTE ONLY: it must never feed
+// the Designer, plan review, or an AI prompt. Tom turns an answer into a real
+// rule in a separate change. So a Rich row never carries parameters, is always
+// "reference", is skipped by `parameters`, and a Rich-category setting is never
+// sent as guidance.
+
+export const RICH_QUESTIONS_CATEGORY = "Questions for Rich";
+const RICH_RULE_CODE_PREFIX = "rich-q-";
+
+/** Room for a real answer from the job site. notesText is a TEXT column (64 KB). */
+export const KITCHEN_RULE_NOTES_MAX = 16000;
+
+export function isRichQuestionRule(row: { ruleCode?: string | null; category?: string | null }): boolean {
+  if (row.ruleCode?.startsWith(RICH_RULE_CODE_PREFIX)) return true;
+  return row.category?.trim().toLowerCase() === RICH_QUESTIONS_CATEGORY.toLowerCase();
+}
+
+function isRichQuestionSetting(row: { settingKey?: string | null; category?: string | null }): boolean {
+  if (row.settingKey?.startsWith(RICH_RULE_CODE_PREFIX) || row.settingKey?.startsWith("rich_q_")) return true;
+  return row.category?.trim().toLowerCase() === RICH_QUESTIONS_CATEGORY.toLowerCase();
+}
+
+type CatalogRow = Pick<typeof kitchenRules.$inferSelect, "ruleCode" | "category" | "parameterJson" | "enabledFlag" | "readsParameters">;
+
+export type KitchenRuleGuidance = {
+  settingKey: string;
+  title: string;
+  text: string;
+  value?: string | null;
+  category?: string | null;
+};
+
+export type KitchenRuleParameterPayload = {
+  values: Record<string, number>;
+  text: Record<string, string>;
+  guidance: KitchenRuleGuidance[];
+};
+
+/**
+ * What every Designer session reads, built from both tables.
+ *
+ *   1. kitchen_rules (0233): the older catalog's parameterJson, only for rows
+ *      that read parameters. Rich rows are skipped whatever they hold.
+ *   2. kitchen_rule_settings (0254): a live admin override wins over (1). A row
+ *      that is deleted, disabled, locked, or has no value adds nothing, so the
+ *      code default stays. A number or toggle goes to `values`, a choice or text
+ *      to `text`.
+ *   3. guidance: custom rules (no code definition, or one marked guidance-only)
+ *      that are enabled and not deleted. Rich-category rows are never guidance.
+ *
+ * Seeded rows all have valueText NULL and no custom rows exist until an admin
+ * adds one, so running the SQL changes no design and no prompt.
+ */
+export function buildKitchenRuleParameters(
+  catalog: readonly CatalogRow[],
+  settings: readonly SettingRow[],
+): KitchenRuleParameterPayload {
+  const values: Record<string, number> = {};
+  const text: Record<string, string> = {};
+  const guidance: KitchenRuleGuidance[] = [];
+
+  for (const row of catalog) {
+    if (isRichQuestionRule(row)) continue;
+    if (!row.readsParameters) continue;
+    const parameters = parseParameters(row.parameterJson);
+    if (!row.enabledFlag) {
+      if ("sink_base_substitute" in parameters) values.sink_base_substitute = 0;
+      if ("stock_prompt_enabled" in parameters) values.stock_prompt_enabled = 0;
+      continue;
+    }
+    for (const [key, value] of Object.entries(parameters)) {
+      if (typeof value === "number") values[key] = value;
+      else text[key] = value;
+    }
+  }
+
+  for (const row of settings) {
+    if (isRichQuestionSetting(row)) continue;
+    const definition = kitchenRuleDefinition(row.settingKey);
+    const guidanceOnly = !definition || definition.appliedBy === "kitchenRulesGuidance";
+    if (guidanceOnly) {
+      if (row.deletedAt != null || !row.enabledFlag) continue;
+      const title = row.title?.trim() ?? "";
+      const description = row.description?.trim() ?? "";
+      if (!title && !description) continue;
+      guidance.push({
+        settingKey: row.settingKey,
+        title,
+        text: description,
+        value: row.valueText?.trim() ? row.valueText.trim() : null,
+        category: row.category ?? null,
+      });
+      continue;
+    }
+    if (!rowIsLive(row, definition)) continue;
+    const raw = row.valueText!.trim();
+    if (definition.valueType === "number" || definition.valueType === "toggle") {
+      const numeric = Number(raw);
+      if (Number.isFinite(numeric)) {
+        values[row.settingKey] = numeric;
+        delete text[row.settingKey];
+      }
+      continue;
+    }
+    text[row.settingKey] = raw;
+    delete values[row.settingKey];
+  }
+
+  return { values, text, guidance };
+}
+
 export const kitchenRulesRouter = router({
   list: adminProcedure.query(async () => {
     const db = await database();
@@ -216,29 +330,28 @@ export const kitchenRulesRouter = router({
     return rows.map(toRow);
   }),
 
-  parameters: publicProcedure.query(async () => {
+  parameters: publicProcedure.query(async (): Promise<KitchenRuleParameterPayload> => {
+    let db: Awaited<ReturnType<typeof database>>;
     try {
-      const db = await database();
-      const rows = await db.select().from(kitchenRules);
-      const values: Record<string, number> = {};
-      const text: Record<string, string> = {};
-      for (const row of rows) {
-        if (!row.readsParameters) continue;
-        const parameters = parseParameters(row.parameterJson);
-        if (!row.enabledFlag) {
-          if ("sink_base_substitute" in parameters) values.sink_base_substitute = 0;
-          if ("stock_prompt_enabled" in parameters) values.stock_prompt_enabled = 0;
-          continue;
-        }
-        for (const [key, value] of Object.entries(parameters)) {
-          if (typeof value === "number") values[key] = value;
-          else text[key] = value;
-        }
-      }
-      return { values, text };
+      db = await database();
     } catch {
-      return { values: {}, text: {} };
+      return { values: {}, text: {}, guidance: [] };
     }
+    // Each table is read on its own, so a missing kitchen_rule_settings (0254
+    // not run yet) still returns the kitchen_rules values exactly as before.
+    let catalog: CatalogRow[] = [];
+    try {
+      catalog = await db.select().from(kitchenRules);
+    } catch {
+      catalog = [];
+    }
+    let settingRows: SettingRow[] = [];
+    try {
+      settingRows = await db.select().from(kitchenRuleSettings);
+    } catch {
+      settingRows = [];
+    }
+    return buildKitchenRuleParameters(catalog, settingRows);
   }),
 
   create: adminProcedure.input(z.object({
@@ -249,7 +362,7 @@ export const kitchenRulesRouter = router({
     parameters: parametersInput.default({}),
     enforcementKind: enforcementKind.default("reference"),
     sourceText: z.string().trim().min(1).max(512).default("Admin"),
-    notesText: z.string().trim().max(4000).nullable().optional(),
+    notesText: z.string().trim().max(KITCHEN_RULE_NOTES_MAX).nullable().optional(),
     enabledFlag: z.boolean().default(true),
   })).mutation(async ({ ctx, input }) => {
     const db = await database();
@@ -279,18 +392,23 @@ export const kitchenRulesRouter = router({
     enforcementKind: enforcementKind.optional(),
     sourceText: z.string().trim().min(1).max(512).optional(),
     enabledFlag: z.boolean(),
-    notesText: z.string().trim().max(4000).nullable().optional(),
+    notesText: z.string().trim().max(KITCHEN_RULE_NOTES_MAX).nullable().optional(),
   })).mutation(async ({ ctx, input }) => {
     const db = await database();
     const existing = await db.select().from(kitchenRules).where(eq(kitchenRules.id, input.id)).limit(1);
     const row = existing[0];
     if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Kitchen rule not found" });
+    // A Rich question only ever saves its answer (notesText) and the editable
+    // text. It stays a parameter-free "reference" row in its own category, so
+    // an answer can never reach the Designer, plan review, or an AI prompt.
+    const rich = isRichQuestionRule(row);
     await db.update(kitchenRules).set({
       title: input.title ?? row.title,
-      category: input.category,
+      category: rich ? row.category : input.category,
       ruleDescription: input.ruleDescription,
-      parameterJson: JSON.stringify(input.parameters),
-      enforcementKind: input.enforcementKind ?? row.enforcementKind,
+      parameterJson: rich ? "{}" : JSON.stringify(input.parameters),
+      enforcementKind: rich ? "reference" : input.enforcementKind ?? row.enforcementKind,
+      ...(rich ? { readsParameters: false, implementationStatus: "reference" } : {}),
       sourceText: input.sourceText ?? row.sourceText,
       enabledFlag: input.enabledFlag,
       notesText: input.notesText ?? null,
