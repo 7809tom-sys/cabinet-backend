@@ -113,6 +113,7 @@ import { contractorAccessRouter } from "./routers/contractorAccess";
 import { orderTrackingRouter } from "./routers/orderTracking";
 import { vendorEmailRouter } from "./routers/vendorEmail";
 import { aiDoorDescriptionRouter } from "./routers/aiDoorDescription";
+import { kitchenRulesRouter } from "./routers/kitchenRules";
 import { loginTestAccount } from "./lib/loginTestAccount";
 import { testAccountsEnabled } from "./lib/testAccounts";
 
@@ -283,6 +284,7 @@ export const appRouter = router({
   orderTracking: orderTrackingRouter,
   vendorEmail: vendorEmailRouter,
   aiDoorDescription: aiDoorDescriptionRouter,
+  kitchenRules: kitchenRulesRouter,
 });
 
 export type AppRouter = typeof appRouter;
