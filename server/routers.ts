@@ -106,6 +106,7 @@ import { vendorSamplesRouter } from "./routers/vendorSamples";
 import { vendorReferralsRouter } from "./routers/vendorReferrals";
 import { crmCleanupRouter } from "./routers/crmCleanup";
 import { crmOutreachRouter } from "./routers/crmOutreach";
+import { fabShopsRouter } from "./routers/fabShops";
 import { doorRenderingAuditRouter } from "./routers/doorRenderingAudit";
 import { contractorPortalRouter } from "./routers/contractorPortal";
 import { contractorAccessRouter } from "./routers/contractorAccess";
@@ -275,6 +276,7 @@ export const appRouter = router({
   vendorReferrals: vendorReferralsRouter,
   crmCleanup: crmCleanupRouter,
   crmOutreach: crmOutreachRouter,
+  fabShops: fabShopsRouter,
   doorRenderingAudit: doorRenderingAuditRouter,
   contractorPortal: contractorPortalRouter,
   contractorAccess: contractorAccessRouter,

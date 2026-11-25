@@ -50,6 +50,7 @@ import {
   type ResolvedHostScope,
 } from "../lib/affiliateHostScope";
 import { ENV } from "../_core/env";
+import { attachFabShopsToNewQuote } from "../lib/fabShops";
 import { priceLadder } from "../../shared/pricing";
 import { resolveCanonicalCatalogSources } from "../lib/canonicalCatalogSources";
 import { isWallWineRackCabinet } from "../../shared/wallWineRack";
@@ -2820,6 +2821,11 @@ export const designRouter = router({
         notes: input.notes ?? null,
       });
       const insertId = (result as unknown as [{ insertId: number }])[0].insertId;
+
+      // Save the fabrication shops nearest the quote ZIP on the quote (admin
+      // sees them in Countertop Quotes). Best effort: never fails the request,
+      // and nothing is sent to any shop.
+      await attachFabShopsToNewQuote(db, { id: insertId, zip: input.zip ?? null });
 
       // Owner email notifications are intentionally DISABLED per owner request
       // (was flooding the owner inbox). The quote is still saved to
