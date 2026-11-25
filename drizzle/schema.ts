@@ -5104,3 +5104,29 @@ export const outreachEvents = mysqlTable("outreach_events", {
   enrollmentIdx: index("outreach_events_enrollment_idx").on(t.enrollmentId),
 }));
 export type OutreachEvent = typeof outreachEvents.$inferSelect;
+
+// ─── Designer subscriptions ($11.99 Designer + Website, $15.99 Designer only) ─
+// One row per Stripe subscription. Created by hand with
+// docs/sql/0288_designer_subscriptions.tidb.sql; until that file is run the
+// pricing page still shows, checkout still opens, and the webhook logs the
+// payment without a row. Tier prices live in shared/designerSubscriptionTiers.ts.
+export const designerSubscriptions = mysqlTable("designer_subscriptions", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  tier: mysqlEnum("tier", ["designer_website", "designer_only"]).notNull(),
+  status: mysqlEnum("status", ["active", "past_due", "cancelled"]).default("active").notNull(),
+  amountCents: int("amountCents").notNull(),
+  stripeSubscriptionId: varchar("stripeSubscriptionId", { length: 255 }).notNull(),
+  stripeCustomerId: varchar("stripeCustomerId", { length: 255 }),
+  stripeCheckoutSessionId: varchar("stripeCheckoutSessionId", { length: 255 }),
+  lastStripeInvoiceId: varchar("lastStripeInvoiceId", { length: 255 }),
+  currentPeriodEnd: timestamp("currentPeriodEnd"),
+  cancelAtPeriodEnd: boolean("cancelAtPeriodEnd").default(false).notNull(),
+  cancelledAt: timestamp("cancelledAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (t) => ({
+  subscriptionUq: uniqueIndex("designer_subscriptions_stripe_subscription_uq").on(t.stripeSubscriptionId),
+  userIdx: index("designer_subscriptions_user_idx").on(t.userId, t.status),
+}));
+export type DesignerSubscription = typeof designerSubscriptions.$inferSelect;
