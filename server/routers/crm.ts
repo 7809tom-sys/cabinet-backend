@@ -25,6 +25,7 @@ import {
   salesCommissions,
   users,
   designViewLog,
+  countertopQuotes,
 } from "../../drizzle/schema";
 import {
   CRM_STAGES,
@@ -46,6 +47,12 @@ import { contractorRecordUserId } from "../lib/contractorRecordScope";
 import { loadAffiliatePricingById } from "../lib/affiliateStorefrontPricing";
 import { sumPlacedAffiliateSale } from "../lib/affiliateTierPricing";
 import { verifyUsAddress, formatEnteredAddress } from "../lib/addressVerification";
+import {
+  buildCountertopSlabInvoiceLine,
+  countertopShippingOnFile,
+  COUNTERTOP_MISSING_SHIPPING_MESSAGE,
+  QUOTED_PRICE_IS_PER_SLAB,
+} from "@shared/countertopSlabBilling";
 import { buildCrmInvoiceEmailHtml, createCrmInvoicePdf } from "../crmInvoicePdf";
 import { usableInvoicePrefill, verifiedFreightInvoicePrefill } from "../crmInvoicePrefill";
 import { groupedDesignInvoiceMaterials } from "../crmDesignInvoice";
@@ -288,6 +295,40 @@ export async function getOwnedDeal(
 }
 
 type CrmDb = NonNullable<Awaited<ReturnType<typeof getDb>>>;
+
+// ── Countertop quote slab billing ───────────────────────────────────────────
+// Countertop quotes are never paid through the cart. The admin bills a saved
+// or won quote as one slab line on the deal invoice, and only once shipping
+// info is on file for the deal (Tom, Nov 25 2026).
+
+/** A saved or won countertop quote from the same store as the deal, or null. */
+async function loadDealCountertopQuote(db: CrmDb, deal: { affiliateId: number | null }, quoteId: number) {
+  const rows = await db.select().from(countertopQuotes)
+    .where(and(
+      eq(countertopQuotes.id, quoteId),
+      deal.affiliateId == null ? isNull(countertopQuotes.affiliateId) : eq(countertopQuotes.affiliateId, deal.affiliateId),
+    ))
+    .limit(1);
+  const quote = rows[0];
+  if (!quote || quote.id !== quoteId) return null;
+  if ((quote.affiliateId ?? null) !== (deal.affiliateId ?? null)) return null;
+  return quote;
+}
+
+/** Shipping is on file: the deal's saved address, or a full address on its linked order. */
+async function dealShippingOnFile(db: CrmDb, deal: { shippingAddress?: string | null; orderRequestId?: number | null }) {
+  if (countertopShippingOnFile({ dealShippingAddress: deal.shippingAddress })) return true;
+  if (deal.orderRequestId == null) return false;
+  const [order] = await db.select({
+    id: orderRequests.id,
+    shippingAddressLine1: orderRequests.shippingAddressLine1,
+    shippingCity: orderRequests.shippingCity,
+    shippingState: orderRequests.shippingState,
+    zip: orderRequests.zip,
+  }).from(orderRequests).where(eq(orderRequests.id, deal.orderRequestId)).limit(1);
+  return countertopShippingOnFile({ order: order && order.id === deal.orderRequestId ? order : null });
+}
+
 
 async function guardNewSaleStage(db: CrmDb, stage: string | undefined): Promise<void> {
   if (stage !== "new_sale") return;
@@ -1143,6 +1184,73 @@ export const crmRouter = router({
   // SMTP row does not make the composer ready. This check is transport-only:
   // a missing invoice recipient is reported by sendInvoiceEmail. Affiliate
   // deals include replyTo for the store address.
+  // Saved/won countertop quotes from this deal's store, each with its slab
+  // invoice line (or why there is none) and whether shipping is on file.
+  countertopQuoteInvoiceOptions: protectedProcedure
+    .input(z.object({ dealId: z.number().int() }))
+    .query(async ({ ctx, input }) => {
+      const { db, deal } = await getOwnedDeal(ctx, input.dealId);
+      const rows = await db.select().from(countertopQuotes)
+        .where(and(
+          deal.affiliateId == null ? isNull(countertopQuotes.affiliateId) : eq(countertopQuotes.affiliateId, deal.affiliateId),
+          inArray(countertopQuotes.status, ["quoted", "won"]),
+        ))
+        .orderBy(desc(countertopQuotes.createdAt))
+        .limit(50);
+      const shippingOnFile = await dealShippingOnFile(db, deal);
+      return {
+        shippingOnFile,
+        shippingMessage: shippingOnFile ? null : COUNTERTOP_MISSING_SHIPPING_MESSAGE,
+        quotedPriceIsPerSlab: QUOTED_PRICE_IS_PER_SLAB,
+        quotes: rows
+          .filter((q) => (q.affiliateId ?? null) === (deal.affiliateId ?? null))
+          .map((q) => {
+            const built = buildCountertopSlabInvoiceLine(q);
+            return {
+              id: q.id,
+              contactEmail: q.contactEmail,
+              status: q.status,
+              material: q.material,
+              squareFeet: q.squareFeet,
+              createdAt: q.createdAt,
+              line: built.ok ? built.line : null,
+              slabs: built.ok ? built.slabs : null,
+              slabSizeWarning: built.ok ? built.size.warning : null,
+              blockedReason: built.ok ? null : built.message,
+            };
+          }),
+      };
+    }),
+
+  // Collect the shipping address on the deal so a countertop invoice can go out.
+  setDealShippingAddress: protectedProcedure
+    .input(z.object({
+      dealId: z.number().int(),
+      address: z.object({
+        line1: z.string().trim().min(1).max(256),
+        line2: z.string().trim().max(256).nullable().optional(),
+        city: z.string().trim().min(1).max(128),
+        state: z.string().trim().length(2),
+        zip: z.string().trim().min(5).max(16),
+      }),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const { db, deal } = await getOwnedDeal(ctx, input.dealId);
+      const address = { ...input.address, state: input.address.state.toUpperCase() };
+      let verified = false;
+      let formatted: string | null = null;
+      try {
+        const check = await verifyUsAddress(address);
+        verified = check.verified === true;
+        formatted = check.formatted ?? null;
+      } catch {
+        verified = false;
+      }
+      const shippingAddress = (formatted ?? formatEnteredAddress(address)).slice(0, 512);
+      await db.update(crmDeals).set({ shippingAddress, shippingAddressVerified: verified }).where(eq(crmDeals.id, deal.id));
+      return { ok: true, shippingAddress, shippingAddressVerified: verified };
+    }),
+
   emailReadiness: protectedProcedure
     .input(z.object({ dealId: z.number().int().optional() }).optional())
     .query(async ({ ctx, input }) => {
@@ -1228,12 +1336,33 @@ export const crmRouter = router({
         description: z.string().trim().min(1).max(256),
         amount: z.number().finite().min(0).max(10_000_000),
         kind: z.enum(["charge", "included"]).optional(),
-      })).min(1).max(30),
+      })).max(30),
       linkedDesignId: z.number().int().nullable().optional(),
       notes: z.string().trim().max(8000).nullable().optional(),
+      // A saved/won countertop quote to bill as one slab line. The server builds
+      // the line from the quote itself; the client never sends its amount.
+      countertopQuoteId: z.number().int().positive().nullable().optional(),
+    }).refine((value) => value.lines.length > 0 || value.countertopQuoteId != null, {
+      message: "Add at least one invoice line.",
+      path: ["lines"],
     }))
     .mutation(async ({ ctx, input }) => {
       const { db, deal } = await getOwnedDeal(ctx, input.dealId);
+      let invoiceLines = input.lines;
+      let countertopNote: string | null = null;
+      if (input.countertopQuoteId != null) {
+        const quote = await loadDealCountertopQuote(db, deal, input.countertopQuoteId);
+        if (!quote) throw new TRPCError({ code: "NOT_FOUND", message: "Countertop quote not found for this deal's store." });
+        const built = buildCountertopSlabInvoiceLine(quote);
+        if (!built.ok) throw new TRPCError({ code: "PRECONDITION_FAILED", message: built.message });
+        // Payment is only requested after shipping info is collected.
+        if (!(await dealShippingOnFile(db, deal))) {
+          throw new TRPCError({ code: "PRECONDITION_FAILED", message: "missing_shipping" });
+        }
+        if (invoiceLines.length >= 30) throw new TRPCError({ code: "BAD_REQUEST", message: "Too many invoice lines." });
+        invoiceLines = [...invoiceLines, built.line];
+        countertopNote = ` · Countertop quote #${quote.id}: ${built.slabs} slab${built.slabs === 1 ? "" : "s"}`;
+      }
       const typed = usableInvoiceEmail(input.to);
       const resolved = typed ? null : await loadDealInvoiceRecipient(db, {
         contactEmail: deal.contactEmail,
@@ -1281,7 +1410,7 @@ export const crmRouter = router({
         customerPhone: deal.contactPhone,
         linkedDesignName,
         notes: input.notes ?? null,
-        lines: input.lines,
+        lines: invoiceLines,
         brand,
       };
       const pdf = await createCrmInvoicePdf(invoice);
@@ -1300,7 +1429,7 @@ export const crmRouter = router({
         }],
         sentByUserId: ctx.user.id,
         sentByName: ctx.user.email ?? String(ctx.user.id),
-        activityBody: `Branded invoice PDF ${invoiceNumber} sent to ${to}${linkedDesignName ? ` · Linked design: ${linkedDesignName}` : ""}.`,
+        activityBody: `Branded invoice PDF ${invoiceNumber} sent to ${to}${linkedDesignName ? ` · Linked design: ${linkedDesignName}` : ""}${countertopNote ?? ""}.`,
         logBody: `Branded invoice PDF ${invoiceNumber} attached.`,
         invoice: true,
       });

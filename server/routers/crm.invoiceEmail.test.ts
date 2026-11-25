@@ -30,6 +30,7 @@ import {
   affiliateEmailSettings,
   affiliateInstallationEstimates,
   affiliates,
+  countertopQuotes,
   crmActivities,
   crmDealDesigns,
   crmDeals,
@@ -57,6 +58,18 @@ const { getDbMock, sendMail, stripeApi } = vi.hoisted(() => ({
 }));
 
 vi.mock("../db", () => ({ getDb: getDbMock }));
+// Pass-through: the real PDF is still built; the input is recorded so tests can read the lines.
+const { pdfInputs } = vi.hoisted(() => ({ pdfInputs: [] as Array<{ lines: Array<{ description: string; amount: number }> }> }));
+vi.mock("../crmInvoicePdf", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../crmInvoicePdf")>();
+  return {
+    ...actual,
+    createCrmInvoicePdf: (input: Parameters<typeof actual.createCrmInvoicePdf>[0]) => {
+      pdfInputs.push(input as never);
+      return actual.createCrmInvoicePdf(input);
+    },
+  };
+});
 vi.mock("../stripe", () => ({ getStripe: () => stripeApi }));
 vi.mock("nodemailer", () => ({
   default: { createTransport: vi.fn(() => ({ sendMail })) },
@@ -82,6 +95,7 @@ const tableNames = new Map<unknown, string>([
   [affiliates, "affiliates"],
   [affiliateEmailSettings, "affiliateEmailSettings"],
   [affiliateInstallationEstimates, "affiliateInstallationEstimates"],
+  [countertopQuotes, "countertopQuotes"],
 ]);
 
 function chain(rows: Row[]) {
@@ -102,6 +116,7 @@ function memoryDb(seed: {
   stripe?: Row[];
   users?: Row[];
   emailSettings?: Row[];
+  quotes?: Row[];
 }) {
   const tables = new Map<unknown, Row[]>([
     [crmDeals, seed.deals],
@@ -115,6 +130,7 @@ function memoryDb(seed: {
     [affiliates, []],
     [affiliateEmailSettings, []],
     [affiliateInstallationEstimates, []],
+    [countertopQuotes, seed.quotes ?? []],
   ]);
   const rowsFor = (table: unknown) => {
     const rows = tables.get(table);
@@ -652,5 +668,118 @@ describe("crm invoice email flow", () => {
       "server/routers/crm.invoiceEmail.test.ts",
       "server/routers/crm.ts",
     ]);
+  });
+});
+
+describe("countertop quote slab line on the deal invoice", () => {
+  const quoteFixture = (overrides: Row = {}): Row => ({
+    id: 7001,
+    userId: null,
+    affiliateId: null,
+    contactName: "Ana Rivera",
+    contactEmail: "ana.lead@example.com",
+    contactPhone: null,
+    zip: "32801",
+    material: "Corian",
+    squareFeet: "32.50",
+    linearFeet: "16.00",
+    hasIsland: false,
+    roomData: null,
+    placedCabinets: null,
+    notes: null,
+    status: "won",
+    quotedPrice: "450.00",
+    createdAt: new Date("2026-11-25T17:47:00Z"),
+    updatedAt: new Date("2026-11-25T17:47:00Z"),
+    ...overrides,
+  });
+  const LINE = "Corian countertop, 2 slabs, 32.5 sq ft needed, at $450.00 per slab = $900.00";
+  const shipped = { shippingAddress: "12 Oak St, Orlando, FL 32801", shippingAddressVerified: true };
+
+  it("blocks the send when no shipping info is on file", async () => {
+    const world = memoryDb({ deals: [dealFixture({ orderRequestId: null })], quotes: [quoteFixture()], emailSettings: [savedSmtp] });
+    configureResend();
+    await expect(adminCaller().sendInvoiceEmail({ ...buttonPayload(501), countertopQuoteId: 7001 })).rejects.toMatchObject({
+      code: "PRECONDITION_FAILED",
+      message: "missing_shipping",
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(world.tables.get(crmEmailLog)).toEqual([]);
+  });
+
+  it("treats a linked order with only a ZIP as missing shipping", async () => {
+    memoryDb({ deals: [dealFixture()], orders: [orderFixture({ zip: "32801" })], quotes: [quoteFixture()], emailSettings: [savedSmtp] });
+    configureResend();
+    await expect(adminCaller().sendInvoiceEmail({ ...buttonPayload(501), countertopQuoteId: 7001 })).rejects.toMatchObject({ message: "missing_shipping" });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("adds the server-built slab line and sends when the deal has a shipping address", async () => {
+    const world = memoryDb({ deals: [dealFixture({ orderRequestId: null, ...shipped })], quotes: [quoteFixture()], emailSettings: [savedSmtp] });
+    configureResend();
+    const result = await adminCaller().sendInvoiceEmail({ dealId: 501, lines: [], linkedDesignId: null, notes: null, countertopQuoteId: 7001 });
+    const sent = expectPdfAttachment("ana.lead@example.com", result.invoiceNumber);
+    expect(pdfInputs.at(-1)?.lines).toEqual([{ description: LINE, amount: 900, kind: "charge" }]);
+    expect(String(sent.body.html)).toContain("$900.00");
+    const activities = world.tables.get(crmActivities) ?? [];
+    expect(JSON.stringify(activities)).toContain("Countertop quote #7001: 2 slabs");
+  });
+
+  it("accepts a full shipping address on the linked order", async () => {
+    memoryDb({
+      deals: [dealFixture()],
+      orders: [orderFixture({ shippingAddressLine1: "12 Oak St", shippingCity: "Orlando", shippingState: "FL", zip: "32801" })],
+      quotes: [quoteFixture()],
+      emailSettings: [savedSmtp],
+    });
+    configureResend();
+    const result = await adminCaller().sendInvoiceEmail({ ...buttonPayload(501), countertopQuoteId: 7001 });
+    expectPdfAttachment("ana.lead@example.com", result.invoiceNumber);
+    expect(pdfInputs.at(-1)?.lines).toEqual([
+      { description: "Cabinet Order", amount: 4200 },
+      { description: LINE, amount: 900, kind: "charge" },
+    ]);
+  });
+
+  it("refuses a quote with no sq ft or no price, before any send", async () => {
+    memoryDb({ deals: [dealFixture({ orderRequestId: null, ...shipped })], quotes: [quoteFixture({ squareFeet: "0.00" })], emailSettings: [savedSmtp] });
+    configureResend();
+    await expect(adminCaller().sendInvoiceEmail({ ...buttonPayload(501), countertopQuoteId: 7001 })).rejects.toMatchObject({
+      code: "PRECONDITION_FAILED",
+      message: expect.stringContaining("No square feet"),
+    });
+    memoryDb({ deals: [dealFixture({ orderRequestId: null, ...shipped })], quotes: [quoteFixture({ quotedPrice: null })], emailSettings: [savedSmtp] });
+    await expect(adminCaller().sendInvoiceEmail({ ...buttonPayload(501), countertopQuoteId: 7001 })).rejects.toMatchObject({
+      message: expect.stringContaining("quoted price per slab"),
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("never bills another store's quote", async () => {
+    memoryDb({ deals: [dealFixture({ orderRequestId: null, ...shipped })], quotes: [quoteFixture({ affiliateId: 9 })], emailSettings: [savedSmtp] });
+    configureResend();
+    await expect(adminCaller().sendInvoiceEmail({ ...buttonPayload(501), countertopQuoteId: 7001 })).rejects.toMatchObject({ code: "NOT_FOUND" });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("lists the quote line with the shipping gate, and opens once the address is collected", async () => {
+    const world = memoryDb({ deals: [dealFixture({ orderRequestId: null })], quotes: [quoteFixture({ material: "Granite" })] });
+    const caller = adminCaller();
+    const before = await caller.countertopQuoteInvoiceOptions({ dealId: 501 });
+    expect(before.shippingOnFile).toBe(false);
+    expect(before.shippingMessage).toContain("Shipping info is required");
+    expect(before.quotedPriceIsPerSlab).toBe(true);
+    expect(before.quotes[0]).toMatchObject({
+      id: 7001,
+      slabs: 2,
+      slabSizeWarning: "slab size not confirmed for Granite",
+      line: { amount: 900, kind: "charge", description: "Granite countertop, 2 slabs, 32.5 sq ft needed, at $450.00 per slab = $900.00 (slab size not confirmed for Granite)" },
+    });
+    const saved = await caller.setDealShippingAddress({ dealId: 501, address: { line1: "12 Oak St", city: "Orlando", state: "fl", zip: "32801" } });
+    expect(saved.shippingAddress).toContain("12 Oak St");
+    expect(world.deal.shippingAddress).toContain("Orlando, FL 32801");
+    const after = await caller.countertopQuoteInvoiceOptions({ dealId: 501 });
+    expect(after.shippingOnFile).toBe(true);
+    expect(after.shippingMessage).toBeNull();
   });
 });
