@@ -137,7 +137,14 @@ describe("docs/sql/0268_affiliate_app_guide_internal.tidb.sql", () => {
     // The INSERT lives on one line and its values sit inside SELECT ... FROM DUAL,
     // so the whole statement has to be compared, not a parenthesised tuple.
     const insertLine = guideSql.split("\n").find((line) => line.startsWith("INSERT INTO"));
-    expect(insertLine).toBe(internalLibraryInsertSql(guide!));
+    // 0268 is history: it registered the guide at its first size and wording,
+    // and 0289 moves the row to the current manifest values.
+    expect(insertLine).toBe(internalLibraryInsertSql({
+      ...guide!,
+      description:
+        "Internal ops guide for Tom. One shared Cabinetdealz codebase for every affiliate, with a separate Google Play listing and a separate Apple App Store listing per affiliate brand (own name, icon, screenshots). The app resolves the affiliate at login from the signed-in account and that affiliate custom domain, not from which store listing was installed. Internal only: never shown on the public site or in an affiliate portal until Tom adds it to the affiliate library.",
+      sizeBytes: 8025,
+    }));
     expect(insertLine).toContain("WHERE NOT EXISTS");
     // Statement 5 deliberately reads the affiliate rows to prove the guide is not
     // among them, so the check is that the INSERT never writes 'affiliate'.

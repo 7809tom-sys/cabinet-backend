@@ -7,6 +7,7 @@ import {
   internalLibraryDocumentByFile,
   internalLibraryDocumentByKey,
   internalLibraryDocumentPath,
+  internalLibraryContentUpdateSql,
   internalLibraryInsertSql,
   internalLibraryRowValues,
   sqlLiteral,
@@ -32,6 +33,19 @@ const admin = read("client/src/components/admin/AffiliateLiteratureAdmin.tsx");
 const sql = read(SQL_FILE);
 
 const guide = internalLibraryDocumentByFile("how-to-create-an-app-for-an-affiliate.md")!;
+const updateSql = read("docs/sql/0289_affiliate_app_guide_whitelabel_web.tidb.sql");
+
+/**
+ * The guide exactly as 0268 registered it. 0268 is history and is never
+ * edited; 0289 moves the row to the current manifest values.
+ */
+const GUIDE_AS_REGISTERED_IN_0268 = {
+  ...guide,
+  description:
+    "Internal ops guide for Tom. One shared Cabinetdealz codebase for every affiliate, with a separate Google Play listing and a separate Apple App Store listing per affiliate brand (own name, icon, screenshots). The app resolves the affiliate at login from the signed-in account and that affiliate custom domain, not from which store listing was installed. Internal only: never shown on the public site or in an affiliate portal until Tom adds it to the affiliate library.",
+  sizeBytes: 8025,
+  sha256: "66c0e9043fb15caad4d57283be87692c412ba66c80f2ab33d029617780579336",
+};
 
 describe("the internal library manifest", () => {
   it("holds the Marazzi proposal and the affiliate app guide", () => {
@@ -107,13 +121,13 @@ describe("the internal library manifest", () => {
     expect(internalLibraryRowValues(guide)).toBe(
       [
         `'${guide.title}'`,
-        `'${guide.description}'`,
+        `'${guide.description.replace(/'/g, "''")}'`,
         "'Internal'",
         "'how-to-create-an-app-for-an-affiliate.md'",
         "'library-documents/internal/how-to-create-an-app-for-an-affiliate.md'",
         "'/manus-storage/library-documents/internal/how-to-create-an-app-for-an-affiliate.md'",
         "'text/plain'",
-        "8025",
+        String(guide.sizeBytes),
         "0",
         "'internal'",
         "901",
@@ -150,7 +164,7 @@ describe("docs/sql/0268_affiliate_app_guide_internal.tidb.sql", () => {
 
   it("registers exactly what the manifest describes, internal and unpublished", () => {
     const insert = sql.split("\n").find((line) => line.startsWith("INSERT INTO"));
-    expect(insert).toBe(internalLibraryInsertSql(guide));
+    expect(insert).toBe(internalLibraryInsertSql(GUIDE_AS_REGISTERED_IN_0268));
     expect(insert).toContain(", 0, 'internal', 901 FROM DUAL WHERE NOT EXISTS");
     // The two values that keep it out of an affiliate portal, spelled out. Only
     // the INSERT is checked: statement 5 reads the affiliate rows on purpose, to
@@ -210,5 +224,29 @@ describe("the importer", () => {
 
   it("treats a missing row as a message rather than a failure, so the upload can run first", () => {
     expect(importer).toMatch(/if \(!row\) \{[\s\S]*continue;/);
+  });
+});
+
+describe("docs/sql/0289_affiliate_app_guide_whitelabel_web.tidb.sql", () => {
+  const lines = updateSql.split("\n").filter((entry) => entry.trim() && !entry.trimStart().startsWith("--"));
+
+  it("is numbered after 0288, plain SQL, one qualified statement per line", () => {
+    expect(updateSql).toContain("Numbered 0289. Run after 0288.");
+    expect(updateSql).toContain("Requires 0268 first");
+    for (const line of lines) {
+      expect(line.trim().endsWith(";"), line.slice(0, 60)).toBe(true);
+      expect((line.match(/;/g) ?? []).length, line.slice(0, 60)).toBe(1);
+      expect(line, line.slice(0, 60)).toMatch(/cabinet_dealz\./);
+    }
+  });
+
+  it("updates only the guide's description and size, to the current manifest", () => {
+    expect(lines.map((line) => line.split(" ")[0])).toEqual(["SELECT", "UPDATE", "SELECT"]);
+    const update = lines.find((line) => line.startsWith("UPDATE"));
+    expect(update).toBe(internalLibraryContentUpdateSql(guide));
+    expect(update).not.toMatch(/visibility|isPublished/);
+    expect(updateSql).not.toMatch(/\b(INSERT|DELETE|DROP|ALTER)\b/);
+    expect(updateSql).toContain(guide.sha256);
+    expect(updateSql.indexOf("upload the file FIRST")).toBeLessThan(updateSql.indexOf("-- 1. PREVIEW"));
   });
 });
