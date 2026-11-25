@@ -1,10 +1,12 @@
 import { publicSocialLinks } from "../../shared/affiliateSocialLinks";
+import { affiliateAppIconPath, affiliateHomeScreenName, affiliateManifestPath } from "./affiliateHomeScreen";
 
 export type AffiliateHeadBrand = {
   slug: string;
   storeName?: string | null;
   tagline?: string | null;
   logoUrl?: string | null;
+  faviconUrl?: string | null;
   primaryColor?: string | null;
   publicPhone?: string | null;
   publicEmail?: string | null;
@@ -59,9 +61,14 @@ function replaceOrInsertMeta(
     : html.replace("</head>", `  ${tag}\n</head>`);
 }
 
-function replaceOrInsertIcon(html: string, relation: "icon" | "apple-touch-icon", href: string): string {
+function replaceOrInsertIcon(
+  html: string,
+  relation: "icon" | "apple-touch-icon" | "manifest",
+  href: string,
+  sizes?: string,
+): string {
   const pattern = new RegExp(`<link\\s+rel=["']${relation}["'][^>]*>`, "i");
-  const tag = `<link rel="${relation}" href="${escapeHtml(href)}" />`;
+  const tag = `<link rel="${relation}" href="${escapeHtml(href)}"${sizes ? ` sizes="${sizes}"` : ""} />`;
   return pattern.test(html)
     ? html.replace(pattern, tag)
     : html.replace("</head>", `  ${tag}\n</head>`);
@@ -162,7 +169,7 @@ export function injectAffiliateWhiteLabelHead(
   const primaryColor = /^#[0-9a-fA-F]{6}$/.test(brand.primaryColor || "")
     ? brand.primaryColor!
     : "#1a2b4a";
-  const favicon = imageUrl || monogramFavicon(storeName, primaryColor);
+  const favicon = usableImageUrl(brand.faviconUrl) || imageUrl || monogramFavicon(storeName, primaryColor);
 
   let out = html.replace(/<title>[\s\S]*?<\/title>/i, `<title>${escapeHtml(title)}</title>`);
   out = replaceOrInsertMeta(out, "name", "description", description);
@@ -183,10 +190,13 @@ export function injectAffiliateWhiteLabelHead(
   out = replaceOrInsertMeta(out, "name", "theme-color", primaryColor);
   out = replaceOrInsertLink(out, "canonical", canonicalUrl);
   out = replaceOrInsertIcon(out, "icon", favicon);
-  out = replaceOrInsertIcon(out, "apple-touch-icon", favicon);
-  // The shared platform PWA manifest carries the platform name. An affiliate
-  // should not install a browser app that exposes Cabinet Dealz branding.
-  out = out.replace(/<link\s+rel=["']manifest["'][^>]*>\s*/i, "");
+  // Home-screen install: the shared platform manifest and touch icon carry the
+  // platform name and mark, so a storefront links its own manifest and a PNG
+  // touch icon (iOS ignores SVG touch icons), and names the iOS home-screen
+  // shortcut after the store. See ./affiliateHomeScreen.ts.
+  out = replaceOrInsertIcon(out, "apple-touch-icon", affiliateAppIconPath(brand.slug, 180), "180x180");
+  out = replaceOrInsertIcon(out, "manifest", affiliateManifestPath(brand.slug));
+  out = replaceOrInsertMeta(out, "name", "apple-mobile-web-app-title", affiliateHomeScreenName(storeName));
   if (canonicalUrl && indexable) {
     out = replaceAffiliateSeoJsonLd(out, [
       {

@@ -26,6 +26,7 @@ import { registerCareersApply } from "../careersApply";
 import { registerBackupReport } from "../backupReport";
 import { registerInvoiceLookup } from "../invoiceLookupRoute";
 import { getFrontendShell } from "../lib/frontendShell";
+import { registerAffiliateHomeScreenRoutes } from "../lib/affiliateHomeScreen";
 import { recoverDueGeminiImageTestJobs } from "../routers/designPhotoRenders";
 import { ensureUsCabinetDepotProductLines } from "../lib/uscdProductLines";
 import { registerOutreachPublicRoutes, registerOutreachWebhooks } from "../outreachHttp";
@@ -153,6 +154,9 @@ registerInvoiceLookup(app);
   // SEO: dynamic robots.txt + sitemap.xml (must be registered before the
   // Vite/static SPA fallback so they aren't swallowed by the catch-all).
   registerSeoRoutes(app);
+  // Per-storefront web manifest and PNG home-screen icons. Registered before
+  // the page shell so /store/:slug/manifest.webmanifest never returns HTML.
+  registerAffiliateHomeScreenRoutes(app);
   // Page shell for the Vercel-hosted frontend: Vercel forwards /store/* and /3d/*
   // here so the backend can inject affiliate branding and share previews into
   // the built index.html (fetched from FRONTEND_SHELL_URL). See DEPLOY.md.

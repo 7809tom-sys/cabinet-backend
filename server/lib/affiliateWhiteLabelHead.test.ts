@@ -59,7 +59,10 @@ describe("affiliate white-label HTML head", () => {
     expect(html).toContain('rel="icon" href="https://cdn.example/reaves-way-logo.png"');
     expect(html).not.toContain("Cabinet Dealz");
     expect(html).not.toContain("cabinet-dealz.png");
-    expect(html).not.toContain('rel="manifest"');
+    expect(html).toContain('<link rel="manifest" href="/store/reaves-way-cabinet-shop/manifest.webmanifest" />');
+    expect(html).not.toContain("/manifest.json");
+    expect(html).toContain('<link rel="apple-touch-icon" href="/store/reaves-way-cabinet-shop/app-icon-180.png" sizes="180x180" />');
+    expect(html).toContain('<meta name="apple-mobile-web-app-title" content="Reaves Way Cabinet Shop" />');
   });
 
   it("uses a neutral monogram and no platform social image when the affiliate has no logo", () => {
@@ -71,6 +74,9 @@ describe("affiliate white-label HTML head", () => {
 
     expect(html).toContain("Neutral Store");
     expect(html).toContain('rel="icon" href="data:image/svg+xml,');
+    // iOS ignores SVG touch icons, so the touch icon is always the PNG route.
+    expect(html).toContain('<link rel="apple-touch-icon" href="/store/neutral-store/app-icon-180.png" sizes="180x180" />');
+    expect(html).not.toMatch(/rel="apple-touch-icon" href="data:image\/svg/);
     expect(html).not.toContain("Cabinet Dealz");
     expect(html).not.toContain('property="og:image"');
     expect(html).not.toContain('name="twitter:image"');
@@ -104,5 +110,22 @@ describe("affiliate white-label HTML head", () => {
     expect(html).toContain("Plan your complete kitchen with Reaves Way Cabinet Shop");
     expect(html).toContain('href="/store/reaves-way-cabinet-shop/bundles"');
     expect(html).not.toContain("Serving");
+  });
+
+  it("prefers the uploaded favicon for the tab icon and replaces the platform home-screen title", () => {
+    const html = injectAffiliateWhiteLabelHead(
+      platformHead.replace("</head>", '  <meta name="apple-mobile-web-app-title" content="CabinetDealz" />\n</head>'),
+      {
+        slug: "oak-and-iron",
+        storeName: "Oak & Iron Kitchens.",
+        logoUrl: "/manus-storage/affiliate-logo/oak.png",
+        faviconUrl: "/manus-storage/affiliate-favicon/oak.png",
+      },
+    );
+    expect(html).toContain('rel="icon" href="/manus-storage/affiliate-favicon/oak.png"');
+    expect(html).toContain('<meta name="apple-mobile-web-app-title" content="Oak &amp; Iron Kitchens" />');
+    expect(html).not.toContain("CabinetDealz");
+    expect(html.match(/apple-mobile-web-app-title/g)).toHaveLength(1);
+    expect(html.match(/rel="manifest"/g)).toHaveLength(1);
   });
 });
