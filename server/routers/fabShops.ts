@@ -13,9 +13,12 @@ import {
   attachFabShopsToQuote,
   dbFabShopImportStore,
   fabShopsForQuotes,
+  FabShopUndoMismatchError,
   importFabShops,
   isMissingTableError,
+  listFabShopImports,
   setQuoteFabShopStatus,
+  undoFabShopImportInDb,
 } from "../lib/fabShops";
 
 const shopRow = z.object(
@@ -91,6 +94,34 @@ export const fabShopsRouter = router({
     .mutation(async ({ input }) => {
       const db = await requireDb();
       return rethrow(() => importFabShops(dbFabShopImportStore(db), input));
+    }),
+
+  /** Past uploads: one row per Source text, with shop and quote match counts. */
+  imports: adminProcedure.query(async () => {
+    const db = await requireDb();
+    try {
+      return { ready: true, imports: await listFabShopImports(db) };
+    } catch (error) {
+      if (isMissingTableError(error)) return { ready: false, imports: [] };
+      throw error;
+    }
+  }),
+
+  /**
+   * Undo one upload: removes the shops saved with exactly this Source text and
+   * the quote matches pointing at them. confirmCount must equal the current
+   * shop count for that Source, or nothing is deleted.
+   */
+  undoImport: adminProcedure
+    .input(z.object({ sourceDoc: z.string().min(1).max(200), confirmCount: z.number().int().min(1) }))
+    .mutation(async ({ input }) => {
+      const db = await requireDb();
+      try {
+        return await rethrow(() => undoFabShopImportInDb(db, input));
+      } catch (error) {
+        if (error instanceof FabShopUndoMismatchError) throw new TRPCError({ code: "CONFLICT", message: error.message });
+        throw error;
+      }
     }),
 
   /** Shops for each quote: saved ones first, otherwise live suggestions for the ZIP. */

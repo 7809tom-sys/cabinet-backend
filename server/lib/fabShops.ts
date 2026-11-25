@@ -3,7 +3,7 @@
 // Every read here tolerates the tables not existing yet (docs/sql/0291 not run):
 // the quote list keeps working and simply shows no shops.
 
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { countertopQuoteFabShops, fabricationShops, type FabricationShop } from "../../drizzle/schema";
 import {
   FAB_SHOP_MATCH_LIMIT,
@@ -240,4 +240,138 @@ export async function setQuoteFabShopStatus(
   const [shop] = await db.select().from(fabricationShops).where(eq(fabricationShops.id, input.fabShopId));
   if (!shop) throw new Error("Fabrication shop not found.");
   await db.insert(countertopQuoteFabShops).values({ quoteId: input.quoteId, fabShopId: input.fabShopId, matchMethod: "manual", ...patch });
+}
+
+// ---------------------------------------------------------------------------
+// Past uploads and undo. Every upload saves its "Source" text on each shop
+// (sourceDoc), so one upload can be listed and removed by that exact text.
+// Rows with no sourceDoc are never listed for undo and never deleted here.
+
+export const FAB_SHOP_DELETE_CHUNK = 500;
+
+export type FabShopImportSummary = {
+  sourceDoc: string;
+  shops: number;
+  firstCreatedAt: string | null;
+  lastCreatedAt: string | null;
+  quoteMatches: number;
+  /** Quote matches someone followed up on (status other than "matched"). */
+  quoteMatchesFollowedUp: number;
+};
+
+type ShopGroup = { sourceDoc: string | null; shops: number | string; firstCreatedAt: unknown; lastCreatedAt: unknown };
+type MatchGroup = { sourceDoc: string | null; matches: number | string | null; followedUp: number | string | null };
+
+function isoOrNull(value: unknown): string | null {
+  if (value == null) return null;
+  const date = value instanceof Date ? value : new Date(String(value));
+  return Number.isNaN(date.getTime()) ? String(value) : date.toISOString();
+}
+
+/** Merge the per-upload shop counts with their quote match counts, newest upload first. */
+export function summarizeFabShopImports(shopGroups: readonly ShopGroup[], matchGroups: readonly MatchGroup[]): FabShopImportSummary[] {
+  const matches = new Map<string, { matches: number; followedUp: number }>();
+  for (const group of matchGroups) {
+    if (!group.sourceDoc) continue;
+    matches.set(group.sourceDoc, { matches: Number(group.matches ?? 0), followedUp: Number(group.followedUp ?? 0) });
+  }
+  return shopGroups
+    .filter((group): group is ShopGroup & { sourceDoc: string } => typeof group.sourceDoc === "string" && group.sourceDoc.length > 0)
+    .map((group) => ({
+      sourceDoc: group.sourceDoc,
+      shops: Number(group.shops),
+      firstCreatedAt: isoOrNull(group.firstCreatedAt),
+      lastCreatedAt: isoOrNull(group.lastCreatedAt),
+      quoteMatches: matches.get(group.sourceDoc)?.matches ?? 0,
+      quoteMatchesFollowedUp: matches.get(group.sourceDoc)?.followedUp ?? 0,
+    }))
+    .sort((a, b) => (b.lastCreatedAt ?? "").localeCompare(a.lastCreatedAt ?? "") || a.sourceDoc.localeCompare(b.sourceDoc));
+}
+
+export async function listFabShopImports(db: Db): Promise<FabShopImportSummary[]> {
+  const shopGroups = await db
+    .select({
+      sourceDoc: fabricationShops.sourceDoc,
+      shops: sql<number>`count(*)`,
+      firstCreatedAt: sql<unknown>`min(${fabricationShops.createdAt})`,
+      lastCreatedAt: sql<unknown>`max(${fabricationShops.createdAt})`,
+    })
+    .from(fabricationShops)
+    .groupBy(fabricationShops.sourceDoc);
+  const matchGroups = await db
+    .select({
+      sourceDoc: fabricationShops.sourceDoc,
+      matches: sql<number>`count(*)`,
+      followedUp: sql<number>`sum(case when ${countertopQuoteFabShops.status} <> 'matched' then 1 else 0 end)`,
+    })
+    .from(countertopQuoteFabShops)
+    .innerJoin(fabricationShops, eq(countertopQuoteFabShops.fabShopId, fabricationShops.id))
+    .groupBy(fabricationShops.sourceDoc);
+  return summarizeFabShopImports(shopGroups, matchGroups);
+}
+
+export type FabShopUndoStore = {
+  /** Ids of the shops saved with exactly this sourceDoc. */
+  shopIds(sourceDoc: string): Promise<number[]>;
+  /** Deletes the quote matches, then the shops; returns how many of each went. */
+  deleteShops(ids: number[]): Promise<{ quoteMatches: number; shops: number }>;
+};
+
+export class FabShopUndoMismatchError extends Error {
+  constructor(readonly current: number, readonly confirmed: number) {
+    super(`This upload has ${current} shop${current === 1 ? "" : "s"} now, not ${confirmed}. Reload the list and try again.`);
+    this.name = "FabShopUndoMismatchError";
+  }
+}
+
+/**
+ * Remove every shop from one upload (exact sourceDoc match) and the quote
+ * matches pointing at them. Refuses unless confirmCount equals the current
+ * number of shops for that sourceDoc, so a stale screen can't delete more.
+ */
+export async function undoFabShopImport(
+  store: FabShopUndoStore,
+  input: { sourceDoc: string; confirmCount: number },
+): Promise<{ sourceDoc: string; deletedShops: number; deletedQuoteMatches: number }> {
+  const sourceDoc = input.sourceDoc;
+  if (!sourceDoc.trim()) throw new Error("Pick an upload to undo.");
+  const ids = await store.shopIds(sourceDoc);
+  if (ids.length !== input.confirmCount) throw new FabShopUndoMismatchError(ids.length, input.confirmCount);
+  if (!ids.length) return { sourceDoc, deletedShops: 0, deletedQuoteMatches: 0 };
+  const deleted = await store.deleteShops(ids);
+  return { sourceDoc, deletedShops: deleted.shops, deletedQuoteMatches: deleted.quoteMatches };
+}
+
+function affectedRows(result: unknown): number {
+  const header = Array.isArray(result) ? result[0] : result;
+  return Number((header as { affectedRows?: unknown })?.affectedRows ?? 0);
+}
+
+type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
+
+function undoStoreFor(db: Db | Tx): FabShopUndoStore {
+  return {
+    async shopIds(sourceDoc) {
+      const rows = await db.select({ id: fabricationShops.id }).from(fabricationShops).where(eq(fabricationShops.sourceDoc, sourceDoc));
+      return rows.map((row) => row.id);
+    },
+    async deleteShops(ids) {
+      let quoteMatches = 0;
+      let shops = 0;
+      for (let i = 0; i < ids.length; i += FAB_SHOP_DELETE_CHUNK) {
+        const chunk = ids.slice(i, i + FAB_SHOP_DELETE_CHUNK);
+        quoteMatches += affectedRows(await db.delete(countertopQuoteFabShops).where(inArray(countertopQuoteFabShops.fabShopId, chunk)));
+      }
+      for (let i = 0; i < ids.length; i += FAB_SHOP_DELETE_CHUNK) {
+        const chunk = ids.slice(i, i + FAB_SHOP_DELETE_CHUNK);
+        shops += affectedRows(await db.delete(fabricationShops).where(inArray(fabricationShops.id, chunk)));
+      }
+      return { quoteMatches, shops };
+    },
+  };
+}
+
+/** Undo one upload inside a transaction: nothing is deleted unless all of it is. */
+export async function undoFabShopImportInDb(db: Db, input: { sourceDoc: string; confirmCount: number }) {
+  return db.transaction(async (tx) => undoFabShopImport(undoStoreFor(tx), input));
 }
