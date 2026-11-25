@@ -1794,6 +1794,63 @@ export const proApplications = mysqlTable("pro_applications", {
 export type ProApplication = typeof proApplications.$inferSelect;
 export type InsertProApplication = typeof proApplications.$inferInsert;
 
+// ─── Countertop fabrication shops (prospect list, by state) ───────────────────
+// Uploaded per state from the admin "Fabrication Shops" tab (docs/sql/0291 for
+// the first Florida list). Matched to countertop quotes by ZIP: lat/lng when a
+// shop has one, otherwise its 3-digit ZIP prefix center. Not the same as
+// pro_applications (approved pros who applied); these are shops we may contact.
+
+export const fabricationShops = mysqlTable("fabrication_shops", {
+  id: int("id").autoincrement().primaryKey(),
+  name: varchar("name", { length: 256 }).notNull(),
+  state: varchar("state", { length: 2 }).notNull(),
+  zip: varchar("zip", { length: 10 }),
+  zip3: varchar("zip3", { length: 3 }),
+  // "address" | "zip_column" | "city" (ZIP borrowed from another shop in the same city)
+  zipSource: varchar("zipSource", { length: 16 }),
+  city: varchar("city", { length: 128 }),
+  address: varchar("address", { length: 512 }),
+  region: varchar("region", { length: 128 }),
+  phone: varchar("phone", { length: 32 }),
+  email: varchar("email", { length: 320 }),
+  website: varchar("website", { length: 512 }),
+  googleRating: decimal("googleRating", { precision: 2, scale: 1 }),
+  reviewCount: int("reviewCount"),
+  confidence: varchar("confidence", { length: 8 }),
+  lat: decimal("lat", { precision: 9, scale: 6 }),
+  lng: decimal("lng", { precision: 9, scale: 6 }),
+  source: text("source"),
+  sourceDoc: varchar("sourceDoc", { length: 200 }),
+  isActive: boolean("isActive").default(true).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  stateIdx: index("fabrication_shops_state_idx").on(table.state),
+  zip3Idx: index("fabrication_shops_zip3_idx").on(table.zip3),
+}));
+
+export type FabricationShop = typeof fabricationShops.$inferSelect;
+export type InsertFabricationShop = typeof fabricationShops.$inferInsert;
+
+// Shops attached to one countertop quote (nearest to the quote ZIP), with a
+// follow-up status the admin sets by hand. Nothing here sends anything.
+export const countertopQuoteFabShops = mysqlTable("countertop_quote_fab_shops", {
+  id: int("id").autoincrement().primaryKey(),
+  quoteId: int("quoteId").notNull(),
+  fabShopId: int("fabShopId").notNull(),
+  distanceMiles: decimal("distanceMiles", { precision: 7, scale: 1 }),
+  matchMethod: varchar("matchMethod", { length: 16 }).notNull(), // same_zip | distance | state
+  status: mysqlEnum("status", ["matched", "contacted", "quoted", "declined"]).default("matched").notNull(),
+  note: varchar("note", { length: 500 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  quoteShopUnique: uniqueIndex("countertop_quote_fab_shops_quote_shop_uq").on(table.quoteId, table.fabShopId),
+  quoteIdx: index("countertop_quote_fab_shops_quote_idx").on(table.quoteId),
+}));
+
+export type CountertopQuoteFabShop = typeof countertopQuoteFabShops.$inferSelect;
+
 // ─── Vendor Applications ────────────────────────────────────────
 // Inbound applications from cabinet manufacturers / suppliers who want to become
 // a vendor partner on Cabinet Dealz. Submitted from the public "Become a Vendor"
