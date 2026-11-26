@@ -27,9 +27,21 @@ describe("countertop quote requests", () => {
       linearFeet: 18,
       hasIsland: true,
       zip: "75201",
+      deliveryAddress: { line1: "1200 Main St", city: "Dallas", state: "TX", zip: "75201" },
       notes: "vitest countertop request",
     });
     expect(res.id).toBeGreaterThan(0);
+  });
+
+  it("refuses a request without a delivery address", async () => {
+    const caller = appRouter.createCaller(publicCtx());
+    await expect(
+      caller.design.requestCountertopQuote({
+        contactEmail: "buyer@example.com",
+        squareFeet: 10,
+        linearFeet: 5,
+      } as Parameters<typeof caller.design.requestCountertopQuote>[0])
+    ).rejects.toThrow();
   });
 
   it("rejects an invalid email", async () => {
@@ -39,6 +51,7 @@ describe("countertop quote requests", () => {
         contactEmail: "not-an-email",
         squareFeet: 10,
         linearFeet: 5,
+        deliveryAddress: { line1: "1200 Main St", city: "Dallas", state: "TX", zip: "75201" },
       })
     ).rejects.toThrow();
   });

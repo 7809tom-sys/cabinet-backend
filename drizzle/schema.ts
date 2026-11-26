@@ -1693,6 +1693,17 @@ export const countertopQuotes = mysqlTable("countertop_quotes", {
   contactEmail: varchar("contactEmail", { length: 320 }).notNull(),
   contactPhone: varchar("contactPhone", { length: 32 }),
   zip: varchar("zip", { length: 16 }),
+  // The countertop cycle has two addresses and needs both legs:
+  //   jobSiteAddress      = the homeowner's address, where the finished top is
+  //                         installed and the fabricator has to deliver.
+  //   fabricatorAddress   = the shop the slab is shipped to for fabrication.
+  // The job site is collected on the quote itself and required. The fabricator leg
+  // is a snapshot taken when a shop is assigned, because shop addresses change and
+  // the job has to keep the address it was actually quoted against.
+  jobSiteAddress: varchar("jobSiteAddress", { length: 512 }),
+  jobSiteAddressVerified: boolean("jobSiteAddressVerified").default(false).notNull(),
+  fabricatorName: varchar("fabricatorName", { length: 200 }),
+  fabricatorAddress: varchar("fabricatorAddress", { length: 512 }),
   material: varchar("material", { length: 128 }), // requested material, e.g. Quartz, Granite, Laminate
   squareFeet: decimal("squareFeet", { precision: 8, scale: 2 }).notNull(),
   linearFeet: decimal("linearFeet", { precision: 8, scale: 2 }).notNull(),
