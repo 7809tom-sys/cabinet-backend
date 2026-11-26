@@ -29,6 +29,7 @@ import {
 
 // Tab content components
 import { CrmBoard } from "@/components/crm/CrmBoard";
+import FabShopsAdmin from "@/components/admin/FabShopsAdmin";
 import { countertopQuoteJunkLabel } from "@shared/countertopQuoteJunk";
 import AffiliatesAdmin from "@/components/admin/AffiliatesAdmin";
 import DistributorImport from "@/components/admin/DistributorImport";
@@ -117,6 +118,7 @@ const GROUPS = [
       { value: "consultations", label: "Consultations" },
       { value: "design-leads", label: "Design Leads" },
       { value: "quotes", label: "Countertop Quotes" },
+      { value: "fab-shops", label: "Fabrication Shops" },
       { value: "payments", label: "Payments" },
     ],
   },
@@ -609,6 +611,7 @@ export default function AdminGroupedTabs() {
         <TabsContent value="consultations" className="mt-6"><AdminTabHelp tab="consultations" /><ConsultationsAdmin /></TabsContent>
         <TabsContent value="design-leads" className="mt-6"><AdminTabHelp tab="design-leads" /><DesignLeadsAdmin /></TabsContent>
         <TabsContent value="quotes" className="mt-6"><AdminTabHelp tab="quotes" /><CountertopQuotes /></TabsContent>
+<TabsContent value="fab-shops" className="mt-6"><FabShopsAdmin /></TabsContent>
         <TabsContent value="payments" className="mt-6"><AdminTabHelp tab="payments" /><PaymentsAdmin /></TabsContent>
 
         {/* People */}
