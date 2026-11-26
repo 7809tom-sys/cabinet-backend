@@ -24,10 +24,12 @@ import {
   Layers,
   Search,
   ExternalLink,
+  Trash2,
 } from "lucide-react";
 
 // Tab content components
 import { CrmBoard } from "@/components/crm/CrmBoard";
+import { countertopQuoteJunkLabel } from "@shared/countertopQuoteJunk";
 import AffiliatesAdmin from "@/components/admin/AffiliatesAdmin";
 import DistributorImport from "@/components/admin/DistributorImport";
 import LineBrandingEditor from "@/components/admin/LineBrandingEditor";
@@ -356,6 +358,10 @@ function CountertopQuotes() {
     onSuccess: () => { utils.design.listCountertopQuotes.invalidate(); toast.success("Quote updated"); },
     onError: (e: any) => toast.error(e.message),
   });
+  const deleteQuote = trpc.design.deleteCountertopQuote.useMutation({
+    onSuccess: () => { utils.design.listCountertopQuotes.invalidate(); toast.success("Junk quote deleted"); },
+    onError: (e: any) => toast.error(e.message),
+  });
 
   if (isLoading) return <div className="flex justify-center py-12"><Spinner className="h-6 w-6 text-primary" /></div>;
   if (error) return <div className="text-center py-12 space-y-3"><p className="text-destructive">Couldn't load quotes: {error.message}</p><Button variant="outline" size="sm" onClick={() => refetch()}>Retry</Button></div>;
@@ -370,6 +376,11 @@ function CountertopQuotes() {
               <div className="flex items-center gap-2">
                 <span className="font-semibold">{q.contactEmail}</span>
                 <Badge variant={statusVariant(q.status)} className="capitalize">{q.status}</Badge>
+                {q.canDelete && (
+                  <Badge variant="outline" className="text-xs font-normal text-muted-foreground">
+                    {countertopQuoteJunkLabel(q.junkReason)}
+                  </Badge>
+                )}
               </div>
               <div className="text-sm text-muted-foreground">
                 {Number(q.squareFeet).toFixed(1)} sq ft · {Number(q.linearFeet).toFixed(1)} lin ft
@@ -378,11 +389,73 @@ function CountertopQuotes() {
                 {q.zip ? ` · ZIP ${q.zip}` : ""}
               </div>
             </div>
+            <div className="flex items-start gap-1.5 text-sm">
+              <MapPin className="h-3.5 w-3.5 mt-0.5 shrink-0 text-muted-foreground" />
+              <div className="min-w-0">
+                <span className="text-[11px] uppercase tracking-wide text-muted-foreground">Homeowner / job site</span>
+                {q.jobSiteAddress ? (
+                  <span className="ml-2 text-foreground">{q.jobSiteAddress}</span>
+                ) : (
+                  <span className="ml-2 text-muted-foreground italic">not collected</span>
+                )}
+                {q.jobSiteAddress && !q.jobSiteAddressVerified && (
+                  <Badge variant="outline" className="ml-1 text-[10px] font-normal text-amber-700">unverified</Badge>
+                )}
+              </div>
+            </div>
+            <div className="flex items-start gap-1.5 text-sm">
+              <Building2 className="h-3.5 w-3.5 mt-0.5 shrink-0 text-muted-foreground" />
+              <div className="min-w-0">
+                <span className="text-[11px] uppercase tracking-wide text-muted-foreground">Fabrication shop</span>
+                {q.fabricatorAddress ? (
+                  <span className="ml-2 text-foreground">
+                    {q.fabricatorName ? `${q.fabricatorName} - ` : ""}{q.fabricatorAddress}
+                  </span>
+                ) : (
+                  <span className="ml-2 text-muted-foreground italic">not assigned yet</span>
+                )}
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Input placeholder="Fabricator name" className="w-44" defaultValue={q.fabricatorName ?? undefined} id={`fab-name-${q.id}`} aria-label="Fabricator name" />
+              <Input placeholder="Shop address" className="w-72" defaultValue={q.fabricatorAddress ?? undefined} id={`fab-addr-${q.id}`} aria-label="Fabricator address" />
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  const nameEl = document.getElementById(`fab-name-${q.id}`) as HTMLInputElement | null;
+                  const addrEl = document.getElementById(`fab-addr-${q.id}`) as HTMLInputElement | null;
+                  update.mutate({
+                    id: q.id,
+                    fabricatorName: nameEl?.value ?? "",
+                    fabricatorAddress: addrEl?.value ?? "",
+                  });
+                }}
+              >
+                Save shop
+              </Button>
+            </div>
             <div className="flex flex-wrap items-center gap-2">
               <Input type="number" placeholder="Quoted price" className="w-40" defaultValue={q.quotedPrice ? Number(q.quotedPrice) : undefined} id={`qp-${q.id}`} />
               <Button size="sm" variant="outline" onClick={() => { const el = document.getElementById(`qp-${q.id}`) as HTMLInputElement | null; const price = el?.value ? Number(el.value) : undefined; update.mutate({ id: q.id, status: "quoted", quotedPrice: price }); }}>Save Quote</Button>
               <Button size="sm" variant="ghost" onClick={() => update.mutate({ id: q.id, status: "won" })}>Mark Won</Button>
               <Button size="sm" variant="ghost" onClick={() => update.mutate({ id: q.id, status: "lost" })}>Mark Lost</Button>
+              {q.canDelete && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="text-destructive hover:text-destructive"
+                  disabled={deleteQuote.isPending}
+                  onClick={() => {
+                    const reason = countertopQuoteJunkLabel(q.junkReason);
+                    if (window.confirm(`Delete this quote from ${q.contactEmail}?\n\nFlagged as: ${reason}.\n\nThis removes the row permanently. A quote with a real email and a complete job site address is not deletable here - mark it lost instead.`)) {
+                      deleteQuote.mutate({ id: q.id });
+                    }
+                  }}
+                >
+                  <Trash2 className="h-3.5 w-3.5 mr-1" /> Delete junk quote
+                </Button>
+              )}
               <Button size="sm" variant="secondary" className="ml-auto" onClick={() => { setActiveQuoteId(activeQuoteId === q.id ? null : q.id); setMatchZip(q.zip ?? ""); }}>
                 <Search className="h-3.5 w-3.5 mr-1" /> Find Pros
               </Button>
