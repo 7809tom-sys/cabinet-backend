@@ -9,6 +9,7 @@ import { getDb, notInConflict, getPlatformPricingSettings } from "../db";
 import { verifyUsAddress, formatEnteredAddress } from "../lib/addressVerification";
 import { distributorCabinetOverrides, cabinets, cabinetAliases, skuMasterAliases, kitchenDesigns, distributorSkus, doorStyles, distributors, countertopQuotes, designLeads, crmDeals, crmDealDesigns, affiliates, affiliateStyleBranding, affiliateDistributorSelections, orderRequests, payments, threeDRoomShares, designConsultations, designGeminiImageTestJobs, designImageRequests, designPhotoRenders, designViewLog } from "../../drizzle/schema";
 import { notifyOwner } from "../_core/notification";
+import { getCountertopQuoteJunkReason } from "../../shared/countertopQuoteJunk";
 import { emitCrmEvent } from "../_core/crmWebhook";
 import { ensureAffiliatePipelineDeal } from "../lib/crmPipelineAttach";
 import { stampCrmDealsDesignSaved, stampCrmDealsForDesignSave } from "../lib/crmDesignSavedStamps";
@@ -207,7 +208,7 @@ function verifyRemoteDesignShareToken(token: string): RemoteDesignSharePayload |
 type DesignCustomer = { name: string; email: string; phone: string; address: { line1: string; line2?: string | null; city: string; state: string; zip: string } };
 /**
  * Every save links the design to exactly one CRM deal and writes the complete,
- * required customer contact (name, email, phone, delivery address) onto it.
+ * required customer contact (name, email, phone, job site address) onto it.
  * The address is checked with the shared verifier; the deal records whether it
  * verified, but an unverified-yet-complete address never blocks saving.
  */
@@ -2790,6 +2791,16 @@ export const designRouter = router({
         contactEmail: z.string().email(),
         contactPhone: z.string().max(32).optional(),
         zip: z.string().max(16).optional(),
+        // Required in practice. Declared optional so a browser still running the
+        // previous bundle gets a "refresh the page" message instead of a bare
+        // validation error it has no way to satisfy.
+        jobSiteAddress: z.object({
+          line1: z.string().min(1).max(200),
+          line2: z.string().max(200).optional(),
+          city: z.string().min(1).max(120),
+          state: z.string().min(2).max(2),
+          zip: z.string().min(5).max(16),
+        }).optional(),
         material: z.string().max(128).optional(),
         squareFeet: z.number().nonnegative(),
         linearFeet: z.number().nonnegative(),
@@ -2805,13 +2816,48 @@ export const designRouter = router({
       // Stamp the store the shopper actually submitted from, decided by the host.
       const hostScope = await resolveRequestStoreScope(ctx.req);
 
+      const entered = input.jobSiteAddress;
+      if (!entered) {
+        // A tab still running the previous bundle has no address fields at all, so
+        // asking it for a complete address is a dead end. Tell it to reload.
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "The quote form has been updated. Refresh this page, add your delivery address, and send it again.",
+        });
+      }
+      const addressInput = {
+        line1: entered.line1.trim(),
+        line2: entered.line2?.trim() || null,
+        city: entered.city.trim(),
+        state: entered.state.trim().toUpperCase(),
+        zip: entered.zip.trim(),
+      };
+      if (!addressInput.line1 || !addressInput.city || addressInput.state.length !== 2
+        || addressInput.zip.replace(/\D/g, "").length < 5) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "A complete job site address is required: street, city, state and ZIP.",
+        });
+      }
+      const jobSiteAddress = formatEnteredAddress(addressInput).slice(0, 512);
+      // Best effort, exactly like the CRM path: a geocoder outage must never block
+      // a real customer from asking for a quote.
+      let jobSiteAddressVerified = false;
+      try {
+        jobSiteAddressVerified = (await verifyUsAddress(addressInput)).verified === true;
+      } catch {
+        jobSiteAddressVerified = false;
+      }
+
       const result = await db.insert(countertopQuotes).values({
         userId: ctx.user?.id ?? null,
         affiliateId: hostScope.pinned ? hostScope.affiliateId : null,
         contactName: input.contactName ?? null,
         contactEmail: input.contactEmail,
         contactPhone: input.contactPhone ?? null,
-        zip: input.zip ?? null,
+        zip: addressInput.zip,
+        jobSiteAddress,
+        jobSiteAddressVerified,
         material: input.material ?? null,
         squareFeet: String(input.squareFeet),
         linearFeet: String(input.linearFeet),
@@ -3092,8 +3138,51 @@ Return an empty actions array ONLY if the user asked a pure question with no wal
       .from(countertopQuotes)
       .where(countertopScopeCondition(hostScope))
       .orderBy(desc(countertopQuotes.createdAt));
-    return rows;
+    // junkReason is decided here, not in the browser, so the admin button and the
+    // delete guard below can never disagree about which rows are junk.
+    return rows.map((row) => {
+      const junkReason = getCountertopQuoteJunkReason(row);
+      return { ...row, junkReason, canDelete: junkReason !== null };
+    });
   }),
+
+  /**
+   * Removes a quote request that looks like junk. Refuses any row that does not
+   * match the rules in shared/countertopQuoteJunk.ts - the same rules the review
+   * script uses for test rows, plus "no usable ZIP" - so this never erases a
+   * complete-looking customer request. Status "lost" is how a real request is
+   * retired; this is only for junk.
+   */
+  deleteCountertopQuote: protectedProcedure
+    .input(z.object({ id: z.number().int().positive() }))
+    .mutation(async ({ input, ctx }) => {
+      if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN" });
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      const hostScope = await resolveRequestStoreScope(ctx.req);
+      const [row] = await db
+        .select({
+          id: countertopQuotes.id,
+          contactEmail: countertopQuotes.contactEmail,
+          notes: countertopQuotes.notes,
+          jobSiteAddress: countertopQuotes.jobSiteAddress,
+          createdAt: countertopQuotes.createdAt,
+        })
+        .from(countertopQuotes)
+        .where(and(eq(countertopQuotes.id, input.id), countertopScopeCondition(hostScope)))
+        .limit(1);
+      if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Countertop quote not found in this store." });
+      if (getCountertopQuoteJunkReason(row) === null) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "This quote has a real email and a complete job site address, so it was not deleted. Mark it lost instead.",
+        });
+      }
+      await db
+        .delete(countertopQuotes)
+        .where(and(eq(countertopQuotes.id, input.id), countertopScopeCondition(hostScope)));
+      return { id: input.id, deleted: true };
+    }),
 
   updateCountertopQuote: protectedProcedure
     .input(
@@ -3101,6 +3190,10 @@ Return an empty actions array ONLY if the user asked a pure question with no wal
         id: z.number(),
         status: z.enum(["new", "quoted", "won", "lost"]).optional(),
         quotedPrice: z.number().nonnegative().optional(),
+        // The fabricator leg of the job: assigned by an admin, not by the customer.
+        // An empty string clears the assignment.
+        fabricatorName: z.string().max(200).optional(),
+        fabricatorAddress: z.string().max(512).optional(),
       })
     )
     .mutation(async ({ input, ctx }) => {
@@ -3111,6 +3204,8 @@ Return an empty actions array ONLY if the user asked a pure question with no wal
       const patch: Record<string, unknown> = {};
       if (input.status) patch.status = input.status;
       if (input.quotedPrice !== undefined) patch.quotedPrice = String(input.quotedPrice);
+      if (input.fabricatorName !== undefined) patch.fabricatorName = input.fabricatorName.trim() || null;
+      if (input.fabricatorAddress !== undefined) patch.fabricatorAddress = input.fabricatorAddress.trim() || null;
       if (Object.keys(patch).length > 0) {
         const updated = await db
           .update(countertopQuotes)
