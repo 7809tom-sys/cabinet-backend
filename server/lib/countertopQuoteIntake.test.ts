@@ -57,7 +57,20 @@ describe("countertop order intake", () => {
     expect(plan!.materialName).toBe("Pure White 3cm Quartz Slab");
     expect(plan!.lines).toHaveLength(1);
     expect(plan!.lines[0]).toMatchObject({ quantity: 2, unitPrice: 650, lineTotal: 1300 });
+    expect(plan!.slabCount).toBe(2);
+    expect(plan!.truckloadCapacity).toBe(40);
+    expect(plan!.truckloads).toBe(1);
     expect(plan!.notes).toBe("L-shaped top");
+  });
+
+  it("splits a large job across truckloads of 40 slabs", () => {
+    const plan = countertopPlanForOrder({
+      orderRequestId: 79,
+      requestNumber: "CD-79",
+      lines: [line({ qty: 45 })],
+    })!;
+    expect(plan.slabCount).toBe(45);
+    expect(plan.truckloads).toBe(2);
   });
 
   it("returns null when the order has no countertop", () => {

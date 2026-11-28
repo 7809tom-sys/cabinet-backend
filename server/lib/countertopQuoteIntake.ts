@@ -16,6 +16,7 @@ import {
 } from "../../drizzle/schema";
 import type { getDb } from "../db";
 import { isPelicanSlabLine } from "./pelicanSlabQuoteEmail";
+import { attachFabShopsToNewQuote } from "./fabShops";
 
 type Db = NonNullable<Awaited<ReturnType<typeof getDb>>>;
 type KitchenDesignRow = typeof kitchenDesigns.$inferSelect;
@@ -39,6 +40,11 @@ export type CountertopPlanPayload = {
   /** The order does not measure the top, so footage is settled at quote time. */
   totalSqFt: number | null;
   linearFt: number | null;
+  /** Slabs on the order: countertop qty is one slab each (shippingRules). */
+  slabCount: number;
+  /** One truck carries this many slabs; larger jobs split across loads. */
+  truckloadCapacity: number;
+  truckloads: number;
   cutouts: Array<{ type: string; notes?: string }>;
   notes: string | null;
 };
@@ -90,6 +96,10 @@ export function countertopPlanForOrder(input: {
     unitPrice: line.unitPrice == null ? null : Number(line.unitPrice),
     lineTotal: line.linePrice == null ? null : Number(line.linePrice),
   }));
+  // Countertop qty is one slab per unit (the designer already sends slabs), so
+  // the truckload count is the ordered slab count over the 40-slab limit.
+  const slabCount = mapped.reduce((sum, line) => sum + Math.max(0, Math.round(line.quantity)), 0);
+  const truckloadCapacity = 40;
   return {
     planId: `order:${input.orderRequestId}`,
     orderRequestNumber: input.requestNumber,
@@ -98,6 +108,9 @@ export function countertopPlanForOrder(input: {
     lines: mapped,
     totalSqFt: null,
     linearFt: null,
+    slabCount,
+    truckloadCapacity,
+    truckloads: Math.max(1, Math.ceil(slabCount / truckloadCapacity)),
     cutouts: [],
     notes: input.notes ?? null,
   };
@@ -179,6 +192,7 @@ export async function ensureCountertopQuoteForOrder(
         updatedAt: new Date(),
       })
       .where(eq(countertopQuotes.id, existing.id));
+    await attachFabShopsToNewQuote(db, { id: existing.id, zip: input.zip });
     return { quoteId: existing.id, created: false };
   }
 
@@ -211,5 +225,9 @@ export async function ensureCountertopQuoteForOrder(
     status: "new",
   });
   const insertId = (result as unknown as [{ insertId: number }])[0].insertId;
+  // Route it: save the nearest approved fabrication shops on the quote so the
+  // admin queue opens with candidates ready. This sends nothing by itself; the
+  // package is dispatched from the quote card once the shop is chosen.
+  await attachFabShopsToNewQuote(db, { id: insertId, zip: input.zip });
   return { quoteId: insertId, created: true };
 }
