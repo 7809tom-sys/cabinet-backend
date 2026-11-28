@@ -180,10 +180,9 @@ export async function ensureCountertopQuoteForOrder(
       .limit(1))[0] ?? null;
   const designerPlan = designerPlanForDesign(design);
   if (design && designerPlan) {
-    // A share session is the only openable 3D link the designer has. When the
-    // customer already shared this room, the quote carries that URL so the
-    // fabricator can open the exact layout; without one the full snapshot below
-    // is still attached.
+    // The admin card can always open the saved design in the designer by id.
+    // A 3D share session is nicer for a fabricator, so prefer it when one exists.
+    designerPlan.planExportUrl = `${DESIGNER_SHARE_ORIGIN}/design?load=${design.id}`;
     try {
       const [share] = await db
         .select({ token: threeDRoomShares.token })
@@ -195,7 +194,7 @@ export async function ensureCountertopQuoteForOrder(
         designerPlan.planExportUrl = `${DESIGNER_SHARE_ORIGIN}/design/session/${encodeURIComponent(share.token)}`;
       }
     } catch {
-      // Older databases may not have the share table; the snapshot is enough.
+      // Older databases may not have the share table; the designer link stands.
     }
   }
 

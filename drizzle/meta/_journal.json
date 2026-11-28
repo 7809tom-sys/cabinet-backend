@@ -1674,6 +1674,13 @@
       "when": 1796100000000,
       "tag": "0240_countertop_quote_order_plans",
       "breakpoints": true
+    },
+    {
+      "idx": 240,
+      "version": "5",
+      "when": 1796200000000,
+      "tag": "0241_countertop_quote_fabricator_cost",
+      "breakpoints": true
     }
   ]
 }

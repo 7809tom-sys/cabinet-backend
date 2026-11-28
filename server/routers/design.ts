@@ -2805,6 +2805,8 @@ export const designRouter = router({
         squareFeet: z.number().nonnegative(),
         linearFeet: z.number().nonnegative(),
         hasIsland: z.boolean().default(false),
+        // The saved 3D design the quote was drawn from, when the designer has one.
+        kitchenDesignId: z.number().int().positive().optional(),
         roomData: z.any().optional(),
         placedCabinets: z.any().optional(),
         notes: z.string().max(2000).optional(),
@@ -2864,6 +2866,7 @@ export const designRouter = router({
         hasIsland: input.hasIsland,
         roomData: input.roomData ?? null,
         placedCabinets: input.placedCabinets ?? null,
+        kitchenDesignId: input.kitchenDesignId ?? null,
         notes: input.notes ?? null,
       });
       const insertId = (result as unknown as [{ insertId: number }])[0].insertId;
@@ -3203,6 +3206,7 @@ Return an empty actions array ONLY if the user asked a pure question with no wal
         // An empty string clears the assignment.
         fabricatorName: z.string().max(200).optional(),
         fabricatorEmail: z.string().max(320).optional(),
+        fabricatorCost: z.number().nonnegative().optional(),
         fabricatorAddress: z.string().max(512).optional(),
       })
     )
@@ -3214,6 +3218,7 @@ Return an empty actions array ONLY if the user asked a pure question with no wal
       const patch: Record<string, unknown> = {};
       if (input.status) patch.status = input.status;
       if (input.quotedPrice !== undefined) patch.quotedPrice = String(input.quotedPrice);
+      if (input.fabricatorCost !== undefined) patch.fabricatorCost = String(input.fabricatorCost);
       if (input.fabricatorName !== undefined) patch.fabricatorName = input.fabricatorName.trim() || null;
       if (input.fabricatorEmail !== undefined) patch.fabricatorEmail = input.fabricatorEmail.trim() || null;
       if (input.fabricatorAddress !== undefined) patch.fabricatorAddress = input.fabricatorAddress.trim() || null;
@@ -3801,3 +3806,5 @@ Return an empty actions array ONLY if the user asked a pure question with no wal
       });
     }),
 });
+
+

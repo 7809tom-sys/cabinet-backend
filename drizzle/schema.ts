@@ -1772,6 +1772,8 @@ export const countertopQuotes = mysqlTable("countertop_quotes", {
   notes: text("notes"),
   status: mysqlEnum("status", ["new", "quoted", "won", "lost"]).default("new").notNull(),
   quotedPrice: decimal("quotedPrice", { precision: 10, scale: 2 }),
+  /** What the fabricator charges per slab; the quote shows cost vs sales. */
+  fabricatorCost: decimal("fabricatorCost", { precision: 10, scale: 2 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 }, (table) => ({
