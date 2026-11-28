@@ -1733,7 +1733,9 @@ export const countertopQuotes = mysqlTable("countertop_quotes", {
   // requests never appear in another store's admin list.
   affiliateId: int("affiliateId"),
   contactName: varchar("contactName", { length: 256 }),
-  contactEmail: varchar("contactEmail", { length: 320 }).notNull(),
+  // Null when the quote was created from an order that carried no email; the
+  // fabricator's address is recorded when a shop is negotiated.
+  contactEmail: varchar("contactEmail", { length: 320 }),
   contactPhone: varchar("contactPhone", { length: 32 }),
   zip: varchar("zip", { length: 16 }),
   // The countertop cycle has two addresses and needs both legs:
@@ -1746,6 +1748,9 @@ export const countertopQuotes = mysqlTable("countertop_quotes", {
   jobSiteAddress: varchar("jobSiteAddress", { length: 512 }),
   jobSiteAddressVerified: boolean("jobSiteAddressVerified").default(false).notNull(),
   fabricatorName: varchar("fabricatorName", { length: 200 }),
+  // Entered when a deal with the shop is negotiated; the quote can exist before
+  // that, which is why nothing at intake requires an email.
+  fabricatorEmail: varchar("fabricatorEmail", { length: 320 }),
   fabricatorAddress: varchar("fabricatorAddress", { length: 512 }),
   material: varchar("material", { length: 128 }), // requested material, e.g. Quartz, Granite, Laminate
   squareFeet: decimal("squareFeet", { precision: 8, scale: 2 }).notNull(),
@@ -1753,6 +1758,17 @@ export const countertopQuotes = mysqlTable("countertop_quotes", {
   hasIsland: boolean("hasIsland").default(false).notNull(),
   roomData: json("roomData").$type<object>(), // room dimensions snapshot
   placedCabinets: json("placedCabinets").$type<object[]>(), // layout snapshot
+  // Where the quote came from and what it prices. A standalone form request has
+  // no order and no saved design; an order that contains countertop lines is
+  // linked to both so the countertop plan and the 3D designer plan travel with
+  // the quote (owner, Nov 28 2026).
+  orderRequestId: int("orderRequestId"),
+  kitchenDesignId: int("kitchenDesignId"),
+  sourceType: mysqlEnum("sourceType", ["form", "order"]).default("form").notNull(),
+  /** Countertop plan: material, edge, cutouts, footage and the plan file. */
+  countertopPlan: json("countertopPlan").$type<object>(),
+  /** Designer plan: the saved 3D layout snapshot the countertop is priced against. */
+  designerPlan: json("designerPlan").$type<object>(),
   notes: text("notes"),
   status: mysqlEnum("status", ["new", "quoted", "won", "lost"]).default("new").notNull(),
   quotedPrice: decimal("quotedPrice", { precision: 10, scale: 2 }),
@@ -1760,6 +1776,7 @@ export const countertopQuotes = mysqlTable("countertop_quotes", {
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 }, (table) => ({
   affiliateIdx: index("countertop_quotes_affiliate_idx").on(table.affiliateId),
+  orderRequestIdx: index("countertop_quotes_order_request_idx").on(table.orderRequestId),
 }));
 
 export type CountertopQuote = typeof countertopQuotes.$inferSelect;
