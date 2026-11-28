@@ -97,6 +97,7 @@ describe("countertop order intake", () => {
     expect(plan.sceneSnapshot.placedCabinets).toHaveLength(1);
     expect(plan.sceneSnapshot.selectedSurfaces).toHaveLength(1);
     expect(plan.sceneSnapshot.styleId).toBe(12);
+    expect(plan.planExportUrl).toBeNull();
     expect(plan.updatedAt).toBe("2026-11-28T12:00:00.000Z");
     expect(designerPlanForDesign(null)).toBeNull();
   });

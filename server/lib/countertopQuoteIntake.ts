@@ -8,10 +8,11 @@
  * order path, and it is idempotent on the order request id so a retry or a
  * backfill run never creates a second quote for the same order.
  */
-import { eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import {
   countertopQuotes,
   kitchenDesigns,
+  threeDRoomShares,
   type OrderLineItem,
 } from "../../drizzle/schema";
 import type { getDb } from "../db";
@@ -20,6 +21,9 @@ import { attachFabShopsToNewQuote } from "./fabShops";
 
 type Db = NonNullable<Awaited<ReturnType<typeof getDb>>>;
 type KitchenDesignRow = typeof kitchenDesigns.$inferSelect;
+
+/** Same origin the frontend's designShare uses for /design/session/<token>. */
+const DESIGNER_SHARE_ORIGIN = "https://www.cabinetdealz.com";
 
 export type CountertopPlanLine = {
   sku: string | null;
@@ -60,6 +64,8 @@ export type DesignerPlanPayload = {
     selectedSurfaces: unknown[];
     styleId: number | null;
   };
+  /** Openable 3D design link, when the design has a share session. */
+  planExportUrl: string | null;
   updatedAt: string | null;
 };
 
@@ -134,6 +140,7 @@ export function designerPlanForDesign(design: KitchenDesignRow | null | undefine
       selectedSurfaces: Array.isArray(design.selectedSurfaces) ? design.selectedSurfaces : [],
       styleId: design.selectedStyleId ?? null,
     },
+    planExportUrl: null,
     updatedAt: design.updatedAt instanceof Date ? design.updatedAt.toISOString() : null,
   };
 }
@@ -172,6 +179,25 @@ export async function ensureCountertopQuoteForOrder(
       .where(eq(kitchenDesigns.id, input.kitchenDesignId))
       .limit(1))[0] ?? null;
   const designerPlan = designerPlanForDesign(design);
+  if (design && designerPlan) {
+    // A share session is the only openable 3D link the designer has. When the
+    // customer already shared this room, the quote carries that URL so the
+    // fabricator can open the exact layout; without one the full snapshot below
+    // is still attached.
+    try {
+      const [share] = await db
+        .select({ token: threeDRoomShares.token })
+        .from(threeDRoomShares)
+        .where(eq(threeDRoomShares.kitchenDesignId, design.id))
+        .orderBy(desc(threeDRoomShares.updatedAt))
+        .limit(1);
+      if (share?.token) {
+        designerPlan.planExportUrl = `${DESIGNER_SHARE_ORIGIN}/design/session/${encodeURIComponent(share.token)}`;
+      }
+    } catch {
+      // Older databases may not have the share table; the snapshot is enough.
+    }
+  }
 
   const [existing] = await db
     .select({ id: countertopQuotes.id })
