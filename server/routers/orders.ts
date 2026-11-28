@@ -82,6 +82,7 @@ import { orderSchemaProcedureError } from "../lib/orderSchemaGuard";
 import { canAccessOrderPalletPhoto, readPalletPhotoForOrder, storeOrderPalletPhoto } from "../lib/orderPalletPhoto";
 import { verifiedEmailResponseFields } from "../lib/orderVerifiedEmailResponse";
 import { queuePelicanSlabQuoteEmails } from "../lib/pelicanSlabQuoteEmail";
+import { ensureCountertopQuoteForOrder } from "../lib/countertopQuoteIntake";
 import { adminMarkOrderPaid, attachOrderFulfillmentOverlay, backfillOrderCrm, markOrderShipped, markOrderSigned, markOrderVerified, notifyOrderDistributors, onOrderPlaced } from "../lib/orderSideEffects";
 import { readStripeChargeFacts } from "../lib/stripeChargeFacts";
 import { choosePromotedPrice, type PricedCandidate } from "@shared/vendorPromotions";
@@ -1514,6 +1515,32 @@ export const ordersRouter = router({
         carrier: shippingCarrier,
         service: shippingService,
       });
+
+      // Countertop orders land in Countertop Quotes with both plans attached:
+      // the ordered surface lines (countertop plan) and the saved 3D layout
+      // (designer plan). Idempotent on the order request id, so a retry or a
+      // backfill run cannot queue the same order twice.
+      if (input.submit) {
+        try {
+          await ensureCountertopQuoteForOrder(db, {
+            orderRequestId: insertId,
+            requestNumber,
+            userId: ctx.user?.id ?? null,
+            affiliateId,
+            contactName: input.originatorName ?? ctx.user?.name ?? null,
+            contactEmail: input.originatorEmail ?? ctx.user?.email ?? null,
+            contactPhone: input.originatorPhone ?? null,
+            zip: shippingDestination.zip || input.zip || null,
+            lines: persistedLines,
+            notes: input.notes ?? null,
+            kitchenDesignId,
+          });
+        } catch (error) {
+          // A countertop quote is additional bookkeeping, never a reason to lose
+          // a placed order. The log line names the order for a one-click backfill.
+          console.error(`[CountertopQuote] order ${requestNumber} was saved, but its countertop quote could not be created: ${error instanceof Error ? error.message : String(error)}`);
+        }
+      }
 
       // Submitted orders must appear in the owning CRM even when the optional
       // outbound webhook is disabled or unavailable. The order id check makes

@@ -120,6 +120,18 @@ describe("countertop quote junk rules", () => {
     expect(getCountertopQuoteJunkReason({ ...completeQuote, jobSiteAddress: null, createdAt: BEFORE_CUTOFF })).toBeNull();
   });
 
+  it("never flags a quote created from a placed order, even before the fabricator email is negotiated", () => {
+    // The order proves the request is real; the fabricator's email and the job
+    // site address are recorded later, when a shop is negotiated with.
+    expect(getCountertopQuoteJunkReason({
+      contactEmail: null,
+      notes: null,
+      jobSiteAddress: null,
+      createdAt: new Date(),
+      orderRequestId: 1234,
+    })).toBeNull();
+  });
+
   it("never guesses when the creation time is unknown", () => {
     expect(getCountertopQuoteJunkReason({ ...completeQuote, jobSiteAddress: null, createdAt: null })).toBeNull();
     expect(getCountertopQuoteJunkReason({ ...completeQuote, jobSiteAddress: null, createdAt: undefined })).toBeNull();

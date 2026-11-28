@@ -2,7 +2,7 @@ import { z } from "zod";
 import { recordOutreachDesignStart } from "../lib/outreach/runtime";
 import { skuVisibleToViewer } from "../lib/distributorPreview";
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { eq, and, inArray, desc, like, sql, or, isNull, ne, gt } from "drizzle-orm";
+import { eq, and, inArray, desc, like, sql, or, isNull, ne, gt, getTableColumns } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { adminProcedure, publicProcedure, protectedProcedure, router } from "../_core/trpc";
 import { getDb, notInConflict, getPlatformPricingSettings } from "../db";
@@ -3134,15 +3134,24 @@ Return an empty actions array ONLY if the user asked a pure question with no wal
     if (!db) return [];
     const hostScope = await resolveRequestStoreScope(ctx.req);
     const rows = await db
-      .select()
+      .select({
+        ...getTableColumns(countertopQuotes),
+        // Both plans travel with every order-created quote. The links are read
+        // here so the admin card can open the order and the 3D design that the
+        // countertop was priced against.
+        orderRequestNumber: orderRequests.requestNumber,
+        designName: kitchenDesigns.name,
+      })
       .from(countertopQuotes)
+      .leftJoin(orderRequests, eq(orderRequests.id, countertopQuotes.orderRequestId))
+      .leftJoin(kitchenDesigns, eq(kitchenDesigns.id, countertopQuotes.kitchenDesignId))
       .where(countertopScopeCondition(hostScope))
       .orderBy(desc(countertopQuotes.createdAt));
     // junkReason is decided here, not in the browser, so the admin button and the
     // delete guard below can never disagree about which rows are junk.
-    return rows.map((row) => {
-      const junkReason = getCountertopQuoteJunkReason(row);
-      return { ...row, junkReason, canDelete: junkReason !== null };
+    return rows.map(({ orderRequestNumber, designName, ...quote }) => {
+      const junkReason = getCountertopQuoteJunkReason(quote);
+      return { ...quote, orderRequestNumber, designName, junkReason, canDelete: junkReason !== null };
     });
   }),
 
@@ -3193,6 +3202,7 @@ Return an empty actions array ONLY if the user asked a pure question with no wal
         // The fabricator leg of the job: assigned by an admin, not by the customer.
         // An empty string clears the assignment.
         fabricatorName: z.string().max(200).optional(),
+        fabricatorEmail: z.string().max(320).optional(),
         fabricatorAddress: z.string().max(512).optional(),
       })
     )
@@ -3205,6 +3215,7 @@ Return an empty actions array ONLY if the user asked a pure question with no wal
       if (input.status) patch.status = input.status;
       if (input.quotedPrice !== undefined) patch.quotedPrice = String(input.quotedPrice);
       if (input.fabricatorName !== undefined) patch.fabricatorName = input.fabricatorName.trim() || null;
+      if (input.fabricatorEmail !== undefined) patch.fabricatorEmail = input.fabricatorEmail.trim() || null;
       if (input.fabricatorAddress !== undefined) patch.fabricatorAddress = input.fabricatorAddress.trim() || null;
       if (Object.keys(patch).length > 0) {
         const updated = await db

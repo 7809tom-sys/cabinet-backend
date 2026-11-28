@@ -104,7 +104,11 @@ export function getCountertopQuoteJunkReason(quote: {
   notes?: string | null;
   jobSiteAddress?: string | null;
   createdAt?: Date | string | null;
+  /** A quote created from a placed order is real work, never junk: the order
+   * proves it, and the fabricator email/address can be added later. */
+  orderRequestId?: number | null;
 }): CountertopQuoteJunkReason | null {
+  if (quote.orderRequestId != null) return null;
   if (isTestQuoteEmail(quote.contactEmail)) return "test_email_domain";
   if ((quote.notes ?? "").trim() === VITEST_COUNTERTOP_NOTE) return "test_note";
   return jobSiteAddressReason(quote);
@@ -115,6 +119,7 @@ export function isJunkCountertopQuote(quote: {
   notes?: string | null;
   jobSiteAddress?: string | null;
   createdAt?: Date | string | null;
+  orderRequestId?: number | null;
 }): boolean {
   return getCountertopQuoteJunkReason(quote) !== null;
 }
