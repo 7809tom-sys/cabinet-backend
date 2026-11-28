@@ -7,15 +7,24 @@
 -- This is the SQL fallback. scripts/backfill-countertop-quotes.ts builds the
 -- countertop plan per line; this script stores the ordered line array under
 -- countertopPlan.lines, which is enough for the queue and the admin card.
+-- Both plans are attached: countertopPlan (the surface lines) and designerPlan
+-- (the saved room/layout snapshot) whenever the order has a kitchenDesignId.
+--
+-- Detection mirrors the intake: the order must have a `productKind = 'surface'`
+-- line whose category is a countertop lane. Matching the category only (not the
+-- whole JSON) stops a cabinet colour called "Quartz" from creating a quote;
+-- matching the description as well is left to the script path.
 
 -- ── 1. How many orders will be backfilled ───────────────────────────────────
 SELECT COUNT(*) AS orders_to_backfill
 FROM `cabinet_dealz`.`order_requests` o
 WHERE o.status = 'submitted'
+  AND JSON_SEARCH(LOWER(CAST(JSON_EXTRACT(o.lineItems, '$[*].productKind') AS CHAR)), 'one', 'surface') IS NOT NULL
   AND (
-    JSON_SEARCH(LOWER(CAST(o.lineItems AS CHAR)), 'one', '%countertop%') IS NOT NULL
-    OR JSON_SEARCH(LOWER(CAST(o.lineItems AS CHAR)), 'one', '%quartz%') IS NOT NULL
-    OR JSON_SEARCH(LOWER(CAST(o.lineItems AS CHAR)), 'one', '%granite%') IS NOT NULL
+    JSON_SEARCH(LOWER(CAST(JSON_EXTRACT(o.lineItems, '$[*].category') AS CHAR)), 'one', '%countertop%') IS NOT NULL
+    OR JSON_SEARCH(LOWER(CAST(JSON_EXTRACT(o.lineItems, '$[*].category') AS CHAR)), 'one', '%quartz%') IS NOT NULL
+    OR JSON_SEARCH(LOWER(CAST(JSON_EXTRACT(o.lineItems, '$[*].category') AS CHAR)), 'one', '%granite%') IS NOT NULL
+    OR JSON_SEARCH(LOWER(CAST(JSON_EXTRACT(o.lineItems, '$[*].category') AS CHAR)), 'one', '%slab%') IS NOT NULL
   )
   AND NOT EXISTS (
     SELECT 1 FROM `cabinet_dealz`.`countertop_quotes` q WHERE q.orderRequestId = o.id
@@ -70,10 +79,12 @@ SELECT
 FROM `cabinet_dealz`.`order_requests` o
 LEFT JOIN `cabinet_dealz`.`kitchen_designs` d ON d.id = o.kitchenDesignId
 WHERE o.status = 'submitted'
+  AND JSON_SEARCH(LOWER(CAST(JSON_EXTRACT(o.lineItems, '$[*].productKind') AS CHAR)), 'one', 'surface') IS NOT NULL
   AND (
-    JSON_SEARCH(LOWER(CAST(o.lineItems AS CHAR)), 'one', '%countertop%') IS NOT NULL
-    OR JSON_SEARCH(LOWER(CAST(o.lineItems AS CHAR)), 'one', '%quartz%') IS NOT NULL
-    OR JSON_SEARCH(LOWER(CAST(o.lineItems AS CHAR)), 'one', '%granite%') IS NOT NULL
+    JSON_SEARCH(LOWER(CAST(JSON_EXTRACT(o.lineItems, '$[*].category') AS CHAR)), 'one', '%countertop%') IS NOT NULL
+    OR JSON_SEARCH(LOWER(CAST(JSON_EXTRACT(o.lineItems, '$[*].category') AS CHAR)), 'one', '%quartz%') IS NOT NULL
+    OR JSON_SEARCH(LOWER(CAST(JSON_EXTRACT(o.lineItems, '$[*].category') AS CHAR)), 'one', '%granite%') IS NOT NULL
+    OR JSON_SEARCH(LOWER(CAST(JSON_EXTRACT(o.lineItems, '$[*].category') AS CHAR)), 'one', '%slab%') IS NOT NULL
   )
   AND NOT EXISTS (
     SELECT 1 FROM `cabinet_dealz`.`countertop_quotes` q WHERE q.orderRequestId = o.id
